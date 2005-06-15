@@ -1,0 +1,3 @@
+
+Configuration for interface "Local Area Connection"
+    DNS servers configured through DHCP

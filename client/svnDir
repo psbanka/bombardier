@@ -1,0 +1,4 @@
+cd %SPKG%
+%WINDIR%\system32\regsvr32.exe /s AutoItX3.dll
+%WINDIR%\system32\regsvr32.exe /s InstallTools.dll
+

@@ -1,0 +1,39 @@
+Salem QA:
+  address: http://172.17.50.56:8080
+  networks:
+    - 172.24.0.0/16
+    - 172.22.0.0/16
+    - 172.23.0.0/16
+    - 172.17.0.0/16
+    - 3.112.60/22
+  username: None
+  password: None
+  proxy:
+     address: None
+     port: None
+     username: None
+     password: None
+
+Redwood City:
+  address: http://172.16.3.71:8080
+  networks:
+    - 172.16.1.0/24
+    - 172.16.3.0/24
+  username: None
+  password: None
+  proxy:
+     address: None
+     port: None
+     username: None
+     password: None
+
+Internet:
+  address: https://12.22.34.163
+  networks: [0.0.0.0/0]
+  username: rwcbombardier
+  password: Str4wberryFields
+  proxy:
+     address: None
+     port: None
+     username: None
+     password: None

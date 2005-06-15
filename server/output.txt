@@ -1,0 +1,2 @@
+svn: PROPFIND request failed on '/repository/testdb-data'
+svn: PROPFIND of '/repository/testdb-data': could not connect to server (http://172.17.50.57)
