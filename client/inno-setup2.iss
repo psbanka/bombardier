@@ -3,7 +3,7 @@ AppName=Bombardier
 AppVerName=Bombardier 0.4-pre-1
 DefaultDirName=C:\spkg
 DefaultGroupName=Bombardier
-AppCopyright=Copyright 2004, 2005 Peter S. Banka
+AppCopyright=Copyright 2004, 2005 Peter Banka et al
 Uninstallable=true
 SourceDir=.
 OutputBaseFileName=bombardierSetup-0.4
@@ -27,6 +27,7 @@ Name: {app}\scratch
 [Files]
 ; PYTHON
 Source: release\python-2.4.1.msi; DestDir: {app}\dependencies
+Source: release\repositoryDirectory.yml; DestDir: {app}
 
 ; Support tools
 Source: release\bombardier-0.4.tar.gz; DestDir: {app}\scratch
