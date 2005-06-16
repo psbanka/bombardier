@@ -115,7 +115,7 @@ class Process(threading.Thread):
         self.errlog       = errlog
 
     def run(self):
-        output = self.function(self.args, errlog )
+        output = self.function(self.args, self.errlog )
         if self.capOnly:
             self.request.write(string.join(output, '\n'))
             self.request.finish()

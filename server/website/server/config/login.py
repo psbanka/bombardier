@@ -46,6 +46,7 @@ def get(request, logger, errlog):
     if not clientName:
         pThread = webUtil.Process(request=request,
                                   function=mainMenu,
+                                  errlog=errlog,
                                   mainMenuList = website.server.list,
                                   subMenuList = subMenuList)
         pThread.start()
@@ -54,6 +55,7 @@ def get(request, logger, errlog):
         clientName = clientName[0]
         pThread = webUtil.Process(request=request,
                                   function=actionMenu,
+                                  errlog=errlog,
                                   mainMenuList = website.server.list,
                                   subMenuList = subMenuList,
                                   args=clientName)

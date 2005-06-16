@@ -2,7 +2,7 @@
 from twisted.web import server, resource, static, error
 from twisted.protocols import http
 from twisted.internet import reactor
-import threading, sys, os, shelve, md5, time, urlparse
+import threading, sys, os, shelve, md5, time, urlparse, StringIO, traceback
 import string, logging
 import logging.handlers
 import ConfigParser
@@ -15,7 +15,7 @@ BLOCK_SIZE   = 10000
 MD5SUM       = "md5sum"
 DATE         = "date"
 
-DEBUG = 1
+DEBUG = 0
 
 def pageList(website):
     output = []
@@ -166,11 +166,21 @@ class WebSite(resource.Resource):
                 try:
                     return function(request, self.logger, self.errlog)
                 except Exception, e:
-                    self.logger.critical("Exception thrown in %s: %s" % (request.path, e))
-                    self.errlog.critical("Exception thrown in %s: %s" % (request.path, e))
-                self.errlog.critical("%s" % sys.exc_info()[-1].tb_lineno)
+                    self.logException(e, request)
         else:
             return webUtil.err404(request, self.errlog, request.prepath)
+
+    def logException(self, e, request):
+        e = StringIO.StringIO()
+        traceback.print_exc(file=e)
+        e.seek(0)
+        data = e.read()
+        ermsg = 'Exception in thread: %s' % (sys.exc_type)
+        for line in data.split('\n'):
+            ermsg += "\n>>>%s" % line
+        self.errlog.critical("Exception thrown in %s: %s" % (request.path, e))
+        self.errlog.critical(ermsg)
+        
 
     def render_POST(self, request):
         self.logger.info("POST: %s" % request.path)
@@ -202,8 +212,7 @@ class WebSite(resource.Resource):
             try:
                 return function(request, self.logger, self.errlog)
             except Exception, e:
-                self.errlog.critical("Exception thrown in %s: %s" % (request.path, e))            
-                self.errlog.critical("%s" % sys.exc_info()[-1].tb_lineno)
+                self.logException(e, request)
         else:
             return webUtil.err404(request, self.errlog, request.prepath)
 
@@ -236,8 +245,7 @@ class WebSite(resource.Resource):
             try:
                 return function(request, self.logger, self.errlog)
             except Exception, e:
-                self.errlog.critical("Exception thrown in %s: %s" % (request.path, e))
-                self.errlog.critical("%s" % sys.exc_info()[-1].tb_lineno)
+                self.logException(e, request)
 
         # FIXME: if this is a directory listing that doesn't end in '/', do a redirect.
         if parts[-1] == '' or os.path.isdir(filePath):

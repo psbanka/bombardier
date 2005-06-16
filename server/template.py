@@ -49,7 +49,7 @@ def substituteFile(fileName, inputData):
 
 def generateHtml(title="Bombardier Server",
                  heading="Bombardier",
-                 subtitle="Test-driven networking",
+                 subtitle="Open-source Windows Package Management",
                  mainMenuList = {},
                  subMenuList = [],
                  body='',

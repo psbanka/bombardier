@@ -19,10 +19,14 @@ SVN_ROOT      = config.get("svn", "root")
 SVN_USERNAME  = config.get("svn", "username")
 SVN_PASSWORD  = config.get("svn", "password")
 
-SWITCH_ADDRESS = config.get("switch", "address")
-SWITCH_LOGINPASS = config.get("switch", "loginpass")
-SWITCH_ENABLEPASS = config.get("switch", "enablepass")
-
+try:
+    SWITCH_ADDRESS = config.get("switch", "address")
+    SWITCH_LOGINPASS = config.get("switch", "loginpass")
+    SWITCH_ENABLEPASS = config.get("switch", "enablepass")
+except ConfigParser.NoSectionError:
+    pass
+except ConfigParser.NoOptionError:
+    pass
 STATUS_FILE = "status.yml"
 LAST_STATUS = "last.yml"
 VIEWED           = 100
