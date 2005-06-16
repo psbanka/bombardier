@@ -38,4 +38,4 @@ cp -r ../../site-root site-root
 echo "making release tarball"
 cd ..
 tar -cz --exclude=".svn" -f bombardier-0.4.tar.gz bombardier-0.4
-rm -rf bombardier-0.4
+#rm -rf bombardier-0.4
