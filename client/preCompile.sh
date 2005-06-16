@@ -2,6 +2,7 @@
 export downloads="http://www.bombardierinstaller.org/downloads"
 
 if [ -e http_proxy.txt ]; then
+    echo "using http_proxy.txt to set proxy"
     export http_proxy=`cat http_proxy.txt`
 fi
 echo "http_proxy=$http_proxy"
