@@ -3,6 +3,9 @@ rm -rf release/bombardier-0.4 || cd .
 mkdir release/bombardier-0.4
 cd release/bombardier-0.4
 
+echo "python-2.4.1" 
+curl http://www.bombardierinstaller.org/downloads/python-2.4.1.msi > ../python-2.4.1.msi
+
 echo "PyCurl"
 mkdir pycurl-ssl-7.13.2.win32-py2.4
 cd pycurl-ssl-7.13.2.win32-py2.4
