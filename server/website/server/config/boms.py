@@ -109,8 +109,9 @@ def post(request, logger, errlog):
         if value == "REMOVE":
             packagesToRemove.append(key)
 
-    pThread = webUtil.Process(request, errlog
-                              function=modifyGroup,
+    pThread = webUtil.Process(request, 
+                              modifyGroup,
+                              errlog,
                               mainMenuList = website.server.list,
                               subMenuList = subMenuList,
                               args = [group, packageToAdd, packagesToRemove])
@@ -124,16 +125,18 @@ def get(request, logger, errlog):
     exec("subMenuList = %s.list" % string.join(path[:-1],'.'))
     fullPath = request.args.get("bom")
     if not fullPath:
-        pThread = webUtil.Process(request, errlog,
-                                  function=mainMenu,
+        pThread = webUtil.Process(request,
+                                  mainMenu,
+                                  errlog,
                                   mainMenuList = website.server.list,
                                   subMenuList = subMenuList)
         pThread.start()
         return server.NOT_DONE_YET
     else:
         fullPath = fullPath[0]
-        pThread = webUtil.Process(request, errlog,
-                                  function=bomInfo,
+        pThread = webUtil.Process(request,
+                                  bomInfo,
+                                  errlog,
                                   mainMenuList = website.server.list,
                                   subMenuList = subMenuList,
                                   args = fullPath)

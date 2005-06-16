@@ -82,8 +82,9 @@ def get(request, logger, errlog):
     clientName = request.args.get("client")
     if not clientName:
         #meta = ''
-        pThread = webUtil.Process(request=request,
-                                  function=mainMenu,
+        pThread = webUtil.Process(request,
+                                  mainMenu,
+                                  errlog,
                                   mainMenuList = website.server.list,
                                   subMenuList = subMenuList)
         pThread.start()
@@ -91,8 +92,9 @@ def get(request, logger, errlog):
     else:
         clientName = clientName[0]
         #meta = '<META HTTP-EQUIV="REFRESH" CONTENT="50" />'
-        pThread = webUtil.Process(request=request,
-                                  function=clientDetail,
+        pThread = webUtil.Process(request,
+                                  clientDetail,
+                                  errlog,
                                   mainMenuList = website.server.list,
                                   subMenuList = subMenuList,
                                   args = clientName)
