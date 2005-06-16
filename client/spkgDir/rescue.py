@@ -1,5 +1,6 @@
 #!/cygdrive/c/Python24/python.exe
 import sys, os, shutil, time
+import win32pipe, pywintypes
 
 try:
     import bombardier.Config
@@ -165,6 +166,7 @@ class Rescue:
         os.system("net stop bombardieragent")
         self.runSetup()
         self.startService()
+        self.requestClientServiceReinstall()
         #self.daemonStatus()
 
     def daemonStatus(self, tries = 100):
@@ -291,7 +293,9 @@ class Rescue:
                     filesystem = bombardier.Filesystem.Filesystem()
                     repository = config.getRepository(filesystem)["address"]
                 except:
-                    print "No repository configured."
+                    ermsg = "No repository found. Please specify"\
+                            "the address on the command line."
+                    self.logger.error(ermsg)
             except:
                 self.logger.info( "error importing Config..." )
                 repository = self.conf.get("repository")
@@ -383,15 +387,29 @@ class Rescue:
         os.system("%s BombardierAgent.py --interactive update" % pythonExe)
         os.system("%s BombardierAgent.py start" % pythonExe)
 
+    def requestClientServiceReinstall(self):
+        BA_PIPE_NAME      = r"\\.\pipe\BombardierAgent"
+        REINSTALL_CLIENT  = '8'
+        while True:
+            try:
+                print "-- Sending '%s' message to %s\n" % (REINSTALL_CLIENT, BA_PIPE_NAME)
+                win32pipe.CallNamedPipe(BA_PIPE_NAME, REINSTALL_CLIENT, 256, win32pipe.NMPWAIT_WAIT_FOREVER)
+                return OK
+            except pywintypes.error:
+                time.sleep(1)
+                print "--- Waiting for service to listen on %s.\n" % BA_PIPE_NAME
+                continue
+        return FAIL
+
 def usage():
     print "%s: the resourceful bombardier system rescuer" % sys.argv[0]
     print "usage: %s [-h] [-r repository]" % sys.argv[0]
     print "-g go ahead and run bc.py while you're at it"
-    print "-r use a different repository than %s" % REPOSITORY
+    print "-r to specify a repository" 
     sys.exit(1)
 
 def getConf():
-    conf = {"repository":REPOSITORY, "go":False}
+    conf = {"repository":'', "go":False}
     for i in range(1,len(sys.argv)):
         option = sys.argv[i]
         if option == "-g":

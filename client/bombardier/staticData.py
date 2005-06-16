@@ -112,7 +112,6 @@ SECURITY_PARANOID      = 100
 
 SCRATCH_DIR            = "scratch"
 BOMBARDIER_CLIENT_FILE = "BombardierClientService.py"
-SERVERDATA_FALLBACK    = "http://172.17.50.56:8080"
 
 DEFAULT_USER           = "drillbit"
 DEFAULT_PASSWORD       = "kedroiojeif8383"
@@ -145,4 +144,3 @@ STOPPED = "STOP"
 
 
 #  Nagios Data
-NAGIOS_HOST = 'http://172.17.50.56'
