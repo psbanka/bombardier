@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "http_proxy=$http_proxy"
 rm -rf release/bombardier-0.4 || cd .
 mkdir release/bombardier-0.4
 cd release/bombardier-0.4
