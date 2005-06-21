@@ -3,15 +3,14 @@
 import logging, sys, os, shutil
 import logging.handlers
 from bombardier.staticData import *
-from bombardier.LogRotator import LogRotator
 
 def getSpkgPath():
     import _winreg as winreg
     keyName = r"Software\GE-IT\Bombardier"
     key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
                          keyName, 0, winreg.KEY_QUERY_VALUE)
-    spkgPath, dummy = winreg.QueryValueEx(key, "InstallPath")
-    return spkgPath
+    path, dummy = winreg.QueryValueEx(key, "InstallPath")
+    return path
 
 def checkLogSize():
     # Because we're dealing with Windows, we can't use Python's
@@ -27,8 +26,8 @@ def checkLogSize():
     return OK
 
 def cycleLog():
-    spkgPath = getSpkgPath()
-    logPath  = os.path.join(spkgPath, LOG_FILE)
+    path = getSpkgPath()
+    logPath  = os.path.join(path, LOG_FILE)
     logFile  = logPath+"."+`LOGS_TO_KEEP`
     if os.path.isfile(logFile):
         try:
@@ -105,6 +104,7 @@ class Logger:
         self.logger        = logger
         self.formatter     = formatter
         self.stdErrHandler = None
+        self.fileHandler   = fileHandler
 
     def info(self, s):
         try:
