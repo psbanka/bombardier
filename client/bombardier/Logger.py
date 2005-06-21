@@ -1,8 +1,9 @@
-#!/cygdrive/c/Python23/python.exe
+#!/cygdrive/c/Python24/python.exe
 
-import logging, sys, os
+import logging, sys, os, shutil
 import logging.handlers
 from bombardier.staticData import *
+from bombardier.LogRotator import LogRotator
 
 def getSpkgPath():
     import _winreg as winreg
@@ -12,6 +13,88 @@ def getSpkgPath():
     spkgPath, dummy = winreg.QueryValueEx(key, "InstallPath")
     return spkgPath
 
+def checkLogSize():
+    # Because we're dealing with Windows, we can't use Python's
+    # fancy rolling logger effectively. We therefore have to see
+    # if the log is too big and deal with it periodically. -
+    # pbanka
+    logPath = os.path.join(getSpkgPath(), LOG_FILE)
+    if not os.path.isfile(logPath):
+        return
+    size = os.stat(logPath)[6]
+    if size > LOG_MAX_SIZE:
+        return FAIL
+    return OK
+
+def cycleLog():
+    spkgPath = getSpkgPath()
+    logPath  = os.path.join(spkgPath, LOG_FILE)
+    logFile  = logPath+"."+`LOGS_TO_KEEP`
+    if os.path.isfile(logFile):
+        try:
+            os.unlink(logFile)
+        except OSError:
+            return
+    for i in range(LOGS_TO_KEEP-1,0, -1):
+        if os.path.isfile(logPath+"."+`i`):
+            shutil.copyfile(logPath+"."+`i`, logPath+"."+`(i+1)`)
+            os.unlink(logPath+"."+`i`)
+    shutil.copyfile(logPath, logPath+".1")
+    try:
+        os.unlink(logPath)
+    except OSError:
+        return
+
+if checkLogSize() == FAIL:
+    cycleLog()
+
+logger      = logging.getLogger('bombardier')
+spkgPath    = getSpkgPath()
+filename    = os.path.join(spkgPath, LOG_FILE)
+try:
+    fileHandler = logging.FileHandler(filename)
+except IOError, e:
+    ermsg = "Unable to open file %s for logging %s\n" % (filename , e)
+    open("c:\\spkg\\logerror.txt", 'a').write( ermsg)
+    fileHandler = logging.StreamHandler(sys.stderr )
+formatter   = logging.Formatter('%(asctime)s|%(levelname)s|%(message)s')
+fileHandler.setFormatter(formatter)
+logger.addHandler(fileHandler)
+logger.setLevel(logging.DEBUG)
+
+def info(s):
+    try:
+        logger.info(s)
+    except OSError:
+        print "ERROR IN LOGGING SYSTEM"
+
+def debug(s):
+    try:
+        logger.debug(s)
+    except OSError:
+        print "ERROR IN LOGGING SYSTEM"
+
+def warning(s):
+    try:
+        logger.warning(s)
+    except OSError:
+        print "ERROR IN LOGGING SYSTEM"
+
+def error(s):
+    try:
+        logger.error(s)
+    except OSError:
+        print "ERROR IN LOGGING SYSTEM"
+
+def critical(s):
+    try:
+        logger.critical(s)
+    except OSError:
+        print "ERROR IN LOGGING SYSTEM"
+
+
+# Legacy class: to be demolished. -pbanka
+
 class Logger:
 
     """This class implements a simple interface that other logging
@@ -19,20 +102,8 @@ class Logger:
     implementation. """
 
     def __init__(self):
-        self.logger      = logging.getLogger('bombardier')
-        spkgPath         = getSpkgPath()
-        filename         = os.path.join(spkgPath, LOG_FILE)
-        #self.fileHandler = logging.handlers.RotatingFileHandler(filename, 'a', 100000, 5)
-        try:
-            self.fileHandler = logging.FileHandler(filename)
-        except IOError, e:
-            ermsg = "Unable to open file %s for logging %s\n" % (filename , e)
-            open("c:\\spkg\\logerror.txt", 'a').write( ermsg)
-            self.fileHandler = logging.StreamHandler(sys.stderr )
-        self.formatter   = logging.Formatter('%(asctime)s|%(levelname)s|%(message)s')
-        self.fileHandler.setFormatter(self.formatter)
-        self.logger.addHandler(self.fileHandler)
-        self.logger.setLevel(logging.DEBUG)
+        self.logger        = logger
+        self.formatter     = formatter
         self.stdErrHandler = None
 
     def info(self, s):
@@ -89,3 +160,16 @@ class Logger:
         else:
             self.logger.warning("Being told to remove nonexistent stderr handler.")
 
+if __name__ == "__main__":
+    import time
+    start = time.time()
+    logger = Logger()
+    testString = "now is the time for all good men to come to the aid of their country"
+    for i in range(1,10000):
+        logger.info(testString)
+    print "elapsed 1:", time.time()-start
+    start = time.time()
+    for i in range(1,10000):
+        Logger().info(testString)
+    print "elapsed 1:", time.time()-start
+    

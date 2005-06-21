@@ -3,7 +3,7 @@
 import sys, os
 import ConfigParser
 import bombardier.miniUtility as miniUtility
-
+import bombardier.Logger as Logger
 
 #^ FIXME: REMOVE!!
 sys.path = ["d:\\dev\\dmoweasel"] + sys.path
@@ -18,9 +18,9 @@ except ImportError:
     sys.exit(1)
 
 ######################### Database stuff
-def dbOwnership(logger):
+def dbOwnership():
     packageConfig = ConfigParser.ConfigParser()
-    logger.info("Checking ownership of databases from package.ini...")
+    Logger.info("Checking ownership of databases from package.ini...")
     iniPath = os.path.join('..', 'scripts', "package.ini")
     packageConfig.read(iniPath)
     try:
@@ -35,9 +35,9 @@ def dbOwnership(logger):
         roleInfo = packageConfig.get("backup", "role")
         if roleInfo.upper().startswith("STRUCT"):
             role = STRUCTURE
-            logger.info( "This script is 'owner' for the following databases: %s" % databases )
+            Logger.info( "This script is 'owner' for the following databases: %s" % databases )
         else:
-            logger.info( "This script will augment the following databases: %s" % databases )
+            Logger.info( "This script will augment the following databases: %s" % databases )
     except ConfigParser.NoSectionError, e:
         pass
     except ConfigParser.NoOptionError, e:
@@ -55,7 +55,7 @@ def getPaths(config):
         pass
     return dataPath, logPath
 
-def installDbPackage(config, logger):
+def installDbPackage(config):
     hostname = os.environ['COMPUTERNAME']
     try:
         instance = config.get('sql', 'instance')
@@ -65,15 +65,15 @@ def installDbPackage(config, logger):
         port = ''
     connectionString = miniUtility.connectString(hostname, instance, port)
     dataPath, logPath = getPaths(config)
-    databaseNames, role = dbOwnership(logger)
-    status = dbprocess2.installDbs(databaseNames, role, connectionString, logger, dataPath, logPath)
+    databaseNames, role = dbOwnership()
+    status = dbprocess2.installDbs(databaseNames, role, connectionString, dataPath, logPath)
     if status == FAIL:
         miniUtility.consoleSync(FAIL)
         sys.exit(1)
     miniUtility.consoleSync(OK)
     sys.exit(OK)
 
-def uninstallDbPackage(config, logger):
+def uninstallDbPackage(config):
     hostname = os.environ['COMPUTERNAME']
     try:
         instance = config.get('sql', 'instance')
@@ -82,24 +82,24 @@ def uninstallDbPackage(config, logger):
         instance = ''
         port = ''
     connectionString = miniUtility.connectString(hostname, instance, port)
-    dbOwnershipNames, role = dbOwnership(logger)
+    dbOwnershipNames, role = dbOwnership()
     if role == STRUCTURE:
-        logger.info("As this is a structure package, uninstalling this package drops the database")
-        status = dbprocess2.uninstallDbs(dbOwnershipNames, connectionString, logger)
+        Logger.info("As this is a structure package, uninstalling this package drops the database")
+        status = dbprocess2.uninstallDbs(dbOwnershipNames, connectionString)
         if status == FAIL:
             miniUtility.consoleSync(FAIL)
             sys.exit(1)
     miniUtility.consoleSync(OK)
     sys.exit(OK)
 
-def backupDbPackage(config, logger):
+def backupDbPackage(config):
     path = os.getcwd()
     packageName = ''
     if path.split('\\')[-1] == "injector" or path.split('\\')[-1] == "backup":
         packageName = path[-2]
     else:
         errmsg = "Unable to determine my package name. Expected to be in an injector or backup directory"
-        logger.error( errmsg )
+        Logger.error( errmsg )
         sys.exit(1)
 
     hostname = os.environ["COMPUTERNAME"]
@@ -110,13 +110,13 @@ def backupDbPackage(config, logger):
         instance = ''
         port = ''
     connectionString = miniUtility.connectString(hostname, instance, port)
-    databaseNames, role = dbOwnership(logger)
+    databaseNames, role = dbOwnership()
     if role != DATA:
-        logger.info("This is not a data package -- not backing up")
+        Logger.info("This is not a data package -- not backing up")
         sys.exit(NO_BACKUP)
-    status = dbprocess2.backupDb(databaseNames, connectionString, logger)
+    status = dbprocess2.backupDb(databaseNames, connectionString)
     sys.exit(status)
 
-def verifyDbPackage(config, logger):
-    logger.info("verify not implemented")
+def verifyDbPackage(config):
+    Logger.info("verify not implemented")
     sys.exit(0)

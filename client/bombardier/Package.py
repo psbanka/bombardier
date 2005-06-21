@@ -5,6 +5,7 @@ import os, string, yaml, time, gc, datetime, win32api, ConfigParser
 import bombardier.miniUtility as miniUtility
 import bombardier.MetaData as MetaData
 import bombardier.Exceptions as Exceptions
+import bombardier.Logger as Logger
 
 from bombardier.staticData import *
 
@@ -17,10 +18,9 @@ class Package:
 
     ### TESTED
     # FIXME: Refactor: we do not need a config *and* a repository value
-    def __init__(self, name, repository, config, logger, filesystem, server, windows):
+    def __init__(self, name, repository, config, filesystem, server, windows):
         self.name         = name
         self.repository   = repository
-        self.logger       = logger
         self.filesystem   = filesystem
         self.server       = server
         self.windows      = windows
@@ -46,7 +46,7 @@ class Package:
 
     def invalidate(self):
         erstr = "INVALID PACKAGE: %s" % self.name
-        self.logger.error(erstr)
+        Logger.error(erstr)
         self.server.serverLog("ERROR", erstr, self.name)
         self.status = FAIL
         
@@ -68,7 +68,7 @@ class Package:
         if not self.priority:
             ermsg = "Package %s does not have a priority "\
                     "(assuming %s)" % (self.name, AVERAGE)
-            self.logger.warning(ermsg)
+            Logger.warning(ermsg)
             self.priority = AVERAGE
         else:
             try:
@@ -76,7 +76,7 @@ class Package:
             except ValueError:
                 ermsg = "Package %s has an invalid priority value"\
                         "(assuming %s)" % (self.name, AVERAGE)
-                self.logger.warning(ermsg)
+                Logger.warning(ermsg)
                 self.priority = AVERAGE
 
     def checkMetaData(self):
@@ -111,7 +111,7 @@ class Package:
         if not self.checksum:
             ermsg = "Package %s does not have a checksum field"\
                     " (not checking)" % (self.name)
-            self.logger.warning(ermsg)
+            Logger.warning(ermsg)
         if self.metaData.data['install'].get('md5list'):
             self.checksum = self.metaData.data['install']['md5list']
         chk = self.metaData.data["install"].get('console')
@@ -135,7 +135,7 @@ class Package:
         self.scriptsDir = os.path.join(newDir, "scripts")
         if not self.filesystem.isdir(self.scriptsDir):
             self.filesystem.updateCurrentAction("Package is corrupt or missing.", 0)
-            self.logger.error("Scripts directory does not exist")
+            Logger.error("Scripts directory does not exist")
             self.status = FAIL
             return FAIL
         backupDir = os.path.join(newDir, "backup")
@@ -149,7 +149,7 @@ class Package:
             self.filesystem.updateCurrentAction("Verified package structure", 30)
             return OK
         else:
-            self.logger.error("Neither the injector nor the "\
+            Logger.error("Neither the injector nor the "\
                               "backup directory exists for [%s]" % self.fullName)
             self.filesystem.updateCurrentAction("Package is corrupt or missing.", 0)
             self.status = FAIL
@@ -178,19 +178,16 @@ class Package:
                 erstr = "Package contains download directives: "\
                         "Downloading %s from %s..." % \
                         (downloadFile, downloadSource)
-                self.logger.info(erstr)
+                Logger.info(erstr)
                 self.filesystem.updateCurrentAction("Downloading dependency: %s" % downloadFile, 27)
-                # FIXME: this doesn't work any more, and I'm not sure it's useful.
-                #status = utility.wget(downloadSource, downloadFile, self.config, self.logger,
-                #                      debug = 1, retries = 1, dieOnFail = 0, destDir = directory)
                 status = OK
                 if status == FAIL:
-                    self.logger.error("Unable to download (%s) from %s, aborting"\
+                    Logger.error("Unable to download (%s) from %s, aborting"\
                                       "package installation." % (downloadFile, downloadSource))
                     for entry in self.repository.packages.keys():
                         if entry.startswith(self.name[:len(self.name) / 2]):
-                            self.logger.info("Possible completion: (%s)" % entry)
-                            self.logger.info("Data: %s" % self.repository.packages[entry])
+                            Logger.info("Possible completion: (%s)" % entry)
+                            Logger.info("Data: %s" % self.repository.packages[entry])
                     return FAIL
                 downloads += 1
             except ConfigParser.NoOptionError:
@@ -205,39 +202,38 @@ class Package:
         cmds = {INSTALL: "installer", UNINSTALL: "uninstaller", VERIFY: "verify", BACKUP: "backup"}
         cmd = cmds.get(action)
         if not cmd:
-            self.logger.error("Unknown action: [%s]" % action)
+            Logger.error("Unknown action: [%s]" % action)
             return FAIL
         for extension in extensions:
             testCmd = os.path.join(self.scriptsDir, cmd+extension)
-            self.logger.debug( testCmd )
+            Logger.debug( testCmd )
             if self.filesystem.isfile(testCmd):
                 fullCmd = testCmd
                 break
         if not fullCmd:
-            self.logger.error("Could not find an appropriate script.")
+            Logger.error("Could not find an appropriate script.")
             return FAIL
         erstr = "Unable to run script script: %s" % fullCmd
         if self.console and action== INSTALL:
             abortIfTold()
-            self.filesystem.beginConsole(self.logger)
+            self.filesystem.beginConsole()
             pythonCmd = miniUtility.runPythonScript("")
             program = 'win32api.ShellExecute(0, "open", %s, %s, %s, 1)' % (pythonCmd, fullCmd, self.workingDir)
-            self.logger.info("running: %s" % program)
+            Logger.info("running: %s" % program)
             win32api.ShellExecute(0, "open", pythonCmd, fullCmd, self.workingDir, 1)
-            status = self.filesystem.watchForTermination(logger=self.logger,
-                                                         sleepTime=1, abortIfTold=abortIfTold)
+            status = self.filesystem.watchForTermination(sleepTime=1, abortIfTold=abortIfTold)
         else:
             if packageList: # don't know how to do this with shellExecute
                 fullCmd += " %s" %string.join(packageList,',')
             status = self.filesystem.execute(fullCmd, erstr, dieOnExit=0, captureOutput=True,
-                                             logger = self.logger, workingDirectory=self.workingDir)
+                                             workingDirectory=self.workingDir)
         if status == REBOOT:
             erstr = "%s %s: indicated reboot action is necessary." % (self.fullName, status)
-            self.logger.warning(erstr)
+            Logger.warning(erstr)
             return REBOOT
         if status != OK:
             erstr = "%s %s: failed with status %s" % (cmd, self.fullName, status)
-            self.logger.error(erstr)
+            Logger.error(erstr)
             return FAIL
         return OK
 
@@ -261,28 +257,28 @@ class Package:
             # FIXME: may be a good idea to re-download the package.
             erstr = "Package %s is corrupt or could not be "\
                     "downloaded." % self.fullName
-            self.logger.error(erstr)
+            Logger.error(erstr)
             self.server.serverLog("ERROR", erstr, self.name)
             return FAIL
         if self.action == INSTALL:
             abortIfTold()
             if self.autoReboot:
-                self.logger.info("This is an auto-reboot package. "\
+                Logger.info("This is an auto-reboot package. "\
                                  "Assuming package installs successfully.")
                 self.config.autoLogin()
                 self.windows.restartOnLogon()
                 self.writeProgress()
             installResult = self.install(packageList, abortIfTold)
-            self.logger.info("Install result: %s" % installResult)
+            Logger.info("Install result: %s" % installResult)
             if installResult != FAIL:
                 abortIfTold()
                 verifyResult = self.verify(abortIfTold)
-                self.logger.info("Verify result: %s" % verifyResult)
+                Logger.info("Verify result: %s" % verifyResult)
                 if verifyResult == OK:
                     self.writeProgress()
                     return installResult
             return FAIL
-        self.logger.error("Unknown action: [%s]" % self.action)
+        Logger.error("Unknown action: [%s]" % self.action)
         return FAIL
 
     def chdir(self):
@@ -294,15 +290,15 @@ class Package:
                 return OK
             except OSError, e:
                 ermsg = "Unable to change directory to package. Aborting. (%s)" % `e`
-                self.logger.error(ermsg)
+                Logger.error(ermsg)
         else:
-            self.logger.error("No package fullname -- package not found. Aborting.")
+            Logger.error("No package fullname -- package not found. Aborting.")
         self.status = FAIL
         return FAIL
 
     def packageStuff(self):
         if not self.fullName:
-            self.logger.error("Package %s is invalid")
+            Logger.error("Package %s is invalid")
             return FAIL
         return OK
     
@@ -311,7 +307,7 @@ class Package:
         self.download(abortIfTold)
         self.filesystem.updateCurrentAction("Installing...", 50)
         message = "Beginning installation of (%s)" % self.fullName
-        self.logger.info(message)
+        Logger.info(message)
         self.preload()
         abortIfTold()
         status = self.findCmd(INSTALL, abortIfTold, packageList)
@@ -322,7 +318,7 @@ class Package:
         self.download(abortIfTold)
         self.filesystem.updateCurrentAction("Verifying...", 90)
         message = "Verifying package %s" % self.fullName
-        self.logger.info(message)
+        Logger.info(message)
         abortIfTold()
         status = self.findCmd(VERIFY, abortIfTold)
         if self.action != INSTALL:
@@ -337,12 +333,12 @@ class Package:
         if status != OK:
             ermsg = "Aborting uninstall: Unable to back up "\
                     "%s before uninstalling." % self.fullName
-            self.logger.error(ermsg)
+            Logger.error(ermsg)
             return FAIL
         if self.status == FAIL:
-            self.logger.info("Not attempting to uninstall malformed package.")
+            Logger.info("Not attempting to uninstall malformed package.")
             return FAIL
-        self.logger.info("Uninstalling package %s" % self.name)
+        Logger.info("Uninstalling package %s" % self.name)
         self.filesystem.updateCurrentAction("Uninstalling...", 70)
         abortIfTold()
         status = self.findCmd(UNINSTALL, abortIfTold)
@@ -359,11 +355,11 @@ class Package:
     #^ UNTESTED
     def cleanBackupPath(self):
         if os.path.isdir(self.backupPath):
-            self.logger.info("Removing current backup directory")
+            Logger.info("Removing current backup directory")
             try:
                 self.filesystem.rmtree(self.backupPath)
             except OSError:
-                self.logger.error("Unable to remove old backup directory")
+                Logger.error("Unable to remove old backup directory")
                 return FAIL
         self.filesystem.mkdir(self.backupPath)
         return OK
@@ -374,11 +370,11 @@ class Package:
             filesystem.chdir(startDir)
             return status
         startDir = self.filesystem.getcwd()
-        self.logger.info("---------------------------Backing up %s" %self.fullName)
+        Logger.info("---------------------------Backing up %s" %self.fullName)
         # FIXME: cheap hack -- should use something like findcmd. -pbanka
         filePath = os.path.join(miniUtility.getPackagePath(), self.fullName, "scripts", "backup.py")
         if not self.filesystem.isfile(filePath):
-            self.logger.info("No backup executable -- not backing up")
+            Logger.info("No backup executable -- not backing up")
             return OK
         # / cheap hack
 
@@ -386,16 +382,16 @@ class Package:
             self.rootName = self.metaData.get("backup", "rootname")
         except ConfigParser.NoOptionError:
             ermsg = "Using package %s name for root name because no rootname is defined" % self.name
-            self.logger.warning(ermsg)
+            Logger.warning(ermsg)
             self.rootName = self.name
         except ConfigParser.NoSectionError:
             ermsg = "Using package %s name for root name because no rootname is defined" % self.name
-            self.logger.warning(ermsg)
+            Logger.warning(ermsg)
             self.rootName = self.name
         self.tarFileName = self.rootName + ".tar.gz"
         self.dateString = self.getDateString()
         self.filesystem.updateCurrentAction("Backing up...", 40)
-        self.logger.info("Backing up package %s" % self.fullName)
+        Logger.info("Backing up package %s" % self.fullName)
         self.chdir()
         self.backupPath = os.path.join(miniUtility.getPackagePath(), self.fullName, 'backup')
         abortIfTold()
@@ -406,14 +402,14 @@ class Package:
         if status == FAIL:
             return returnNice(startDir, FAIL, self.filesystem)
         if self.workingDir.split('\\')[-1] != "backup":
-            self.logger.error("could not create a backup directory: %s" % os.getcwd())
+            Logger.error("could not create a backup directory: %s" % os.getcwd())
             return returnNice(startDir, FAIL, self.filesystem)
         abortIfTold()
         status = self.findCmd(BACKUP, abortIfTold)
         if status != OK:
-            self.logger.info("No backup script was found. Not backing up.")
+            Logger.info("No backup script was found. Not backing up.")
             return returnNice(startDir, OK, self.filesystem)
-        self.logger.info("Backup succeeded. Creating compressed package")
+        Logger.info("Backup succeeded. Creating compressed package")
         self.filesystem.chdir( self.backupPath )
         abortIfTold()
         status = self.buildTarFile()
@@ -427,34 +423,34 @@ class Package:
     def buildTarFile(self):
         self.filesystem.updateCurrentAction("Packing and compressing backup...", 50)
         errmsg = "Creating tarfile %s in backupPath %s..." %( self.tarFileName, self.backupPath )
-        self.logger.info(errmsg)
+        Logger.info(errmsg)
         if not self.filesystem.isdir( self.backupPath ):
-            self.logger.error("Directory does not exist: " + self.backupPath)
+            Logger.error("Directory does not exist: " + self.backupPath)
             return FAIL
         self.filesystem.chdir( self.backupPath )
         self.tarfileName = self.rootName + ".tar.gz"
         self.filesystem.createTar( self.tarfileName, self.backupPath )
-        self.logger.debug( "%s successfully created" %(self.tarFileName) )
+        Logger.debug( "%s successfully created" %(self.tarFileName) )
         return OK
 
     #^ UNTESTED
     def sendTarFileToWebService( self ):
         self.filesystem.updateCurrentAction("Uploading backup to web service...", 60)
         self.newPackageName = "%s-%s" %(self.rootName, self.dateString)
-        self.logger.debug( "newPackageName : %s" %(self.newPackageName) )
-        self.logger.debug( "Creating spkg %s from %s using the webservice..."
+        Logger.debug( "newPackageName : %s" %(self.newPackageName) )
+        Logger.debug( "Creating spkg %s from %s using the webservice..."
                            %(self.newPackageName, self.tarFileName) )
 
         args = {'packagename':self.newPackageName, 'installscript':self.rootName}
         filePath = os.path.join( self.backupPath, self.tarFileName )
-        putData = self.filesystem.getBinaryDataFromFilePath( filePath, self.logger )
+        putData = self.filesystem.getBinaryDataFromFilePath( filePath )
         if putData == None:
-            self.logger.error("No data in backup file %s" % filePath)
+            Logger.error("No data in backup file %s" % filePath)
             return FAIL
         try:
             output = self.server.serviceYamlRequest( "package", args, putData, debug=True )
         except Exceptions.ServerUnavailable, e:
-            self.logger.error("Unable to send backup data to server %s" % e)
+            Logger.error("Unable to send backup data to server %s" % e)
             return FAIL
         status = output.get("status")
         warnings = output.get("warnings")
@@ -464,15 +460,15 @@ class Package:
         if not errors:
             errors = []
         for warning in warnings:
-            self.logger.warning("Warning returned from webservice: %s" %warning)
+            Logger.warning("Warning returned from webservice: %s" %warning)
         for error in errors:
-            self.logger.error("Error returned from webservice: %s" %error)
+            Logger.error("Error returned from webservice: %s" %error)
         if status != OK:
-            self.logger.error("Uploading tarball to the webserver failed.")
+            Logger.error("Uploading tarball to the webserver failed.")
             if not status:
-                self.logger.error("No return from server")
+                Logger.error("No return from server")
             return FAIL
-        self.logger.debug( "output from request: \n%s" %(output.get("logdata")) )
+        Logger.debug( "output from request: \n%s" %(output.get("logdata")) )
         return OK
 
     ### TESTED
@@ -510,8 +506,8 @@ class Package:
           try:
             progressData = yaml.load(content).next()
           except Exception, e:
-            self.logger.error("Loading the progress data: %s" % progressPath)
-            self.logger.error("%s" % e)
+            Logger.error("Loading the progress data: %s" % progressPath)
+            Logger.error("%s" % e)
             return FAIL
 
         gc.collect() # does windows suck? here's proof. -pbanka
@@ -521,7 +517,7 @@ class Package:
           if progressData.get(self.fullName) != None:
             if  progressData[self.fullName]['INSTALLED'] != 'NA':
               erstr = "Possible installation cycling with '%s'." % self.fullName
-              self.logger.error(erstr)
+              Logger.error(erstr)
               return OK
           else:
             progressData[self.fullName] = {}
@@ -530,7 +526,7 @@ class Package:
             progressData[self.fullName]['VERIFIED']    = timeString
             progressData[self.fullName]['UNINSTALLED'] = 'NA'
           else:
-            self.logger.error("Unnamed package installed: (%s)" % (self.name))
+            Logger.error("Unnamed package installed: (%s)" % (self.name))
             return FAIL
 
         elif self.action == UNINSTALL:
@@ -558,5 +554,5 @@ class Package:
                                                 progressData)
         if status == "FAIL":
             ermsg = "Unable to upload installation progress"
-            self.logger.warning(ermsg)
+            Logger.warning(ermsg)
         return OK

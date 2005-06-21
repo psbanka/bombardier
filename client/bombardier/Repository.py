@@ -5,6 +5,7 @@ import os, tarfile, shutil
 from bombardier.staticData import *
 import bombardier.miniUtility as miniUtility
 import bombardier.MetaData as MetaData
+import bombardier.Logger as Logger
 
 PACKAGE_LIST = "packages.dat"
 
@@ -13,9 +14,8 @@ FULL_NAME    = "fullName"
 
 class Repository:
 
-    def __init__(self, config, logger, filesystem, server):
+    def __init__(self, config, filesystem, server):
         self.config     = config
-        self.logger     = logger
         self.server     = server
         self.filesystem = filesystem
         self.packages   = {}
@@ -23,7 +23,7 @@ class Repository:
 
     # TESTED
     def getPackageData(self):
-        self.logger.debug("Downloading package data...")
+        Logger.debug("Downloading package data...")
         self.packages = self.server.serviceYamlRequest("package", args= {"type":"yaml"})
 
     # TESTED
@@ -48,7 +48,7 @@ class Repository:
             pass
         erstr = "Downloading package %s from "\
                 "%s..." % (fullPackageName, self.server.serverData["address"])
-        self.logger.info(erstr)
+        Logger.info(erstr)
         if type(checksum) != type(["list"]):
             status = self.server.wget("deploy", fullPackageName+".spkg",
                                       destDir=miniUtility.getPackagePath(),
@@ -61,7 +61,7 @@ class Repository:
             return FAIL
         if not self.filesystem.isfile(pkgPath+".spkg"):
             erstr = "No package file in %s." % (pkgPath+".spkg")
-            self.logger.error(erstr)
+            Logger.error(erstr)
             return FAIL
         if self.unzip(fullPackageName, abortIfTold) == FAIL:
             return FAIL
@@ -74,12 +74,12 @@ class Repository:
             try:
                 tar.extract(tarinfo)
             except tarfile.ExtractError, e:
-                self.logger.warning("Error with package %s,%s: "\
+                Logger.warning("Error with package %s,%s: "\
                                     "%s" % (fullPackageName, tarinfo.name, e))
         tar.close()
         packagePath = miniUtility.getPackagePath()
         if not self.filesystem.isdir(os.path.join(packagePath, fullPackageName)):
-            self.logger.error("Package %s is malformed." % (fullPackageName))
+            Logger.error("Package %s is malformed." % (fullPackageName))
             self.filesystem.chdir(cwd)
             return FAIL
         self.filesystem.chdir(cwd)
@@ -89,7 +89,7 @@ class Repository:
     # TESTED
     def unzip(self, fullPackageName, abortIfTold):
         pkgPath = os.path.join(miniUtility.getPackagePath(), fullPackageName)
-        self.logger.info("Unzipping %s" % fullPackageName)
+        Logger.info("Unzipping %s" % fullPackageName)
         gzipFile = self.filesystem.gzipOpen(pkgPath+".spkg")
         outputFile = self.filesystem.open(pkgPath+".tar", 'wb')
         data = '1'
@@ -98,10 +98,10 @@ class Repository:
             try:
                 data = gzipFile.read(BLOCK_SIZE)
             except IOError, e:
-                self.logger.error("Error Reading %s: %s" % (fullPackageName, e.__str__()))
+                Logger.error("Error Reading %s: %s" % (fullPackageName, e.__str__()))
                 return FAIL
             except Exception, e:
-                self.logger.error("Corrupt package: %s (%s)" % (fullPackageName, e.__str__()))
+                Logger.error("Corrupt package: %s (%s)" % (fullPackageName, e.__str__()))
                 return FAIL
             outputFile.write(data)
         outputFile.close()
@@ -116,7 +116,7 @@ class Repository:
         try:
             fullPackageName = self.packages[packageName]['install'][FULL_NAME]
         except KeyError:
-            self.logger.error("package %s is not in the package database" % packageName)
+            Logger.error("package %s is not in the package database" % packageName)
             return FAIL
         if self.filesystem.isdir(os.path.join(packagePath, fullPackageName)):
             return OK

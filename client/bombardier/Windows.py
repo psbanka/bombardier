@@ -27,9 +27,8 @@ keyMapping = {"HKLM": winreg.HKEY_LOCAL_MACHINE,
 
 class guiThread(threading.Thread):
 
-    def __init__(self, logger):
+    def __init__(self):
         threading.Thread.__init__(self)
-        self.logger = logger
         time.sleep(1)
         self.ws = win32com.client.Dispatch("WScript.Shell")
 
@@ -50,8 +49,7 @@ class Windows:
     """This is another abstraction class to wrap all activities which
     require interaction with the system registry. -pbanka"""
 
-    def __init__(self, logger = None):
-        self.logger = logger
+    def __init__(self):
         self.domain = ''
         self.username = ''
         self.password = ''
@@ -82,7 +80,7 @@ class Windows:
         return serviceHandle
 
     ### TESTED
-    def serviceStatus(self, serviceName, logger):
+    def serviceStatus(self, serviceName):
         hscm          = self.OpenSCManager()
         serviceHandle = self.OpenService(serviceName)
         if serviceHandle == None:
@@ -94,66 +92,54 @@ class Windows:
         timeout = 30
         while status == PENDING and timeout > 0:
             time.sleep(1)
-            status = self.evalStatus(serviceInfo, logger)
+            status = self.evalStatus(serviceInfo)
             timeout -= 1
         if status == RUNNING:
             return OK
         return FAIL
 
-    def evalStatus(self, serviceInfo, logger):
+    def evalStatus(self, serviceInfo):
         svcType, svcState, svcControls, err, svcErr, svcCP, svcWH = serviceInfo
         if svcState==win32service.SERVICE_STOPPED:
             ermsg = "The service is stopped"
-            if logger:
-                logger.info(ermsg)
-            else:
-                print ermsg
+            Logger.info(ermsg)
             return STOPPED
         elif svcState==win32service.SERVICE_START_PENDING:
             ermsg = "The service is starting"
-            if logger:
-                logger.info(ermsg)
-            else:
-                print ermsg
+            Logger.info(ermsg)
             return PENDING
         elif svcState==win32service.SERVICE_STOP_PENDING:
             ermsg = "The service is stopping"
-            if logger:
-                logger.info(ermsg)
-            else:
-                print ermsg
+            Logger.info(ermsg)
             return NOT_RUNNING
         elif svcState==win32service.SERVICE_RUNNING:
             ermsg = "The service is running"
-            if logger:
-                logger.info(ermsg)
-            else:
-                print ermsg
+            Logger.info(ermsg)
             return RUNNING
         return NOT_RUNNING
 
-    def restartService(self, serviceName, logger):
-        status = self.stopService(serviceName, logger)
+    def restartService(self, serviceName):
+        status = self.stopService(serviceName)
         if status == FAIL:
             return FAIL
-        status = self.startService(serviceName, logger)
+        status = self.startService(serviceName)
         return status    
 
     ### TESTED
-    def stopService(self, serviceName, logger):
+    def stopService(self, serviceName):
         serviceHandle = self.OpenService(serviceName)
-        if self.serviceStatus(serviceName, logger) == OK:
+        if self.serviceStatus(serviceName) == OK:
             status = win32service.ControlService(serviceHandle,
                                                  win32service.SERVICE_CONTROL_STOP)
             return status
         return FAIL
     
-    def startService(self, serviceName, logger):
+    def startService(self, serviceName):
         hscm          = self.OpenSCManager()
         serviceHandle = self.OpenService(serviceName)
         if serviceHandle == None:
             raise Exceptions.ServiceNotFound
-        if self.serviceStatus(serviceName, logger) == OK:
+        if self.serviceStatus(serviceName) == OK:
             win32service.CloseServiceHandle(serviceHandle)
             win32service.CloseServiceHandle(hscm)
             return OK
@@ -173,7 +159,7 @@ class Windows:
         win32net.NetUserDel(None, username)
         return OK
 
-    def createScriptUser(self, username, password, logger=None):
+    def createScriptUser(self, username, password):
         combinedFlags = win32netcon.UF_DONT_EXPIRE_PASSWD | \
                         win32netcon.UF_PASSWD_CANT_CHANGE | \
                         win32netcon.UF_NORMAL_ACCOUNT
@@ -186,18 +172,16 @@ class Windows:
             win32net.NetUserAdd(None, 1, d)
         except pywintypes.error, e:
             if e[2] != "The account already exists.":
-                if logger:
-                    logger.error("Unable to create user '%s'. [%s]" % (username, e[2]))
+                Logger.error("Unable to create user '%s'. [%s]" % (username, e[2]))
                 return FAIL
         try:
             win32net.NetLocalGroupAddMembers(None, 'administrators',
                                              3, [{"domainandname":username}])
         except pywintypes.error, e:
             if e[2].startswith('The specified account name is already'):
-                if logger:
-                    ermsg = "Unable to assign proper permissions to "\
-                            "user %s [%s]", (username, e[2])
-                    logger.error(ermsg)
+                ermsg = "Unable to assign proper permissions to "\
+                        "user %s [%s]", (username, e[2])
+                Logger.error(ermsg)
                 return FAIL
         return OK
 
@@ -346,17 +330,15 @@ class Windows:
                 return OK
         return FAIL
 
-    def mkServiceUser(self, username, password, domain='', local=False, comment='', logger=None):
-        if logger == None:
-            logger = Logger()
+    def mkServiceUser(self, username, password, domain='', local=False, comment=''):
         if not local:
             if domain == '':
-                logger.info("Making service user %s on the default domain" % username)
+                Logger.info("Making service user %s on the default domain" % username)
             else:
-                logger.info("Making service user %s on the %s domain" % ( username, domain))
+                Logger.info("Making service user %s on the %s domain" % ( username, domain))
         else:
-            logger.info("Making service user %s on the local system" % username)
-        domainServer = self.getDc(domain, local, logger)
+            Logger.info("Making service user %s on the local system" % username)
+        domainServer = self.getDc(domain, local)
         if not domainServer:
             return FAIL
         userdata = {}
@@ -371,36 +353,34 @@ class Windows:
             win32net.NetUserAdd(domainServer, 1, userdata)
         except pywintypes.error, e:
             if e[2] != "The account already exists.":
-                logger.error("Unable to create user '%s'. [%s]" % (username, e[2]))
+                Logger.error("Unable to create user '%s'. [%s]" % (username, e[2]))
                 return FAIL
         try:
             win32net.NetLocalGroupAddMembers(None, 'administrators',
                                              3, [{"domainandname":username}])
         except pywintypes.error, e:
             if e[2] != 'The specified account name is already a member of the local group.':
-                logger.error("Unable to assign proper permissions to user %s [%s]", (username, e[2]))
+                Logger.error("Unable to assign proper permissions to user %s [%s]", (username, e[2]))
                 return FAIL
         return OK
 
-    def rmServiceUser(self, username, domain='', local=False, logger=None):
-        if logger == None:
-            logger = Logger()
-        domainServer = self.getDc(domain, local, logger)
+    def rmServiceUser(self, username, domain='', local=False):
+        domainServer = self.getDc(domain, local)
         if not domainServer:
             return FAIL
         win32net.NetUserDel(domainServer, username)
         return OK
 
-    def getDc(self, domain, local, logger):
+    def getDc(self, domain, local):
         if local:
             return os.environ["COMPUTERNAME"]
         try:
             domainServer = win32net.NetGetAnyDCName(None, domain)
         except pywintypes.error, e:
             if domain:
-                logger.warning( "ERROR setting up user %s" % e )
+                Logger.warning( "ERROR setting up user %s" % e )
             else:
-                logger.warning( "No domain controller could be found." )
+                Logger.warning( "No domain controller could be found." )
             return None
         return domainServer
 
@@ -422,9 +402,7 @@ class Windows:
         except:
             fail.append(priv)
 
-    def testCredentials(self, username, domain, password, logger=None):
-        if logger:
-            self.logger = logger
+    def testCredentials(self, username, domain, password):
         if domain:
             self.domain = domain
         else:
@@ -453,15 +431,14 @@ class Windows:
             win32security.ImpersonateLoggedOnUser(self.handle)
             return OK
         except pywintypes.error, details:
-            if self.logger:
-                if details[0] == 1314:
-                    self.logger.error("The account this service runs under does "\
-                                      "not have the 'act as part of operating system right'")
-                elif details[0] == 1326:
-                    self.logger.error("Bad password for user '%s'" % self.username)
-                    self.logger.debug("password: %s" % self.password)
-                else:
-                    self.logger.error("Unknown error: %s" % details)
+            if details[0] == 1314:
+                Logger.error("The account this service runs under does "\
+                                  "not have the 'act as part of operating system right'")
+            elif details[0] == 1326:
+                Logger.error("Bad password for user '%s'" % self.username)
+                Logger.debug("password: %s" % self.password)
+            else:
+                Logger.error("Unknown error: %s" % details)
             return FAIL
         return OK
     
@@ -507,20 +484,19 @@ class Windows:
         win32security.AdjustTokenPrivileges(htoken, 0, newPrivileges)
 
     def rebootSystem(self, message="Server Rebooting", timeout=5,
-                     bForce=1, bReboot=1, logger=None):
+                     bForce=1, bReboot=1):
         if DEBUG:
             erstr = "REFUSING TO REBOOT SYSTEM DURING DEBUG MODE"
-            if logger: logger.info(erstr)
+            Logger.info(erstr)
             sys.exit(0)
         self.adjustPrivilege(ntsecuritycon.SE_SHUTDOWN_NAME)
         try:
             win32api.InitiateSystemShutdown(None, message, timeout, bForce, bReboot)
         except pywintypes.error, details:
             if details[0] == 5:
-                if logger:
-                    logger.error("ACCESS DENIED in shutting down the system.")
+                Logger.error("ACCESS DENIED in shutting down the system.")
             else:
-                logger.error("Unknown error: %s" % details)
+                Logger.error("Unknown error: %s" % details)
             self.adjustPrivilege(ntsecuritycon.SE_SHUTDOWN_NAME, 0)
         self.adjustPrivilege(ntsecuritycon.SE_SHUTDOWN_NAME, 0)
         # ...and hang the thread, because bombardier is expecting this not to return.
@@ -540,19 +516,19 @@ class Windows:
 
     # ============= CONSOLE CHECKER
 
-    def testConsole(self, logger):
-        gt = guiThread(logger)
+    def testConsole(self):
+        gt = guiThread()
         gt.start()
         try:
             aut = win32com.client.Dispatch( "AutoItX3.Control.1" )
         except pywintypes.com_error:
-            logger.error("AutoIt DLL error: attempting to register")
+            Logger.error("AutoIt DLL error: attempting to register")
             comPath = os.path.join(miniUtility.getSpkgPath(), "AutoItX3.dll")
             regSvc  = os.path.join(os.environ["WINDIR"], "SYSTEM32", "regsvc")
             os.system("%s /s %s" % (regSvc, comPath))
             try:
                 aut = win32com.client.Dispatch( "AutoItX3.Control.1" )
-                logger.info("Registered properly")
+                Logger.info("Registered properly")
             except pywintypes.com_error:
                 raise Exceptions.MissingComponent, "AutoIT"
         aut.winWait(TEST_TITLE, '', 60)
@@ -615,26 +591,26 @@ class Windows:
         self.setKey(LOGIN_KEY_NAME+"\\DefaultDomainName", "")
         return OK
 
-    def autoLogin(self, config, logger):
-        if self.testCredentials(config.username, config.domain, config.password, logger) == FAIL:
+    def autoLogin(self, config):
+        if self.testCredentials(config.username, config.domain, config.password) == FAIL:
             if not config.domain:
                 status = self.mkServiceUser(config.username, config.password, config.domain,
                                                     comment="Bombardier administrative user",
-                                                    local=True, logger=logger)
+                                                    local=True)
             else:
                 status = self.mkServiceUser(config.username, config.password, config.domain,
                                                     comment="Bombardier administrative user",
-                                                    local=False, logger=logger)
+                                                    local=False)
 
             if status == FAIL:
                 errmsg = "Unable to create service user (%s\\%s)" % \
                          (config.domain,config.username)
-                logger.error(errmsg)
+                Logger.error(errmsg)
                 return FAIL
             if self.testCredentials(config.username, config.domain,
-                                            config.password, logger) == FAIL:
+                                            config.password) == FAIL:
                 errmsg = "Unable to set proper credentials for login. Giving up on autoLogin."
-                logger.error(errmsg)
+                Logger.error(errmsg)
                 return FAIL
         if config.username:
             self.setKey(LOGIN_KEY_NAME+"\\DefaultUserName", config.username)

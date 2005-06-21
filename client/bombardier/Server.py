@@ -4,8 +4,9 @@ import pycurl
 import bombardier.Exceptions as Exceptions
 import bombardier.miniUtility as miniUtility
 from bombardier.staticData import *
+import bombardier.Logger as Logger
 
-def postServerMessage(content_type, body, url, logger=None):
+def postServerMessage(content_type, body, url):
     """ 
     Author: Wade Leftwich, 
     Modifications by Peter Banka.
@@ -24,8 +25,7 @@ def postServerMessage(content_type, body, url, logger=None):
         h.request('POST', url, body, headers)
     except socket.error:
         errmsg = "Unable to connect to server"
-        if logger:
-            logger.error(errmsg)
+        Logger.error(errmsg)
         return FAIL
     res = h.getresponse()
     status = res.status
@@ -33,10 +33,7 @@ def postServerMessage(content_type, body, url, logger=None):
         return OK
     else:
         errstr = "Cannot post because of %s" % res.reason
-        if logger:
-            logger.error(errstr)
-        else:
-            print errstr
+        Logger.error(errstr)
     return FAIL
 
 ## TESTED
@@ -135,9 +132,8 @@ class Server:
     Probably the whole webops module aught to be refactored into this
     class."""
 
-    def __init__(self, filesystem=None, logger=None, serverData = None):
+    def __init__(self, filesystem=None, serverData = None):
         self.filesystem = filesystem
-        self.logger     = logger
         self.serverData = serverData
 
     def getServerData(self):
@@ -145,23 +141,23 @@ class Server:
         try:
             serverDataDirectory = self.filesystem.loadYaml(serverDataPath)
         except:
-            self.logger.error("The %s file is corrupt" % serverDataPath)
+            Logger.error("The %s file is corrupt" % serverDataPath)
             return
         if not serverDataDirectory:
-            self.logger.error("The %s file is empty" % serverDataPath)
+            Logger.error("The %s file is empty" % serverDataPath)
             return
         if len(serverDataDirectory) == 1:
             serverName = serverDataDirectory.keys()[0]
-            self.logger.info("Using server %s because it is the only one" % serverName)
+            Logger.info("Using server %s because it is the only one" % serverName)
             self.serverData = serverDataDirectory[serverName]
             return
         try:
             preferred = serverDataDirectory.get("~Preferred")
         except:
-            self.logger.error("The %s file is not a dictionary" % serverDataPath)
+            Logger.error("The %s file is not a dictionary" % serverDataPath)
             return
         if preferred:
-            self.logger.info("Using server %s because was chosen before" % preferred)
+            Logger.info("Using server %s because was chosen before" % preferred)
             self.serverData = serverDataDirectory[preferred]
             return
         for serverDataName in serverDataDirectory.keys():
@@ -170,12 +166,12 @@ class Server:
                 data = self.serviceRequest("pkggroups", timeout=2)
             except Exceptions.ServerUnavailable:
                 ermsg = "server %s is not a good choice" % self.serverData["address"]
-                self.logger.debug(ermsg)
+                Logger.debug(ermsg)
                 continue
             if data:
                 self.addPreferred(serverDataDirectory, serverDataName)
                 return
-        self.logger.error("No servers in the %s file were reachable" % serverDataPath)
+        Logger.error("No servers in the %s file were reachable" % serverDataPath)
         return
 
     def addPreferred(self, serverDataDirectory, serverDataName):
@@ -183,7 +179,7 @@ class Server:
         serverDataDirectory["~Preferred"] = serverDataName
         fh = self.filesystem.open(filePath, 'w')
         yamlString = yaml.dump(serverDataDirectory)
-        self.logger.info("Setting %s as the preferred server." % serverDataName)
+        Logger.info("Setting %s as the preferred server." % serverDataName)
         fh.write(yamlString)
         fh.flush()
         fh.close()
@@ -199,7 +195,7 @@ class Server:
         queryString = makeQueryString(args)
         url = fullPath+queryString
         if debug:
-            self.logger.debug("Performing service request to %s" % url)
+            Logger.debug("Performing service request to %s" % url)
         try:
             c = prepareCurlObject(url, self.serverData)
         except pycurl.error, e:
@@ -242,13 +238,13 @@ class Server:
             args = {"client":hostname, "severity":severity, "section":section}
             response = self.serviceRequest("clientlog", args, message, debug=True)
             if response.strip() == "OK":
-                self.logger.info("Message severity %s delivered to server" % severity)
+                Logger.info("Message severity %s delivered to server" % severity)
                 return OK
         except Exceptions.ServerUnavailable, e:
             ermsg = "Connection problem delivering "\
                     "severity %s message to server (%s)" % (severity, e)
-            self.logger.warning(ermsg)
-        self.logger.warning("Unable to deliver status messages to the server")
+            Logger.warning(ermsg)
+        Logger.warning("Unable to deliver status messages to the server")
         return FAIL
 
     def wget(self, path, filename, destDir = '', retries = 4,
@@ -264,7 +260,7 @@ class Server:
                 c.setopt(pycurl.WRITEFUNCTION, fileHandle.write)
             except:
                 ermsg = "Unable to open file %s for writing" % filename
-                self.logger.warning(ermsg)
+                Logger.warning(ermsg)
                 return FAIL
             try:
                 c.perform()
@@ -277,28 +273,28 @@ class Server:
                     retries -= 1
                     ermsg = "Downloaded file %s has an invalid"\
                             "checksum (%s != %s)" % (filename, ccsum, checksum)
-                    self.logger.warning(ermsg)
+                    Logger.warning(ermsg)
                     continue
                 else:
                     ermsg = "%s checksum [%s] verified." % (filename, checksum)
-                    if checksum: self.logger.info(ermsg)
+                    if checksum: Logger.info(ermsg)
                     break
             except pycurl.error, e:
                 erstr = "Connection problem downloading from %s: %s" % (url, e[1])
-                self.logger.warning(erstr)
+                Logger.warning(erstr)
                 retries -= 1
                 continue
         if not retries:
             ermsg = "Giving up on %s -- too many retries" % filename
             raise Exceptions.ServerUnavailable, (url, ermsg)
-        return self.filesystem.moveToDestination(destDir, self.logger, filename)
+        return self.filesystem.moveToDestination(destDir, filename)
 
     def wgetMultiple(self, path, filename, destDir, retries = 4,
                      checksumList = [], checksum='', abortIfTold=None):
         parts = {}
         for i in range(0, len(checksumList)):
             parts['%s.part%d' % (filename, i)] = checksumList[i]
-        self.logger.info("downloading %s in %s parts." % (filename, len(parts.keys())))
+        Logger.info("downloading %s in %s parts." % (filename, len(parts.keys())))
         basefile = filename[:filename.rfind('.spkg')]
         path = "%s/%s/" % (path, basefile)
         for partName in parts.keys():
@@ -332,5 +328,5 @@ class Server:
             ("return",returnVal),
             ("message",message)])
         url = urlparse.urljoin(self.serverData["address"], "cgi-bin/log.pl")
-        status = postServerMessage(content_type, body, url, self.logger)
+        status = postServerMessage(content_type, body, url)
         return status

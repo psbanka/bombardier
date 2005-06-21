@@ -67,8 +67,8 @@ wget = server.wget
 wgetMultiple = server.wgetMultiple
 nagiosLog = server.nagiosLog
 
-from bombardier.Config import getIpAddress, Config
-config = Config(logger, filesystem, server, windows)
+import bombardier.Config as Config
+config = Config.Config(logger, filesystem, server, windows)
 try:
     config.freshen()
 except Exceptions.ServerUnavailable, e:

@@ -32,6 +32,7 @@ def install(spkgPath):
     dlls = ["AutoItX3.dll", "InstallTools.dll", "mfc71.dll"]
     for dll in dlls:
         os.system("%s /s %s" % (regSvr, dll))
+
     sys.stdout.write("Successfully updated spkg.\n")
     os.chdir(startDir)
 

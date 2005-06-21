@@ -8,6 +8,7 @@ import win32com.client, win32api, win32file, pywintypes, win32pdh, win32con
 import bombardier.miniUtility as miniUtility
 import bombardier.RegistryDict as RegistryDict
 from bombardier.staticData import *
+import bombardier.Logger as Logger
 
 def installFont(fontPath):
     baseName = fontPath.split('\\')[-1]
@@ -188,13 +189,12 @@ def createHostEntry(siteName, ipAddress):
     return status
 
 def createWebSite(homeDirectory, sourceFiles, siteIndex, title,
-                  ipAddress=None, siteName=None, logger=None, port=80):
+                  ipAddress=None, logger=logger, siteName=None, port=80):
         cscript = os.path.join(os.environ['WINDIR'], "SYSTEM32", "cscript.exe")
         ADMINSCRIPTS = os.path.join("C:\\", "Inetpub", "AdminScripts")
         os.system(r'%s %s -a w3svc/1 -v' % (cscript, os.path.join(ADMINSCRIPTS, "startsrv.vbs")))
         if os.path.isdir(homeDirectory):
-            if logger:
-                logger.warning("Removing All files in directory %s" % homeDirectory)
+            Logger.warning("Removing All files in directory %s" % homeDirectory)
             shutil.rmtree(homeDirectory)
 
         if sourceFiles:

@@ -3,6 +3,7 @@
 import ConfigParser, yaml
 from bombardier.staticData import *
 import bombardier.miniUtility as miniUtility
+import bombardier.Logger as Logger
 
 def findParentList(data):
     parentList = []
@@ -22,11 +23,7 @@ class Config(dict):
     single unified dictionary."""
     
     ### TESTED
-    def __init__(self, logger, filesystem, server, windows):
-        if logger == None:
-            self.logger = miniUtility.Logger()
-        else:
-            self.logger = logger
+    def __init__(self, filesystem, server, windows):
         self.filesystem = filesystem
         self.server     = server
         self.windows    = windows
@@ -61,7 +58,7 @@ class Config(dict):
 
     ### TESTED
     def downloadConfig(self, configName):
-        self.logger.debug("Downloading configuration data...")
+        Logger.debug("Downloading configuration data...")
         newData = self.server.serviceYamlRequest("clientconfig", 
                                                  {"client": configName, "type":"YAML"})
         self.data = miniUtility.addDictionaries(self.data, newData)
@@ -92,7 +89,7 @@ class Config(dict):
             if self.username == None:
                 errmsg = "Configuration file has no 'system/username' "\
                          "value: will not be able to get console access"
-                self.logger.error(errmsg)
+                Logger.error(errmsg)
                 self.password = None
                 self.domain   = None
             else:
@@ -101,7 +98,7 @@ class Config(dict):
         else:
             errmsg = "Configuration file has no 'system' value: "\
                      "will not be able to get console access"
-            self.logger.error(errmsg)
+            Logger.error(errmsg)
             self.username = None
             self.password = None
             self.domain   = None
@@ -120,17 +117,17 @@ class Config(dict):
                         self.config.set(section, option, value)
                     else:
                         ermsg =  "incompatible types (ini/yaml) for (%s:%s)" % (section, option)
-                        self.logger.warning(ermsg)
+                        Logger.warning(ermsg)
             else:
                 pass
-                self.logger.warning("incompatible types (ini/yaml) for (%s)" % (section))
+                Logger.warning("incompatible types (ini/yaml) for (%s)" % (section))
 
     ### TESTED
     def set(self, section, option, value):
         if type(self.data.get(section)) != type(dict()):
             if self.data.get(section) != None:
                 ermsg = "Clobbering data in configuration due to yaml/ini incompatibilities"
-                self.logger.warning(ermsg)
+                Logger.warning(ermsg)
             self.data[section] = {}
         self.data[section][option] = value
         self.makeConfigObject()

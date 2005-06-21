@@ -5,6 +5,7 @@ import gc
 import bombardier.Exceptions as Exceptions
 import bombardier.miniUtility as miniUtility
 from bombardier.staticData import *
+import bombardier.Logger as Logger
 
 ### TESTED
 def stripVersion(packageFile):
@@ -68,7 +69,7 @@ class Filesystem:
         return os.listdir(path)
     def mkdir(self, path):
         os.mkdir(path)
-    def execute(self, cmd, errorString="", debug=0, dieOnExit=False, logger=None,
+    def execute(self, cmd, errorString="", debug=0, dieOnExit=False,
                 workingDirectory = '.', captureOutput=False):
         capture = ''
         if captureOutput:
@@ -77,37 +78,31 @@ class Filesystem:
         if workingDirectory != ".":
             os.chdir(workingDirectory)
         if debug: 
-            if logger:
-                logger.debug("EXECUTING: %s" % cmd)
-            else:
-                print "EXECUTING: %s" % cmd
+            Logger.debug("EXECUTING: %s" % cmd)
         status = os.system(cmd+capture)
-        if captureOutput and logger:
-            self.catToLog("result1.txt", logger)
-            self.catToLog("result2.txt", logger)
+        if captureOutput:
+            self.catToLog("result1.txt")
+            self.catToLog("result2.txt")
         os.chdir(curDir)
         if status != OK:
             ermsg = "Nonzero exit code %s (executing command %s)." % (errorString, cmd)
-            if logger:
-                logger.error(ermsg)
-            else:
-                print ermsg
+            Logger.error(ermsg)
             if dieOnExit == 1:
                 sys.exit(1)
         return status
-    def catToLog(self, file, logger):
+    def catToLog(self, file):
         if not os.path.isfile(file):
-            logger.warning("--------------------------------")
-            logger.warning("Output file was not created.")
-            logger.warning("--------------------------------")
+            Logger.warning("--------------------------------")
+            Logger.warning("Output file was not created.")
+            Logger.warning("--------------------------------")
             return
         lines = open(file, 'r').readlines()
         if len(lines) == 0:
             return
-        logger.info("---------------------------------------")
+        Logger.info("---------------------------------------")
         for line in lines:
-            logger.info("output:"+line.strip())
-        logger.info("---------------------------------------")
+            Logger.info("output:"+line.strip())
+        Logger.info("---------------------------------------")
     def copyfile(self, source, dest):
         shutil.copyfile(source, dest)
     def rmtree(self, path):
@@ -127,58 +122,56 @@ class Filesystem:
                 output.append(line.strip())
         return output
 
-    def getBinaryDataFromFilePath( self, filePath, logger ):
-        return( self.getDataFromFilePath( filePath, "rb", logger ) )
+    def getBinaryDataFromFilePath( self, filePath ):
+        return( self.getDataFromFilePath( filePath, "rb" ) )
 
-    def getStringDataFromFilePath( self, filePath, logger ):
-        return( self.getDataFromFilePath( filePath, "r", logger ) )
+    def getStringDataFromFilePath( self, filePath ):
+        return( self.getDataFromFilePath( filePath, "r" ) )
 
-    def getDataFromFilePath( self, filePath, readMethodString, logger ):
+    def getDataFromFilePath( self, filePath, readMethodString ):
         try:
             filePointer =  open( filePath, readMethodString )
         except TypeError, e:
-            logger.error("GETDATAFROMFILE: Unable to open file %s / %s" % (filePath, readMethodString))
-            logger.error(`e`)
+            Logger.error("GETDATAFROMFILE: Unable to open file %s / %s" % (filePath, readMethodString))
+            Logger.error(`e`)
             return ''
-        data = self.getDataFromFilePointer( filePointer, logger )
+        data = self.getDataFromFilePointer( filePointer )
         return data
 
-    def getDataFromFilePointer( self, filePointer, logger ):
+    def getDataFromFilePointer( self, filePointer ):
         if( filePointer ):
             data = filePointer.read()
-            logger.info("Read %s bytes" % len(data))
+            Logger.info("Read %s bytes" % len(data))
             filePointer.close()
         else:
-            logger.info( "filePointer was None" )
+            Logger.info( "filePointer was None" )
             data = None
         return( data )
 
-    def setLock(self, logger):
-        logger.info("Setting installation lock.")
+    def setLock(self):
+        Logger.info("Setting installation lock.")
         lockPath = os.path.join(miniUtility.getSpkgPath(), INSTALL_LOCK)
         if os.path.isfile(lockPath):
             erstr = "There is another installation currently "\
                     "running. (%s exists)" % lockPath
-            logger.error(erstr)
+            Logger.error(erstr)
             return FAIL
         else:
             try:
                 open(lockPath, 'w').write("locked")
             except OSError:
-                logger.error("Unable to create the lock file")
+                Logger.error("Unable to create the lock file")
                 return FAIL
         return OK
 
     def clearLock(self, logger = None):
-        if logger:
-            logger.info("Clearing installation lock.")
+        Logger.info("Clearing installation lock.")
         lockPath = os.path.join(miniUtility.getSpkgPath(), INSTALL_LOCK)
         if os.path.isfile(lockPath):
             try:
                 os.unlink(lockPath)
             except OSError:
-                if logger:
-                    logger.error("Unable to delete lock file (%s)" % lockPath)
+                Logger.error("Unable to delete lock file (%s)" % lockPath)
                 return FAIL
         return OK
 
@@ -270,7 +263,7 @@ class Filesystem:
 
         return retVal
 
-    def watchForTermination(self, logger=None, sleepTime = 10.0, timeout = 600, abortIfTold=None):
+    def watchForTermination(self, sleepTime = 10.0, timeout = 600, abortIfTold=None):
         start = time.time()
         consoleFile = os.path.join(miniUtility.getSpkgPath(),CONSOLE_MONITOR)
         while True:
@@ -278,9 +271,8 @@ class Filesystem:
                 abortIfTold()
             elapsedTime = time.time() - start
             if elapsedTime > timeout:
-                if logger:
-                    logger.debug("%d seconds have elapsed (max "\
-                                 "of %d). Giving up." % (elapsedTime, timeout))
+                Logger.debug("%d seconds have elapsed (max "\
+                             "of %d). Giving up." % (elapsedTime, timeout))
                 return FAIL
             if not os.path.isfile(consoleFile):
                 return FAIL
@@ -292,15 +284,15 @@ class Filesystem:
                     return FAIL
                 elif int(data) == REBOOT:
                     return REBOOT
-                logger.error("Invalid status received from log file: %d" % int(data))
+                Logger.error("Invalid status received from log file: %d" % int(data))
                 return FAIL
             left = timeout - elapsedTime
-            logger.debug("Watching status of console installation (%3.1f)" % left)
+            Logger.debug("Watching status of console installation (%3.1f)" % left)
             time.sleep(sleepTime)
         return FAIL
 
-    def beginConsole(self, logger): 
-        logger.info("Beginning monitored console-based installation")
+    def beginConsole(self): 
+        Logger.info("Beginning monitored console-based installation")
         consoleFile = os.path.join(miniUtility.getSpkgPath(),CONSOLE_MONITOR)
         f = open(consoleFile, 'w')
         f.close()
@@ -341,58 +333,56 @@ class Filesystem:
 
         return yaml.dump(retVal)
 
-    def tryPatiently(self, action, verify, logger, errorMessage=None, retries = 100):
+    def tryPatiently(self, action, verify, errorMessage=None, retries = 100):
         succeeded = True
         while retries:
             if not eval(verify):
                 try:
                     eval(action)
                     if not succeeded:
-                        logger.info("Successful trying to %s" % action)
+                        Logger.info("Successful trying to %s" % action)
                     succeeded = True
                     break
                 except Exception, e:
-                    logger.warning(e)
+                    Logger.warning(e)
                     retries -= 1
                     time.sleep(.5)
                     if not errorMessage:
-                        logger.warning("still trying to %s" % action)
+                        Logger.warning("still trying to %s" % action)
                     succeeded = False
             else:
                 if not succeeded:
-                    logger.info("Successful trying to %s" % action)
+                    Logger.info("Successful trying to %s" % action)
                 succeeded = True
                 break
         if succeeded: return OK
         return FAIL
 
-    def moveToDestination(self, destDir, logger, filename):
+    def moveToDestination(self, destDir, filename):
         gc.collect() # File this under the category
                      # 'windows sucks': can't have open files! - pbanka
         if destDir == '':
             return OK
         if not os.path.isdir(destDir):
-            if logger: logger.error("Destination directory %s does not exist" % destDir)
+            Logger.error("Destination directory %s does not exist" % destDir)
             return FAIL
         elif os.getcwd().upper() != destDir.upper():
             try:
                 destPath = os.path.join(destDir, filename)
                 status1 = self.tryPatiently ("os.unlink(r'%s')" % destPath,
-                                             "os.path.isfile(r'%s') == False" % destPath, logger)
+                                             "os.path.isfile(r'%s') == False" % destPath )
                 status2 = self.tryPatiently ("shutil.copy(r'%s', r'%s')" % (filename, destPath),
-                                             "os.path.isfile(r'%s') == True" % destPath, logger)
+                                             "os.path.isfile(r'%s') == True" % destPath )
                 self.tryPatiently ("os.unlink(r'%s')" % filename,
-                                   "os.path.isfile(r'%s') == False" % filename, logger)
+                                   "os.path.isfile(r'%s') == False" % filename)
                 if (status1 or status2) == FAIL:
                     return FAIL
             except IOError, e:
-                if logger:
-                    logger.error("Problem moving %s to %s" % (filename, destPath))
-                    logger.error(e)
+                Logger.error("Problem moving %s to %s" % (filename, destPath))
+                Logger.error(e)
                 return FAIL
             except OSError, e:
-                if logger:
-                    logger.error("Problem moving %s to %s" % (filename, destPath))
-                    logger.error(e)
+                Logger.error("Problem moving %s to %s" % (filename, destPath))
+                Logger.error(e)
                 return FAIL          
         return OK
