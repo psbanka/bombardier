@@ -7,7 +7,7 @@
 # direction. It can now also (3) verify the system, and soon (4) abort
 # a current installation
 
-import win32pipe, pywintypes, time, os, sys, getopt
+import time, os, sys, getopt
 import bombardier, bombardier.Filesystem, bombardier.Windows
 from bombardier.staticData import *
 
@@ -23,19 +23,19 @@ bc.py [-a|-v|-k|-?]
 def tail(filename, filesystem, logFunction):
     #Set the filename and open the file
     logFunction("-- tailing %s...\n" % filename)
-    file = filesystem.open(filename,'r')
+    fh = filesystem.open(filename,'r')
 
     #Find the size of the file and move to the end
     st_results = filesystem.stat(filename)
     st_size = st_results[6]
-    file.seek(st_size)
+    fh.seek(st_size)
 
     while 1:
-        where = file.tell()
-        line = file.readline()
+        where = fh.tell()
+        line = fh.readline()
         if not line:
             time.sleep(0.1)
-            file.seek(where)
+            fh.seek(where)
         else:
             logFunction(line) # already has newline
 

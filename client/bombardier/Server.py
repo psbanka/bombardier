@@ -1,12 +1,9 @@
-import os, StringIO
-import md5, urlparse, time
-import yaml
-import socket
-import Exceptions
+import os, StringIO, md5, urlparse, time, yaml, socket
 import pycurl
 
-import miniUtility
-from staticData import *
+import bombardier.Exceptions as Exceptions
+import bombardier.miniUtility as miniUtility
+from bombardier.staticData import *
 
 def postServerMessage(content_type, body, url, logger=None):
     """ 

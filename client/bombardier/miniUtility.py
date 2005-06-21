@@ -1,6 +1,6 @@
 import os
 import _winreg as winreg
-from staticData import *
+from bombardier.staticData import *
 
 ### TESTED
 def addDictionaries(dict1, dict2):
@@ -37,7 +37,7 @@ def getSpkgPath():
     keyName = r"Software\GE-IT\Bombardier"
     key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
                          keyName, 0, winreg.KEY_QUERY_VALUE)
-    spkgPath, type = winreg.QueryValueEx(key, "InstallPath")
+    spkgPath, objtype = winreg.QueryValueEx(key, "InstallPath")
     return spkgPath
 
 # NOT WORTH TESTING

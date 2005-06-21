@@ -1,9 +1,8 @@
 #Boa:FramePanel:Panel2
 
 import wx
-import LogThread
-
-import CommSocket
+import bombardier.LogThread as LogThread
+import bombardier.CommSocket as CommSocket
 
 
 [wxID_PANEL2, wxID_PANEL2LOG, 
@@ -42,3 +41,6 @@ class Panel2(wx.Panel):
     def __del__(self):
         self.logCommSocket.sendStop()
         self.logThread.join()
+
+if __name__ == "__init__":
+    pass

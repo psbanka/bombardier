@@ -79,9 +79,9 @@ def pkgGroups():
 def updateStatus():
     errors = 0
     try:
-        import bombardier.bombardier
+        import bombardier.BombardierClass
         logger=Logger()
-        tooLittle, tooMuch = bombardier.bombardier.checkBom(logger) # BROKEN
+        tooLittle, tooMuch = bombardier.BombardierClass.checkBom(logger) # BROKEN
         if tooLittle:
             print "** System does not have packages installed that it should: %s" % tooLittle
             sys.stdout.flush()
@@ -102,9 +102,10 @@ def updateStatus():
 def daemonStatus():
     errors = 0
     try:
-        import bombardier.serviceUtil # BROKEN
+        import bombardier.Windows # BROKEN
+        windows = bombardier.Windows.Windows()
         logger=Logger()
-        bcs = bombardier.serviceUtil.managerStatus(logger)
+        bcs = windows.serviceStatus("bombardierclient", logger)
         if bcs == 0:
             print "Bombardier client is online."
             sys.stdout.flush()
@@ -112,8 +113,8 @@ def daemonStatus():
             print "** Bombardier client is offline."
             sys.stdout.flush()
             errors += 1
-        bas = serviceUtil.managerStatus(logger, "bombardieragent")
-        if bcs == 0:
+        bas = windows.serviceStatus("bombardieragent", logger)
+        if bas == 0:
             print "Bombardier Agent is online."
             sys.stdout.flush()
         else:
@@ -126,11 +127,12 @@ def daemonStatus():
         errors += 2
     return errors
 
-errors = 0
-errors += version()
-errors += repo()
-errors += updateStatus()
-errors += daemonStatus()
-errors += pkgGroups()
-print "===================="
-print "Total problems: %s" % errors
+if __name__ == "__init__":
+    errors = 0
+    errors += version()
+    errors += repo()
+    errors += updateStatus()
+    errors += daemonStatus()
+    errors += pkgGroups()
+    print "===================="
+    print "Total problems: %s" % errors

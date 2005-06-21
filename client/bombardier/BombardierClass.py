@@ -2,10 +2,10 @@
 
 import sets, os, time
 import ConfigParser, string
-import miniUtility
-import Package, yaml
-import Exceptions
-from staticData import *
+import bombardier.miniUtility as miniUtility
+import bombardier.Package as Package
+import bombardier.Exceptions as Exceptions
+from bombardier.staticData import *
 
 class PackageChain:
     def __init__(self, priority, startPackageName, packages,
@@ -558,7 +558,7 @@ class Bombardier:
                 package = Package.Package(pkg, self.repository, self.config,
                                           self.logger, self.filesystem,
                                           self.server, self.windows)
-            except Exceptions.BadPackage, e:
+            except Exceptions.BadPackage:
                 errmsg = "Not testing %s because the server doesn't know about it" % pkg
                 self.logger.warning(errmsg)
                 self.server.serverLog("WARNING", errmsg, pkg)

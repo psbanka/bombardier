@@ -4,12 +4,12 @@ import win32serviceutil, win32service, win32event, pywintypes, servicemanager
 import time
 
 import logging, logging.handlers
-import Config, CommSocket, Logger, ReconcileThread
-import Server, Windows, Filesystem, Repository, Exceptions
-import BombardierClass
-import miniUtility
+import bombardier.Config, bombardier.CommSocket, bombardier.Logger
+import bombardier.ReconcileThread, bombardier.Server, bombardier.Windows
+import bombardier.Filesystem, bombardier.Repository, bombardier.Exceptions
+import bombardier.BombardierClass, bombardier.miniUtility
 
-from staticData import *
+from bombardier.staticData import *
 
 DEBUG = 0
 
@@ -32,7 +32,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
         # fancy rolling logger effectively. We therefore have to see
         # if the log is too big and deal with it periodically. -
         # pbanka
-        logPath = os.path.join(miniUtility.getSpkgPath(), LOG_FILE)
+        logPath = os.path.join(bombardier.miniUtility.getSpkgPath(), LOG_FILE)
         if not self.filesystem.isfile(logPath):
             return
         size = self.filesystem.stat(logPath)[6]
@@ -42,7 +42,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
 
     # TESTED
     def cycleLog(self):
-        spkgPath = miniUtility.getSpkgPath()
+        spkgPath = bombardier.miniUtility.getSpkgPath()
         logPath  = os.path.join(spkgPath, LOG_FILE)
         logFile  = logPath+"."+`LOGS_TO_KEEP`
         if self.filesystem.isfile(logFile):
@@ -63,8 +63,8 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
             return
 
     def __init__(self, args, repository=None, config=None, logger=None, 
-                 filesystem=Filesystem.Filesystem(), server=Server.Server(),
-                 windows=Windows.Windows()):
+                 filesystem=bombardier.Filesystem.Filesystem(), server=bombardier.Server.Server(),
+                 windows=bombardier.Windows.Windows()):
       
         self.repository = repository
         self.server     = server
@@ -79,14 +79,14 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
             if self.checkLogSize() == FAIL:
                 self.cycleLog()
             self.wlog.info("Adding File logging")
-            self.logger = Logger.Logger()
+            self.logger = bombardier.Logger.Logger()
         self.server.filesystem = self.filesystem
         self.server.logger     = self.logger
         if config:
             self.config = config
         else:
-            self.config = Config.Config(self.logger, self.filesystem,
-                                        self.server, self.windows)
+            self.config = bombardier.Config.Config(self.logger, self.filesystem,
+                                                   self.server, self.windows)
         self.logger.info("Bombardier Client Service installing.")
 
         self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
@@ -118,21 +118,23 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 msg = "Cannot run a new reconcileThread because the last one did not return"
                 self.logger.info(msg)
                 return
-        self.commSocketToThread = CommSocket.CommSocket()
-        self.commSocketFromThread = CommSocket.CommSocket()
+        self.commSocketToThread = bombardier.CommSocket.CommSocket()
+        self.commSocketFromThread = bombardier.CommSocket.CommSocket()
         try:
             self.config.freshen()
-        except Exceptions.ServerUnavailable, e:
+        except bombardier.Exceptions.ServerUnavailable, e:
             erstr = "Unable to download configuration "\
                     "( %s ). Aborting operations." % e
             self.logger.warning(erstr)
             return
-        self.reconcileThread = ReconcileThread.ReconcileThread(command,
-                                                               self.commSocketToThread,
-                                                               self.commSocketFromThread,
-                                                               self.logger, self.config,
-                                                               self.server, self.windows,
-                                                               self.b)
+        self.reconcileThread = bombardier.ReconcileThread.ReconcileThread(command,
+                                                                          self.commSocketToThread,
+                                                                          self.commSocketFromThread,
+                                                                          self.logger,
+                                                                          self.config,
+                                                                          self.server,
+                                                                          self.windows,
+                                                                          self.b)
         if command == AUTOMATED:
             self.logger.info("The bombardier user has reached the console...")
             self.reconcileThread.config.automated = True
@@ -199,33 +201,36 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                             (self._svc_name_, ''))
         try:
             self.config.freshen()
-        except Exceptions.ServerUnavailable, e:
+        except bombardier.Exceptions.ServerUnavailable, e:
             erstr = "Unable to download configuration "\
                     "( %s ). Aborting operations." % e
             self.logger.warning(erstr)
             self.cleanup() # probably not a good thing to do.
         if self.repository == None:
             try:
-                self.repository = Repository.Repository(self.config, self.logger,
-                                                        self.filesystem, self.server)
-            except Exceptions.ServerUnavailable, e:
+                self.repository = bombardier.Repository.Repository(self.config,
+                                                                   self.logger,
+                                                                   self.filesystem,
+                                                                   self.server)
+            except bombardier.Exceptions.ServerUnavailable, e:
                 self.logger.error("Unable to connect to the repository %s" % e)
                 # FIXME: this will never get un-screwed up
                 self.repository = None
         # man, this sure looks stupid:
-        self.b = BombardierClass.Bombardier(self.repository,
-                                            self.config,
-                                            self.logger,
-                                            self.filesystem,
-                                            self.server, self.windows)
+        self.b = bombardier.BombardierClass.Bombardier(self.repository,
+                                                       self.config,
+                                                       self.logger,
+                                                       self.filesystem,
+                                                       self.server,
+                                                       self.windows)
 
         while 1:
             try:
                 command = self.windows.ReadPipe(BC_PIPE_NAME, PIPE_READ_TIMEOUT,
                                                 self.waitHandles, self.overlapped.hEvent)
-            except Exceptions.ServiceShutdown:
+            except bombardier.Exceptions.ServiceShutdown:
                 self.cleanup()
-            except Exceptions.PipeNotListenable, e:
+            except bombardier.Exceptions.PipeNotListenable, e:
                 ermsg = "Cannot listen on pipe %s" % e
                 self.wlog(ermsg)
                 self.logger(ermsg)

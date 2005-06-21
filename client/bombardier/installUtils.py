@@ -1,35 +1,37 @@
 #!/cygdrive/c/Python23/python.exe
 
-import os, sys, shutil, string, commands
-#from commonUtil import * 
+import os, sys, shutil, time
+import win32com.client, win32netcon, win32net, pywintypes
 
-import win32com.client
-from time import sleep
+from bombardier.staticData import *
+import bombardier.miniUtility as miniUtility
+import bombardier.Filesystem as Filesystem
+import bombardier.utility as utility
 
-import win32netcon, win32net
-
-def consoleFail( errorString="Failed, error unknown" ):
+def consoleFail( logger, errorString="Failed, error unknown" ):
     logger.error( errorString )
-    consoleSync( FAIL )
+    time.sleep(4)
+    miniUtility.consoleSync( FAIL )
     sys.exit(FAIL)
 
 def restartIIS():
-    system( "iisreset | cd ." )
+    os.system( "iisreset | cd ." )
 
-def showProgress( targetName ):
-
+def showProgress( logger, targetName ):
     logger.info( "# ============================================" )
     logger.info( "Creating " + targetName )
     logger.info( "# ============================================" )
 
-def installService( _svcPath, domain=None, userName=None, password=None ):
+def installService( logger, _svcPath, domain=None, userName=None, password=None ):
+    filesystem = Filesystem.Filesystem()
     cmd = os.path.join(os.environ['windir'], "Microsoft.Net", 
                        "Framework", "v1.1.4322", "Installutil.exe")
     if( userName != None ) and ( password != None ) and ( domain != None ):
         cmd += " /userName=%s\\%s /password=%s" %(domain, userName, password)
     logger.info( "cmd = %s" %(cmd) )
     logger.info( "_svcPath = %s" %(_svcPath)  )
-    system("%s %s" % (cmd, _svcPath), "Unable to install " + _svcPath + " as a service", debug=1)
+    filesystem.execute("%s %s" % (cmd, _svcPath),
+                       "Unable to install " + _svcPath + " as a service", debug=1)
 
 def removeFile( path ):
     if os.path.isfile( path ):
@@ -42,19 +44,16 @@ def copyDirectory( _src, _dest ):
         shutil.copytree(_src, _dest)
     except:
         errString = "error creating " + _dest + " directory" 
-        if logger != None:
-            consoleFail(errString)
-        else:
-            print errString
+        print errString
 
 class SiteCreator:
-    def __init__(self, homeDir, sourceDir, siteIndex, title, ipAddress, port, securePort=None):
-        import win32com.client
+    def __init__(self, logger, homeDir, sourceDir, siteIndex, title, ipAddress, port, securePort=None):
+        self.logger     = logger
         self.homeDir    =  homeDir
         self.sourceDir  =  sourceDir
         self.siteIndex  =  siteIndex
         self.title      =  title
-        self.ipAddress   =  ipAddress
+        self.ipAddress  =  ipAddress
         self.port       =  port
         self.securePort =  securePort
         self.serverBindings = self.ipAddress + ":" + self.port + ":"
@@ -64,17 +63,17 @@ class SiteCreator:
             self.secureBindings = None
 
     def createSite(self):
-        createWebSite(homeDirectory=self.homeDir, sourceFiles=self.sourceDir, 
-                      siteIndex=self.siteIndex, ipAddress=self.ipAddress,
-                      port=65534, title=self.title)
+        utility.createWebSite(homeDirectory=self.homeDir, sourceFiles=self.sourceDir, 
+                              siteIndex=self.siteIndex, ipAddress=self.ipAddress,
+                              port=65534, title=self.title)
         self.setSiteInfo()
     
     def setSiteInfo(self):
         try:
-            logger.info( "---------------------------" )
-            logger.info( "Index : " + self.siteIndex )
-            logger.info( "serverBindings : %s" %( self.serverBindings ) )
-            logger.info( "secureBindings : %s" %( str(self.secureBindings) ) )
+            self.logger.info( "---------------------------" )
+            self.logger.info( "Index : " + self.siteIndex )
+            self.logger.info( "serverBindings : %s" %( self.serverBindings ) )
+            self.logger.info( "secureBindings : %s" %( str(self.secureBindings) ) )
     
             site = win32com.client.GetObject( "IIS://localhost/W3SVC/" + self.siteIndex )
             site.Put( 'ServerBindings', self.serverBindings )
@@ -82,12 +81,10 @@ class SiteCreator:
                 site.Put( 'SecureBindings', self.secureBindings )
             site.SetInfo()
         except:
-            consoleFail( "Could not set site info" )
+            consoleFail( self.logger, "Could not set site info" )
     
 class AspUserAccount:
     def __init__(self, userName, userPass, computerName, logger=None):
-        import sys, os, win32net, win32netcon
-        from os.path import join
         self.userName = userName
         self.userPass = userPass
         self.computerName = computerName
@@ -108,23 +105,25 @@ class AspUserAccount:
             self.logger.warning( errString )
 
     def setNtRights(self):
+        filesystem = Filesystem.Filesystem()
         try:
             resourceKit = os.path.join("C:\\", "Progra~1", "Resour~1")
             ntrights = os.path.join(resourceKit, "ntrights.exe")
-            system("%s /u %s +r SeNetworkLogonRight" % (ntrights, self.userName),
-                   "Unable to set Network Logon rights")
-            system("%s /u %s +r SeBatchLogonRight" % (ntrights, self.userName),
-                   "Unable to set Batch Logon rights")
-            system("%s /u %s +r SeServiceLogonRight" % (ntrights, self.userName),
-                   "Unable to set Service Logon rights")
-            system("%s /u %s +r SeDenyInteractiveLogonRight" % (ntrights, self.userName), 
-                   "Unable to deny interactive logon rights")
+            filesystem.execute("%s /u %s +r SeNetworkLogonRight" % (ntrights, self.userName),
+                               "Unable to set Network Logon rights")
+            filesystem.execute("%s /u %s +r SeBatchLogonRight" % (ntrights, self.userName),
+                               "Unable to set Batch Logon rights")
+            filesystem.execute("%s /u %s +r SeServiceLogonRight" % (ntrights, self.userName),
+                               "Unable to set Service Logon rights")
+            filesystem.execute("%s /u %s +r SeDenyInteractiveLogonRight" % (ntrights, self.userName), 
+                               "Unable to deny interactive logon rights")
         except:
             errString = "Unable to set ntrights for " + \
                         self.computerName + "\\" + self.userName  
-            logger.warning( errString )
+            self.logger.warning( errString )
 
     def setFilePermissions(self):
+        filesystem = Filesystem.Filesystem()
         try:  
             from os.path import join
             # Update NTFS permissions for the aspUser user
@@ -132,24 +131,24 @@ class AspUserAccount:
             tempDir = join(winDir, "temp")
             cacls   = join(winDir, "system32", "cacls.exe")
             frameworkPath = join(winDir, "Microsoft.NET", "Framework", "v1.1.4322")
-            system('%s "%s" /t /e /p %s:f > cacls-spew.txt 2> cacls.txt' 
-                   % (cacls, join(frameworkPath, "Temporary ASP.NET Files"), self.userName),
-                   "can't change permissions")
-            logger.debug( '%s "%s" /t /e /p %s:rwc > cacls-spew.txt 2> cacls.txt'
+            filesystem.execute('%s "%s" /t /e /p %s:f > cacls-spew.txt 2> cacls.txt' 
+                               % (cacls, join(frameworkPath, "Temporary ASP.NET Files"),
+                                  self.userName), "can't change permissions")
+            self.logger.debug( '%s "%s" /t /e /p %s:rwc > cacls-spew.txt 2> cacls.txt'
                           % (cacls, tempDir, self.userName) )
-            system('%s "%s" /t /e /p %s:c > cacls-spew.txt 2> cacls.txt'
-                   % (cacls, tempDir, self.userName), "can't change permissions")
-            system('%s "%s" /t /e /p %s:r > cacls-spew.txt 2> cacls.txt'
-                   % (cacls, join(frameworkPath, "temp"), self.userName),
-                   "can't change permissions")
-            system('%s "%s" /t /e /p %s:r > cacls-spew.txt 2> cacls.txt'
-                   % (cacls, join(os.environ["WINDIR"], "assembly"), self.userName),
-                   "can't change permissions")
+            filesystem.execute('%s "%s" /t /e /p %s:c > cacls-spew.txt 2> cacls.txt'
+                               % (cacls, tempDir, self.userName), "can't change permissions")
+            filesystem.execute('%s "%s" /t /e /p %s:r > cacls-spew.txt 2> cacls.txt'
+                               % (cacls, join(frameworkPath, "temp"), self.userName),
+                               "can't change permissions")
+            filesystem.execute('%s "%s" /t /e /p %s:r > cacls-spew.txt 2> cacls.txt'
+                               % (cacls, join(os.environ["WINDIR"], "assembly"), self.userName),
+                               "can't change permissions")
     
         except:
             errString = "Unable to set permissions for " + \
                         self.computerName + "\\" + self.userName  
-            logger.warning( errString )
+            self.logger.warning( errString )
     
     def create(self):
         
@@ -166,7 +165,7 @@ class AspUserAccount:
             win32net.NetUserAdd( None, 1, d )
         except pywintypes.error, e:
             if e[2] != "The account already exists.":
-                consoleFail( "Unable to create user '%s'. [%s]" % (self.userName, e[2]) )
+                consoleFail( self.logger, "Unable to create user '%s'. [%s]" % (self.userName, e[2]) )
     
         try:
             win32net.NetLocalGroupAddMembers( None, 'administrators', 
@@ -174,32 +173,34 @@ class AspUserAccount:
     
         except pywintypes.error, e:
             if e[2] != "The specified account name is already a member of the local group.":
-                consoleFail( "Unable to assign proper permissions to user '%s'. [%s]" % (self.userName, e[2]) )
+                consoleFail( self.logger,
+                             "Unable to assign proper permissions to user '%s'. [%s]" % (self.userName, e[2]) )
     
 
 class AutoItControl:
-    def __init__(self):
+    def __init__(self, logger):
         self.aut = win32com.client.Dispatch( "AutoItX3.Control.1" )
+        self.logger = logger
 
     def verifyActivate( self, title ):
-        logger.debug( "AutoItControl activating window %s" %(title) )
+        self.logger.debug( "AutoItControl activating window %s" %(title) )
         self.aut.WinActivate( title )
         if not self.aut.WinActive( title ) :
-            consoleFail( "Could not activate " + title )
+            consoleFail( self.logger, "Could not activate " + title )
         return True
     
     def waitVerifyActivate( self, title, text="", delay=30 ):
-        logger.debug( "AutoItControl waiting for window %s" %(title) )
+        self.logger.debug( "AutoItControl waiting for window %s" %(title) )
         if not self.aut.WinWait( title, text, delay ):
-            consoleFail( "Wait failed on "+ title + "\nFailing" )
+            consoleFail( self.logger, "Wait failed on "+ title + "\nFailing" )
         self.verifyActivate( title )
     
 class AutoWizard(AutoItControl):
-    def __init__(self):
-        AutoItControl.__init__(self)
+    def __init__(self, logger):
+        AutoItControl.__init__(self, logger)
 
     def wizWait(self, delay=3):
-        sleep( delay )
+        time.sleep( delay )
     
     def wizNext( self, repeat=1 ):
         if repeat < 1: 
@@ -209,7 +210,7 @@ class AutoWizard(AutoItControl):
             self.wizWait()
     
     def wizCmds(self, cmdList):
-        logger.debug( str(cmdList) )
+        self.logger.debug( str(cmdList) )
         for string in cmdList:
             if string == '':
                 self.wizNext()
@@ -233,11 +234,11 @@ class AutoWizard(AutoItControl):
     
     def openCertificateWizard( self ):
     
-        self.verifyActivate( self.title )
+        #self.verifyActivate( self.title ) # What's this self.title thing?
     
         self.aut.Send("!S")
         if not self.aut.WinWait("Welcome to the Web Server Certificate Wizard.", "", 30):
-           consoleFail( "Could not open Certificate Wizard" )
+           consoleFail( self.logger, "Could not open Certificate Wizard" )
     
     def openDirectorySecurity(self):
         self.aut.Send( "+{TAB}{UP}{RIGHT}" )
@@ -251,7 +252,7 @@ class AutoWizard(AutoItControl):
     def openIISSnapInToWebsiteSelection(self):
         self.aut.Run(r"C:\WINNT\System32\mmc.exe C:\WINNT\System32\Inetsrv\iis.msc")
         self.waitVerifyActivate( "Internet Information Services", "Internet Information Services") 
-        logger.info( "Done waiting for IIS snap in" )
+        self.logger.info( "Done waiting for IIS snap in" )
         self.wizWait()
         self.aut.Send("{DOWN}")
         self.wizWait()
@@ -265,16 +266,16 @@ class AutoWizard(AutoItControl):
     def openCertSnapIn(self):
         self.aut.Run(r"C:\WINNT\System32\mmc.exe ../scripts/LocalMachineCerts.msc")
         if not self.aut.WinWait("LocalMachineCerts", "", 3):
-            consoleFail( "Could not open LocalMachineCerts.msc" )
+            consoleFail( self.logger, "Could not open LocalMachineCerts.msc" )
     
     def openLocalMachinePersonalCerts(self):
         self.aut.Run(r"C:\WINNT\System32\mmc.exe ../scripts/LocalMachinePersonalCerts.msc")
         if not self.aut.WinWait("LocalMachinePersonalCerts", "", 3):
-            consoleFail( "Could not open LocalMachinePersonalCerts.msc" )
+            consoleFail( self.logger, "Could not open LocalMachinePersonalCerts.msc" )
 
 class CertInstaller(AutoWizard):
-    def __init__(self, parameterDictionary ):
-        AutoWizard.__init__(self)
+    def __init__(self, parameterDictionary, logger):
+        AutoWizard.__init__(self, logger)
         self.title = parameterDictionary['title']
         self.commonName = parameterDictionary['commonName']
         self.siteName = parameterDictionary['siteName']
@@ -290,17 +291,16 @@ class CertInstaller(AutoWizard):
         credentials = ""
         if self.caUser and self.caPassword:
             credentials = " --user %s:%s " % (self.caUser, self.caPassword)
-        logger.debug( "curl --insecure %s %s/ca-cert.pem > %s" % (credentials, self.caUrl, self.caCertPath ) )
-        print FAIL, OK
+        self.logger.debug( "curl --insecure %s %s/ca-cert.pem > %s" % (credentials, self.caUrl, self.caCertPath ) )
         status = os.system("curl --insecure %s %s/ca-cert.pem > %s" % (credentials, self.caUrl, self.caCertPath ))
-        logger.debug( status )
+        self.logger.debug( status )
         return status
     
     def installCACert(self):
-        showProgress( "CA Certificate" )
+        showProgress( self.logger, "CA Certificate" )
     
         if self.getCACert() == FAIL:
-            consoleFail( "Could not get CA cert from authority" )
+            consoleFail( self.logger, "Could not get CA cert from authority" )
     
         self.openCertSnapIn()
         self.verifyActivate( "LocalMachineCerts" )
@@ -335,27 +335,27 @@ class CertInstaller(AutoWizard):
         removeFile( self.signedCertPath )
         curlCmd = "curl --insecure "
         if self.caUser and self.caPassword:
-            curlCmd += "%s --user %s:%s " % ( self.caUser, self.caPassword )
+            curlCmd += " --user %s:%s " % ( self.caUser, self.caPassword )
         cmd =  "%s %s/req/new " % ( curlCmd, self.caUrl )
-        logger.debug( cmd )
+        self.logger.debug( cmd )
         output = os.popen( cmd ).read()
         ticketNum = output.split()[-1]
-        logger.debug( "ticketNum = %s" %(`ticketNum`) )
+        self.logger.debug( "ticketNum = %s" %(`ticketNum`) )
         cmd = "%s %s/req/%s/" % ( curlCmd, self.caUrl, ticketNum )
-        logger.debug( cmd )
+        self.logger.debug( cmd )
         status = os.system( cmd )
         if status == FAIL:
-            consoleFail( "Problem submitting ticket number to certificate server" )
+            consoleFail( self.logger, "Problem submitting ticket number to certificate server" )
         cmd = "%s -T%s %s/req/%s/csr" % ( curlCmd, self.certRequestPath, self.caUrl, ticketNum )
-        logger.debug( cmd )
+        self.logger.debug( cmd )
         status = os.system( cmd )
         if status == FAIL:
-            consoleFail( "Unable to PUT our certificate request onto the certificate server" )
+            consoleFail( self.logger, "Unable to PUT our certificate request onto the certificate server" )
         cmd = "%s %s/req/%s/crt > %s" % ( curlCmd, self.caUrl, ticketNum, self.signedCertPath)
-        logger.debug( cmd )
+        self.logger.debug( cmd )
         status = os.system( cmd )
         if status == FAIL:
-            consoleFail( "Unable to get our signed certificate request from the certificate server" )
+            consoleFail( self.logger, "Unable to get our signed certificate request from the certificate server" )
         return OK
         
     def getCertRequestPath( self, commonName ):
@@ -379,7 +379,7 @@ class CertInstaller(AutoWizard):
             self.createPendingCert()
             return
     
-        logger.info( "Creating pending cert" )
+        self.logger.info( "Creating pending cert" )
         self.wizCmds( ['C', '', 'P', '', '!m%s'%self.siteName, '',
                        '!oGE Security!uSupra -- IT', '', 
                        '!c%s'%self.commonName, '',
@@ -387,7 +387,7 @@ class CertInstaller(AutoWizard):
                        '!f%s'%self.certRequestPath, '','',''] )
  
     def deletePendingCert(self):
-        logger.info( "Deleting pending certificate request" )
+        self.logger.info( "Deleting pending certificate request" )
         self.wizCmds( ['!d', '','',''] )
 
 

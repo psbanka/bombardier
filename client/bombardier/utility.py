@@ -1,76 +1,13 @@
 #!/cygdrive/c/Python23/python
 
-import miniUtility
-import os, sys, re, ConfigParser, shutil, time, string
+import os, sys, re, ConfigParser, shutil, string, md5
+
 import _winreg as winreg
-import win32com.client, win32api, win32file
-import win32security
-import pywintypes
-import md5
-import win32pdh
-import win32con, win32net
-import win32netcon
-import RegistryDict
+import win32com.client, win32api, win32file, pywintypes, win32pdh, win32con
 
-import yaml
-
-from staticData import *
-
-DEBUG = 0
-
-class Impersonate:
-    def __init__(self, username, domain, password, logger=None):
-        self.logger = logger
-        if domain:
-                self.domain = domain
-        else:
-                self.domain = ''
-        if not username:
-                self.username = ''
-                self.password = ''
-                return
-        self.username = username
-        if password:
-                self.password = password
-        else:
-                self.password = ''
-
-    def logon(self):
-        # now set the rights
-        AdjustPrivilege(win32con.SE_CHANGE_NOTIFY_NAME)
-        AdjustPrivilege(win32con.SE_TCB_NAME)
-        AdjustPrivilege(win32con.SE_ASSIGNPRIMARYTOKEN_NAME)
-        try:
-            self.handle = win32security.LogonUser(self.username, self.domain,
-                                                  self.password, win32con.LOGON32_LOGON_INTERACTIVE,
-                                                  win32con.LOGON32_PROVIDER_DEFAULT)
-            win32security.ImpersonateLoggedOnUser(self.handle)
-            return OK
-        except pywintypes.error, details:
-            if self.logger:
-                if details[0] == 1314:
-                    self.logger.error("The account this service runs under does "\
-                                      "not have the 'act as part of operating system right'")
-                elif details[0] == 1326:
-                    self.logger.error("Bad password for user '%s'" % self.username)
-                else:
-                    self.logger.error("Unknown error: %s" % details)
-            return FAIL
-        return OK
-    
-    def logoff(self):
-        win32security.RevertToSelf(  ) # terminates impersonation
-        self.handle.Close(  ) # guarantees cleanup
-
-def testCredentials(username, domain, password, logger=None):
-    impersonate = Impersonate(username, domain, password, logger)
-    if impersonate.logon() == OK:
-        status = OK
-        impersonate.logoff()
-    else:
-        status = FAIL
-    return status
-
+import bombardier.miniUtility as miniUtility
+import bombardier.RegistryDict as RegistryDict
+from bombardier.staticData import *
 
 def installFont(fontPath):
     baseName = fontPath.split('\\')[-1]

@@ -1,10 +1,10 @@
 #!/cygdrive/c/Python23/python.exe
 
 import os, tarfile, shutil
-from staticData import *
-import miniUtility
-import MetaData
-import Exceptions
+
+from bombardier.staticData import *
+import bombardier.miniUtility as miniUtility
+import bombardier.MetaData as MetaData
 
 PACKAGE_LIST = "packages.dat"
 

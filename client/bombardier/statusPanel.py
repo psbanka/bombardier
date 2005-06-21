@@ -1,13 +1,13 @@
 #Boa:FramePanel:Panel1
 
 import wx
-
-import bc
-from staticData import *
-
-import StatusThread
 import threading, pywintypes, win32pipe, time
-import CommSocket, Filesystem
+
+from bombardier.staticData import *
+import bombardier.StatusThread as StatusThread
+import bombardier.CommSocket as CommSocket
+import bombardier.Filesystem as Filesystem
+import bombardier.miniUtility as miniUtility
 
 class MessageThread(threading.Thread):
     def __init__(self, commSocket):
@@ -59,10 +59,11 @@ class Panel1(wx.Panel):
         self.sub.SetFont(wx.Font(8, wx.SWISS, wx.NORMAL, wx.BOLD, False,
               u'Microsoft Sans Serif'))
 
-        self.light = wx.StaticBitmap(bitmap=wx.Bitmap(u'D:/dev/bombardier/client/graybar.png',
-              wx.BITMAP_TYPE_PNG), id=wxID_PANEL1LIGHT, name='light',
-              parent=self, pos=wx.Point(16, 32), size=wx.Size(11, 130),
-              style=0)
+        lightPath = os.path.join(miniUtility.getSpkgPath(), OFFLIGHT)
+        self.light = wx.StaticBitmap(bitmap=wx.Bitmap(lightPath, wx.BITMAP_TYPE_PNG),
+                                     id=wxID_PANEL1LIGHT, name='light',
+                                     parent=self, pos=wx.Point(16, 32), size=wx.Size(11, 130),
+                                     style=0)
 
         self.staticText1 = wx.StaticText(id=wxID_PANEL1STATICTEXT1,
               label=u'Overall progress', name='staticText1', parent=self,
@@ -142,7 +143,8 @@ class Panel1(wx.Panel):
         self.stopStatusThread()
         
     def setLightColor(self, color):
-        self.light.SetBitmap(wx.Bitmap(color, wx.BITMAP_TYPE_PNG))
+        filePath = os.path.join(miniUtility.getSpkgPath, color)
+        self.light.SetBitmap(wx.Bitmap(filePath, wx.BITMAP_TYPE_PNG))
 
     def OnStartButton(self, event):
         self.messageCommSocket = CommSocket.CommSocket()

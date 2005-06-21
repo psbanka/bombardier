@@ -1,9 +1,9 @@
-#!/cygdrive/c/Python23/python.exe
+#!/cygdrive/c/Python24/python.exe
 #Boa:App:BoaApp
 
 import wx
 
-import Frame1
+import bombardier.Frame1 as Frame1
 
 modules ={'Frame1': [1, 'Main frame of Application', u'Frame1'],
  u'statusPanel': [0, '', u'wxPanel1.py'],

@@ -1,10 +1,11 @@
 #Boa:Frame:Frame1
 
 import wx
-from statusPanel import Panel1 
-from logPanel import Panel2
+from bombardier.statusPanel import Panel1 
+from bombardier.logPanel import Panel2
 
-from staticData import *
+from bombardier.staticData import *
+import bombardier.miniUtility as miniUtility
  
 def create(parent):
     return Frame1(parent)
@@ -33,8 +34,8 @@ class Frame1(wx.Frame):
               pos=wx.Point(318, 202), size=wx.Size(611, 442),
               style=wx.DEFAULT_FRAME_STYLE, title=u'Bombardier Client')
         self.SetClientSize(wx.Size(603, 415))
-        self.SetIcon(wx.Icon(u'D:/dev/bombardier/client/big-icon.ico',
-              wx.BITMAP_TYPE_ICO))
+        iconPath = os.path.join(miniUtility.getSpkgPath(), 'big-icon.ico')
+        self.SetIcon(wx.Icon(iconPath, wx.BITMAP_TYPE_ICO))
 
         self.notebook1 = wx.Notebook(id=wxID_FRAME1NOTEBOOK1, name='notebook1',
               parent=self, pos=wx.Point(0, 0), size=wx.Size(603, 415), style=0)
@@ -52,11 +53,13 @@ class Frame1(wx.Frame):
     def updateIcon(self, status):
         # update icon based on current state
         if status == OK:
-            self.tbicon.SetIcon(wx.Icon('big-icon.ico', wx.BITMAP_TYPE_ICO), 'Bombardier - OK')
-            self.SetIcon(wx.Icon(u'big-icon.ico', wx.BITMAP_TYPE_ICO))
+            iconPath = os.path.join(miniUtility.getSpkgPath(), 'big-icon.ico')
+            self.tbicon.SetIcon(wx.Icon(iconPath, wx.BITMAP_TYPE_ICO), 'Bombardier - OK')
+            self.SetIcon(wx.Icon(iconPath, wx.BITMAP_TYPE_ICO))
         else:
-            self.tbicon.SetIcon(wx.Icon('error-icon.ico', wx.BITMAP_TYPE_ICO), 'Bombardier - ERROR')
-            self.SetIcon(wx.Icon(u'error-icon.ico', wx.BITMAP_TYPE_ICO))
+            iconPath = os.path.join(miniUtility.getSpkgPath(), 'error-icon.ico')
+            self.tbicon.SetIcon(wx.Icon(iconPath, wx.BITMAP_TYPE_ICO), 'Bombardier - ERROR')
+            self.SetIcon(wx.Icon(iconPath, wx.BITMAP_TYPE_ICO))
 
     def trayIconsInit(self):
         # create tray icon and initialize it        

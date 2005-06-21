@@ -1,10 +1,12 @@
 #!/cygdrive/c/Python24/python.exe
 
-import os, string, yaml, time, gc, datetime
-import miniUtility, ConfigParser, MetaData
-from staticData import *
-import win32api
-import Exceptions
+import os, string, yaml, time, gc, datetime, win32api, ConfigParser
+
+import bombardier.miniUtility as miniUtility
+import bombardier.MetaData as MetaData
+import bombardier.Exceptions as Exceptions
+
+from bombardier.staticData import *
 
 class Package:
 
@@ -123,7 +125,6 @@ class Package:
 
 
     def injector(self):  
-        import Config
         """ Expects a standard package to be extracted in the packages
         directory """
         packagePath = miniUtility.getPackagePath()
@@ -285,7 +286,6 @@ class Package:
         return FAIL
 
     def chdir(self):
-        import Config
         self.cwd = os.getcwd()
         self.filesystem.chdir(os.path.join(miniUtility.getSpkgPath(), PACKAGES))
         if self.fullName:
@@ -499,8 +499,6 @@ class Package:
         # FIXME: REMOVE EVEN IF NOT SAME VERSION
         """ will write its progress status to the
         'install-progress.yml' file.  """
-        import Config
-
         self.filesystem.updateCurrentAction("Finished.", 100)
 
         progressPath = miniUtility.getProgressPath()

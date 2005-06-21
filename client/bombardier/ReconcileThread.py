@@ -1,8 +1,7 @@
 #!/cygdrive/c/Python24/python
-from staticData import *
-import threading
-import sys, traceback, StringIO
-import random
+import threading, sys, traceback, StringIO, random
+
+from bombardier.staticData import *
 
 # ======================== Worker thread
 
@@ -84,8 +83,15 @@ if __name__ == "__main__":
         def rmFileLogging(self):
             pass
 
-    import Config, Windows, Filesystem, Server, CommSocket
-    import Repository, BombardierClass, Exceptions
+    import bombardier.Config as Config
+    import bombardier.Windows as Windows
+    import bombardier.Filesystem as Filesystem
+    import bombardier.Server as Server
+    import bombardier.CommSocket as CommSocket
+    import bombardier.Repository as Repository
+    import bombardier.BombardierClass as BombardierClass
+    import bombardier.Exceptions as Exceptions
+    
     logger = Logger()
     filesystem = Filesystem.Filesystem()
     server = Server.Server(filesystem, logger)

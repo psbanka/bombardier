@@ -2,7 +2,7 @@
 
 import sys, os
 import ConfigParser
-import miniUtility
+import bombardier.miniUtility as miniUtility
 
 
 #^ FIXME: REMOVE!!

@@ -5,10 +5,12 @@ import logging.handlers
 import time
 import win32serviceutil
 import win32service, win32event, pywintypes, servicemanager
-from staticData import *
+from bombardier.staticData import *
 from distutils.core import setup
 
-import Windows, Filesystem, Exceptions
+import bombardier.Windows as Windows
+import bombardier.Filesystem as Filesystem
+import bombardier.Exceptions as Exceptions
 
 SLEEP_INTERVAL = 25
 TIME_TO_CHECK  = 1000
@@ -160,9 +162,7 @@ class BombardierAgent(win32serviceutil.ServiceFramework):
                         self.logger.critical("++++++++++NEED To run rescue.py")
         except Exceptions.ServiceNotFound:
             self.logger.info("BombardierClient not installed. Installing...")
-            status = install(self.logger,
-                             self.filesystem,
-                             self.windows)
+            install(self.logger, self.filesystem, self.windows)
         self.logger.debug("...Setup finishes.")
                     
 if __name__=='__main__':

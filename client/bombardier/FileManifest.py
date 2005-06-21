@@ -1,7 +1,6 @@
-#!/cygdrive/c/Python23/python.exe
+#!/cygdrive/c/Python24/python.exe
 
 import yaml, os
-from os import path
 import md5
 
 class FileManifest:
@@ -16,12 +15,13 @@ class FileManifest:
         self.manifestPath = manifestPath
 
     def createManifest( self ):
-        for dir in os.listdir( self.rootDir ):
-            if dir in self.subDirs:
+        for inode in os.listdir( self.rootDir ):
+            if inode in self.subDirs:
                 tempDictionary = {}
-                fullPath = os.path.join( self.rootDir, dir )
+                fullPath = os.path.join( self.rootDir, inode )
                 if os.path.isdir( fullPath ):
-                    self.manifestDictionary[dir] = self.createPathDictionary( fullPath, tempDictionary )
+                    self.manifestDictionary[inode] = self.createPathDictionary( fullPath,
+                                                                                tempDictionary )
         self.dumpYamlToFile()
 
     def dumpYaml(self):
@@ -35,13 +35,13 @@ class FileManifest:
         fp.close()
         
     def createPathDictionary( self, path, dict ):
-        for file in os.listdir( path ):
-            fullPath = os.path.join( path, file )
+        for inode in os.listdir( path ):
+            fullPath = os.path.join( path, inode )
             relativePath = self.getRelativePath(fullPath)
             if os.path.isdir( fullPath ):
                 self.createPathDictionary( fullPath, dict )
             elif os.path.isfile( fullPath ):
-                if file.split('.')[-1].lower() in self.MD5_EXTENSIONS:
+                if inode.split('.')[-1].lower() in self.MD5_EXTENSIONS:
                     fp = open( fullPath, 'rb' )
                     dict[relativePath] = md5.new( fp.read() ).hexdigest()
                     fp.close()
@@ -69,37 +69,36 @@ class FileManifest:
         self.manifestDictionary = yamlParser.next()
 
     def verifyManifest( self, mappingDict ):
-        d = self.manifestDictionary.keys()
         tupleCheckList = []
         for subdir in self.manifestDictionary.keys():
-            for file in self.manifestDictionary[subdir]:
-               tupleCheckList.append( ( os.path.join( mappingDict[subdir], file ), self.manifestDictionary[subdir][file] ) )
+            for inode in self.manifestDictionary[subdir]:
+               tupleCheckList.append( ( os.path.join( mappingDict[subdir], inode ),
+                                        self.manifestDictionary[subdir][inode] ) )
         errorList = self.verifyFileMd5Tuples( tupleCheckList )
         return( errorList )
 
     def verifyFileMd5Tuples(self, fileMd5TupleList):
         errorList = []
         for fileTuple in fileMd5TupleList:
-            file = fileTuple[0]
+            filepath = fileTuple[0]
             md5sum = fileTuple[1]
-            lastslash = file.rfind( os.sep )+1
-            base = file[0:lastslash]
-            filename = file[lastslash:]
+            lastslash = filepath.rfind( os.sep )+1
+            base = filepath[0:lastslash]
             if not os.path.isdir(base):
                 errString = "missing directory"
-                errorList.append((file, errString))
-            elif not os.path.isfile(file):
+                errorList.append((filepath, errString))
+            elif not os.path.isfile(filepath):
                 errString = "missing file"
-                errorList.append((file, errString))
+                errorList.append((filepath, errString))
             elif md5sum != '':
-                computed = md5.new(open(file, 'rb').read()).hexdigest()
+                computed = md5.new(open(filepath, 'rb').read()).hexdigest()
                 if md5sum != computed:
                     errString = "invalid checksum: Actual: %s Expected %s" % (computed, md5sum)
-                    errorList.append((file, errString))
+                    errorList.append((filepath, errString))
         return errorList
     
-def test():
-    f = FileManifest(os.path.join( os.getcwd(), ".." ) )
+def test(): # probably doesn't work - pbanka
+    f = FileManifest('.', os.path.join( os.getcwd(), ".." ), '.' )
     f.createManifest()
     return f 
 
@@ -111,10 +110,11 @@ def timeTester( func ):
     et = end - start
     print "ET: ", et
     return result
+
 if __name__ == "__main__":
     BUILD_DIR = "/var/_build"
     STR_SUPRANET_1861 = "supranet-1.0-1.1.1861"
-    SUPRANET_1861_SRC = path.join( BUILD_DIR, "code", "supranetBuilds", STR_SUPRANET_1861 )
+    SUPRANET_1861_SRC = os.path.join( BUILD_DIR, "code", "supranetBuilds", STR_SUPRANET_1861 )
     SUPRANET_SUBDIRS = ['KwmCMALeniSync', 'KwmImportSvc', 'KwmProgSvc', 'Site']
     OMSDIRS = [ 'LoginDB', 'OMSMaint', 'OMSTestClient', 'OMSUtils', 'OMS', 'OMSTcp2HTTPS', 'OMSTestSite', 'ReaderDB' ]
     supranetStagingDir = os.path.join( os.getcwd(), "staging", "supranet" ) 
@@ -123,16 +123,12 @@ if __name__ == "__main__":
     f = FileManifest( os.getcwd(), SUPRANET_SUBDIRS, yamlFile )
     f.createManifest()
     mappingDict = {}
-    for dir in SUPRANET_SUBDIRS:
-        mappingDict[dir] = os.path.join( supranetStagingDir, dir )
+    for inode in SUPRANET_SUBDIRS:
+        mappingDict[inode] = os.path.join( supranetStagingDir, inode )
     mappingDict['KwmCMALeniSync']= os.path.join( SUPRANET_1861_SRC, 'KwmCMALeniSync' )
     mappingDict['KwmImportSvc']= os.path.join( SUPRANET_1861_SRC, 'KwmImportSvc' )
    
     print mappingDict
     f.checksumTest( mappingDict )
-#    f.printSelf()
-#
-#    f.rootDir = os.path.join( os.getcwd(), ".." )
-#    f.loadManifest( yamlFile )
-#    f.checksumTest()
+
 

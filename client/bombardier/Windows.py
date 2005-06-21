@@ -3,15 +3,13 @@
 import _winreg as winreg
 import win32net, win32netcon, win32con, win32security, win32service, win32file, winerror
 import pywintypes, win32api, win32serviceutil, servicemanager, win32event, ntsecuritycon
-import win32pipe, win32com.client, pythoncom
-import miniUtility
-import threading, os, time
+import win32pipe, win32com.client, pythoncom, threading, os, time
 
-import Logger
-import RegistryDict
-import Exceptions
-
-from staticData import *
+import bombardier.miniUtility as miniUtility
+import bombardier.Logger as Logger
+import bombardier.RegistryDict as RegistryDict
+import bombardier.Exceptions as Exceptions
+from bombardier.staticData import *
 
 LOGIN_KEY_NAME = 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon'
 DEBUG = 0

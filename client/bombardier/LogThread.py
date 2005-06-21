@@ -1,11 +1,7 @@
-import time
-import os
-import threading
-import Config
+import time, os, threading
 
-import CommSocket
-
-from staticData import *
+import bombardier.miniUtility as miniUtility
+from bombardier.staticData import *
 
 class LogThread(threading.Thread):
     
@@ -15,19 +11,19 @@ class LogThread(threading.Thread):
         self.commSocket = commSocket
         
     def run(self):
-        filename = os.path.join(Config.getSpkgPath(), LOG_FILE)
-        file = open(filename,'r')
+        filename = os.path.join(miniUtility.getSpkgPath(), LOG_FILE)
+        fh = open(filename,'r')
 
         #Find the size of the file and move to the end
         st_results = os.stat(filename)
         st_size = st_results[6]
-        file.seek(st_size)
+        fh.seek(st_size)
         while not self.commSocket.testStop():
-            where = file.tell()
-            line = file.readline()
+            where = fh.tell()
+            line = fh.readline()
             if not line:
                 time.sleep(0.1)
-                file.seek(where)
+                fh.seek(where)
             else:
                 data = line.strip().split('|')
                 if len(data) == 3:

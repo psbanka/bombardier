@@ -1,123 +1,21 @@
 #!/cygdrive/c/Python24/python.exe
-import sys, os, shutil, time
-import win32pipe, pywintypes
+import sys, os, shutil
+
+OK   = 0
+FAIL = 1
+RUNNING       = 1
+NOT_RUNNING   = 2
+PENDING       = 3
+STOPPED       = 4
+spkgPath      = r"c:\spkg"
+tmpPath       = r"c:\spkgtmp"
+BASE_FILE     = "bombardier-0.4"
 
 try:
     import bombardier.Config
     spkgPath = bombardier.Config.getSpkgPath()
 except:
-    spkgPath = "c:\\spkg"
-spkgPath = r"c:\spkg"
-tmpPath    = r"c:\spkgtmp"
-BASE_FILE = "bombardier-0.4"
-
-def OpenSCManager():
-    import win32service
-    hscm = None
-    try:
-        hscm = win32service.OpenSCManager(None, None,
-                                          win32service.SC_MANAGER_ALL_ACCESS)
-    except:
-        pass
-    return hscm
-
-def OpenService(serviceName = "BombardierClient", hscm = None):
-    if hscm == None:
-        hscm = OpenSCManager()
-    if hscm == None:
-        return None
-    serviceHandle = None
-    try:
-        serviceHandle = win32service.OpenService(hscm, serviceName,
-                                                 win32service.SERVICE_ALL_ACCESS)
-    except:
-        pass
-    return serviceHandle
-
-def evalStatus(serviceInfo, logger):
-    svcType, svcState, svcControls, err, svcErr, svcCP, svcWH = serviceInfo
-    if svcState==win32service.SERVICE_STOPPED:
-        ermsg = "The service is stopped"
-        if logger:
-            logger.info(ermsg)
-        else:
-            print ermsg
-        return NOT_RUNNING
-    elif svcState==win32service.SERVICE_START_PENDING:
-        ermsg = "The service is starting"
-        if logger:
-            logger.info(ermsg)
-        else:
-            print ermsg
-        return PENDING
-    elif svcState==win32service.SERVICE_STOP_PENDING:
-        ermsg = "The service is stopping"
-        if logger:
-            logger.info(ermsg)
-        else:
-            print ermsg
-        return NOT_RUNNING
-    elif svcState==win32service.SERVICE_RUNNING:
-        ermsg = "The service is running"
-        if logger:
-            logger.info(ermsg)
-        else:
-            print ermsg
-        return RUNNING
-    return NOT_RUNNING
-
-
-### TESTED
-def serviceStatus(logger, serviceName = "BombardierClient"):
-    hscm          = OpenSCManager()
-    serviceHandle = OpenService(serviceName)
-    if serviceHandle == None:
-        raise Exceptions.ServiceNotFound, serviceName
-    serviceInfo   = win32service.QueryServiceStatus(serviceHandle)
-    win32service.CloseServiceHandle(serviceHandle)
-    win32service.CloseServiceHandle(hscm)
-    status = PENDING
-    timeout = 30
-    while status == PENDING and timeout > 0:
-        time.sleep(1)
-        status = evalStatus(serviceInfo, logger)
-        timeout -= 1
-    if status == RUNNING:
-        return OK
-    return FAIL
-
-def evalStatus(serviceInfo, logger):
-    svcType, svcState, svcControls, err, svcErr, svcCP, svcWH = serviceInfo
-    if svcState==win32service.SERVICE_STOPPED:
-        ermsg = "The service is stopped"
-        if logger:
-            logger.info(ermsg)
-        else:
-            print ermsg
-        return NOT_RUNNING
-    elif svcState==win32service.SERVICE_START_PENDING:
-        ermsg = "The service is starting"
-        if logger:
-            logger.info(ermsg)
-        else:
-            print ermsg
-        return PENDING
-    elif svcState==win32service.SERVICE_STOP_PENDING:
-        ermsg = "The service is stopping"
-        if logger:
-            logger.info(ermsg)
-        else:
-            print ermsg
-        return NOT_RUNNING
-    elif svcState==win32service.SERVICE_RUNNING:
-        ermsg = "The service is running"
-        if logger:
-            logger.info(ermsg)
-        else:
-            print ermsg
-        return RUNNING
-    return NOT_RUNNING
-
+    pass
 
 class Logger:
     def info(self, string):
@@ -166,37 +64,6 @@ class Rescue:
         os.system("net stop bombardieragent")
         self.runSetup()
         self.startService()
-        self.requestClientServiceReinstall()
-        #self.daemonStatus()
-
-    def daemonStatus(self, tries = 100):
-        errors = 0
-        try:
-            while tries:
-                bas = serviceStatus(self.logger, "BombardierAgent")
-                if bas == 0:
-                    self.logger.info( "Bombardier agent is online." )
-                    break
-                else:
-                    self.logger.error( "Bombardier agent is offline." )
-                    time.sleep(1)
-                    tries -= 1
-            if tries == 0:
-                errors += 1
-                tries = 10
-            while tries:
-                bas = serviceStatus(self.logger, "BombardierClient")
-                if bas == 0:
-                    self.logger.info( "Bombardier Client is online." )
-                else:
-                    self.logger.error( "Bombardier Client is offline." )
-                    tries -= 1
-            if tries == 0:
-                errors += 1
-        except:
-            self.logger.error( "unable to determine service status" )
-            errors += 2
-        return errors
 
     def unzip(self):
         infile = BASE_FILE + ".tar.gz"
@@ -286,10 +153,10 @@ class Rescue:
         repository = self.conf.get("repository")
         if not repository:
             try:
-                #import bombardier.Config
+                import bombardier.Config
                 config = bombardier.Config.Config()
                 try:
-                    #import bombardier.Filesystem
+                    import bombardier.Filesystem
                     filesystem = bombardier.Filesystem.Filesystem()
                     repository = config.getRepository(filesystem)["address"]
                 except:
@@ -386,20 +253,6 @@ class Rescue:
         os.system("%s BombardierAgent.py --startup auto update" % pythonExe)
         os.system("%s BombardierAgent.py --interactive update" % pythonExe)
         os.system("%s BombardierAgent.py start" % pythonExe)
-
-    def requestClientServiceReinstall(self):
-        BA_PIPE_NAME      = r"\\.\pipe\BombardierAgent"
-        REINSTALL_CLIENT  = '8'
-        while True:
-            try:
-                print "-- Sending '%s' message to %s\n" % (REINSTALL_CLIENT, BA_PIPE_NAME)
-                win32pipe.CallNamedPipe(BA_PIPE_NAME, REINSTALL_CLIENT, 256, win32pipe.NMPWAIT_WAIT_FOREVER)
-                return OK
-            except pywintypes.error:
-                time.sleep(1)
-                print "--- Waiting for service to listen on %s.\n" % BA_PIPE_NAME
-                continue
-        return FAIL
 
 def usage():
     print "%s: the resourceful bombardier system rescuer" % sys.argv[0]
