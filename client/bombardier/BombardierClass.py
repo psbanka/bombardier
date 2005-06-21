@@ -2,11 +2,8 @@
 
 import sets, os, time
 import ConfigParser, string
-import bombardier.miniUtility as miniUtility
-import bombardier.Package as Package
-import bombardier.Exceptions as Exceptions
-from bombardier.staticData import *
-import bombardier.Logger as Logger
+import miniUtility, Package, Exceptions, Logger
+from staticData import *
 
 class PackageChain:
     def __init__(self, priority, startPackageName, packages,

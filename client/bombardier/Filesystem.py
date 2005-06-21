@@ -2,10 +2,8 @@
 
 import shutil, os, sys, tarfile, gzip, yaml, re, time
 import gc
-import bombardier.Exceptions as Exceptions
-import bombardier.miniUtility as miniUtility
-from bombardier.staticData import *
-import bombardier.Logger as Logger
+import Exceptions, miniUtility, Logger
+from staticData import *
 
 ### TESTED
 def stripVersion(packageFile):

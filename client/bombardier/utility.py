@@ -5,10 +5,8 @@ import os, sys, re, ConfigParser, shutil, string, md5
 import _winreg as winreg
 import win32com.client, win32api, win32file, pywintypes, win32pdh, win32con
 
-import bombardier.miniUtility as miniUtility
-import bombardier.RegistryDict as RegistryDict
-from bombardier.staticData import *
-import bombardier.Logger as Logger
+from staticData import *
+import miniUtility, RegistryDict, Logger
 
 def installFont(fontPath):
     baseName = fontPath.split('\\')[-1]

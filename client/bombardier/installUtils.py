@@ -2,15 +2,13 @@
 
 import os, sys, shutil
 
-import win32com.client, pywintypes
+import win32com.client, pywintypes, win32netcon, win32net
 from time import sleep
-import bombardier.Logger as Logger
-from bombardier.staticData import *
-from bombardier.miniUtility import consoleSync
-import bombardier.Filesystem as Filesystem
-from bombardier.utility import createWebSite
 
-import win32netcon, win32net
+from miniUtility import consoleSync
+from utility import createWebSite
+import Logger, Filesystem
+from bombardier.staticData import *
 
 def consoleFail( errorString="Failed, error unknown" ):
     Logger.error( errorString )

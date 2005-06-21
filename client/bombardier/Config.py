@@ -1,9 +1,8 @@
 #!/cygdrive/c/Python23/python.exe
 
 import ConfigParser, yaml
-from bombardier.staticData import *
-import bombardier.miniUtility as miniUtility
-import bombardier.Logger as Logger
+from staticData import *
+import miniUtility, Logger
 
 def findParentList(data):
     parentList = []

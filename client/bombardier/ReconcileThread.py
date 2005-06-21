@@ -1,8 +1,8 @@
 #!/cygdrive/c/Python24/python
 import threading, sys, traceback, StringIO, random
 
-from bombardier.staticData import *
-import bombardier.Logger as Logger
+from staticData import *
+import Logger
 
 # ======================== Worker thread
 
@@ -69,14 +69,8 @@ if __name__ == "__main__":
     # without using the service. This is useful for debugging an
     # exception that you can't find in the code. - pbanka
 
-    import bombardier.Config as Config
-    import bombardier.Windows as Windows
-    import bombardier.Filesystem as Filesystem
-    import bombardier.Server as Server
-    import bombardier.CommSocket as CommSocket
-    import bombardier.Repository as Repository
-    import bombardier.BombardierClass as BombardierClass
-    import bombardier.Exceptions as Exceptions
+    import Config, Windows, Filesystem, Server, CommSocket
+    import Repository, BombardierClass, Exceptions
     
     filesystem = Filesystem.Filesystem()
     server = Server.Server(filesystem)

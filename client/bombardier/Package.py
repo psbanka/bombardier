@@ -2,12 +2,8 @@
 
 import os, string, yaml, time, gc, datetime, win32api, ConfigParser
 
-import bombardier.miniUtility as miniUtility
-import bombardier.MetaData as MetaData
-import bombardier.Exceptions as Exceptions
-import bombardier.Logger as Logger
-
-from bombardier.staticData import *
+import miniUtility, MetaData, Exceptions, Logger
+from staticData import *
 
 class Package:
 

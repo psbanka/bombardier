@@ -1,6 +1,6 @@
 import os
 import _winreg as winreg
-from bombardier.staticData import *
+from staticData import *
 
 ### TESTED
 def addDictionaries(dict1, dict2):

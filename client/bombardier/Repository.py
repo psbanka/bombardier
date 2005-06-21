@@ -2,10 +2,8 @@
 
 import os, tarfile, shutil
 
-from bombardier.staticData import *
-import bombardier.miniUtility as miniUtility
-import bombardier.MetaData as MetaData
-import bombardier.Logger as Logger
+from staticData import *
+import miniUtility, MetaData, Logger
 
 PACKAGE_LIST = "packages.dat"
 

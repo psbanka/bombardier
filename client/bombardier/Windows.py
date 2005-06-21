@@ -5,10 +5,7 @@ import win32net, win32netcon, win32con, win32security, win32service, win32file, 
 import pywintypes, win32api, win32serviceutil, servicemanager, win32event, ntsecuritycon
 import win32pipe, win32com.client, pythoncom, threading, os, time
 
-import bombardier.miniUtility as miniUtility
-import bombardier.Logger as Logger
-import bombardier.RegistryDict as RegistryDict
-import bombardier.Exceptions as Exceptions
+import miniUtility, Logger, RegistryDict, Exceptions
 from bombardier.staticData import *
 
 LOGIN_KEY_NAME = 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon'

@@ -2,7 +2,7 @@
 
 import logging, sys, os, shutil
 import logging.handlers
-from bombardier.staticData import *
+from staticData import *
 
 def getSpkgPath():
     import _winreg as winreg

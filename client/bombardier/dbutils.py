@@ -2,8 +2,7 @@
 
 import sys, os
 import ConfigParser
-import bombardier.miniUtility as miniUtility
-import bombardier.Logger as Logger
+import miniUtility, Logger
 
 #^ FIXME: REMOVE!!
 sys.path = ["d:\\dev\\dmoweasel"] + sys.path

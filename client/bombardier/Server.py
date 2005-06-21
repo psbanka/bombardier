@@ -1,10 +1,8 @@
 import os, StringIO, md5, urlparse, time, yaml, socket
 import pycurl
 
-import bombardier.Exceptions as Exceptions
-import bombardier.miniUtility as miniUtility
-from bombardier.staticData import *
-import bombardier.Logger as Logger
+import Exceptions, miniUtility, Logger
+from staticData import *
 
 def postServerMessage(content_type, body, url):
     """ 

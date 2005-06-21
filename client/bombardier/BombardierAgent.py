@@ -5,12 +5,10 @@ import logging.handlers
 import time
 import win32serviceutil
 import win32service, win32event, pywintypes, servicemanager
-from bombardier.staticData import *
+from staticData import *
 from distutils.core import setup
 
-import bombardier.Windows as Windows
-import bombardier.Filesystem as Filesystem
-import bombardier.Exceptions as Exceptions
+import Windows, Filesystem, Exceptions
 
 SLEEP_INTERVAL = 25
 TIME_TO_CHECK  = 1000
