@@ -537,7 +537,7 @@ class Windows:
             else:
                 break
         if tries == 0:
-            return False
+            return FAIL
         status = aut.ControlClick(TEST_TITLE, '', 'Button1')
         if status == 1:
             return OK
