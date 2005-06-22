@@ -59,8 +59,11 @@ class PackageChain:
         for depName in self.packages[ self.getActualPkgName( pkgName ) ].dependencies:
             if depName not in self.installedPackageNames: 
                 self.chain.insert( 0, self.getActualPkgName( depName ) )
+            else:
+                continue
             self.syncDependencies( depName, pkgName )
-            self.priority = max( self.packages[self.getActualPkgName( depName )].priority, self.priority )
+            dependency = self.packages.get(self.getActualPkgName( depName ))
+            self.priority = max( dependency.priority, self.priority )
             self.packageChain( depName )
 
     def syncDependencies( self, depName, pkgName ):
