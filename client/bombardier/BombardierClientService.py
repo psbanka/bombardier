@@ -123,7 +123,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
             Logger.info("Time for install/uninstall run")
             self.checkTime = time.time() + CHECK_INTERVAL
             if self.verifyTime == 0:
-                self.verifyTime = time.time + VERIFY_INTERVAL
+                self.verifyTime = time.time() + VERIFY_INTERVAL
             return CHECK
         elif self.verifyTime and time.time() > self.verifyTime:
             if self.config.get('system','runVerify',default='NO').upper() == 'YES':

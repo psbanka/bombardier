@@ -50,6 +50,7 @@ class Windows:
         self.domain = ''
         self.username = ''
         self.password = ''
+        self.testConsoleValue = False
 
     def ShellExecuteSimple(self, runCmd):
         return win32api.ShellExecute(0, "open", runCmd, None, '', 1)
