@@ -32,11 +32,11 @@ def installService(logger, filesystem):
     cmd2     = "%s %s --startup auto update > output.txt" % (pPath, bomPath)
     cmd3     = "%s %s --interactive update > output.txt" %  (pPath, bomPath)
     logger.info("installing client(1): %s" % cmd1)
-    status1 = filesystem.execute(cmd1, logger=logger)
+    status1 = filesystem.execute(cmd1)
     logger.info("installing client(2): %s" % cmd2)
-    status2 = filesystem.execute(cmd2, logger=logger)
+    status2 = filesystem.execute(cmd2)
     logger.info("installing client(3): %s" % cmd3)
-    status3 = filesystem.execute(cmd3, logger=logger)
+    status3 = filesystem.execute(cmd3)
     return status1 and status2 and status3
 
 ## TESTED
@@ -49,7 +49,7 @@ def install(logger, filesystem, windows):
         logger.warning("Unable to install the Bombardier client service")
         return FAIL
     logger.info("Bombardier Management Client installation successful.")
-    status = windows.startService("BombardierClient", logger=logger)
+    status = windows.startService("BombardierClient")
     if status == FAIL:
         return FAIL
     logger.info("Started Bombardier Management Client service.")
@@ -130,7 +130,7 @@ class BombardierAgent(win32serviceutil.ServiceFramework):
                         self.logger.warning("Could not fully stop BombardierClient")
                         break
                 install(self.logger, self.filesystem, self.windows)
-                self.windows.startService(serviceName = "BombardierClient")
+                self.windows.startService("BombardierClient")
         try:
             self.windows.LogMsg(
                 servicemanager.EVENTLOG_INFORMATION_TYPE, 
