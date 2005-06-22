@@ -25,6 +25,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
         self.server     = server
         self.windows    = windows
         self.filesystem = filesystem
+        open("c:\\test.txt", 'a').write(str(dir(self.windows)))
         self.windows.ServiceFrameworkInit(self, args)
         self.server.filesystem = self.filesystem
         if config:
@@ -39,8 +40,8 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
         self.overlapped.hEvent = win32event.CreateEvent(None,0,0,None)
         self.waitHandles = self.hWaitStop, self.overlapped.hEvent
 
-        self.timeToCheck = 1
-        self.initTime = STARTUP_DELAY
+        self.checkTime  = time.time() + STARTUP_DELAY
+        self.verifyTime = 0
 
         self.commSocketToThread   = None
         self.commSocketFromThread = None
@@ -110,26 +111,24 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
 
     ## TESTED (indirectly)
     def heartbeatMessage(self):
-        if DEBUG and self.timeToCheck % SLEEP_INTERVAL == 0:
-            msg = "BombardierClientService will run installation "\
-                  "check in %s seconds" % (self.timeToCheck)
+        if DEBUG:
+            msg = "next installation check: %s seconds" % (self.checkTime - time.time())
+            Logger.debug(msg)
+            msg = "next verification check: %s seconds" % (self.checkTime - time.time())
             Logger.debug(msg)
 
     # CHECK_INTERVAL should ALWAYS be greater then VERIFY_INTERVAL -mhickman
     def checkTimers(self):
-        if self.initTime > 0:
-            self.initTime -= 1
-            if self.initTime == 0:
-                Logger.info("init time is up, runing check")
-                self.timeToCheck = 0
-                return CHECK
-        if self.timeToCheck == CHECK_INTERVAL:
+        if time.time() > self.checkTime:
             Logger.info("Time for install/uninstall run")
-            self.timeToCheck = 1  
+            self.checkTime = time.time() + CHECK_INTERVAL
+            if self.verifyTime == 0:
+                self.verifyTime = time.time + VERIFY_INTERVAL
             return CHECK
-        elif self.timeToCheck % VERIFY_INTERVAL == 0:
+        elif self.verifyTime and time.time() > self.verifyTime:
             if self.config.get('system','runVerify',default='NO').upper() == 'YES':
                 Logger.info("Time for Verification Run")
+                self.verifyTime = time.time() + VERIFY_INTERVAL
                 return VERIFY
         return None
     
@@ -179,7 +178,6 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 self.runBombardier(command)
                 continue
             self.heartbeatMessage()
-            self.timeToCheck += 1
             command = self.checkTimers()
             if command: 
                 if DEBUG:
