@@ -123,16 +123,14 @@ class BombardierAgent(win32serviceutil.ServiceFramework):
                 timeToCheck = TIME_TO_CHECK
             if command:
                 tries = 0
-                while self.windows.evalStatus( "BombardierClient", self.logger ) != STOPPED:
-                    self.windows.stopService(serviceName = "BombardierClient",
-                                             logger=self.logger)
+                while self.windows.evalStatus( "BombardierClient" ) != STOPPED:
+                    self.windows.stopService(serviceName = "BombardierClient")
                     tries += 1
                     if tries > 5:
                         self.logger.warning("Could not fully stop BombardierClient")
                         break
                 install(self.logger, self.filesystem, self.windows)
-                self.windows.startService(serviceName = "BombardierClient",
-                                          logger=self.logger)
+                self.windows.startService(serviceName = "BombardierClient")
         try:
             self.windows.LogMsg(
                 servicemanager.EVENTLOG_INFORMATION_TYPE, 
@@ -145,15 +143,15 @@ class BombardierAgent(win32serviceutil.ServiceFramework):
     ## TESTED
     def activities(self):
         try:
-            if self.windows.serviceStatus("BombardierClient", self.logger) == FAIL:
+            if self.windows.serviceStatus("BombardierClient") == FAIL:
                 ermsg = "Noticed that the BombardietClient service " \
                         "was not running. Restarting it."
                 self.logger.warning(ermsg)
-                status1 = self.windows.startService("BombardierClient", self.logger)
+                status1 = self.windows.startService("BombardierClient")
                 if status1 == FAIL:
                     status2 = install(self.logger, self.filesystem, self.windows)
                     if status2 == OK:
-                        status3 = self.windows.startService("BombardierClient",self.logger)
+                        status3 = self.windows.startService("BombardierClient")
                     if status2 == FAIL or status3 == FAIL:
                         ermsg = "Unable to start BombardierClient."
                         self.logger.critical(ermsg)

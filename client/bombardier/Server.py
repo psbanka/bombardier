@@ -30,7 +30,7 @@ def postServerMessage(content_type, body, url):
     if status >= 200 and status < 300:
         return OK
     else:
-        errstr = "Cannot post because of %s" % res.reason
+        errstr = "Cannot post because of %s to %s" % (res.reason, url)
         Logger.error(errstr)
     return FAIL
 

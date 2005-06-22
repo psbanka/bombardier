@@ -17,12 +17,13 @@ class Repository:
         self.server     = server
         self.filesystem = filesystem
         self.packages   = {}
+        Logger.debug("=======GETTING PACKAGE DATA")
         self.status     = self.getPackageData()
 
     # TESTED
     def getPackageData(self):
         Logger.debug("Downloading package data...")
-        self.packages = self.server.serviceYamlRequest("package", args= {"type":"yaml"})
+        self.packages = self.server.serviceYamlRequest("package", args= {"type":"yaml"}, debug=True)
 
     # TESTED
     def getFullPackageNames(self):

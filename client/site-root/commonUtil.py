@@ -59,7 +59,7 @@ import bombardier.Logger as Logger
 logger = Logger.Logger()
 
 import bombardier.Server
-server = bombardier.Server.Server(filesystem, logger)
+server = bombardier.Server.Server(filesystem)
 serviceRequest = server.serviceRequest
 serviceYamlRequest = server.serviceYamlRequest
 serverLog = server.serverLog
@@ -68,7 +68,7 @@ wgetMultiple = server.wgetMultiple
 nagiosLog = server.nagiosLog
 
 import bombardier.Config as Config
-config = Config.Config(logger, filesystem, server, windows)
+config = Config.Config(filesystem, server, windows)
 try:
     config.freshen()
 except Exceptions.ServerUnavailable, e:

@@ -141,7 +141,7 @@ class Bombardier:
 
     ### WON'T BE TESTED
     def handleConsole(self, package):
-        if not self.windows.testConsole():
+        if self.windows.testConsole() == FAIL:
             self.filesystem.updateCurrentStatus(IDLE, "Rebooting for console")
             erstr = "Logging in for console access "\
                     "for package %s..." % (package.name)
@@ -166,7 +166,7 @@ class Bombardier:
             erstr = "Setting system to auto-login "\
                     "to process the following %s" % `packages.keys()`
             Logger.info(erstr)
-            status = self.windows.autoLogin()
+            status = self.windows.autoLogin(self.config)
             if status == FAIL:
                 self.filesystem.updateCurrentStatus(ERROR,"ERROR: Cannot log in")
                 ermsg = "Cannot continue installation because this "\

@@ -6,7 +6,7 @@ import pywintypes, win32api, win32serviceutil, servicemanager, win32event, ntsec
 import win32pipe, win32com.client, pythoncom, threading, os, time
 
 import miniUtility, Logger, RegistryDict, Exceptions
-from bombardier.staticData import *
+from staticData import *
 
 LOGIN_KEY_NAME = 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon'
 DEBUG = 0
@@ -452,11 +452,10 @@ class Windows:
 
 
     def restartOnLogon(self):
-        import Config
         runKey = self.getRunKey()
         winreg.SetValueEx(runKey, "BombardierRun", 0,
                           winreg.REG_SZ,
-                          Config.getBombardierPath() + " -a")
+                          miniUtility.getBombardierPath() + " -a")
 
     def noRestartOnLogon(self): 
         try:
@@ -539,7 +538,10 @@ class Windows:
         if tries == 0:
             return False
         status = aut.ControlClick(TEST_TITLE, '', 'Button1')
-        return status
+        if status == 1:
+            return OK
+        else:
+            return FAIL
     
     ## From Config
     # NOT TESTABLE

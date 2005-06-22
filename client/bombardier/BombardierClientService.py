@@ -118,18 +118,18 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
     # CHECK_INTERVAL should ALWAYS be greater then VERIFY_INTERVAL -mhickman
     def checkTimers(self):
         if self.initTime > 0:
-          self.initTime -= 1
-          if self.initTime == 0:
-            Logger.info("init time is up, runing check")
-            self.timeToCheck = 0
-            return CHECK
+            self.initTime -= 1
+            if self.initTime == 0:
+                Logger.info("init time is up, runing check")
+                self.timeToCheck = 0
+                return CHECK
         if self.timeToCheck == CHECK_INTERVAL:
             Logger.info("Time for install/uninstall run")
             self.timeToCheck = 1  
             return CHECK
         elif self.timeToCheck % VERIFY_INTERVAL == 0:
-            Logger.info("Time for Verification Run")
             if self.config.get('system','runVerify',default='NO').upper() == 'YES':
+                Logger.info("Time for Verification Run")
                 return VERIFY
         return None
     
@@ -152,8 +152,8 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
         if self.repository == None:
             try:
                 self.repository = Repository.Repository(self.config,
-                                                                   self.filesystem,
-                                                                   self.server)
+                                                        self.filesystem,
+                                                        self.server)
             except Exceptions.ServerUnavailable, e:
                 Logger.error("Unable to connect to the repository %s" % e)
                 # FIXME: this will never get un-screwed up

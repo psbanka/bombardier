@@ -39,9 +39,9 @@ BA_PIPE_NAME      = r"\\.\pipe\BombardierAgent"
 
 PIPE_READ_TIMEOUT = 100
 SLEEP_INTERVAL    = 30
-CHECK_INTERVAL    = 600
-VERIFY_INTERVAL   = 300
-STARTUP_DELAY     = 500
+CHECK_INTERVAL    = 6000
+VERIFY_INTERVAL   = 3000
+STARTUP_DELAY     = 5000
 
 
 
@@ -76,6 +76,7 @@ QFECHECK      = "qfecheck.exe"
 LOG_FILE      = "bombardier.log"
 LOGS_TO_KEEP  = 5
 LOG_MAX_SIZE  = 1000000
+LOG_INTERVAL  = 10
 if sys.platform == "win32":
    WINDIR    = os.environ['windir']
    MSIEXEC   = os.path.join(WINDIR,"SYSTEM32","MSIEXEC.EXE")

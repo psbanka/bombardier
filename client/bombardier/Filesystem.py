@@ -162,7 +162,7 @@ class Filesystem:
                 return FAIL
         return OK
 
-    def clearLock(self, logger = None):
+    def clearLock(self):
         Logger.info("Clearing installation lock.")
         lockPath = os.path.join(miniUtility.getSpkgPath(), INSTALL_LOCK)
         if os.path.isfile(lockPath):
@@ -264,6 +264,7 @@ class Filesystem:
     def watchForTermination(self, sleepTime = 10.0, timeout = 600, abortIfTold=None):
         start = time.time()
         consoleFile = os.path.join(miniUtility.getSpkgPath(),CONSOLE_MONITOR)
+        logTime = 0
         while True:
             if abortIfTold != None:
                 abortIfTold()
@@ -285,7 +286,9 @@ class Filesystem:
                 Logger.error("Invalid status received from log file: %d" % int(data))
                 return FAIL
             left = timeout - elapsedTime
-            Logger.debug("Watching status of console installation (%3.1f)" % left)
+            if time.time() > logTime:
+                Logger.debug("Watching status of console installation (%3.1f)" % left)
+                logTime = time.time( ) + LOG_INTERVAL
             time.sleep(sleepTime)
         return FAIL
 

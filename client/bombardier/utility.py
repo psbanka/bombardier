@@ -187,7 +187,7 @@ def createHostEntry(siteName, ipAddress):
     return status
 
 def createWebSite(homeDirectory, sourceFiles, siteIndex, title,
-                  ipAddress=None, logger=logger, siteName=None, port=80):
+                  ipAddress=None, logger=None, siteName=None, port=80):
         cscript = os.path.join(os.environ['WINDIR'], "SYSTEM32", "cscript.exe")
         ADMINSCRIPTS = os.path.join("C:\\", "Inetpub", "AdminScripts")
         os.system(r'%s %s -a w3svc/1 -v' % (cscript, os.path.join(ADMINSCRIPTS, "startsrv.vbs")))
