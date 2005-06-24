@@ -3,11 +3,10 @@
 import win32serviceutil, win32service, win32event, pywintypes, servicemanager
 import time
 
-import logging, logging.handlers
 import Config, CommSocket
 import ReconcileThread, Server, Windows
 import Filesystem, Repository, Exceptions
-import BombardierClass, miniUtility
+import BombardierClass
 import Logger
 from staticData import *
 
@@ -25,7 +24,6 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
         self.server     = server
         self.windows    = windows
         self.filesystem = filesystem
-        open("c:\\test.txt", 'a').write(str(dir(self.windows)))
         self.windows.ServiceFrameworkInit(self, args)
         self.server.filesystem = self.filesystem
         if config:
@@ -64,22 +62,23 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 msg = "Cannot run a new reconcileThread because the last one did not return"
                 Logger.info(msg)
                 return
-        self.commSocketToThread = CommSocket.CommSocket()
-        self.commSocketFromThread = CommSocket.CommSocket()
         try:
             self.config.freshen()
         except Exceptions.ServerUnavailable, e:
             erstr = "Unable to download configuration "\
                     "( %s ). Aborting operations." % e
             Logger.warning(erstr)
+            self.reconcileThread = None
             return
+        self.commSocketToThread = CommSocket.CommSocket()
+        self.commSocketFromThread = CommSocket.CommSocket()
         self.reconcileThread = ReconcileThread.ReconcileThread(command,
-                                                                          self.commSocketToThread,
-                                                                          self.commSocketFromThread,
-                                                                          self.config,
-                                                                          self.server,
-                                                                          self.windows,
-                                                                          self.b)
+                                                               self.commSocketToThread,
+                                                               self.commSocketFromThread,
+                                                               self.config,
+                                                               self.server,
+                                                               self.windows,
+                                                               self.b)
         if command == AUTOMATED:
             Logger.info("The bombardier user has reached the console...")
             self.reconcileThread.config.automated = True
