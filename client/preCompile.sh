@@ -1,5 +1,5 @@
 #!/bin/bash
-export downloads="http://www.bombardierinstaller.org/downloads"
+export downloads="http://bombardierinstaller.org/downloads"
 
 if [ -e http_proxy.txt ]; then
     echo "using http_proxy.txt to set proxy"
