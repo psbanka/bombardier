@@ -26,7 +26,7 @@ PACKAGES_FILE = os.path.join(webUtil.getDeployPath(), "packages.yml")
 
 def verifyYamlData(data, filename):
     fh = open(filename, 'r')
-    yamldata = yaml.load(fh.read).next()
+    yamldata = yaml.load(fh.read()).next()
     if yamldata == data:
         return OK
     return FAIL
