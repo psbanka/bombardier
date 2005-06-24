@@ -610,7 +610,7 @@ class Bombardier:
         except Exceptions.BadPackage, e:
             logmessage = "Halting: there are packages installed that cannot be removed"
             logmessage += `e`
-            self.cleanup(OK, logmessage)
+            return self.cleanup(OK, logmessage)
         self.abortIfTold()
         Logger.info("Packages to install: %s" % addPackages.keys())
         Logger.info("Packages to remove: %s" % delPackages.keys())

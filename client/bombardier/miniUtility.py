@@ -34,11 +34,17 @@ def runPythonScript(scriptPath):
     return "%s %s" % (pythonCmd, scriptPath)
 
 def getSpkgPath():
+    count = 0
     keyName = r"Software\GE-IT\Bombardier"
-    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
-                         keyName, 0, winreg.KEY_QUERY_VALUE)
-    spkgPath, objtype = winreg.QueryValueEx(key, "InstallPath")
-    return spkgPath
+    while count < 4:
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            keyName, 0, winreg.KEY_QUERY_VALUE)
+        spkgPath, objtype = winreg.QueryValueEx(key, "InstallPath")
+        try:
+            return str(spkgPath)
+        except UnicodeEncodeError:
+            count += 1
+    return str(spkgPath)
 
 # NOT WORTH TESTING
 def getBomPath():
