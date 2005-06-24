@@ -8,6 +8,7 @@ import logging.handlers
 import ConfigParser
 import website
 import webUtil
+import traceback, StringIO
 
 from static import *
 
@@ -177,8 +178,12 @@ class WebSite(resource.Resource):
         data = e.read()
         ermsg = 'Exception in thread: %s' % (sys.exc_type)
         for line in data.split('\n'):
-            ermsg += "\n>>>%s" % line
-        self.errlog.critical("Exception thrown in %s: %s" % (request.path, e))
+            e = StringIO.StringIO()
+            traceback.print_exc(file=e)
+            e.seek(0)
+            data = e.read()
+            for line in data.split('\n'):
+                ermsg += "\n>>>%s" % line
         self.errlog.critical(ermsg)
         
 

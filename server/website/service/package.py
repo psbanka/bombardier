@@ -1,4 +1,4 @@
-#!/usr/bin/python2.2
+#!/usr/bin/python2.3
 
 from website.service import *
 import threading, os, string, shutil, sys
@@ -20,8 +20,50 @@ from static import *
 DBPATCH  = "dbpatch"
 HOTFIX   = "hotfix"
 GENERIC  = "generic"
-PKG_DIR = os.path.join(ROOT_DIR, "deploy")
-PACKAGES_FILE = os.path.join(PKG_DIR, "packages.dat")
+PACKAGES_FILE = os.path.join(webUtil.getDeployPath(), "packages.yml")
+
+
+
+def verifyYamlData(data, filename):
+    fh = open(filename, 'r')
+    yamldata = yaml.load(fh.read).next()
+    if yamldata == data:
+        return OK
+    return FAIL
+
+def lock(filename, errlog):
+    counter = 0
+    lockfile = "%s-lock" % filename
+    while os.path.isfile(lockfile):
+        time.sleep(1)
+        counter += 1
+        if counter > 10:
+            errlog.error("Unable to obtain a lock on %s -- aborting operation to write" % filename)
+            return FAIL
+    fh = open(lockfile, 'w')
+    fh.write('lock')
+    fh.close()
+    return OK
+
+def unlock(filename, errlog):
+    lockfile = "%s-lock" % filename
+    if not os.path.isfile(lockfile):
+        errlog.warning("lock on %s was not set, asking to be removed" % filename)
+        return OK
+    os.unlink(lockfile)
+    return OK
+
+def writeYamlSecurely(data, filename, errlog):
+    if lock(filename, errlog) == FAIL:
+        return FAIL
+    tmpfile = "%s-tmp" % filename
+    fh = open(tmpfile, 'w')
+    fh.write(yaml.dump(data))
+    fh.close()
+    verifyYamlData(data, tmpfile)
+    shutil.move(tmpfile, filename)
+    unlock(filename, errlog)
+    return OK
 
 def findVersion(name):
     files = os.listdir(PKG_DIR)
@@ -80,11 +122,10 @@ class PackageCreationThread(threading.Thread):
         if not os.path.isfile(iniPath):
             self.errors.append("%s file does not exist" % iniPath)
             return FAIL
-        datPath = os.path.join(PKG_DIR, 'packages.dat')
-        if not os.path.isfile(datPath):
-            self.errors.append("packages.dat file does not exist. Please re-create it.")
+        if not os.path.isfile(PACKAGES_FILE):
+            self.errors.append("%s does not exist. Please re-create it." % PACKAGES_FILE)
             return FAIL
-        output = shelve.open(datPath)
+        output = yaml.loadFile(PACKAGES_FILE).next()
         d = {}
         config = ConfigParser.ConfigParser()
         config.read(iniPath)
@@ -104,8 +145,8 @@ class PackageCreationThread(threading.Thread):
         except Exception, e:
             self.errors.append("unable to modify metadata database: %s" % e)
             return FAIL
-        output.close()
-        return OK
+        status = writeYamlSecurely(output, PACKAGES_FILE)
+        return status
 
     def createTarball(self):
         currDir = os.getcwd()
@@ -339,9 +380,15 @@ def get(request, logger, errlog):
     exec("subMenuList = %s.list" % string.join(path[:-1],'.'))
     status, config = webUtil.processOptions(request, errlog, [],
                                             ["hostname", "packagename", "type", "__doc__"])
-    pkgPath = os.path.join(webUtil.getDeployPath(), "packages.dat")
+    if config.get("__doc__"):
+        return doc()
+    if config.get("type") and config["type"].upper() == "YAML":
+        fh = open(PACKAGES_FILE, 'r')
+        output = fh.read()
+        fh.close()
+        return output
     try:
-        pdata = shelve.open(pkgPath)
+        pdata = yaml.loadFile(PACKAGES_FILE).next()
     except:
         errlog.error("package path %s unreadable" % pkgPath)
         return "---\nERROR"
@@ -349,16 +396,6 @@ def get(request, logger, errlog):
     packageNames = pdata.keys()
     packageNames.sort()
     output = string.join(packageNames, '\n')
-    if config.get("__doc__"):
-        return doc()
-    if config.get("type") and config["type"].upper() == "YAML":
-        output = []
-        # can't dump the whole thing, because it just
-        # creates some shelved object thing in the file
-        for key in pdata.keys(): 
-            ymlList = yaml.dump({key:pdata[key]}).split('\n')
-            output += ymlList[1:] # have to clip off the top '---'
-        output = string.join(output, '\n')
     return output
     
 if __name__ == "__main__":
