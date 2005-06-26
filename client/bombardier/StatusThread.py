@@ -1,7 +1,7 @@
 import time
 import threading
 
-from bombardier.staticData import *
+from staticData import *
 
 class StatusThread(threading.Thread):
     

@@ -61,6 +61,11 @@ fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(logging.DEBUG)
 
+def addStdErrLogging():
+    stdErrHandler = logging.StreamHandler(sys.stderr)
+    stdErrHandler.setFormatter(formatter)
+    logger.addHandler(stdErrHandler)
+
 def info(s):
     try:
         logger.info(s)
@@ -144,7 +149,6 @@ class Logger:
         self.stdErrHandler = logging.StreamHandler(sys.stderr)
         self.stdErrHandler.setFormatter(self.formatter)
         self.logger.addHandler(self.stdErrHandler)
-        self.logger.info("Adding logging to standard error")
 
     def rmFileLogging(self):
         if self.fileHandler:

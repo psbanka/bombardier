@@ -78,6 +78,7 @@ class PackageChain:
     def getNewPackage( self, pkgName ):
         newPackage = Package.Package(pkgName, self.repository, self.config, 
                                      self.filesystem, self.server, self.windows) 
+        newPackage.initialize()
         return newPackage
 
 class VirtualPackages:
@@ -414,6 +415,7 @@ class Bombardier:
                 newPackage = Package.Package(packageName, self.repository,
                                              self.config, self.filesystem,
                                              self.server, self.windows)
+                newPackage.initialize()
                 packages[packageName] = newPackage
             except Exceptions.BadPackage, e:
                 errmsg = "Skipping %s" % `e`
@@ -434,10 +436,12 @@ class Bombardier:
             # as a result of being a dependency of another package
             Logger.info("Scheduling package %s for removal because it is "\
                         "not on the bill of materials." % packageName)
-            packages[packageName] = Package.Package(packageName, self.repository,
-                                                    self.config, self.filesystem,
-                                                    self.server, self.windows)
-            packages[packageName].action = UNINSTALL
+            newPackage = Package.Package(packageName, self.repository,
+                                         self.config, self.filesystem,
+                                         self.server, self.windows)
+            newPackage.initialize()
+            newPackage.action = UNINSTALL
+            packages[packageName] = newPackage
         if sets.Set(installedPackageNames) == sets.Set(packages.keys()):
             Logger.info("all packages are being removed.")
             return packages
@@ -454,6 +458,7 @@ class Bombardier:
                     continue # already know that one will be deleted
                 package = Package.Package(packageName, self.repository, self.config, 
                                           self.filesystem, self.server, self.windows)
+                package.initialize()
                 package.action = UNINSTALL
                 for tombstonedPackageName in packages.keys():
                     if vPackages.getVPkgNameFromPkgName( tombstonedPackageName )in package.dependencies:
@@ -551,6 +556,7 @@ class Bombardier:
             try:
                 package = Package.Package(pkg, self.repository, self.config,
                                           self.filesystem, self.server, self.windows)
+                package.initialize()
             except Exceptions.BadPackage:
                 errmsg = "Not testing %s because the server doesn't know about it" % pkg
                 Logger.warning(errmsg)

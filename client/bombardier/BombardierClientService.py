@@ -152,6 +152,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 self.repository = Repository.Repository(self.config,
                                                         self.filesystem,
                                                         self.server)
+                self.repository.getPackageData()
             except Exceptions.ServerUnavailable, e:
                 Logger.error("Unable to connect to the repository %s" % e)
                 # FIXME: this will never get un-screwed up

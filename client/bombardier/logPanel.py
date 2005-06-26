@@ -1,8 +1,8 @@
 #Boa:FramePanel:Panel2
 
 import wx
-import bombardier.LogThread as LogThread
-import bombardier.CommSocket as CommSocket
+import LogThread as LogThread
+import CommSocket as CommSocket
 
 
 [wxID_PANEL2, wxID_PANEL2LOG, 

@@ -38,7 +38,6 @@ class Package:
         self.scriptsDir   = ''
         self.downloaded   = False
         self.filesystem.updateProgressFile({"status": {"package":self.name}})
-        self.initialize()
 
     def invalidate(self):
         erstr = "INVALID PACKAGE: %s" % self.name

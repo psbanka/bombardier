@@ -74,6 +74,7 @@ AUTOIT_V3     = "AutoIt3.exe"
 CURL          = "curl.exe"
 QFECHECK      = "qfecheck.exe"
 LOG_FILE      = "bombardier.log"
+CONFIG_FILE   = "config.yml"
 LOGS_TO_KEEP  = 5
 LOG_MAX_SIZE  = 1000000
 LOG_INTERVAL  = 10

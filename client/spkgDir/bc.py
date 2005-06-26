@@ -9,6 +9,7 @@
 
 import time, os, sys, getopt
 import bombardier, bombardier.Filesystem, bombardier.Windows
+import bombardier.ReconcileThread
 from bombardier.staticData import *
 
 def displayHelp():
@@ -40,10 +41,7 @@ def tail(filename, filesystem, logFunction):
             logFunction(line) # already has newline
 
 if __name__ == "__main__":
-    filesystem = bombardier.Filesystem.Filesystem()
-    windows    = bombardier.Windows.Windows()
     command    = CHECK
-    
     try:
         options,args = getopt.getopt(sys.argv[1:], "avhk?",
                                      ["automated", "verify", "kill", "help"])
@@ -64,8 +62,15 @@ if __name__ == "__main__":
         else:
             print "Unknown Option",opt
 
-    status = windows.sendNpMessage(BC_PIPE_NAME, command, sys.stdout.write)
-
-    if status == OK:
-        filename = os.path.join(bombardier.getSpkgPath(), LOG_FILE)
-        tail(filename, filesystem, sys.stdout.write)
+    configPath = os.path.join(bombardier.getSpkgPath(), CONFIG_FILE)
+    if os.path.isfile(configPath):
+        print "=======Running in stand-alone mode."
+        bombardier.ReconcileThread.runWithoutService()
+    else:
+        print "=======Running in service mode."
+        filesystem = bombardier.Filesystem.Filesystem()
+        windows    = bombardier.Windows.Windows()
+        status = windows.sendNpMessage(BC_PIPE_NAME, command, sys.stdout.write)
+        if status == OK:
+            filename = os.path.join(bombardier.getSpkgPath(), LOG_FILE)
+            tail(filename, filesystem, sys.stdout.write)

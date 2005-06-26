@@ -1,1 +1,1 @@
-root@192.168.0.1:/var/www/deploy
+peter@www.bombardierinstaller.org:/var/www.bombardierinstaller.org/downloads

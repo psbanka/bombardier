@@ -64,10 +64,6 @@ class Config(dict):
         self.makeConfigObject()
         newParents = findParentList(newData)
         self.loadParents(newParents)
-        dumpFile = self.filesystem.open("config.yml", 'w')
-        yaml.dumpToFile(dumpFile, self.data)
-        dumpFile.flush()
-        dumpFile.close()
         return OK
 
     def loadParents(self, newParents):
@@ -76,10 +72,24 @@ class Config(dict):
                 self.parents.append(parentName)
                 self.downloadConfig(parentName)
 
+    def readLocalConfig(self):
+        configPath = os.path.join(miniUtility.getSpkgPath(), CONFIG_FILE)
+        if not os.path.isfile(configPath):
+            return FAIL
+        fh = open(configPath, 'r')
+        try:
+            configData = fh.read()
+            self.data = yaml.load(configData).next()
+        except:
+            return FAIL
+        return OK
+            
     def freshen(self):
         savedData = self.data
         self.data = {}
-        status = self.downloadConfig(self.filesystem.environ["COMPUTERNAME"])
+        status = self.readLocalConfig()
+        if status == FAIL:
+            status = self.downloadConfig(self.filesystem.environ["COMPUTERNAME"])
         if status == FAIL:
             self.data = savedData
             return FAIL

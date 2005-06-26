@@ -3,11 +3,11 @@
 import wx
 import threading, pywintypes, win32pipe, time
 
-from bombardier.staticData import *
-import bombardier.StatusThread as StatusThread
-import bombardier.CommSocket as CommSocket
-import bombardier.Filesystem as Filesystem
-import bombardier.miniUtility as miniUtility
+from staticData import *
+import StatusThread as StatusThread
+import CommSocket as CommSocket
+import Filesystem as Filesystem
+import miniUtility as miniUtility
 
 class MessageThread(threading.Thread):
     def __init__(self, commSocket):

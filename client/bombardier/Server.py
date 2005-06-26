@@ -186,6 +186,9 @@ class Server:
                        putFile=None, timeout=30):
         if self.serverData == None:
             self.getServerData()
+        if type(self.serverData) == type(None):
+            Logger.error("Attempting to connect to an unconfigured server")
+            raise Exceptions.ServerUnavailable, (path, "server not configured")
         base = self.serverData.get("base")
         if base == None:
             base = "website/service/"

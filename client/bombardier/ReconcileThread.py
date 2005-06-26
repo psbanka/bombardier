@@ -62,13 +62,7 @@ class ReconcileThread(threading.Thread):
             return
         self.commSocketToService.sendStop()
 
-        
-if __name__ == "__main__":
-
-    # This is the cheater way to run bombardier on the command line
-    # without using the service. This is useful for debugging an
-    # exception that you can't find in the code. - pbanka
-
+def runWithoutService():
     import Config, Windows, Filesystem, Server, CommSocket
     import Repository, BombardierClass, Exceptions
     
@@ -85,6 +79,10 @@ if __name__ == "__main__":
     cs2 = CommSocket.CommSocket()
 
     repository = Repository.Repository(config, filesystem, server)
+    repository.getPackageData()
     bombardier = BombardierClass.Bombardier(repository, config, filesystem, server, windows)
     reconcileThread = ReconcileThread(CHECK, cs1, cs2, config, server, windows, bombardier)
     reconcileThread.run()
+        
+if __name__ == "__main__":
+    runWithoutService()

@@ -3,7 +3,7 @@
 
 import wx
 
-import bombardier.Frame1 as Frame1
+import Frame1 as Frame1
 
 modules ={'Frame1': [1, 'Main frame of Application', u'Frame1'],
  u'statusPanel': [0, '', u'wxPanel1.py'],

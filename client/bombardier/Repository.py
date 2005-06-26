@@ -18,7 +18,6 @@ class Repository:
         self.filesystem = filesystem
         self.packages   = {}
         Logger.debug("=======GETTING PACKAGE DATA")
-        self.status     = self.getPackageData()
 
     # TESTED
     def getPackageData(self):
@@ -58,11 +57,16 @@ class Repository:
                                               checksumList=checksum, abortIfTold=abortIfTold)
         if status == FAIL:
             return FAIL
+        return self.unpack(pkgPath, fullPackageName, abortIfTold, True)
+
+    # Fixme: .spkg file *May not* be in spkgDir/packages
+    def unpack(self, pkgPath, fullPackageName, abortIfTold, removeSpkg = True):
+        packagePath = miniUtility.getPackagePath()
         if not self.filesystem.isfile(pkgPath+".spkg"):
             erstr = "No package file in %s." % (pkgPath+".spkg")
             Logger.error(erstr)
             return FAIL
-        if self.unzip(fullPackageName, abortIfTold) == FAIL:
+        if self.unzip(pkgPath, fullPackageName, abortIfTold, removeSpkg) == FAIL:
             return FAIL
         tar = self.filesystem.tarOpen(pkgPath+".tar", "r")
         tar.errorlevel = 2
@@ -76,7 +80,6 @@ class Repository:
                 Logger.warning("Error with package %s,%s: "\
                                     "%s" % (fullPackageName, tarinfo.name, e))
         tar.close()
-        packagePath = miniUtility.getPackagePath()
         if not self.filesystem.isdir(os.path.join(packagePath, fullPackageName)):
             Logger.error("Package %s is malformed." % (fullPackageName))
             self.filesystem.chdir(cwd)
@@ -86,8 +89,7 @@ class Repository:
         return OK
 
     # TESTED
-    def unzip(self, fullPackageName, abortIfTold):
-        pkgPath = os.path.join(miniUtility.getPackagePath(), fullPackageName)
+    def unzip(self, pkgPath, fullPackageName, abortIfTold, removeSpkg = True):
         Logger.info("Unzipping %s" % fullPackageName)
         gzipFile = self.filesystem.gzipOpen(pkgPath+".spkg")
         outputFile = self.filesystem.open(pkgPath+".tar", 'wb')
@@ -105,7 +107,8 @@ class Repository:
             outputFile.write(data)
         outputFile.close()
         gzipFile.close()
-        self.filesystem.unlink(pkgPath+".spkg")
+        if removeSpkg:
+            self.filesystem.unlink(pkgPath+".spkg")
         return OK
 
     # TESTED

@@ -1,11 +1,11 @@
 #Boa:Frame:Frame1
 
 import wx
-from bombardier.statusPanel import Panel1 
-from bombardier.logPanel import Panel2
+from statusPanel import Panel1 
+from logPanel import Panel2
 
-from bombardier.staticData import *
-import bombardier.miniUtility as miniUtility
+from staticData import *
+import miniUtility as miniUtility
  
 def create(parent):
     return Frame1(parent)
