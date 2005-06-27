@@ -29,10 +29,6 @@ class Logger:
     def rmFileLogging(self):
         pass
 
-def runPythonScript(scriptPath):
-    pythonCmd = os.path.join(sys.prefix, "python.exe")
-    return "%s %s" % (pythonCmd, scriptPath)
-
 def getSpkgPath():
     count = 0
     keyName = r"Software\GE-IT\Bombardier"

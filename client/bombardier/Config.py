@@ -3,6 +3,13 @@
 import ConfigParser, yaml
 from staticData import *
 import miniUtility, Logger
+import random
+
+def generatePassword():
+    random.seed()
+    characters = [ chr(x) for x in range(33,122) ]
+    password = ''.join([ random.choice(characters) for x in range(0,PASSWORD_LENGTH)])
+    return password
 
 def findParentList(data):
     parentList = []
@@ -93,24 +100,19 @@ class Config(dict):
         if status == FAIL:
             self.data = savedData
             return FAIL
+        self.username = DEFAULT_USER
+        self.password = generatePassword()
+        self.domain   = DEFAULT_DOMAIN
         if self.data.has_key("system"):
-            self.username = self.data["system"].get("serviceuser")
-            if self.username == None:
-                errmsg = "Configuration file has no 'system/username' "\
-                         "value: will not be able to get console access"
-                Logger.error(errmsg)
-                self.password = None
-                self.domain   = None
-            else:
-                self.password = self.data["system"].get("servicepasswd")
-                self.domain   = self.data["system"].get("servicedomain")
-        else:
-            errmsg = "Configuration file has no 'system' value: "\
-                     "will not be able to get console access"
-            Logger.error(errmsg)
-            self.username = None
-            self.password = None
-            self.domain   = None
+            username = self.data["system"].get("serviceuser")
+            if username:
+                self.username = username
+            password = self.data["system"].get("servicepasswd")
+            if password:
+                self.password = password
+            domain = self.data["system"].get("servicedomain")
+            if domain:
+                self.domain = domain
         return OK
 
     def makeConfigObject(self):

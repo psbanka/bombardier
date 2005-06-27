@@ -7,6 +7,12 @@ import os, sys
 VERSION       = "0.4-pre1"
 TEST_RELEASE  = False
 
+HEADER_TEXT   = """Bombardier-%s, Copyright (C) 2005 Peter Banka et. al \n
+Bombardier comes with ABSOLUTELY NO WARRANTY; This is free software,
+and you are welcome to redistribute it under the terms of the GNU
+General Public license version 2.""" % VERSION
+
+
 STRUCTURE     = 1
 DATA          = 2
 
@@ -115,8 +121,8 @@ SECURITY_PARANOID      = 100
 SCRATCH_DIR            = "scratch"
 BOMBARDIER_CLIENT_FILE = "BombardierClientService.py"
 
-DEFAULT_USER           = "drillbit"
-DEFAULT_PASSWORD       = "kedroiojeif8383"
+DEFAULT_USER           = "bombardier"
+PASSWORD_LENGTH        = 10
 DEFAULT_DOMAIN         = "."
 
 # ================================================== SYSTEM INFORMATION

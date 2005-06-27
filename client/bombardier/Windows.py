@@ -6,6 +6,8 @@ import pywintypes, win32api, win32serviceutil, servicemanager, win32event, ntsec
 import win32pipe, win32com.client, pythoncom, threading, os, time
 
 import miniUtility, Logger, RegistryDict, Exceptions
+from win32process import CreateProcess, NORMAL_PRIORITY_CLASS, STARTUPINFO
+
 from staticData import *
 
 LOGIN_KEY_NAME = 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon'
@@ -41,6 +43,10 @@ def findInitialKey(path):
         path = "\\".join(path.split("\\")[1:]) # pull the first one off
     return initialKey, path
 
+
+
+    
+
 class Windows:
 
     """This is another abstraction class to wrap all activities which
@@ -54,6 +60,26 @@ class Windows:
 
     def ShellExecuteSimple(self, runCmd):
         return win32api.ShellExecute(0, "open", runCmd, None, '', 1)
+
+
+    def spawnReturnId( self, cmd ):
+        procTuple = CreateProcess( None, cmd, None, None, 0, 
+                                   NORMAL_PRIORITY_CLASS, os.environ, None, STARTUPINFO() )
+        return procTuple
+
+    def runProcess( self, workingDirectory, cmd ):
+        fullCommand = 'cmd /c %s: && cd "%s" && %s' %( workingDirectory[0], workingDirectory, cmd )
+        print fullCommand
+        return spawnReturnId( fullCommand )
+
+    def runPython( self, file, workingDirectory=os.getcwd() ):
+        pythonCmd = os.path.join(sys.prefix, "python.exe")
+        fullCmd = '%s "%s"' % (pythonCmd, file)
+        return runProcess(workingDirectory, fullCmd)
+
+    def runCmd( self, file, workingDirectory=os.getcwd() ):
+        fullCmd = '"%s"' % file
+        return runProcess(workingDirectory, fullCmd)
 
     def OpenSCManager(self):
         hscm = None

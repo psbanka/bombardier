@@ -1,1 +1,1 @@
-peter@www.bombardierinstaller.org:/var/www.bombardierinstaller.org/downloads
+peter@www.bombardierinstaller.org:/var/lib/bombardier/deploy

@@ -5,6 +5,7 @@ import os, string, yaml, time, gc, datetime, win32api, ConfigParser
 import miniUtility, MetaData, Exceptions, Logger
 from staticData import *
 
+
 class Package:
 
     """This class provides an abstraction for a downloadable,
@@ -212,10 +213,12 @@ class Package:
         if self.console and action== INSTALL:
             abortIfTold()
             self.filesystem.beginConsole()
-            pythonCmd = miniUtility.runPythonScript("")
-            program = 'win32api.ShellExecute(0, "open", %s, %s, %s, 1)' % (pythonCmd, fullCmd, self.workingDir)
-            Logger.info("running: %s" % program)
-            win32api.ShellExecute(0, "open", pythonCmd, fullCmd, self.workingDir, 1)
+            if fullCmd.endswith(".py"):
+                self.windows.runPython( fullCmd, self.workingDir )
+            elif fullCmd.endswith(".bat"):
+                self.windows.runCmd( fullCmd, self.workingDir )
+            else: # crutch for running perl until we decide on a permanent location
+                win32api.ShellExecute(0, "open", "perl.exe", fullCmd, self.workingDir, 1)
             status = self.filesystem.watchForTermination(sleepTime=1, abortIfTold=abortIfTold)
         else:
             if packageList: # don't know how to do this with shellExecute

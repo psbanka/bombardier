@@ -1,11 +1,21 @@
 #!/cygdrive/c/Python24/python.exe
+# spkg.py: command-line installer of bombardier packages
+# Copyright (C) 2005  Peter Banka
 
-# This is the new command-line client. It will tell the bombardier
-# service that either (1) there is a user who would like the system to
-# be reconciled, or (2) it will signal to the BombardierClientAgent
-# that the system has come online from being logged into under its own
-# direction. It can now also (3) verify the system, and soon (4) abort
-# a current installation
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 
 import os, sys, getopt, re
 from bombardier.staticData import *
@@ -26,7 +36,8 @@ config.freshen()
 repository = Repository.Repository(config, filesystem, server)
 
 def displayHelp():
-    print """
+    print """%s
+    
 spkg.py [-i|-v|-u|-?] [package-name]
 
   -i|--install    - Install the named package.
@@ -35,7 +46,7 @@ spkg.py [-i|-v|-u|-?] [package-name]
   -?|-h|--help    - Prints this screen.
 
   [package-name]  - the name of a bombardier package file (.spkg)
-"""
+""" % HEADER_TEXT
 
 class BadPackageName(Exception):
     pass
@@ -67,11 +78,17 @@ class PkgProcessor:
 
     def install(self):
         self.package.action = INSTALL
-        return self.package.process(abortIfTold)
-
+        status = self.package.process(abortIfTold)
+        if status == REBOOT:
+            print "!! You should reboot now."
+        return status
+    
     def uninstall(self):
         self.package.action = UNINSTALL
-        return self.package.uninstall(abortIfTold)
+        status = self.package.uninstall(abortIfTold)
+        if status == REBOOT:
+            print "!! You should reboot now."
+        return status
 
     def verify(self):
         self.package.action = INSTALL
@@ -80,7 +97,10 @@ class PkgProcessor:
 def install(spkg, packageName):
     pkgProcessor = PkgProcessor(spkg, packageName)
     if pkgProcessor.status == OK:
-        sys.exit(pkgProcessor.install())
+        status = pkgProcessor.install()
+        if status == REBOOT:
+            print "!! You should reboot before installing more packages"
+        sys.exit(reboot)
 
 def uninstall(spkg, packageName):
     pkgProcessor = PkgProcessor(spkg, packageName)

@@ -9,14 +9,18 @@ GO   = "GO"
 class CommSocket:
 
     def __init__(self):
-        port = random.randint(1024,65535)
-        self.sockObj = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.address = (IP, port)
-        try:
-            self.sockObj.bind(self.address)
-            self.sockObj.setblocking(False)
-        except socket.error:
-            print "cannot bind to %s" % self.address
+        tries = 0
+        while tries < 4:
+            port = random.randint(1024,65535)
+            self.sockObj = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.address = (IP, port)
+            try:
+                self.sockObj.bind(self.address)
+                self.sockObj.setblocking(False)
+                break
+            except socket.error:
+                print "cannot bind to %s" % str(self.address)
+                tries += 1
 
     def sendMessage(self, message):
         tmpsockObj = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
