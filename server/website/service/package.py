@@ -20,61 +20,8 @@ from static import *
 DBPATCH  = "dbpatch"
 HOTFIX   = "hotfix"
 GENERIC  = "generic"
+PKG_DIR  = webUtil.getDeployPath() 
 PACKAGES_FILE = os.path.join(webUtil.getDeployPath(), "packages.yml")
-
-
-
-def verifyYamlData(data, filename):
-    fh = open(filename, 'r')
-    yamldata = yaml.load(fh.read()).next()
-    if yamldata == data:
-        return OK
-    return FAIL
-
-def lock(filename, errlog):
-    counter = 0
-    lockfile = "%s-lock" % filename
-    while os.path.isfile(lockfile):
-        time.sleep(1)
-        counter += 1
-        if counter > 10:
-            errlog.error("Unable to obtain a lock on %s -- aborting operation to write" % filename)
-            return FAIL
-    fh = open(lockfile, 'w')
-    fh.write('lock')
-    fh.close()
-    return OK
-
-def unlock(filename, errlog):
-    lockfile = "%s-lock" % filename
-    if not os.path.isfile(lockfile):
-        errlog.warning("lock on %s was not set, asking to be removed" % filename)
-        return OK
-    os.unlink(lockfile)
-    return OK
-
-def writeYamlSecurely(data, filename, errlog):
-    if lock(filename, errlog) == FAIL:
-        return FAIL
-    tmpfile = "%s-tmp" % filename
-    fh = open(tmpfile, 'w')
-    fh.write(yaml.dump(data))
-    fh.close()
-    verifyYamlData(data, tmpfile)
-    shutil.move(tmpfile, filename)
-    unlock(filename, errlog)
-    return OK
-
-def findVersion(name):
-    files = os.listdir(PKG_DIR)
-    maxVersion = 1
-    for file in files:
-        if file.endswith(".spkg"):
-            if file.startswith(name):
-                version = int(file.split('-')[-1][:-5])
-                if version > maxVersion:
-                    maxVersion = version
-    return `maxVersion+1`
 
 class PackageCreationThread(threading.Thread):
 
@@ -87,7 +34,7 @@ class PackageCreationThread(threading.Thread):
             self.installScript = packageName
         else:
             self.installScript = installScript
-        self.version = findVersion(self.name)
+        self.version = self.findVersion()
         if releaseInfo:
             self.name = "%s-%s" % (packageName, releaseInfo)
         else:
@@ -145,7 +92,7 @@ class PackageCreationThread(threading.Thread):
         except Exception, e:
             self.errors.append("unable to modify metadata database: %s" % e)
             return FAIL
-        status = writeYamlSecurely(output, PACKAGES_FILE)
+        status = self.writeYamlSecurely(output, PACKAGES_FILE)
         return status
 
     def createTarball(self):
@@ -261,6 +208,59 @@ class PackageCreationThread(threading.Thread):
             return
         self.cleanup()
         self.sendWrapup(OK)
+
+    def verifyYamlData(self, data, filename):
+        fh = open(filename, 'r')
+        yamldata = yaml.load(fh.read()).next()
+        if yamldata == data:
+            return OK
+        return FAIL
+
+    def lock(self, filename):
+        counter = 0
+        lockfile = "%s-lock" % filename
+        while os.path.isfile(lockfile):
+            time.sleep(1)
+            counter += 1
+            if counter > 10:
+                self.errlog.error("Unable to obtain a lock on %s -- aborting operation to write" % filename)
+                return FAIL
+        fh = open(lockfile, 'w')
+        fh.write('lock')
+        fh.close()
+        return OK
+
+    def unlock(self, filename):
+        lockfile = "%s-lock" % filename
+        if not os.path.isfile(lockfile):
+            self.errlog.warning("lock on %s was not set, asking to be removed" % filename)
+            return OK
+        os.unlink(lockfile)
+        return OK
+
+    def writeYamlSecurely(self, data, filename):
+        if self.lock(filename) == FAIL:
+            return FAIL
+        tmpfile = "%s-tmp" % filename
+        fh = open(tmpfile, 'w')
+        fh.write(yaml.dump(data))
+        fh.close()
+        self.verifyYamlData(data, tmpfile)
+        shutil.move(tmpfile, filename)
+        self.unlock(filename)
+        return OK
+
+    def findVersion(self):
+        files = os.listdir(PKG_DIR)
+        maxVersion = 1
+        for file in files:
+            if file.endswith(".spkg"):
+                if file.startswith(self.name):
+                    version = int(file.split('-')[-1][:-5])
+                    if version > maxVersion:
+                        maxVersion = version
+        return `maxVersion+1`
+
 
 class DbPatchCreationThread(PackageCreationThread):
     def __init__(self, request, errlog, dbname, version, dependency):
