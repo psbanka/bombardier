@@ -1,6 +1,139 @@
-import os
+import os, Filesystem, re
 import _winreg as winreg
 from staticData import *
+
+# TESTED
+def quadToInt(quadString):
+    quadIndex = 3
+    integer = 0L
+    for octet in quadString.split('.'):
+        integer += (long(octet) << (quadIndex * 8))
+        quadIndex -= 1
+    return integer
+
+# TESTED
+def computeNet(address, snm):
+    if type(address) == type("string"):
+        address = quadToInt(address)
+    if type(snm) == type("string"):
+        snm = quadToInt(snm)
+    network = address & snm
+    return network
+
+# TESTED
+def convertToSlashNotation(quad):
+    bits = 0
+    quads = quad.split('.')
+    if len(quads) != 4: return 0
+    for i in quad.split('.'):
+        if int(i) < 0 or int(i) > 255:
+            return 0
+        for j in range(0,8):
+            if int(i) == 256-(2**j):
+                bits += (8-j)
+                break
+    return bits
+
+# TESTED
+def convertFromSlashNotation(bits):
+    if bits == 0: return 0L
+    output = 0L
+    for i in range(0,31):
+        if bits:
+            output += 1
+            bits -= 1
+        output = output << 1
+    return output
+
+# TESTED
+def convertSlashToNetwork(network):
+    try:
+        address  = network.split('/')[0]
+        maskBits = network.split('/')[1]
+    except IndexError:
+        print "BAD DATA: %s" % network
+        print network.split('/')
+        return convertFromSlashNotation(32)
+    snm = convertFromSlashNotation(int(maskBits))
+    networkInt = computeNet(address, snm)
+    return networkInt
+
+# TESTED
+def getNetworkList(networkDict):
+    addressSet = networkDict["address"]
+    networks = []
+    for network in addressSet:
+        networkInt = convertSlashToNetwork(network)
+        networks.append(networkInt)
+    return networks
+
+
+def ipConfig():
+    cmd="%s > output.txt" % os.path.join(os.environ["WINDIR"], "system32", "ipconfig.exe")
+    os.system(cmd)
+    pattern1 = ".*IP Address[\.\s]+\:\s(\S+)"
+    pattern2 = ".*Subnet Mask[\.\s]+\:\s(\S+)"
+    addresses = []
+    snms      = []
+    fh = open("output.txt", 'r')
+    for line in fh.readlines():
+        m1 = re.match(pattern1, line)
+        m2 = re.match(pattern2, line)
+        if m1:
+            addresses.append(m1.groups()[0])
+        elif m2:
+            snms.append(m2.groups()[0])
+    addressSet = set([])
+    if len(snms) != len(addresses):
+        return addressSet
+    for i in range(0, len(addresses)):
+        bits = convertToSlashNotation(snms[i])
+        addressSet.union_update(["%s/%d" % (addresses[i], bits)])
+    return addressSet
+
+def getMatchStringList( patternStr, fileName ):
+    filesystem = Filesystem.Filesystem()
+    pat    = re.compile( patternStr )
+    lines  = filesystem.getAllFromFile(patternStr, fileName)
+    retSet = set([])
+    if not lines:
+        return retSet
+    for line in lines:
+        m = re.match( pat, line )
+        if m:
+            retSet.union_update( m.groups() )
+    return( retSet ) 
+
+# TESTED
+def getIpAddress():
+    retVal = {'dhcp': set(), 'address': set(), 'snm': set(),
+              'defgw': set(), 'dns': set(), 'wins': set()  }
+    ipdataList = [ "ipdata1.txt", "ipdata2.txt", "ipdata3.txt"]
+    netsh = os.path.join(os.environ["WINDIR"], "system32", "netsh.exe")
+    cmd = '%s interface ip show address '\
+          '"Local Area Connection" > %s' % (netsh, ipdataList[0])
+    os.system(cmd)
+    retVal['snm']     = getMatchStringList( ".*SubnetMask\:\s*(\S+)",
+                                            ipdataList[0] )    
+    retVal['dhcp']    = getMatchStringList( ".*DHCP enabled\:\s*(\S+)",
+                                            ipdataList[0] )
+    retVal['defgw']   = getMatchStringList( ".*Default Gateway\:\s*(\S+)",
+                                            ipdataList[0] )
+    retVal['address'] = ipConfig()
+
+    cmd = '%s interface ip show dns '\
+          '"Local Area Connection" > %s' % (netsh, ipdataList[1])
+    os.system(cmd)
+
+    retVal['dns'] = getMatchStringList( ".*DNS Servers\:\s*(\S+)",
+                                        ipdataList[1] )
+
+    cmd = '%s interface ip show wins '\
+          '"Local Area Connection" > %s' % (netsh, ipdataList[2])
+    os.system(cmd)
+    retVal['wins'] = getMatchStringList( ".*WINS Servers\:\s*(\S+)",
+                                         ipdataList[2] )
+    return( retVal )
 
 ### TESTED
 def addDictionaries(dict1, dict2):
