@@ -44,7 +44,7 @@ Root: HKLM; Subkey: Software\GE-IT\Bombardier; Flags: uninsdeletekey
 Root: HKLM; Subkey: Software\GE-IT\Bombardier; ValueType: string; ValueName: InstallPath; ValueData: {app}
 
 [Run]
-Filename: {win}\SYSTEM32\msiexec.exe; Parameters: /Ipython-2.4.1.msi /QN; WorkingDir: {app}\dependencies; StatusMsg: Installing Python, please wait...; Flags: postinstall; Description: Install Python
+Filename: {win}\SYSTEM32\msiexec.exe; Parameters: /Ipython-2.4.1.msi ALLUSERS=1 /QN; WorkingDir: {app}\dependencies; StatusMsg: Installing Python, please wait...; Flags: postinstall; Description: Install Python
 ;Filename: {reg:HKLM\Software\Python\PythonCore\2.3\InstallPath,(Default)|C:\Python23}\pythonw.exe; WorkingDir: {reg:HKLM\Software\Python\PythonCore\2.3\InstallPath,(Default)|C:\Python23}\Lib\site-packages\win32com\client; Flags: runhidden postinstall; Description: Register Windows COM services; StatusMsg: Registering Windows COM services; Parameters: "makepy.py ""COM + 1.0 Admin Type Library"""
 Filename: {reg:HKLM\Software\Python\PythonCore\2.4\InstallPath,(Default)|C:\Python24}\python.exe; WorkingDir: {app}\scratch; Flags: postinstall shellexec; Description: Install Python modules; StatusMsg: Installing Bombardier Python Modules; Parameters: rescue.py -g
 
