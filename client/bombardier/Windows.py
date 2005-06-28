@@ -70,16 +70,16 @@ class Windows:
     def runProcess( self, workingDirectory, cmd ):
         fullCommand = 'cmd /c %s: && cd "%s" && %s' %( workingDirectory[0], workingDirectory, cmd )
         print fullCommand
-        return spawnReturnId( fullCommand )
+        return self.spawnReturnId( fullCommand )
 
     def runPython( self, file, workingDirectory=os.getcwd() ):
         pythonCmd = os.path.join(sys.prefix, "python.exe")
         fullCmd = '%s "%s"' % (pythonCmd, file)
-        return runProcess(workingDirectory, fullCmd)
+        return self.runProcess(workingDirectory, fullCmd)
 
     def runCmd( self, file, workingDirectory=os.getcwd() ):
         fullCmd = '"%s"' % file
-        return runProcess(workingDirectory, fullCmd)
+        return self.runProcess(workingDirectory, fullCmd)
 
     def OpenSCManager(self):
         hscm = None
@@ -384,7 +384,7 @@ class Windows:
                                              3, [{"domainandname":username}])
         except pywintypes.error, e:
             if e[2] != 'The specified account name is already a member of the local group.':
-                Logger.error("Unable to assign proper permissions to user %s [%s]", (username, e[2]))
+                Logger.error("Unable to assign proper permissions to user %s [%s]" % (username, e[2]))
                 return FAIL
         return OK
 
