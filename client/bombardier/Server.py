@@ -272,7 +272,7 @@ class Server:
                 status, ccsum = computeMd5(filename, checksum)
                 if status == FAIL:
                     retries -= 1
-                    ermsg = "Downloaded file %s has an invalid"\
+                    ermsg = "Downloaded file %s has an invalid "\
                             "checksum (%s != %s)" % (filename, ccsum, checksum)
                     Logger.warning(ermsg)
                     continue

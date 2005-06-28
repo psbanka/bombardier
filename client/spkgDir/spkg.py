@@ -100,7 +100,7 @@ def install(spkg, packageName):
         status = pkgProcessor.install()
         if status == REBOOT:
             print "!! You should reboot before installing more packages"
-        sys.exit(reboot)
+        sys.exit(REBOOT)
 
 def uninstall(spkg, packageName):
     pkgProcessor = PkgProcessor(spkg, packageName)

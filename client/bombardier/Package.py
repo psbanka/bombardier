@@ -263,7 +263,7 @@ class Package:
             if self.autoReboot:
                 Logger.info("This is an auto-reboot package. "\
                                  "Assuming package installs successfully.")
-                self.config.autoLogin()
+                self.windows.autoLogin(self.config)
                 self.windows.restartOnLogon()
                 self.writeProgress()
             installResult = self.install(packageList, abortIfTold)
