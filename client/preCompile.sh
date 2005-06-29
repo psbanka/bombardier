@@ -1,5 +1,10 @@
 #!/bin/bash
-export downloads="http://bombardierinstaller.org/downloads"
+DOWNLOADS="http://bombardierinstaller.org/downloads"
+PYTHON_24=python-2.4.1
+PY_CURL=pycurl-ssl-zlib-7.14.0.win32-py2.4
+PY_YAML=pyyaml-46
+PY_WIN32=pywin32-204.win32-py2.4
+WX_PYTHON=wxPython2.6-win32-unicode-2.6.0.0-py24
 
 if [ -e http_proxy.txt ]; then
     echo "using http_proxy.txt to set proxy"
@@ -11,52 +16,52 @@ rm -rf release/bombardier-0.4 || cd .
 mkdir release/bombardier-0.4
 cd release/bombardier-0.4
 
-if [ -e ../python-2.4.1.msi ]; then
-    echo "python-2.4.1 has already been downloaded (skipping download)"
+if [ -e ../$PYTHON_24.msi ]; then
+    echo "$PYTHON_24 has already been downloaded (skipping download)"
 else
-    echo "downloading python-2.4.1..." 
-    curl $downloads/python-2.4.1.msi > ../python-2.4.1.msi
+    echo "downloading $PYTHON_24..." 
+    curl $DOWNLOADS/$PYTHON_24.msi > ../$PYTHON_24.msi
 fi
 
-mkdir pycurl-ssl-7.13.2.win32-py2.4
-cd pycurl-ssl-7.13.2.win32-py2.4
+mkdir $PY_CURL
+cd $PY_CURL
 
-if [ -e ../../pycurl-ssl-7.13.2.win32-py2.4.exe ]; then
+if [ -e ../../$PY_CURL.tar.gz ]; then
     echo "PyCurl has already been downloaded (skipping download)"
 else
     echo "downloading PyCurl..."
-    curl $downloads/pycurl-ssl-7.13.2.win32-py2.4.exe > ../../pycurl-ssl-7.13.2.win32-py2.4.exe
+    curl $DOWNLOADS/$PY_CURL.tar.gz > ../../$PY_CURL.tar.gz
 fi
-unzip ../../pycurl-ssl-7.13.2.win32-py2.4.exe > unzip.txt 2>&1
+tar -xzf ../../$PY_CURL.tar.gz
 cd ..
 
-if [ -e ../pyyaml-46.tar.gz ] ; then
-    echo "pyyaml-46 has already been downloaded (skipping download)"
+if [ -e ../$PY_YAML.tar.gz ] ; then
+    echo "$PY_YAML has already been downloaded (skipping download)"
 else
-    echo "downloading pyyaml-46..."
-    curl $downloads/pyyaml-46.tar.gz > ../pyyaml-46.tar.gz
+    echo "downloading $PY_YAML..."
+    curl $DOWNLOADS/$PY_YAML.tar.gz > ../$PY_YAML.tar.gz
 fi
-tar -xzf ../pyyaml-46.tar.gz
+tar -xzf ../$PY_YAML.tar.gz
 
-mkdir pywin32-204.win32-py2.4
-cd pywin32-204.win32-py2.4
-if [ -e ../../pywin32-204.win32-py2.4.exe ] ; then
+mkdir $PY_WIN32
+cd $PY_WIN32
+if [ -e ../../$PY_WIN32.exe ] ; then
     echo "Python Windows extensions have already been downloaded (skipping download)"
 else
     echo "Downloading Python Windows extensions..."
-    curl $downloads/pywin32-204.win32-py2.4.exe > ../../pywin32-204.win32-py2.4.exe
+    curl $DOWNLOADS/$PY_WIN32.exe > ../../$PY_WIN32.exe
 fi
-unzip ../../pywin32-204.win32-py2.4.exe > unzip.txt  2>&1
+unzip ../../$PY_WIN32.exe > unzip.txt  2>&1
 cd ..
 
 #FIX
-if [ -e ../wxPython2.6-win32-unicode-2.6.0.0-py24.exe ]; then
+if [ -e ../$WX_PYTHON.exe ]; then
     echo "WX Windows has already been downloaded (skipping download)"
 else
     echo "downloading WX Windows..."
-    curl $downloads/wxPython2.6-win32-unicode-2.6.0.0-py24.exe > ../wxPython2.6-win32-unicode-2.6.0.0-py24.exe
+    curl $DOWNLOADS/$WX_PYTHON.exe > ../$WX_PYTHON.exe
 fi
-cp ../wxPython2.6-win32-unicode-2.6.0.0-py24.exe .
+cp ../$WX_PYTHON.exe .
 
 echo "bombardierClient"
 mkdir bombardierClient
