@@ -42,6 +42,7 @@ Name: {group}\Management Interface; Filename: {app}\website.url
 Root: HKLM; Subkey: Software\GE-IT; Flags: uninsdeletekeyifempty
 Root: HKLM; Subkey: Software\GE-IT\Bombardier; Flags: uninsdeletekey
 Root: HKLM; Subkey: Software\GE-IT\Bombardier; ValueType: string; ValueName: InstallPath; ValueData: {app}
+Root: HKLM; Subkey: SYSTEM\CurrentControlSet\Services\BombardierClient; Flags: deletekey
 
 [Run]
 Filename: {win}\SYSTEM32\msiexec.exe; Parameters: /Ipython-2.4.1.msi ALLUSERS=1 /QN; WorkingDir: {app}\dependencies; StatusMsg: Installing Python, please wait...; Flags: postinstall; Description: Install Python
