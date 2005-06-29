@@ -356,7 +356,7 @@ class Windows:
 
     def mkServiceUser(self, username, password, domain='', local=False, comment=''):
         if not local:
-            if domain == '':
+            if domain == '' or domain =='.':
                 Logger.info("Making service user %s on the default domain" % username)
             else:
                 Logger.info("Making service user %s on the %s domain" % ( username, domain))

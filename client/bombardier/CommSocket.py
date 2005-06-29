@@ -18,8 +18,8 @@ class CommSocket:
                 self.sockObj.bind(self.address)
                 self.sockObj.setblocking(False)
                 break
-            except socket.error:
-                print "cannot bind to %s" % str(self.address)
+            except socket.error, e:
+                print "cannot bind to %s / %s" % (str(self.address),  str(e))
                 tries += 1
 
     def sendMessage(self, message):

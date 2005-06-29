@@ -106,7 +106,8 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 Logger.info("Waiting for last reconcileThread to quit.")
                 message = self.commSocketFromThread.getMessage()
             self.reconcileThread.join()
-        sys.exit(1)
+        if DEBUG == 2:
+            sys.exit(1)
 
     ## TESTED (indirectly)
     def heartbeatMessage(self):
@@ -146,7 +147,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
             erstr = "Unable to download configuration "\
                     "( %s ). Aborting operations." % e
             Logger.warning(erstr)
-            self.cleanup() # probably not a good thing to do.
+            self.cleanup()
         if self.repository == None:
             try:
                 self.repository = Repository.Repository(self.config,
@@ -181,7 +182,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
             command = self.checkTimers()
             if command: 
                 if DEBUG:
-                  Logger.info("Waking up Bombardier for "+command)
+                    Logger.info("Waking up Bombardier for "+command)
                 self.runBombardier(command)
                     
 if __name__=='__main__':

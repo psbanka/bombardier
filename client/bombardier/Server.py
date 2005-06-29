@@ -200,7 +200,7 @@ class Server:
         try:
             c = prepareCurlObject(url, self.serverData)
         except pycurl.error, e:
-            raise Exceptions.ServerUnavailable, (url, e[1])
+            raise Exceptions.ServerUnavailable, (url, `e`)
         data = StringIO.StringIO()
         c.setopt(pycurl.WRITEFUNCTION, data.write)
         c.setopt(pycurl.CONNECTTIMEOUT, timeout)
