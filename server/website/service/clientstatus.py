@@ -72,12 +72,12 @@ def installStatus(clientName, errlog):
     installedPackages = getInstalledPackages(clientName, errlog)
     for packageGroup in packageGroups:
         packageNames = []
-        filename = os.path.join(ROOT_DIR, "deploy", "config", packageGroup+".BOM")
+        filename = webUtil.getConfigFile(packageGroup+".BOM")
         output[packageGroup] = {"status":"OK", # overall status of this packagegroup
                                 "packages":{}, # dictionary of packages for this group
                                 "installedStatus": "OK"}
         if os.path.isfile(filename):
-            packageNames = open(os.path.join(ROOT_DIR, "deploy", "config", packageGroup+".BOM")).readlines()
+            packageNames = open(webUtil.getConfigFile(packageGroup+".BOM")).readlines()
         else:
             output[packageGroup]["status"] = "FAIL"
             continue

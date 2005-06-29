@@ -81,11 +81,11 @@ class PackageCreationThread(threading.Thread):
             for option in config.options(section):
                 d[section][option] =  config.get(section, option)
         d['install']['fullName'] = self.fullName
-        s, o = commands.getstatusoutput("/usr/bin/md5sum /var/www/deploy/%s.spkg" % self.fullName)
+        s, o = commands.getstatusoutput("/usr/bin/md5sum %s/%s.spkg" % (webUtil.getDeployPath(), self.fullName))
         checksum = o.split()[0]
         d['install']['md5sum'] = checksum
         d = self.metaDataTweak(d)
-        self.request.write("  - amending packages.dat for %s\n" % self.name)
+        self.request.write("  - amending packages.yml for %s\n" % self.name)
         #self.request.write("  - metadata: %s\n" % d )
         try:
             output[self.name] = d

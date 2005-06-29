@@ -1,2 +1,6 @@
-svn: PROPFIND request failed on '/repository/testdb-data'
-svn: PROPFIND of '/repository/testdb-data': could not connect to server (http://172.17.50.57)
+A  /tmp/bombardier-0.4-50-31/scripts
+A  /tmp/bombardier-0.4-50-31/scripts/installer.py
+A  /tmp/bombardier-0.4-50-31/scripts/uninstaller.py
+A  /tmp/bombardier-0.4-50-31/scripts/package.ini
+A  /tmp/bombardier-0.4-50-31/scripts/verify.py
+Exported revision 14334.

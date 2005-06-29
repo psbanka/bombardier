@@ -9,24 +9,34 @@ SERVICE = config.get("site", "address")
 
 
 def findFile(clientName):
-    configPath = os.path.join(ROOT_DIR, "deploy", "config")
     filename = ''
-    for inode in os.listdir(configPath):
-        inodePath = os.path.join(configPath, inode)
+    for inode in listConfigDir():
+        inodePath = getConfigFile(inode)
         if not os.path.isfile(inodePath):
             continue
         basename  = ''.join(inode.split('.')[:-1])
         extension = ''.join(inode.split('.')[-1:])
         if basename.lower() == clientName.lower():
             if extension.lower() == 'yml':
-                filename = os.path.join(configPath, inode)
+                filename = getConfigFile(inode)
                 return filename, YML
             elif extension.lower() == 'ini':
-                filename = os.path.join(configPath, inode)
+                filename = getConfigPath(inode)
     if filename:
         return filename,INI
     else:
         return '', None
+def getClientPath():
+    return os.path.join(getDeployPath(), "client")
+
+def getConfigPath():
+    return os.path.join(getDeployPath(), "config")
+
+def getConfigFile(filename):
+    return os.path.join(getConfigPath(), filename)
+
+def listConfigDir():
+    return os.listdir(getConfigPath())
 
 def getDeployPath():
     path = config.get("site", "deployPath")

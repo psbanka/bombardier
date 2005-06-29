@@ -4,14 +4,14 @@ from static import *
 
 def getBomFiles(pkgGroup):
     if pkgGroup == None:
-        files = os.listdir(os.path.join(ROOT_DIR, 'deploy', 'config'))
+        files = webUtil.listConfigDir()
         bomFiles = []
         for file in files:
             if file.upper().endswith(".BOM"):
                 bomFiles.append(file[:file.upper().rfind(".BOM")])
         return bomFiles
     else:
-        pkgFilePath = os.path.join(ROOT_DIR, "deploy", "config", pkgGroup[0]+".BOM")
+        pkgFilePath = webUtil.getConfigFile(pkgGroup[0]+".BOM")
         if os.path.isfile(pkgFilePath):
             packageNames = open(pkgFilePath, 'r').readlines()
             return map(string.strip, packageNames)
@@ -25,7 +25,7 @@ def put(request, logger, errlog):
     else:
         group = request.args.get("group")[0]
         data = request.content.read()
-        bomFile = os.path.join(ROOT_DIR, "deploy", "config", group+".BOM")
+        bomFile = webUtil.getConfigFile(group+".BOM")
         fd = open(bomFile, 'w')
         fd.write(data)
         output = "OK"

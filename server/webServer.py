@@ -2,7 +2,7 @@
 from twisted.web import server, resource, static, error
 from twisted.protocols import http
 from twisted.internet import reactor
-import threading, sys, os, shelve, md5, time, urlparse, StringIO, traceback
+import threading, sys, os, shelve, time, urlparse, StringIO, traceback
 import string, logging
 import logging.handlers
 import ConfigParser
@@ -13,7 +13,6 @@ import traceback, StringIO
 from static import *
 
 BLOCK_SIZE   = 10000
-MD5SUM       = "md5sum"
 DATE         = "date"
 
 DEBUG = 0
@@ -29,18 +28,16 @@ def pageList(website):
 
 class UploadThread(threading.Thread):
     
-    def __init__(self, request, filename, logger, recordInfo = False):
+    def __init__(self, request, filename, logger):
         threading.Thread.__init__(self)
         self.request    = request
         self.filename   = filename
-        self.recordInfo = recordInfo
         self.logger     = logger
         self.logger.info( "delivering file ... %s" % filename )
         self.logger.info( "Content-Length %s/%s" % ( os.stat(filename)[6], filename ) )
         request.setHeader("Content-Length", os.stat(filename)[6])
         
     def run(self):
-        m = md5.new()
         try:
             fh = open(self.filename, 'rb')
         except:
@@ -53,25 +50,11 @@ class UploadThread(threading.Thread):
         while newData:
             try:
                 newData = fh.read(BLOCK_SIZE)
-                if self.recordInfo:
-                    m.update(newData)
             except:
                 self.request.finish()
                 return
             self.request.write(newData)
         self.request.finish()
-        if self.recordInfo:
-            md5sum   = m.hexdigest()
-            fileInfo = os.stat(self.filename)
-            mode, inode, device, hlinks, uid, gid, size, access, mod, creation = fileInfo
-            filedate = time.strftime("%a, %d %b %Y %H:%m:%S GMT", time.gmtime(creation))
-            if not os.path.isfile(PKGINFO_FILE):
-                packageData = shelve.open(PKGINFO_FILE, 'c')
-            else:
-                packageData = shelve.open(PKGINFO_FILE, 'w')
-            info = {MD5SUM: md5sum, DATE: filedate}
-            packageData[self.filename] = info
-            packageData.close()
 
 def getDirectoryListing(directoryPath, logger):
     logger.info( "looking at files in %s" % directoryPath )
@@ -165,6 +148,7 @@ class WebSite(resource.Resource):
                 return function(request, self.logger, self.errlog)
             else:
                 try:
+                    self.errlog.info("PUT to %s" % request.path)
                     return function(request, self.logger, self.errlog)
                 except Exception, e:
                     self.logException(e, request)
@@ -215,6 +199,7 @@ class WebSite(resource.Resource):
             if type(function) == type("string"):
                 return function
             try:
+                self.errlog.info("POST to: %s" % request.path)
                 return function(request, self.logger, self.errlog)
             except Exception, e:
                 self.logException(e, request)
@@ -248,6 +233,7 @@ class WebSite(resource.Resource):
             if type(function) == type("string"):
                 return function
             try:
+                self.errlog.info("GET to: %s" % request.path)
                 return function(request, self.logger, self.errlog)
             except Exception, e:
                 self.logException(e, request)
@@ -270,21 +256,7 @@ class WebSite(resource.Resource):
             request.setHeader("Content-Type", "text/plain")
         else:
             request.setHeader("Content-Type", "application/octet-stream")
-        uploadThread = None
-        if os.path.isfile(PKGINFO_FILE):
-            packageData = shelve.open(PKGINFO_FILE, 'r')
-            if filePath.rfind('..') != -1:
-                webUtil.err500(request, self.errlog)
-            if packageData.has_key(filePath):
-                info = packageData[filePath]
-                request.setHeader("ETag", info[MD5SUM])
-                request.setHeader("Date", info[DATE])
-                uploadThread = UploadThread(request, filePath, self.logger)
-            else:
-                uploadThread = UploadThread(request, filePath, self.logger, recordInfo = True)
-            packageData.close()
-        else:
-            uploadThread = UploadThread(request, filePath, self.logger, recordInfo = True)
+        uploadThread = UploadThread(request, filePath, self.logger)
         uploadThread.start()
         return server.NOT_DONE_YET
 

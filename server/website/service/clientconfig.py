@@ -15,7 +15,7 @@ def post(request, logger, errlog):
                               "Please specify a client name in the query string")
     clientName = clientName[0]
     config = ConfigParser.ConfigParser()
-    configPath = os.path.join("deploy", "config", clientName.upper()+".ini")
+    configPath = webUtil.getConfigFile(clientName.upper()+".ini")
     if os.path.isfile(configPath):
         config.read(configPath)
 
@@ -40,11 +40,10 @@ def post(request, logger, errlog):
     return "--- OK\n"
 
 def getSystemNames():
-    baseDir = os.path.join('deploy','config')
-    inodes = os.listdir(baseDir)
+    inodes = webUtil.listConfigDir()
     systemNames = ['']
     for inode in inodes:
-        if os.path.isfile(os.path.join(baseDir,inode)) and inode.endswith('.ini'):
+        if os.path.isfile(webUtil.getConfigFile(inode)) and inode.endswith('.ini'):
             systemName = inode[:inode.rfind('.ini')]
             if systemName != '':
                 systemNames.append(systemName)
@@ -93,11 +92,11 @@ def put(request, logger, errlog):
     # need to trick ConfigParser
     configData = request.content.read()
     if request.args.get("type"):
-        ymlPath = os.path.join("deploy", "config", "%s.yml" % clientName)
+        ymlPath = webUtil.getConfigFile("%s.yml" % clientName)
         webUtil.verifyAndWriteYaml(configData, ymlPath)
         return "--- OK\n"
     else:
-        iniFile  = os.path.join("deploy", "config", "%s.ini" % clientName)
+        iniFile  = webUtil.getConfigFile("%s.ini" % clientName)
         webUtil.verifyAndWriteConfig(configData, iniFile)
         return "--- OK\n"
 

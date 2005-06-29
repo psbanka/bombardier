@@ -5,11 +5,10 @@ import template, string, os
 from static import *
 
 def getSystemNames():
-    baseDir = os.path.join('deploy','config')
-    inodes = os.listdir(baseDir)
+    inodes = webUtil.listConfigDir()
     systemNames = ['']
     for inode in inodes:
-        if os.path.isfile(os.path.join(baseDir,inode)) and inode.endswith('.ini'):
+        if os.path.isfile(webUtil.getConfigFile(inode)) and inode.endswith('.ini'):
             systemName = inode[:inode.rfind('.ini')]
             if systemName != '':
                 systemNames.append(systemName)
@@ -26,8 +25,8 @@ def post(request, logger, errlog):
     if not clientName:
         return '<h1>Invalid input</h1>'
     output = []
-    clientPath = os.path.join("client", clientName)
-    iniFile    = os.path.join("deploy", "config", "%s.ini" % clientName)
+    clientPath = os.path.join(webUtil.getClientPath(), clientName)
+    iniFile    = webUtil.getConfigFile("%s.ini" % clientName)
     if not os.path.isdir(clientPath) and not os.path.isfile(iniFile):
         output.append("<h1>Welcome new system %s</h1>" % clientName)
     else:

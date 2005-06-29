@@ -6,7 +6,7 @@ from static import *
 
 def getInstallablePkgGroups(installedPkgGroups):
     possiblePkgGroups = []
-    fileNames = os.listdir(os.path.join("deploy", "config"))
+    fileNames = webUtil.listConfigDir()
     for fileName in fileNames:
         if fileName.upper().endswith(".BOM"):
             index = fileName.upper().rfind(".BOM")
@@ -72,7 +72,8 @@ def configurePkg(packageName, packageData):
 
 def configurePkgGroup(pkgGroup, config, clientName):
     output = []
-    packageData = shelve.open(os.path.join("deploy", "packages.dat"))
+    # THis code is broke -pbanka
+    #packageData = shelve.open(os.path.join("deploy", "packages.dat"))
     pkgFile = os.path.join("deploy", "config", "%s.BOM" % pkgGroup)
     output.append("<h1>Configure Package Group: <strong>%s</strong></h1>" % pkgGroup)
     output.append("<table>")

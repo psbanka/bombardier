@@ -35,7 +35,7 @@ def put(request, logger, errlog):
         errlog.info( "VLAN Service received a PUT with no vlan data" )
         return webUtil.err400(request, errlog, "Bad put request", "Provide the vlan as part of the PUT\n")
     request.write("Setting vlan %s for mac address %s\n" % (vlan, macAddress))
-    cb = CiscoBeast()
+    cb = CiscoBeast(SWITCH_ADDRESS, SWITCH_LOGINPASS, SWITCH_ENABLEPASS)
     cb.login()
     currentVlan = cb.get_vlan(macAddress)
     proceed = False
