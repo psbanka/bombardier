@@ -236,7 +236,7 @@ class Rescue:
         #except IOError:
         #scripts = []
         # READ THIS FROM A FILE
-        todos = {"pycurl-ssl-7.13.2.win32-py2.4":DWIZ,
+        todos = {"pycurl-ssl-zlib-7.14.0.win32-py2.4":DWIZ,
                  "wxPython2.6-win32-unicode-2.6.0.0-py24.exe":INNO,
                  "pyyaml-46":SETUP, "bombardierClient":SETUP,
                  "spkg":SETUP, "site-root":SETUP}
