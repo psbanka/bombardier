@@ -21,7 +21,7 @@ def findFile(clientName):
                 filename = getConfigFile(inode)
                 return filename, YML
             elif extension.lower() == 'ini':
-                filename = getConfigPath(inode)
+                filename = getConfigFile(inode)
     if filename:
         return filename,INI
     else:

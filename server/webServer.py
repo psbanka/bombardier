@@ -239,6 +239,10 @@ class WebSite(resource.Resource):
                 self.logException(e, request)
 
         # FIXME: if this is a directory listing that doesn't end in '/', do a redirect.
+        if not filePath.startswith("deploy"):
+            webUtil.err500(request, self.errlog)
+        filePath = filePath.split("deploy/")[1]
+        filePath = os.path.join(webUtil.getDeployPath(), filePath)
         if parts[-1] == '' or os.path.isdir(filePath):
             if filePath.rfind('..') != -1:
                 webUtil.err500(request, self.errlog)

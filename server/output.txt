@@ -1,6 +1,6 @@
-A  /tmp/bombardier-0.4-50-31/scripts
-A  /tmp/bombardier-0.4-50-31/scripts/installer.py
-A  /tmp/bombardier-0.4-50-31/scripts/uninstaller.py
-A  /tmp/bombardier-0.4-50-31/scripts/package.ini
-A  /tmp/bombardier-0.4-50-31/scripts/verify.py
-Exported revision 14334.
+A  /tmp/bombardier-0.4-55-33/scripts
+A  /tmp/bombardier-0.4-55-33/scripts/installer.py
+A  /tmp/bombardier-0.4-55-33/scripts/uninstaller.py
+A  /tmp/bombardier-0.4-55-33/scripts/package.ini
+A  /tmp/bombardier-0.4-55-33/scripts/verify.py
+Exported revision 14352.
