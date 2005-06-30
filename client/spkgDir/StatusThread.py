@@ -77,13 +77,11 @@ class StatusThread(threading.Thread):
             self.complete = {}
 
     def updateData(self):
-        #try:
-        if 1 == 1:
+        try:
             currentPath = os.path.join(miniUtility.getSpkgPath(),CURRENT_FILE)
             self.current = self.filesystem.loadYaml(currentPath)
             self.badData = False
-        else:
-        #except:
+        except:
             self.current = {}
             print "ERROR in current.yml"
             self.set({"main": "Unable to determine status", "lightColor": REDLIGHT})

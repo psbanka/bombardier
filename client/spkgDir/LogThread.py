@@ -1,7 +1,7 @@
 import time, os, threading
 
-import miniUtility as miniUtility
-from staticData import *
+import bombardier.miniUtility as miniUtility
+from bombardier.staticData import *
 
 class LogThread(threading.Thread):
     

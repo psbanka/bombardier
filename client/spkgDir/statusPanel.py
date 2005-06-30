@@ -3,8 +3,13 @@
 import wx
 import threading, pywintypes, win32pipe, time
 
-from staticData import *
-import StatusThread, CommSocket, Filesystem, miniUtility, Windows, Logger
+from bombardier.staticData import *
+import bombardier.StatusThread as StatusThread
+import bombardier.CommSocket as CommSocket
+import bombardier.Filesystem as Filesystem
+import bombardier.miniUtility as miniUtility
+import bombardier.Windows as Windows
+import bombardier.Logger as Logger
 
 class MessageThread(threading.Thread):
     def __init__(self, commSocket):
@@ -13,7 +18,7 @@ class MessageThread(threading.Thread):
         self.windows = Windows.Windows()
     
     def run(self):
-        return self.windows.sendNpMessage(BC_PIPE_NAME, CHECK, Logger.info, 20)
+        return self.windows.sendNpMessage(BC_PIPE_NAME, CHECK, Logger.info, 40)
 
 [wxID_PANEL1, wxID_PANEL1APPLICATION, wxID_PANEL1CURRENTACTION, 
  wxID_PANEL1LIGHT, wxID_PANEL1MAIN, wxID_PANEL1OVERALL, wxID_PANEL1START, 

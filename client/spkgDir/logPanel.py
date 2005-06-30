@@ -2,8 +2,7 @@
 
 import wx
 import LogThread as LogThread
-import CommSocket as CommSocket
-
+import bombardier.CommSocket as CommSocket
 
 [wxID_PANEL2, wxID_PANEL2LOG, 
 ] = [wx.NewId() for _init_ctrls in range(2)]

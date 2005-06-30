@@ -72,6 +72,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
             return
         self.commSocketToThread = CommSocket.CommSocket()
         self.commSocketFromThread = CommSocket.CommSocket()
+        Logger.info("Creating reconcilethread...")
         self.reconcileThread = ReconcileThread.ReconcileThread(command,
                                                                self.commSocketToThread,
                                                                self.commSocketFromThread,
@@ -183,8 +184,10 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
             command = self.checkTimers()
             if command: 
                 if DEBUG:
+                    self.filesystem.updateCurrentStatus(IDLE, "Initializing...")
                     Logger.info("Waking up Bombardier for "+command)
                 self.runBombardier(command)
-                    
+            self.filesystem.updateCurrentStatus(IDLE, "Finished with installation activities")
+           
 if __name__=='__main__':
     win32serviceutil.HandleCommandLine(BombardierClientService)

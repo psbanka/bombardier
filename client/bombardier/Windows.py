@@ -486,9 +486,9 @@ class Windows:
 
     def restartOnLogon(self):
         runKey = self.getRunKey()
-        winreg.SetValueEx(runKey, "BombardierRun", 0,
-                          winreg.REG_SZ,
-                          miniUtility.getBombardierPath() + " -a")
+        pythonExec = os.path.join(sys.prefix, "pythonw.exe")
+        cmd = "%s %s -a" % (pythonExec, miniUtility.getBombardierPath())
+        winreg.SetValueEx(runKey, "BombardierRun", 0, winreg.REG_SZ, cmd)
 
     def noRestartOnLogon(self): 
         try:

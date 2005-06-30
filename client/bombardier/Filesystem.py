@@ -207,16 +207,19 @@ class Filesystem:
         statusPath = os.path.join(miniUtility.getSpkgPath(), CURRENT_FILE)
         data = self.loadCurrent()
         data["timestamp"] = time.time()
-        fh = open(statusPath, 'w')
-        if overwrite:
-            for key, value in dictionary.iteritems():
-                data[key] = value
-        else:
-            data = self.updateDict(dictionary, data)
-        yaml.dumpToFile(fh, data)
-        fh.flush()
-        fh.close()
-
+        try:
+            fh = open(statusPath, 'w')
+            if overwrite:
+                for key, value in dictionary.iteritems():
+                    data[key] = value
+            else:
+                data = self.updateDict(dictionary, data)
+            yaml.dumpToFile(fh, data)
+            fh.flush()
+            fh.close()
+        except Exeception, e:
+            Logger.warning("Cannot update progress data: %s" % `e`)
+            
     def append(self, source, dest):
         fin = open(source, "rb")
         fout = open(dest, "ab")
@@ -323,7 +326,7 @@ class Filesystem:
                     else:
                         retVal[package] = { 'INSTALLED': 'NA',
                                             'UNINSTALLED': time.ctime() }
-                elif retVal[package][1]:
+                elif len(retVal[package]) > 1:
                     retVal[package] = {'INSTALLED': retVal[package][1] }
 
             if 'INSTALLED'   not in retVal[package]:

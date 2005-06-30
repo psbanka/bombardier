@@ -3,8 +3,8 @@
 
 import wx
 import Frame1 as Frame1
-import miniUtility, sys
-from staticData import *
+import bombardier.miniUtility, sys
+from bombardier.staticData import *
 
 modules ={'Frame1': [1, 'Main frame of Application', u'Frame1'],
  u'statusPanel': [0, '', u'wxPanel1.py'],
@@ -23,9 +23,10 @@ def main():
     application.MainLoop()
 
 if __name__ == '__main__':
-    actionPath = os.path.join(miniUtility.getSpkgPath(), ACTION_FILE)
-    if sys.argv[-1] == '-g':
-        open(actionPath, 'w').write('g')
+    actionPath = os.path.join(bombardier.miniUtility.getSpkgPath(),
+                              ACTION_FILE)
+    if sys.argv[-1] == '-a':
+        open(actionPath, 'w').write('a')
     else:
         open(actionPath, 'w').write('')
     main()

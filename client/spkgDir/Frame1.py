@@ -4,8 +4,8 @@ import wx
 from statusPanel import Panel1 
 from logPanel import Panel2
 
-from staticData import *
-import miniUtility as miniUtility
+from bombardier.staticData import *
+import bombardier.miniUtility as miniUtility
  
 def create(parent):
     return Frame1(parent)

@@ -68,6 +68,7 @@ class ReconcileThread(threading.Thread):
             self.server.serverLog("CRITICAL", ermsg)
             return
         filesystem.updateCurrentStatus(IDLE, "Finished with installation activities")
+        Logger.info("stopped thread")
         self.commSocketToService.sendStop()
 
 def runWithoutService():

@@ -115,7 +115,7 @@ def verify(spkg, packageName):
 commands = {INSTALL: install, UNINSTALL: uninstall, VERIFY: verify}
 
 if __name__ == "__main__":
-    command = INSTALL
+    command = None
     try:
         options,args = getopt.getopt(sys.argv[1:], "i:v:u:?h",
                                      ["install", "verify", "uninstall", "help"])
@@ -135,7 +135,10 @@ if __name__ == "__main__":
             command = UNINSTALL
         else:
             print "Unknown Option",opt
-
+    if command == None:
+        print "No command specified."
+        deplayHelp()
+        sys.exit(1)
     if len(sys.argv) < 3:
         print "No package name specified."
         sys.exit(1)
@@ -144,11 +147,9 @@ if __name__ == "__main__":
     if not os.path.isfile(spkg):
         print "Package file %s does not exist." % spkg
         sys.exit(1)
-    #try:
-    if 1 == 1:
+    try:
         packageName, version = getName(spkg)
-    else:
-    #except BadPackageName:
+    except BadPackageName:
         print "Package file %s does not have an appropriate name -- is it a bombardier package?" % spkg
         sys.exit(1)
         
