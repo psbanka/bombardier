@@ -30,6 +30,9 @@ class ServiceNotFound(Exception):
 class ServiceShutdown(Exception):
     pass
 
+class QuitException(Exception):
+    pass
+
 class ServerUnavailable(Exception):
     def __init__(self, url, errmsg):
         e = Exception()

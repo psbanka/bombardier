@@ -55,8 +55,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
     def runBombardier(self, command):
         if self.reconcileThread != None:
             message = self.commSocketFromThread.getMessage()
-            Logger.info("===============> RECEIVED FROM THREAD: %s" % message)
-            if message == STOPPED:
+            if message == STOP:
                 self.reconcileThread.join()
             else:
                 msg = "Cannot run a new reconcileThread because the last one did not return"
@@ -102,10 +101,10 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
             Logger.info("Telling last thread to abort...")
             self.commSocketToThread.sendStop()
             message = ""
-            while message != STOPPED:
-                time.sleep(10)
-                Logger.info("Waiting for last reconcileThread to quit.")
+            while message != STOP:
+                time.sleep(3)
                 message = self.commSocketFromThread.getMessage()
+                Logger.info("Waiting for last reconcileThread to quit. (%s)" % message)
             self.reconcileThread.join()
         if DEBUG == 2:
             sys.exit(1)
@@ -173,10 +172,12 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                                                 self.waitHandles, self.overlapped.hEvent)
             except Exceptions.ServiceShutdown:
                 self.cleanup()
+                break
             except Exceptions.PipeNotListenable, e:
                 ermsg = "Cannot listen on pipe %s" % e
                 Logger.error(ermsg)
                 self.cleanup()
+                break
             if command:
                 self.runBombardier(command)
                 continue

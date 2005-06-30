@@ -1,10 +1,9 @@
 #!/cygdrive/c/Python23/python.exe
 import socket, random, time
+from staticData import *
+import Exceptions
 
 IP = "127.0.0.1"
-
-STOP = "STOP"
-GO   = "GO"
 
 class CommSocket:
 
@@ -42,7 +41,7 @@ class CommSocket:
         message = self.getMessage()
         if message != GO:
             if message == STOP:
-                raise "QuitException"
+                raise Exceptions.QuitException
             return True
         return False
 

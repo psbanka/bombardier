@@ -149,7 +149,8 @@ DEAD_TIME  = 600
 
 # ================================================= COMM SOCKET INFO
 
-STOPPED = "STOP"
+STOP = "STOP"
+GO   = "GO"
 
 
 #  Nagios Data
