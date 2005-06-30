@@ -237,17 +237,18 @@ class Filesystem:
 
         data = self.convertProgressData(open(filename).read())
         try:
-          progressData = yaml.load(data).next()
+            progressData = yaml.load(data).next()
         except:
-          print "BAD YAML:",progressData
-          return []
-
+            print "BAD YAML:",progressData
+            return []
+        if type(progressData) != type(dict()):
+            return []
         instPkgs = filter(lambda x: progressData[x]['INSTALLED'] != 'NA',
                           progressData.keys())               
         if stripVersionFromName:
-          return map(stripVersion, instPkgs)
+            return map(stripVersion, instPkgs)
         else:
-          return instPkgs
+            return instPkgs
 
     def getProgressData(self):
         filename = os.path.join(miniUtility.getSpkgPath(), PROGRESS_FILE)

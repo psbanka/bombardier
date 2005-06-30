@@ -80,9 +80,11 @@ if __name__ == "__main__":
             print "Unknown Option",opt
 
     configPath = os.path.join(bombardier.getSpkgPath(), CONFIG_FILE)
+    print HEADER_TEXT
     if os.path.isfile(configPath):
         print "=======Running in stand-alone mode."
         bombardier.ReconcileThread.runWithoutService()
+        print "=======Finishing"
     else:
         print "=======Running in service mode."
         filesystem = bombardier.Filesystem.Filesystem()

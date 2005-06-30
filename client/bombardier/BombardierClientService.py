@@ -158,6 +158,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 Logger.error("Unable to connect to the repository %s" % e)
                 # FIXME: this will never get un-screwed up
                 self.repository = None
+                sys.exit(1)
         # man, this sure looks stupid:
         self.b = BombardierClass.Bombardier(self.repository,
                                                        self.config,

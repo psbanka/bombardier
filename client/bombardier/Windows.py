@@ -238,15 +238,21 @@ class Windows:
             return command
         return ''
 
-    def sendNpMessage(self, pipe, message, logFunction):
+    def sendNpMessage(self, pipe, message, logFunction, timeout=None):
+        if timeout:
+            timeout = time.time() + timeout
         while True:
             try:
-                logFunction("-- Sending '%s' message to %s\n" % (message, pipe))
+                logFunction("||-- Sending '%s' message to %s\n" % (message, pipe))
                 win32pipe.CallNamedPipe(pipe, message, 256, win32pipe.NMPWAIT_WAIT_FOREVER)
                 return OK
             except pywintypes.error:
                 time.sleep(1)
-                logFunction("--- Waiting for service to listen on %s.\n" % pipe)
+                if timeout:
+                    if time.time() > timeout:
+                        logFunction("||--- Giving up on service")
+                        return FAIL
+                logFunction("||--- Waiting for service to listen on %s.\n" % pipe)
                 continue
         return FAIL
 
@@ -619,7 +625,7 @@ class Windows:
 
     def autoLogin(self, config):
         if self.testCredentials(config.username, config.domain, config.password) == FAIL:
-            if not config.domain:
+            if not config.domain or config.domain=='.':
                 status = self.mkServiceUser(config.username, config.password, config.domain,
                                                     comment="Bombardier administrative user",
                                                     local=True)

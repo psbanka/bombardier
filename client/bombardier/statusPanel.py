@@ -4,26 +4,16 @@ import wx
 import threading, pywintypes, win32pipe, time
 
 from staticData import *
-import StatusThread as StatusThread
-import CommSocket as CommSocket
-import Filesystem as Filesystem
-import miniUtility as miniUtility
+import StatusThread, CommSocket, Filesystem, miniUtility, Windows, Logger
 
 class MessageThread(threading.Thread):
     def __init__(self, commSocket):
         threading.Thread.__init__(self)
         self.commSocket = commSocket
+        self.windows = Windows.Windows()
     
     def run(self):
-        while not self.commSocket.testStop():
-            try:
-                win32pipe.CallNamedPipe(BC_PIPE_NAME, CHECK, 256,
-                                        win32pipe.NMPWAIT_WAIT_FOREVER)
-                return OK
-            except pywintypes.error, details:
-                time.sleep(1)
-                continue
-
+        return self.windows.sendNpMessage(BC_PIPE_NAME, CHECK, Logger.info, 20)
 
 [wxID_PANEL1, wxID_PANEL1APPLICATION, wxID_PANEL1CURRENTACTION, 
  wxID_PANEL1LIGHT, wxID_PANEL1MAIN, wxID_PANEL1OVERALL, wxID_PANEL1START, 
@@ -127,12 +117,22 @@ class Panel1(wx.Panel):
                                                       self.statusCommSocket,
                                                       filesystem)
         self.statusThread.start()
+        actionPath = os.path.join(miniUtility.getSpkgPath(), ACTION_FILE)
         self.messageThread = None
+        if os.path.isfile(actionPath):
+            command = open(actionPath, 'r').read()
+            if command:
+                self.startMessageThread()
 
     def stopMessageThread(self):
         if self.messageThread:
             self.messageCommSocket.sendStop()
             self.messageThread.join()
+
+    def startMessageThread(self):
+        self.messageCommSocket = CommSocket.CommSocket()
+        self.messageThread = MessageThread(self.messageCommSocket)
+        self.messageThread.start()
 
     def stopStatusThread(self):
         self.statusCommSocket.sendStop()
@@ -143,13 +143,11 @@ class Panel1(wx.Panel):
         self.stopStatusThread()
         
     def setLightColor(self, color):
-        filePath = os.path.join(miniUtility.getSpkgPath, color)
+        filePath = os.path.join(miniUtility.getSpkgPath(), color)
         self.light.SetBitmap(wx.Bitmap(filePath, wx.BITMAP_TYPE_PNG))
 
     def OnStartButton(self, event):
-        self.messageCommSocket = CommSocket.CommSocket()
-        self.messageThread = MessageThread(self.messageCommSocket)
-        self.messageThread.start()
+        self.startMessageThread()
 
     def OnStopButton(self, event):
         if self.messageThread:

@@ -2,8 +2,9 @@
 #Boa:App:BoaApp
 
 import wx
-
 import Frame1 as Frame1
+import miniUtility, sys
+from staticData import *
 
 modules ={'Frame1': [1, 'Main frame of Application', u'Frame1'],
  u'statusPanel': [0, '', u'wxPanel1.py'],
@@ -22,4 +23,9 @@ def main():
     application.MainLoop()
 
 if __name__ == '__main__':
+    actionPath = os.path.join(miniUtility.getSpkgPath(), ACTION_FILE)
+    if sys.argv[-1] == '-g':
+        open(actionPath, 'w').write('g')
+    else:
+        open(actionPath, 'w').write('')
     main()

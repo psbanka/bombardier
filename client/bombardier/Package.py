@@ -509,6 +509,10 @@ class Package:
             return FAIL
 
         gc.collect() # does windows suck? here's proof. -pbanka
+        if type(progressData) != type(dict()):
+            Logger.error("Invalid installation progress data: %s" % content)
+            Logger.error("ASSUMING EMPTY PROGRESS.")
+            progressData = {}
         if not progressData.has_key(self.fullName):
             progressData[self.fullName] = {"INSTALLED": "NA", "UNINSTALLED": "NA", "VERIFIED": "NA"}
         if self.action == INSTALL:

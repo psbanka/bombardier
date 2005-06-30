@@ -2,7 +2,7 @@
 import threading, sys, traceback, StringIO, random
 
 from staticData import *
-import Logger
+import Logger, Filesystem, Exceptions
 
 # ======================== Worker thread
 
@@ -24,6 +24,7 @@ class ReconcileThread(threading.Thread):
         
     def run(self):
         status = OK
+        filesystem = Filesystem.Filesystem()
         try: 
             self.windows.CoInitialize()
             if self.command == CHECK or self.command == AUTOMATED:
@@ -48,25 +49,34 @@ class ReconcileThread(threading.Thread):
                 ermsg = "========== ENDING thread ID %s:FAIL " % (self.id)
                 Logger.info(ermsg)
                 self.server.serverLog("INFO", "Failed installing")
+        except Exceptions.ServerUnavailable, e:
+            self.commSocketToService.sendStop()
+            filesystem.clearLock()
+            filesystem.updateCurrentStatus(ERROR, "Cannot communicate with server")
+            return
         except:
             self.commSocketToService.sendStop()
+            filesystem.updateCurrentStatus(ERROR, "Unhandled exception encountered")
             ermsg = 'Exception in thread %s: %s' % (self.id, sys.exc_type) 
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
             e.seek(0)
             data = e.read()
             for line in data.split('\n'):
-                ermsg += "\n>>>%s" % line
+                ermsg += "\n||>>>%s" % line
             Logger.critical(ermsg)
             self.server.serverLog("CRITICAL", ermsg)
             return
+        filesystem.updateCurrentStatus(IDLE, "Finished with installation activities")
         self.commSocketToService.sendStop()
 
 def runWithoutService():
-    import Config, Windows, Filesystem, Server, CommSocket
+    import Config, Windows, Server, CommSocket
     import Repository, BombardierClass, Exceptions
-    
+
+    Logger.addStdErrLogging()
     filesystem = Filesystem.Filesystem()
+    filesystem.clearLock()
     server = Server.Server(filesystem)
     config = Config.Config(filesystem, server, Windows.Windows())
     try:

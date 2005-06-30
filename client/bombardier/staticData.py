@@ -79,6 +79,7 @@ AUTOIT_V2     = "AutoIt.exe"
 AUTOIT_V3     = "AutoIt3.exe"
 CURL          = "curl.exe"
 QFECHECK      = "qfecheck.exe"
+ACTION_FILE   = "action"
 LOG_FILE      = "bombardier.log"
 CONFIG_FILE   = "config.yml"
 LOGS_TO_KEEP  = 5

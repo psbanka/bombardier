@@ -156,7 +156,7 @@ class Bombardier:
                 ermsg = "Cannot gain console access because this system "\
                         "does not have valid login credentials."
                 Logger.error(ermsg)
-                self.filesystem.updateCurrentStatus(ERROR,"ERROR: Cannot log in")
+                self.filesystem.updateCurrentStatus(ERROR,"ERROR: Cannot reboot system.")
                 self.server.serverLog("CRITICAL", ermsg)
                 return FAIL
             self.windows.restartOnLogon()
@@ -172,7 +172,7 @@ class Bombardier:
             Logger.info(erstr)
             status = self.windows.autoLogin(self.config)
             if status == FAIL:
-                self.filesystem.updateCurrentStatus(ERROR,"ERROR: Cannot log in")
+                self.filesystem.updateCurrentStatus(ERROR,"ERROR: Cannot reboot system")
                 ermsg = "Cannot continue installation because this "\
                         "system does not have valid login credentials."
                 Logger.error(ermsg)
@@ -353,10 +353,12 @@ class Bombardier:
             if status == REBOOT:
                 Logger.warning("Package %s wants the system to "\
                                "reboot after installing..." % package)
+                self.filesystem.updateCurrentStatus(WARNING, "Rebooting after package %s" % package.name)
                 self.rebootForMoreInstallation(package, packages)
             if status == FAIL:
                 erstr = "B11 Aborting due to package "\
                         "installation failure"
+                self.filesystem.updateCurrentStatus(ERROR, "Bad package %s" % package.name)
                 Logger.error(erstr)
                 return FAIL
             self.checkReboot(package, packages)

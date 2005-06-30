@@ -2,6 +2,7 @@ import time
 import threading
 
 from staticData import *
+import miniUtility
 
 class StatusThread(threading.Thread):
     
@@ -78,7 +79,8 @@ class StatusThread(threading.Thread):
     def updateData(self):
         #try:
         if 1 == 1:
-            self.current = self.filesystem.loadYaml(CURRENT_FILE)
+            currentPath = os.path.join(miniUtility.getSpkgPath(),CURRENT_FILE)
+            self.current = self.filesystem.loadYaml(currentPath)
             self.badData = False
         else:
         #except:
@@ -86,11 +88,9 @@ class StatusThread(threading.Thread):
             print "ERROR in current.yml"
             self.set({"main": "Unable to determine status", "lightColor": REDLIGHT})
             self.badData = True
-        #try:
-        if 1 == 1:
-            self.complete = self.filesystem.loadYaml(PROGRESS_FILE)
-        else:
-        #except:
+        try:
+            self.complete = self.filesystem.loadYaml(miniUtility.getProgressPath())
+        except:
             print "ERROR in install-progress.yml"
             self.complete = {}
         
