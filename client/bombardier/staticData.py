@@ -91,7 +91,7 @@ if sys.platform == "win32":
    ATTRIB    = os.path.join(WINDIR, "SYSTEM32", "ATTRIB")
 INSTALL_LOCK  = "lockfile"
 DIRLIST       = "dirlist.txt"
-OLD_PROGRESS_FILE = "install-progress.txt"
+PROGRESS_FILE2 = "install-progress.txt"
 PROGRESS_FILE = "install-progress.yml"
 ERRORS_FILE   = "errors.log"
 BOM_FILE      = "BOM.txt"

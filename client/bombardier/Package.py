@@ -5,6 +5,17 @@ import os, string, yaml, time, gc, datetime, win32api, ConfigParser
 import miniUtility, MetaData, Exceptions, Logger
 from staticData import *
 
+def datesort(x, y):
+    return x[1] - y[1]
+
+def getTimeStruct(s):
+    if s == "NA":
+        return 0
+    try:
+        timestruct = int(time.mktime(time.strptime(s)))
+    except ValueError:
+        timestruct = int(time.time())
+    return timestruct
 
 class Package:
 
@@ -488,6 +499,35 @@ class Package:
         self.fullName = selection
         return OK
 
+    def mkInstallSummary(self, progressData):
+        installed = []
+        uninstalled = []
+        for item in progressData.keys():
+            iTxt   = progressData[item]["INSTALLED"]
+            iInt   = getTimeStruct(iTxt)
+            uTxt   = progressData[item]["UNINSTALLED"]
+            uInt   = getTimeStruct(uTxt)
+            if uninstalled > installed:
+                uninstalled.append([item, uInt, uTxt])
+                continue
+            else:
+                installed.append([item, iInt, iTxt])
+        installed.sort(datesort)
+        uninstalled.sort(datesort)
+        output = []
+        for package in installed:
+            output.append("%25s: %s" % (package[0], package[2]))
+        output.append("===============================")
+        for package in uninstalled:
+            output.append("(%25s: %s)" % (package[0], package[2]))
+        progressPath = miniUtility.getProgressPath2()
+
+        fh = self.filesystem.open(progressPath, 'wb')
+        fh.write('\n\r'.join(output))
+        fh.flush()
+        fh.close()
+        del fh
+
     ### TESTED
     def writeProgress(self):
         # FIXME: REMOVE EVEN IF NOT SAME VERSION
@@ -557,4 +597,5 @@ class Package:
         if status == "FAIL":
             ermsg = "Unable to upload installation progress"
             Logger.warning(ermsg)
+        self.mkInstallSummary(progressData)
         return OK

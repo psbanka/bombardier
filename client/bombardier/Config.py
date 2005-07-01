@@ -66,7 +66,7 @@ class Config(dict):
     def downloadConfig(self, configName):
         Logger.debug("Downloading configuration data...")
         newData = self.server.serviceYamlRequest("clientconfig", 
-                                                 {"client": configName, "type":"YAML"})
+                                                 {"client": configName, "type":"YAML"}, debug=True)
         self.data = miniUtility.addDictionaries(self.data, newData)
         self.makeConfigObject()
         newParents = findParentList(newData)

@@ -195,6 +195,11 @@ def getProgressPath():
     newPath = os.path.join(getSpkgPath(), PROGRESS_FILE)
     return newPath
 
+# TESTED
+def getProgressPath2():
+    newPath = os.path.join(getSpkgPath(), PROGRESS_FILE2)
+    return newPath
+
 #### TESTED
 def evalBoolean(data):
     if not data:

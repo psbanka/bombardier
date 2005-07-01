@@ -480,7 +480,6 @@ class Bombardier:
         spkgPath = miniUtility.getSpkgPath()
         systemTypePath = os.path.join(spkgPath, SYSTEM_TYPE_FILE)
         stf = self.filesystem.open(systemTypePath, 'w')
-        Logger.info("Writing system type to file %s" % systemTypePath)
         stf.write(string.join(pkgGroups,'|'))
         stf.close()
 
@@ -495,11 +494,13 @@ class Bombardier:
         self.writeSystemType(pkgGroups)
 
         if pkgGroups == []:
+            Logger.warning("No packages configures for this system %s" % pkgGroups)
             if self.windows.testConsole(): # Try to pull up the WebUI
-                hostName = os.environ["COMPUTERNAME"]
-                configUrl = "%s/website/client/clientpackages?"\
-                            "client=%s" % (self.config.repository["address"],hostName)
-                self.windows.ShellExecuteSimple(configUrl)
+                if type(self.config.repository) == type(dict()) and self.config.repository.get("address"):
+                    hostName = os.environ["COMPUTERNAME"]
+                    configUrl = "%s/website/client/clientpackages?"\
+                                "client=%s" % (self.config.repository["address"],hostName)
+                    self.windows.ShellExecuteSimple(configUrl)
                 self.filesystem.clearLock()
         packageNames = sets.Set([])
         for pkgGroup in pkgGroups:
