@@ -517,9 +517,10 @@ class Package:
         output = []
         for package in installed:
             output.append("%25s: %s" % (package[0], package[2]))
-        output.append("===============================")
-        for package in uninstalled:
-            output.append("(%25s: %s)" % (package[0], package[2]))
+        if uninstalled:
+            output.append("===============================")
+            for package in uninstalled:
+                output.append("(%25s: %s)" % (package[0], package[2]))
         progressPath = miniUtility.getProgressPath2()
 
         fh = self.filesystem.open(progressPath, 'wb')

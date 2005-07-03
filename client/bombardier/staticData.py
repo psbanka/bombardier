@@ -143,9 +143,9 @@ WARNING    = "warning"
 OFFLINE    = "offline"
 VERIFYING  = "Verifying"
 
-UPDATE_FREQ = 5
+UPDATE_FREQ = 1
 FLASH_MOD   = 3
-DEAD_TIME  = 600
+DEAD_TIME   = 600
 
 # ================================================= COMM SOCKET INFO
 

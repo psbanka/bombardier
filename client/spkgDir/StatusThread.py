@@ -1,8 +1,8 @@
 import time
 import threading
 
-from staticData import *
-import miniUtility
+from bombardier.staticData import *
+import bombardier.miniUtility as miniUtility
 
 class StatusThread(threading.Thread):
     
@@ -89,7 +89,7 @@ class StatusThread(threading.Thread):
         try:
             self.complete = self.filesystem.loadYaml(miniUtility.getProgressPath())
         except:
-            print "ERROR in install-progress.yml"
+            print "ERROR in install-progress.yml --- "
             self.complete = {}
         
     def set(self, updateDict):
@@ -125,7 +125,8 @@ class StatusThread(threading.Thread):
                 if total == 0:
                     percentDone = 100
                 else:
-                    percentDone = 100.0 * (leftToDo / total)
+                    percentDone = 100.0 * ((total - leftToDo) / total)
+                
         self.set({"application":appPercent, "overall": percentDone, "todo": todo})
         return OK
 

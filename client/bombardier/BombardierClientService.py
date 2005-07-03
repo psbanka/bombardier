@@ -29,8 +29,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
         if config:
             self.config = config
         else:
-            self.config = Config.Config(self.filesystem,
-                                                   self.server, self.windows)
+            self.config = Config.Config(self.filesystem, self.server, self.windows)
         Logger.info("Bombardier Client Service installing.")
 
         self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
@@ -41,6 +40,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
         self.checkTime  = time.time() + STARTUP_DELAY
         self.verifyTime = 0
 
+        self.initialized          = False
         self.commSocketToThread   = None
         self.commSocketFromThread = None
         self.reconcileThread      = None
@@ -53,6 +53,13 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
 
     ## TESTED (indirectly)
     def runBombardier(self, command):
+        self.windows.noAutoLogin()
+        self.windows.noRestartOnLogon()
+        if not self.initialized:
+            errmsg = "Cannot run system checks because the repository has not been contacted"
+            self.filesystem.updateCurrentStatus(ERROR, "Cannot contact the repository.")
+            Logger.error(errmsg)
+            return
         if self.reconcileThread != None:
             message = self.commSocketFromThread.getMessage()
             if message == STOP:
@@ -75,10 +82,8 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
         self.reconcileThread = ReconcileThread.ReconcileThread(command,
                                                                self.commSocketToThread,
                                                                self.commSocketFromThread,
-                                                               self.config,
-                                                               self.server,
-                                                               self.windows,
-                                                               self.b)
+                                                               self.config, self.server,
+                                                               self.windows, self.b)
         if command == AUTOMATED:
             Logger.info("The bombardier user has reached the console...")
             self.reconcileThread.config.automated = True
@@ -131,23 +136,18 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 self.verifyTime = time.time() + VERIFY_INTERVAL
                 return VERIFY
         return None
-    
-    ## TESTED
-    # SvcDoRun was getting very long, so I broke it into pieces. -pbanka
-    def SvcDoRun(self):
-        Logger.info("Bombardier Client starting...")
-        self.filesystem.clearLock()
-        self.server.getServerData()
-        self.windows.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE, 
-                            servicemanager.PYS_SERVICE_STARTED,
-                            (self._svc_name_, ''))
+
+    def initialize(self):
+        if self.initialized:
+            return
         try:
+            self.server.getServerData()
             self.config.freshen()
         except Exceptions.ServerUnavailable, e:
             erstr = "Unable to download configuration "\
                     "( %s ). Aborting operations." % e
             Logger.warning(erstr)
-            self.cleanup()
+            return
         if self.repository == None:
             try:
                 self.repository = Repository.Repository(self.config,
@@ -156,20 +156,26 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 self.repository.getPackageData()
             except Exceptions.ServerUnavailable, e:
                 Logger.error("Unable to connect to the repository %s" % e)
-                # FIXME: this will never get un-screwed up
                 self.repository = None
-                sys.exit(1)
-        # man, this sure looks stupid:
-        self.b = BombardierClass.Bombardier(self.repository,
-                                                       self.config,
-                                                       self.filesystem,
-                                                       self.server,
-                                                       self.windows)
-
-        while 1:
+                return
+        self.b = BombardierClass.Bombardier(self.repository, self.config,
+                                            self.filesystem, self.server,
+                                            self.windows)
+        self.initialized = True
+    
+    ## TESTED
+    def SvcDoRun(self):
+        Logger.info("Bombardier Client starting...")
+        self.filesystem.clearLock()
+        self.windows.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE, 
+                            servicemanager.PYS_SERVICE_STARTED,
+                            (self._svc_name_, ''))
+        while True:
             try:
                 command = self.windows.ReadPipe(BC_PIPE_NAME, PIPE_READ_TIMEOUT,
                                                 self.waitHandles, self.overlapped.hEvent)
+                if not command:
+                    command = self.checkTimers()
             except Exceptions.ServiceShutdown:
                 self.cleanup()
                 break
@@ -179,16 +185,12 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 self.cleanup()
                 break
             if command:
+                self.initialize()
+                Logger.debug("COMMAND: (%s)" % command)
+                self.filesystem.updateCurrentStatus(IDLE, "Initializing...")
                 self.runBombardier(command)
-                continue
-            self.heartbeatMessage()
-            command = self.checkTimers()
-            if command: 
-                if DEBUG:
-                    self.filesystem.updateCurrentStatus(IDLE, "Initializing...")
-                    Logger.info("Waking up Bombardier for "+command)
-                self.runBombardier(command)
-            self.filesystem.updateCurrentStatus(IDLE, "Finished with installation activities")
+            else:
+                self.heartbeatMessage()
            
 if __name__=='__main__':
     win32serviceutil.HandleCommandLine(BombardierClientService)

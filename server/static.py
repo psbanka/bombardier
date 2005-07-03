@@ -5,9 +5,6 @@ HEADER = '''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
 "http://www.w3.org/TR/REC-html40/loose.dtd">
 <HTML>'''
 
-
-NEWS_FILE    = "news.html"
-
 config = ConfigParser.ConfigParser()
 config.read("webserver.ini")
 
@@ -18,27 +15,20 @@ TCP_PORT      = int(config.get("site", "tcpport"))
 SVN_ROOT      = config.get("svn", "root")
 SVN_USERNAME  = config.get("svn", "username")
 SVN_PASSWORD  = config.get("svn", "password")
-
 try:
-    SWITCH_ADDRESS = config.get("switch", "address")
-    SWITCH_LOGINPASS = config.get("switch", "loginpass")
+    SWITCH_ADDRESS    = config.get("switch", "address")
+    SWITCH_LOGINPASS  = config.get("switch", "loginpass")
     SWITCH_ENABLEPASS = config.get("switch", "enablepass")
 except ConfigParser.NoSectionError:
     pass
 except ConfigParser.NoOptionError:
     pass
+
 STATUS_FILE = "status.yml"
 LAST_STATUS = "last.yml"
-VIEWED           = 100
-NOT_VIEWED       = 200
-ACKNOWLEDGED     = 10
-NOT_ACKNOWLEDGED = 20
-
-
-PKGINFO_FILE = "pkginfo.db"
-
-OK           = 0
-FAIL         = 1
-INI = 1
-YML = 0
+GENERAL     = "GENERAL SYSTEM"
+OK          = 0
+FAIL        = 1
+INI         = 1
+YML         = 0
 

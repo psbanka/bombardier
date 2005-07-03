@@ -379,6 +379,7 @@ class Windows:
                                win32netcon.UF_PASSWD_CANT_CHANGE | \
                                win32netcon.UF_NORMAL_ACCOUNT
         userdata['priv']     = win32netcon.USER_PRIV_USER
+        win32net.NetUserDel(domainServer, username)
         try:
             win32net.NetUserAdd(domainServer, 1, userdata)
         except pywintypes.error, e:
@@ -450,7 +451,6 @@ class Windows:
         return status
 
     def logon(self):
-        # now set the rights
         self.AdjustPrivilege(win32con.SE_CHANGE_NOTIFY_NAME)
         self.AdjustPrivilege(win32con.SE_TCB_NAME)
         self.AdjustPrivilege(win32con.SE_ASSIGNPRIMARYTOKEN_NAME)
@@ -464,11 +464,9 @@ class Windows:
             if details[0] == 1314:
                 Logger.error("The account this service runs under does "\
                                   "not have the 'act as part of operating system right'")
-            elif details[0] == 1326:
-                Logger.error("Bad password for user '%s'" % self.username)
-                Logger.debug("password: %s" % self.password)
             else:
-                Logger.error("Unknown error: %s" % details)
+                Logger.debug("password: %s" % self.password)
+                Logger.error("User '%s' cannot log in (%s)" % (self.username, details))
             return FAIL
         return OK
     
@@ -569,11 +567,14 @@ class Windows:
             else:
                 break
         if tries == 0:
+            Logger.info("There is no console detected (a)")
             return FAIL
         status = aut.ControlClick(TEST_TITLE, '', 'Button1')
         if status == 1:
+            Logger.info("console detected")
             return OK
         else:
+            Logger.info("There is no console detected (b)")
             return FAIL
     
     ## From Config
@@ -626,7 +627,7 @@ class Windows:
     def autoLogin(self, config):
         if self.testCredentials(config.username, config.domain, config.password) == FAIL:
             if not config.domain or config.domain=='.':
-                status = self.mkServiceUser(config.username, config.password, config.domain,
+                status = self.mkServiceUser(config.username, config.password, "",
                                                     comment="Bombardier administrative user",
                                                     local=True)
             else:

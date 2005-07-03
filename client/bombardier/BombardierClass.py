@@ -330,9 +330,13 @@ class Bombardier:
     def installPackages(self, packages):
         self.filesystem.updateCurrentStatus(INSTALLING, "Installing packages")
         installList = self.installList(packages)
-        detailedTodos = self.getDetailedTodolist(installList)
-        self.filesystem.updateProgressFile({"todo": detailedTodos}, True)
+        packagesLeft = []
+        [ packagesLeft.append(x) for x in installList ]
         for packageName in installList:
+            Logger.info("Packages remaining to install: %s" % packagesLeft)
+            packagesLeft.remove(packageName)
+            detailedTodos = self.getDetailedTodolist(packagesLeft)
+            self.filesystem.updateProgressFile({"todo": detailedTodos}, True)
             self.abortIfTold()
             package = packages[packageName]
             self.filesystem.updateProgressFile({"status": {"package":packageName}})
@@ -394,19 +398,23 @@ class Bombardier:
         self.windows.noRestartOnLogon()
         self.windows.noAutoLogin()
         if status == FAIL:
+            self.filesystem.updateCurrentStatus(ERROR, logmessage)
             if logmessage:
                 Logger.error(logmessage)
                 self.server.serverLog("ERROR", logmessage)
             return FAIL
-        else: # Controversial! Should you unlock anyway?
+        else:
+            self.filesystem.updateCurrentStatus(IDLE, logmessage)
             if logmessage:
                 Logger.info(logmessage)
                 self.server.serverLog("INFO", logmessage)
             self.filesystem.clearLock()
         if self.config.automated:
-            Logger.info("Rebooting after auto-logon...")
+            errmsg = "Rebooting after auto-logon..."
+            self.filesystem.updateCurrentStatus(IDLE, errmsg)
+            Logger.info(errmsg)
             self.abortIfTold()
-            self.windows.rebootSystem(message = "Final reboot after package installation")
+            self.windows.rebootSystem(message = errmsg)
         return OK
 
     ### TESTED
@@ -628,7 +636,7 @@ class Bombardier:
             errmsg = "Uninstallation failed. Not continuing with "\
                      "installation of %s" % addPackages
             Logger.error(errmsg)
-            return self.cleanup(FAIL, logmessage="Finished installing.")
+            return self.cleanup(FAIL, logmessage="Finished installing (ERRORS ENCOUNTERED).")
         self.abortIfTold()
         addPackageNames, delPackageNames = self.checkBom()
         self.abortIfTold()

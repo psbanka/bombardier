@@ -187,6 +187,23 @@ class Filesystem:
     def updateCurrentAction(self, message, percent):
         self.updateProgressFile({"status": {"action": message, "percentage": percent}})
 
+    def updateProgressFile(self, dictionary, overwrite=False):
+        statusPath = os.path.join(miniUtility.getSpkgPath(), CURRENT_FILE)
+        data = self.loadCurrent()
+        data["timestamp"] = time.time()
+        try:
+            fh = open(statusPath, 'w')
+            if overwrite:
+                for key, value in dictionary.iteritems():
+                    data[key] = value
+            else:
+                data = self.updateDict(dictionary, data)
+            yaml.dumpToFile(fh, data)
+            fh.flush()
+            fh.close()
+        except Exception, e:
+            Logger.warning("Cannot update progress data: %s" % `e`)
+            
     def getCurrentAction(self):
         data = self.loadCurrent()
         if data.get("status"):
@@ -203,23 +220,6 @@ class Filesystem:
                 olddict[key] = value
         return olddict
 
-    def updateProgressFile(self, dictionary, overwrite=False):
-        statusPath = os.path.join(miniUtility.getSpkgPath(), CURRENT_FILE)
-        data = self.loadCurrent()
-        data["timestamp"] = time.time()
-        try:
-            fh = open(statusPath, 'w')
-            if overwrite:
-                for key, value in dictionary.iteritems():
-                    data[key] = value
-            else:
-                data = self.updateDict(dictionary, data)
-            yaml.dumpToFile(fh, data)
-            fh.flush()
-            fh.close()
-        except Exeception, e:
-            Logger.warning("Cannot update progress data: %s" % `e`)
-            
     def append(self, source, dest):
         fin = open(source, "rb")
         fout = open(dest, "ab")

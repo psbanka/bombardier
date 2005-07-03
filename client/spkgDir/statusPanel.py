@@ -1,24 +1,37 @@
 #Boa:FramePanel:Panel1
 
 import wx
-import threading, pywintypes, win32pipe, time
+import threading
 
 from bombardier.staticData import *
-import bombardier.StatusThread as StatusThread
 import bombardier.CommSocket as CommSocket
 import bombardier.Filesystem as Filesystem
 import bombardier.miniUtility as miniUtility
 import bombardier.Windows as Windows
 import bombardier.Logger as Logger
+import bombardier.ReconcileThread as ReconcileThread
+import StatusThread
 
 class MessageThread(threading.Thread):
-    def __init__(self, commSocket):
+    def __init__(self, commSocket, filesystem):
         threading.Thread.__init__(self)
         self.commSocket = commSocket
-        self.windows = Windows.Windows()
+        self.filesystem = filesystem
+        self.windows    = Windows.Windows()
     
     def run(self):
-        return self.windows.sendNpMessage(BC_PIPE_NAME, CHECK, Logger.info, 40)
+        if miniUtility.standAloneMode(self.filesystem):
+            return ReconcileThread.runWithoutService()
+        else:
+            status = self.windows.serviceStatus("BombardierClient")
+            if status != RUNNING:
+                Logger.warning("Attempting to start the Bombardier Service")
+                status = self.windows.startService("BombardierClient")
+                if status == FAIL:
+                    Logger.error("Unable to start the bombardier service")
+                    return FAIL
+            self.filesystem.clearLock()
+            return self.windows.sendNpMessage(BC_PIPE_NAME, CHECK, Logger.info, 40)
 
 [wxID_PANEL1, wxID_PANEL1APPLICATION, wxID_PANEL1CURRENTACTION, 
  wxID_PANEL1LIGHT, wxID_PANEL1MAIN, wxID_PANEL1OVERALL, wxID_PANEL1START, 
@@ -111,6 +124,7 @@ class Panel1(wx.Panel):
         self._init_ctrls(parent)
         self.iconControl = iconControl
         self.statusCommSocket = CommSocket.CommSocket()
+        self.filesystem = filesystem
         self.statusThread = StatusThread.StatusThread(self.overall.SetValue,
                                                       self.application.SetValue,
                                                       self.main.SetLabel,
@@ -136,7 +150,7 @@ class Panel1(wx.Panel):
 
     def startMessageThread(self):
         self.messageCommSocket = CommSocket.CommSocket()
-        self.messageThread = MessageThread(self.messageCommSocket)
+        self.messageThread = MessageThread(self.messageCommSocket, self.filesystem)
         self.messageThread.start()
 
     def stopStatusThread(self):

@@ -18,7 +18,6 @@ from static import *
 
 # types
 DBPATCH  = "dbpatch"
-HOTFIX   = "hotfix"
 GENERIC  = "generic"
 PKG_DIR  = webUtil.getDeployPath() 
 PACKAGES_FILE = os.path.join(webUtil.getDeployPath(), "packages.yml")
@@ -272,41 +271,6 @@ class DbPatchCreationThread(PackageCreationThread):
         dict["dependencies"]["dep3"] = self.dependency
         return dict
 
-class HotfixCreationThread(PackageCreationThread):
-
-    def __init__(self, request, errlog, url, cveNumber, patches=''):
-        PackageCreationThread.__init__(self, request, errlog, "Hotfix-%s" % cveNumber,
-                                       installScript = "hotfix_template")
-        self.url       = url
-        self.cveNumber = cveNumber
-        self.patches   = patches
-
-    def metaDataTweak(self, dict):
-        if self.patches:
-            dict["dependencies"]["postdep0"] = self.patches
-        return dict
-
-##     def populateInjector(self):
-##         injectorDir = os.path.join(self.destDir, "injector")
-##         os.mkdir(injectorDir)
-##         self.request.write("  - Downloading hotfix from %s...\n" % self.url)
-##         filename = urlparse.urlparse(self.url)[2].split('/')[-1]
-##         c = webops.prepareCurlObject(self.url, {})
-##         try:
-##             injectorDir = os.path.join(self.destDir, "injector")
-##             if not os.path.isdir(injectorDir):
-##                 os.mkdir(injectorDir)
-##             fileHandle = open(os.path.join(injectorDir, filename), 'wb')
-##             c.setopt(pycurl.WRITEFUNCTION, fileHandle.write)
-##         except Exception, e:
-##             self.errors.append("ERROR (%s)" % e)
-##             self.errors.append("Unable to open file %s for writing" % filename)
-##             return FAIL
-##         c.perform()
-##         fileHandle.flush()
-##         fileHandle.close()
-##         return OK
-
 def doc():
     return """
 get:
@@ -328,10 +292,6 @@ put:
          - version:  indicates the version number of the new patch
          - database: indicates what database the patch will be applied to
 
-    [packagename] [type=hotfix] <packagetopatch>: (submitting a url path for the patch)
-         Creates a new Microsoft hotfix patch.
-         - packagetopatch: will apply this hotfix only if this package
-           is applied to the system
     """
 
 def put(request, logger, errlog):
@@ -361,14 +321,6 @@ def put(request, logger, errlog):
                                               packageName,
                                               version=config["version"],
                                               dependency=config["database"])
-    elif type == HOTFIX:
-        location = request.content.read()
-        status, config = webUtil.processOptions(request, errlog, [], ["packagetopatch"])
-        if status == FAIL:
-            errmsg = "Did not include all required fields: --"
-            return webUtil.err400(request, logger, errmsg)
-        packageThread = HotfixCreationThread(request, errlog, cveNumber=packageName,
-                                             url=location, patches=config["packagetopatch"])
     else:
         return webUtil.err400(request, errlog, "unknown type", "type %s is not understood" % type)
     packageThread.start()

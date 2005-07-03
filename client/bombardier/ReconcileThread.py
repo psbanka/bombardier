@@ -29,6 +29,7 @@ class ReconcileThread(threading.Thread):
             self.windows.CoInitialize()
             if self.command == CHECK or self.command == AUTOMATED:
                 Logger.info("In Check Thread, calling reconcileSystem")
+                filesystem.updateCurrentStatus(INSTALLING, "Checking for packages to install")
                 status = self.bombardier.reconcileSystem(self.commSocketFromService.testStop)
             elif self.command == VERIFY:
                 Logger.info("In Verify Thread, calling verifySystem")
@@ -44,11 +45,14 @@ class ReconcileThread(threading.Thread):
 
             if status == OK:
                 Logger.info("========== ENDING thread ID %s:OK " % (self.id))
+                filesystem.updateCurrentStatus(IDLE, "Finished with installation activities")
+                filesystem.updateCurrentAction("", 100)
                 self.server.serverLog("INFO", "Finished installing")
             else:
                 ermsg = "========== ENDING thread ID %s:FAIL " % (self.id)
+                filesystem.updateCurrentStatus(ERROR, "Error installing")
                 Logger.info(ermsg)
-                self.server.serverLog("INFO", "Failed installing")
+                self.server.serverLog("INFO", "Failed to installing")
         except Exceptions.ServerUnavailable, e:
             self.commSocketToService.sendStop()
             filesystem.clearLock()

@@ -169,8 +169,8 @@ class Server:
             if data:
                 self.addPreferred(serverDataDirectory, serverDataName)
                 return
-        Logger.error("No servers in the %s file were reachable" % serverDataPath)
-        return
+        errmsg = "No servers in the %s file were reachable" % serverDataPath
+        raise Exceptions.ServerUnavailable("unknown", errmsg)
 
     def addPreferred(self, serverDataDirectory, serverDataName):
         filePath = os.path.join(miniUtility.getSpkgPath(), SERVERDATA_FILE)

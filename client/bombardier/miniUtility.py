@@ -2,6 +2,12 @@ import os, Filesystem, re
 import _winreg as winreg
 from staticData import *
 
+def standAloneMode(filesystem):
+    configPath = os.path.join(getSpkgPath(), CONFIG_FILE)
+    if os.path.isfile(configPath):
+        return True
+    return False
+
 # TESTED
 def quadToInt(quadString):
     quadIndex = 3

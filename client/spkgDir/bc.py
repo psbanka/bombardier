@@ -26,7 +26,7 @@
 
 import time, os, sys, getopt
 import bombardier, bombardier.Filesystem, bombardier.Windows
-import bombardier.ReconcileThread
+import bombardier.ReconcileThread, bombardier.miniUtility
 from bombardier.staticData import *
 
 def displayHelp():
@@ -79,15 +79,14 @@ if __name__ == "__main__":
         else:
             print "Unknown Option",opt
 
-    configPath = os.path.join(bombardier.getSpkgPath(), CONFIG_FILE)
     print HEADER_TEXT
-    if os.path.isfile(configPath):
+    filesystem = bombardier.Filesystem.Filesystem()
+    if bombardier.miniUtility.standAloneMode(filesystem):
         print "=======Running in stand-alone mode."
         bombardier.ReconcileThread.runWithoutService()
         print "=======Finishing"
     else:
         print "=======Running in service mode."
-        filesystem = bombardier.Filesystem.Filesystem()
         windows    = bombardier.Windows.Windows()
         status = windows.sendNpMessage(BC_PIPE_NAME, command, sys.stdout.write)
         if status == OK:
