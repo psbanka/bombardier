@@ -187,6 +187,9 @@ class Filesystem:
     def updateCurrentAction(self, message, percent):
         self.updateProgressFile({"status": {"action": message, "percentage": percent}})
 
+    def updateTimestampOnly(self):
+        self.updateProgressFile({})
+
     def updateProgressFile(self, dictionary, overwrite=False):
         statusPath = os.path.join(miniUtility.getSpkgPath(), CURRENT_FILE)
         data = self.loadCurrent()

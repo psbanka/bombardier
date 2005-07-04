@@ -83,13 +83,11 @@ class StatusThread(threading.Thread):
             self.badData = False
         except:
             self.current = {}
-            print "ERROR in current.yml"
             self.set({"main": "Unable to determine status", "lightColor": REDLIGHT})
             self.badData = True
         try:
             self.complete = self.filesystem.loadYaml(miniUtility.getProgressPath())
         except:
-            print "ERROR in install-progress.yml --- "
             self.complete = {}
         
     def set(self, updateDict):

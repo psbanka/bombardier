@@ -13,25 +13,29 @@ import bombardier.ReconcileThread as ReconcileThread
 import StatusThread
 
 class MessageThread(threading.Thread):
-    def __init__(self, commSocket, filesystem):
+    def __init__(self, commSocket, filesystem, message=CHECK):
         threading.Thread.__init__(self)
         self.commSocket = commSocket
         self.filesystem = filesystem
         self.windows    = Windows.Windows()
+        self.message    = message
     
     def run(self):
         if miniUtility.standAloneMode(self.filesystem):
-            return ReconcileThread.runWithoutService()
+            if self.message != KILL:
+                return ReconcileThread.runWithoutService()
         else:
-            status = self.windows.serviceStatus("BombardierClient")
-            if status != RUNNING:
-                Logger.warning("Attempting to start the Bombardier Service")
-                status = self.windows.startService("BombardierClient")
-                if status == FAIL:
-                    Logger.error("Unable to start the bombardier service")
-                    return FAIL
-            self.filesystem.clearLock()
-            return self.windows.sendNpMessage(BC_PIPE_NAME, CHECK, Logger.info, 40)
+            if self.message != KILL:
+                status = self.windows.serviceStatus("BombardierClient")
+                if status != RUNNING:
+                    Logger.warning("Attempting to start the Bombardier Service")
+                    status = self.windows.startService("BombardierClient")
+                    if status == FAIL:
+                        Logger.error("Unable to start the bombardier service")
+                        return FAIL
+                self.filesystem.clearLock()
+            status = self.windows.sendNpMessage(BC_PIPE_NAME, self.message, Logger.info, 40)
+            return status
 
 [wxID_PANEL1, wxID_PANEL1APPLICATION, wxID_PANEL1CURRENTACTION, 
  wxID_PANEL1LIGHT, wxID_PANEL1MAIN, wxID_PANEL1OVERALL, wxID_PANEL1START, 
@@ -147,8 +151,16 @@ class Panel1(wx.Panel):
         if self.messageThread:
             self.messageCommSocket.sendStop()
             self.messageThread.join()
+        self.messageCommSocket = CommSocket.CommSocket()
+        self.messageThread = MessageThread(self.messageCommSocket,
+                                           self.filesystem, message=KILL)
+        self.messageThread.start()
+            
 
     def startMessageThread(self):
+        if self.messageThread:
+            self.messageCommSocket.sendStop()
+            self.messageThread.join()
         self.messageCommSocket = CommSocket.CommSocket()
         self.messageThread = MessageThread(self.messageCommSocket, self.filesystem)
         self.messageThread.start()
@@ -169,6 +181,5 @@ class Panel1(wx.Panel):
         self.startMessageThread()
 
     def OnStopButton(self, event):
-        if self.messageThread:
-            self.messageCommSocket.sendStop()
-            self.messageThread.join()
+        self.stopMessageThread()
+

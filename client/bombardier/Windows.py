@@ -125,20 +125,12 @@ class Windows:
     def evalStatus(self, serviceInfo):
         svcType, svcState, svcControls, err, svcErr, svcCP, svcWH = serviceInfo
         if svcState==win32service.SERVICE_STOPPED:
-            ermsg = "The service is stopped"
-            Logger.info(ermsg)
             return STOPPED
         elif svcState==win32service.SERVICE_START_PENDING:
-            ermsg = "The service is starting"
-            Logger.info(ermsg)
             return PENDING
         elif svcState==win32service.SERVICE_STOP_PENDING:
-            ermsg = "The service is stopping"
-            Logger.info(ermsg)
             return NOT_RUNNING
         elif svcState==win32service.SERVICE_RUNNING:
-            ermsg = "The service is running"
-            Logger.info(ermsg)
             return RUNNING
         return NOT_RUNNING
 

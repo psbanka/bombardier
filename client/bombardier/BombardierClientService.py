@@ -51,6 +51,10 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
         self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
         win32event.SetEvent(self.hWaitStop)
 
+    def stopBombardier(self):
+        if self.reconcileThread != None:
+            self.stopThreads()
+            
     ## TESTED (indirectly)
     def runBombardier(self, command):
         self.windows.noAutoLogin()
@@ -96,12 +100,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
 
         self.reconcileThread.start()
 
-    ## TESTED (indirectly)
-    def cleanup(self):
-        self.windows.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE, 
-                            servicemanager.PYS_SERVICE_STOPPED,
-                            (self._svc_name_, ''))
-        Logger.info("Bombardier Client service stopped.")
+    def stopThreads(self):
         if self.reconcileThread != None: # NO TESTING COVERAGE
             Logger.info("Telling last thread to abort...")
             self.commSocketToThread.sendStop()
@@ -111,6 +110,16 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 message = self.commSocketFromThread.getMessage()
                 Logger.info("Waiting for last reconcileThread to quit. (%s)" % message)
             self.reconcileThread.join()
+            self.filesystem.updateCurrentStatus(IDLE, "Bombardier process interrupted")
+            self.reconcileThread = None
+
+    ## TESTED (indirectly)
+    def cleanup(self):
+        self.windows.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE, 
+                            servicemanager.PYS_SERVICE_STOPPED,
+                            (self._svc_name_, ''))
+        self.stopThreads()
+        Logger.info("Bombardier Client service stopped.")
         if DEBUG == 2:
             sys.exit(1)
 
@@ -124,6 +133,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
 
     # CHECK_INTERVAL should ALWAYS be greater then VERIFY_INTERVAL -mhickman
     def checkTimers(self):
+        self.filesystem.updateTimestampOnly()
         if time.time() > self.checkTime:
             Logger.info("Time for install/uninstall run")
             self.checkTime = time.time() + CHECK_INTERVAL
@@ -185,10 +195,12 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 self.cleanup()
                 break
             if command:
-                self.initialize()
                 Logger.debug("COMMAND: (%s)" % command)
-                self.filesystem.updateCurrentStatus(IDLE, "Initializing...")
-                self.runBombardier(command)
+                if command == KILL:
+                    self.stopBombardier()
+                else:
+                    self.initialize()
+                    self.runBombardier(command)
             else:
                 self.heartbeatMessage()
            

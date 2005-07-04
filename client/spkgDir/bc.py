@@ -82,9 +82,12 @@ if __name__ == "__main__":
     print HEADER_TEXT
     filesystem = bombardier.Filesystem.Filesystem()
     if bombardier.miniUtility.standAloneMode(filesystem):
-        print "=======Running in stand-alone mode."
-        bombardier.ReconcileThread.runWithoutService()
-        print "=======Finishing"
+        if command == CHECK or command == AUTOMATED:
+            print "=======Running in stand-alone mode."
+            bombardier.ReconcileThread.runWithoutService()
+            print "=======Finishing"
+        else:
+            print "Stand-alone mode only supports check operations"
     else:
         print "=======Running in service mode."
         windows    = bombardier.Windows.Windows()
