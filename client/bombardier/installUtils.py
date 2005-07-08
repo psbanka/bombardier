@@ -27,11 +27,13 @@ def showProgress( targetName ):
 def installService( _svcPath, domain=None, userName=None, password=None ):
     cmd = os.path.join(os.environ['windir'], "Microsoft.Net", 
                        "Framework", "v1.1.4322", "Installutil.exe")
-    if( userName != None ) and ( password != None ) and ( domain != None ):
+    if( userName != None ) and ( password != None ):
+        if domain == '.' or domain == '' or domain == None:
+            domain = os.environ['hostname']
         cmd += " /userName=%s\\%s /password=%s" %(domain, userName, password)
     Logger.info( "cmd = %s" %(cmd) )
     Logger.info( "_svcPath = %s" %(_svcPath)  )
-    Filesystem().execute("%s %s" % (cmd, _svcPath), "Unable to install " + _svcPath + " as a service", debug=1)
+    Filesystem.Filesystem().execute("%s %s" % (cmd, _svcPath), "Unable to install " + _svcPath + " as a service", debug=1)
 
 def removeFile( path ):
     if os.path.isfile( path ):
@@ -44,6 +46,18 @@ def copyDirectory( _src, _dest ):
         shutil.copytree(_src, _dest)
     except:
         errString = "error creating " + _dest + " directory" 
+        if Logger != None:
+            consoleFail(errString)
+        else:
+            print errString
+            
+def copyFile( _src, _dest ):
+    try:
+        if os.path.isfile( _dest ):
+            os.unlink( _dest )
+        shutil.copy( _src, _dest )
+    except:
+        errString = "error copying from %s to %s" %( _src,  _dest ) 
         if Logger != None:
             consoleFail(errString)
         else:
