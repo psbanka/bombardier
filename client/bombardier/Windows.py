@@ -352,6 +352,59 @@ class Windows:
                 return OK
         return FAIL
 
+    def removeKeyHKLM( self, keyName ):
+        Logger.info("Removing key %s" % keyName)
+        try:
+            winreg.DeleteKey( winreg.HKEY_LOCAL_MACHINE, keyName )
+        except Exception, e:
+            Logger.warning("Unable to delete key %s; (%s)" % (keyName, e))
+
+    def removeSubKeys( self, keyName ):
+        try:
+            keyList = self.getSubKeys( keyName )
+            for k in keyList:
+                self.removeKeyHKLM( k )
+        except:
+            pass
+
+    def getSubKeys( self, keyName ):
+        keyList = []
+        try:
+            fullList = self.enumSubKeysRecursively( keyName, keyList )
+        except Exception, e:
+            Logger.warning("Unable to open key %s (%s)" % (keyName, e))
+            return []
+        strList = []
+        self.popStrings( fullList, strList )
+        strList.reverse()
+        for s in strList:
+            print s
+        return( strList )
+    
+    def enumSubKeysRecursively( self, keyName, keyList ):
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, keyName, 0, winreg.KEY_ALL_ACCESS )
+        keysLeft = True
+        i = 0
+        while keysLeft:
+            subList = []
+            try:
+                subKeyName = keyName + "\\" + winreg.EnumKey( key, i )
+                subList.append( subKeyName )
+                self.enumSubKeysRecursively( subKeyName, subList )
+            except EnvironmentError:
+                keysLeft = False
+            if len( subList ) > 0:
+                keyList.append( subList )
+            i = i + 1
+        return( keyList )
+
+    def popStrings( self, list, strList ):
+        for l in list:
+            if repr( type( l ) ) == '<type \'list\'>':
+                self.popStrings( l, strList )
+            else:
+                strList.append( l )
+
     def mkServiceUser(self, username, password, domain='', local=False, comment=''):
         if not local:
             if domain == '' or domain =='.':
@@ -371,7 +424,10 @@ class Windows:
                                win32netcon.UF_PASSWD_CANT_CHANGE | \
                                win32netcon.UF_NORMAL_ACCOUNT
         userdata['priv']     = win32netcon.USER_PRIV_USER
-        win32net.NetUserDel(domainServer, username)
+        try:
+            win32net.NetUserDel(domainServer, username)
+        except pywintypes.error, e:
+            pass
         try:
             win32net.NetUserAdd(domainServer, 1, userdata)
         except pywintypes.error, e:
