@@ -206,4 +206,4 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 self.heartbeatMessage()
            
 if __name__=='__main__':
-    win32serviceutil.HandleCommandLine(BombardierClientervice)
+    win32serviceutil.HandleCommandLine(BombardierClientService)

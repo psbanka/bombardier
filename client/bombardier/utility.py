@@ -19,7 +19,11 @@ def installFont(fontPath):
     winreg.SetValueEx(fontKey, "fontName", 0, winreg.REG_SZ, baseName)
 
 def rmScheduledFile(filename):
-    win32api.MoveFileEx(filename, None, win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
+    try:
+        win32api.MoveFileEx(filename, None,
+                            win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
+    except pywintypes.error, e:
+        Logger.error("Cannot remove file: %s (%s)" % (filename, e))
 
 def rmScheduledDir(path):
         for root, dirs, files in os.walk(path):
@@ -32,7 +36,7 @@ def removeDirectories( deletePaths ):
     reboot = False
     for path in deletePaths:
         if os.path.isdir(path):
-            print "Attempting to remove %s" %(path)
+            Logger.info( "Attempting to remove %s" %(path) )
             try:
                 shutil.rmtree(path)
             except:
