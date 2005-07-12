@@ -119,6 +119,7 @@ class Repository:
             fullPackageName = self.packages[packageName]['install'][FULL_NAME]
         except KeyError:
             Logger.error("package %s is not in the package database" % packageName)
+            Logger.info("packages: (%s)" % " ".join(self.packages.keys()))
             return FAIL
         if self.filesystem.isdir(os.path.join(packagePath, fullPackageName)):
             return OK

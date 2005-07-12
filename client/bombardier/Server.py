@@ -78,6 +78,8 @@ def prepareCurlObject(url, serverData):
     c.setopt(pycurl.SSL_VERIFYPEER, 0)
     c.setopt(pycurl.SSL_VERIFYHOST, 0)
     c.setopt(pycurl.FAILONERROR, 1)
+    c.setopt(pycurl.FOLLOWLOCATION, 1)
+    c.setopt(pycurl.MAXREDIRS, 4)
     if serverData.has_key("username") and serverData.has_key("password"):
         c.setopt(pycurl.USERPWD, "%s:%s" % (serverData["username"],serverData["password"]))
         #c.setopt(pycurl.HTTPAUTH, pycurl.HTTPAUTH_ANYSAFE)
@@ -192,7 +194,7 @@ class Server:
         base = self.serverData.get("base")
         if base == None:
             base = "website/service/"
-        fullPath = self.serverData["address"] + "/" + base + path
+        fullPath = self.serverData["address"] + "/" + base + path +"/"
         queryString = makeQueryString(args)
         url = fullPath+queryString
         if debug:
@@ -204,6 +206,9 @@ class Server:
         data = StringIO.StringIO()
         c.setopt(pycurl.WRITEFUNCTION, data.write)
         c.setopt(pycurl.CONNECTTIMEOUT, timeout)
+        c.setopt(pycurl.FOLLOWLOCATION, 1) # Neccessary for twisted->cherrypy migration
+        c.setopt(pycurl.MAXREDIRS, 4)
+        #c.setopt(pycurl.VERBOSE, 1)
         if putData:
             putFile = StringIO.StringIO(putData)
             c.setopt(c.INFILESIZE, len(putData))

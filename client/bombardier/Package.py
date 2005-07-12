@@ -594,7 +594,7 @@ class Package:
         hostname = os.environ["COMPUTERNAME"]
         status = self.server.serviceYamlRequest("clientstatus", 
                                                 {"client":hostname, "message":"install"},
-                                                progressData)
+                                                putData=progressData)
         if status == "FAIL":
             ermsg = "Unable to upload installation progress"
             Logger.warning(ermsg)
