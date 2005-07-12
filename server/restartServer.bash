@@ -2,4 +2,4 @@
 
 sudo ./killServer.bash
 sleep 2
-python2.3 webServer.py
+su www-data -c python2.3 webServer.py

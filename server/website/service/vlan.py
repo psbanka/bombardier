@@ -1,6 +1,7 @@
 import string, StringIO, webUtil
 
 from macaddr import CiscoBeast
+import time
 from static import *
 
 """This thing allows queries and puts to the VLAN configuration system,
@@ -48,5 +49,6 @@ def put(request, logger, errlog):
     else:
         request.write("Setting new VLAN from %s to %s\n" % ( currentVlan, vlan ))
         request.finish()
+        time.sleep(2)
         cb.set_vlan(macAddress, vlan)
     return

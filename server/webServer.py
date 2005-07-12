@@ -1,4 +1,4 @@
-#!/cygdrive/c/Python24/python
+#!/cygdrive/c/Python23/python
 from twisted.web import server, resource, static, error
 from twisted.protocols import http
 from twisted.internet import reactor
@@ -240,12 +240,12 @@ class WebSite(resource.Resource):
 
         # FIXME: if this is a directory listing that doesn't end in '/', do a redirect.
         if not filePath.startswith("deploy"):
-            webUtil.err500(request, self.errlog)
+            return webUtil.err500(request, self.errlog)
         filePath = filePath.split("deploy/")[1]
         filePath = os.path.join(webUtil.getDeployPath(), filePath)
         if parts[-1] == '' or os.path.isdir(filePath):
             if filePath.rfind('..') != -1:
-                webUtil.err500(request, self.errlog)
+                return webUtil.err500(request, self.errlog)
             if os.path.isdir(filePath):
                 return getDirectoryListing(filePath, self.logger)
             else:
