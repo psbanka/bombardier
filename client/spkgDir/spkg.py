@@ -137,7 +137,7 @@ if __name__ == "__main__":
             print "Unknown Option",opt
     if command == None:
         print "No command specified."
-        deplayHelp()
+        displayHelp()
         sys.exit(1)
     if len(sys.argv) < 3:
         print "No package name specified."
