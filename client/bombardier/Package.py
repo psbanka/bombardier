@@ -524,7 +524,7 @@ class Package:
         progressPath = miniUtility.getProgressPath2()
 
         fh = self.filesystem.open(progressPath, 'wb')
-        fh.write('\n\r'.join(output))
+        fh.write('\n'.join(output))
         fh.flush()
         fh.close()
         del fh
