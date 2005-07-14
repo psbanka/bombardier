@@ -30,7 +30,6 @@ Prequisites:
 """
 
 def install(spkgPath):
-    MSVCR71_DLL = "msvcr71.dll"
     noFileWarningTemplate = "Warning! %s/%s does not exist. Not copying." 
     system32Path = os.path.join( os.environ['WINDIR'], "system32" )
     for inode in os.listdir("."):
@@ -39,15 +38,17 @@ def install(spkgPath):
             shutil.copy(inode, os.path.join(spkgPath, inode))
         else:
             print noFileWarningTemplate % (os.getcwd(), inode)
-    if os.path.isfile( MSVCR71_DLL ):
-        if not os.path.isfile( os.path.join(system32Path, MSVCR71_DLL) ):
-            sys.stdout.write( "copying %s -> %s\n" % (MSVCR71_DLL, system32Path) )
-            shutil.copy(MSVCR71_DLL, os.path.join(system32Path, MSVCR71_DLL))
-    else:
-        print noFileWarningTemplate % (os.getcwd(), MSVCR71_DLL)
+    for f in [ "msvcr71.dll", "mfc71.dll"]:
+        if os.path.isfile( f ):
+            if not os.path.isfile( os.path.join( system32Path, f ) ):
+                sys.stdout.write( "copying %s -> %s\n" % ( f, system32Path ) )
+                shutil.copy( f, os.path.join( system32Path, f ) )
+        else:
+            print noFileWarningTemplate % ( os.getcwd(), f )
+
     startDir = os.getcwd()
     regSvr = os.path.join(system32Path, "regsvr32.exe")
-    dlls = ["AutoItX3.dll", "InstallTools.dll", "mfc71.dll"]
+    dlls = ["AutoItX3.dll", "InstallTools.dll"]
     for dll in dlls:
         os.system("%s /s %s" % (regSvr, dll))
 
