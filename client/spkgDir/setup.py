@@ -38,7 +38,7 @@ def install(spkgPath):
             shutil.copy(inode, os.path.join(spkgPath, inode))
         else:
             print noFileWarningTemplate % (os.getcwd(), inode)
-    for f in [ "msvcr71.dll", "mfc71.dll"]:
+    for f in [ "msvcr71.dll", "mfc71.dll" ]:
         if os.path.isfile( f ):
             if not os.path.isfile( os.path.join( system32Path, f ) ):
                 sys.stdout.write( "copying %s -> %s\n" % ( f, system32Path ) )
