@@ -1,4 +1,25 @@
-#!/cygdrive/c/Python/python.exe
+#!/cygdrive/c/Python24/python.exe
+
+# Filesystem.py: This module is largely used to wrap functionality
+# that interacts with the filesystem in order to better be able to
+# test this functionality using mock objects in the MockObjects.py
+# class in the TEST directory.
+
+# Copyright (C) 2005 Peter Banka
+
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import shutil, os, sys, tarfile, gzip, yaml, re, time
 import gc

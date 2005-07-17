@@ -1,4 +1,27 @@
-#!/cygdrive/c/Python23/python.exe
+#!/cygdrive/c/Python24/python.exe
+
+# BombardierClient.py: This class provides for a Windows Service which
+# wakes up periodically to determine if there are packages to install
+# or uninstall or if packages should be verified and reported to the
+# repository. This class acts as a central dispatch location for all
+# activities in a completely centralized model of system
+# administration.
+
+# Copyright (C) 2005 Peter Banka, Mark Hickman
+
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import win32serviceutil, win32service, win32event, pywintypes, servicemanager
 import time
