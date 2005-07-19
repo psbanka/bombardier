@@ -82,7 +82,8 @@ class Rescue:
         self.unTar()
         os.system("net stop bombardieragent")
         self.runSetup()
-        self.startService()
+        if self.conf['installServices']:
+            self.startService()
 
     def unzip(self):
         infile = BASE_FILE + ".tar.gz"
@@ -252,7 +253,7 @@ class Rescue:
             if todos[todo] == DWIZ:
                 self.installDwiz(todo)
             if todos[todo] == INNO:
-                os.system("%s /VERYSILENT /NORESTART" % todo)
+                os.system('%s /VERYSILENT /NORESTART /COMPONENTS="service"' % todo)
             if todos[todo] == SETUP:
                 startDir = os.getcwd()
                 os.chdir(todo)
@@ -281,11 +282,13 @@ def usage():
     sys.exit(1)
 
 def getConf():
-    conf = {"repository":'', "go":False}
+    conf = {"repository":'', "go":False, "installServices":True}
     for i in range(1,len(sys.argv)):
         option = sys.argv[i]
         if option == "-g":
             conf["go"] = True
+        elif option == "-n":
+            conf["installServices"] = False
         elif option == "-r":
             conf["repository"] = sys.argv[i+1]
         elif option.startswith('-'):
