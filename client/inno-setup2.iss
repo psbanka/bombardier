@@ -14,7 +14,7 @@ DisableDirPage=true
 DirExistsWarning=no
 DisableProgramGroupPage=true
 DisableFinishedPage=false
-AlwaysShowComponentsList=true
+AlwaysShowComponentsList=false
 DisableReadyPage=true
 ShowLanguageDialog=no
 
@@ -48,14 +48,9 @@ Root: HKLM; Subkey: SYSTEM\CurrentControlSet\Services\BombardierClient; Flags: d
 Name: {app}\config.yml; Type: files
 Name: {app}\bc.py; Type: files
 
-[Components]
-Name: service; Description: Integrated Services; Types: full; Flags: exclusive
-Name: noService; Description: Standalone; Types: full; Flags: exclusive
-
 [Run]
 Filename: {win}\SYSTEM32\msiexec.exe; Parameters: /Ipython-2.4.1.msi ALLUSERS=1 /QN; WorkingDir: {app}\dependencies; StatusMsg: Installing Python, please wait...; Flags: postinstall; Description: Install Python
-Filename: {reg:HKLM\Software\Python\PythonCore\2.4\InstallPath,(Default)|C:\Python24}\python.exe; WorkingDir: {app}\scratch; Flags: postinstall shellexec; Description: Install Python modules, including services; StatusMsg: Installing Bombardier Python Modules; Parameters: rescue.py -g Components: service
-Filename: {reg:HKLM\Software\Python\PythonCore\2.4\InstallPath,(Default)|C:\Python24}\python.exe; WorkingDir: {app}\scratch; Flags: postinstall shellexec; Description: Install Python modules, without services; StatusMsg: Installing Bombardier Python Modules; Parameters: rescue.py -n Components: noService
+Filename: {reg:HKLM\Software\Python\PythonCore\2.4\InstallPath,(Default)|C:\Python24}\python.exe; WorkingDir: {app}\scratch; Flags: postinstall shellexec; Description: Install Python modules; StatusMsg: Installing Bombardier Python Modules; Parameters: rescue.py -g
 
 [UninstallDelete]
 Name: {app}\ntrights.exe; Type: files
