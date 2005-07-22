@@ -195,13 +195,13 @@ class Config(dict):
     def get(self, section, option, default=''):
         if self.data.has_key(section):
             if self.data[section].has_key(option):
-                return self.data[section][option]
+                return str(self.data[section][option])
         for key in self.data.keys():
             if key.lower() == section.lower():
                 if type(self.data[key] == type({})):
                     for subkey in self.data[key].keys():
                         if subkey.lower() == option.lower():
-                            return self.data[key][subkey]
+                            return str(self.data[key][subkey])
         if default:
             if not self.data.has_key(section):
                 self.data[section] = {}
