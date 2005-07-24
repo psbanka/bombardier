@@ -4,7 +4,9 @@ import StatusPage
 import Project
 
 def projectDetail(projectName):
-    project = Project.Project(projectName)
+    projectData = webUtil.readAllProjectData()
+    contactData = webUtil.readAllContactData()
+    project = Project.Project(projectName, projectData, contactData)
     project.getInfo()
     allClients  = webUtil.getClientNames()
     allClients.sort()
@@ -27,9 +29,10 @@ def projectDetail(projectName):
     output.append('<tr><td>Project end date (YYYY-MM-DD)</td>')
     output.append('<td><INPUT TYPE="text" NAME="finish" maxlength="50" ')
     output.append('value="%s" size="20"></td></tr>' % endTime)
-    output.append('<tr><td>Project contact</td>')
-    output.append('<td><INPUT TYPE="text" NAME="contact" maxlength="50" ')
-    output.append('value="%s" size="20"></td></tr>' % contact)
+    output.append('<tr><td>Project contact</td><td>')
+    output += webUtil.selectionBox(contactData.keys(), contact, "contact", False)
+    output.append('</td></tr>')
+
     output.append('<tr><td><p>Clients<p>(control-click multiple systems)')
     output.append('</td><td><SELECT multiple size="10" name="clients">')
     for client in allClients:
@@ -43,9 +46,12 @@ def projectDetail(projectName):
     return '\n'.join(output)
 
 def rowGenerator():
+    projectData = webUtil.readAllProjectData()
+    contactData = webUtil.readAllContactData()
+
     projectNames = webUtil.getProjectNames()
     for projectName in projectNames:
-        project = Project.Project(projectName)
+        project = Project.Project(projectName, projectData, contactData)
         project.getInfo()
         record = [project.name, len(project.clients), project.start,
                   project.finish, project.contact]

@@ -5,7 +5,8 @@ import StatusPage
 import Hardware
 
 def hardwareDetail(hardwareName):
-    hardware = Hardware.Hardware(hardwareName)
+    hardwareData = webUtil.readAllHardwareData()
+    hardware = Hardware.Hardware(hardwareName, hardwareData)
     hardware.getInfo()
     output = []
     output.append('<h1>Hardware %s</h1>' % hardware.name)
@@ -38,9 +39,10 @@ def hardwareDetail(hardwareName):
     return '\n'.join(output)
 
 def rowGenerator():
+    hardwareData = webUtil.readAllHardwareData()
     hardwareNames = webUtil.getHardwareNames()
     for hardwareName in hardwareNames:
-        hardware = Hardware.Hardware(hardwareName)
+        hardware = Hardware.Hardware(hardwareName, hardwareData)
         hardware.getInfo()
         record = [hardware.name, hardware.location, hardware.description,
                   hardware.type, hardware.rack, hardware.client]

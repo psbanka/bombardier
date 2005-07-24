@@ -7,7 +7,15 @@ import webUtil
 from bombardier.Exceptions import *
 
 class Client:
-    def __init__(self, name):
+    def __init__(self, name, clientData, contactData, projectData,
+                 hardwareData, bomData, progressData):
+        self.clientData   = clientData
+        self.projectData  = projectData
+        self.hardwareData = hardwareData
+        self.bomData      = bomData
+        self.progressData = progressData
+        self.contactData  = contactData
+
         self.name      = name
         self.status    = "UNKNOWN"
         self.alive     = False
@@ -24,10 +32,7 @@ class Client:
         self.valid = True
 
     def getInfo(self):
-        try:
-            self.config = webUtil.readClientData(self.name)
-        except ServerUnavailable:
-            self.config = {}
+        self.config = self.clientData[self.name]
         self.packageGroups = self.config.get("packageGroups")
         if self.packageGroups == None:
             self.packageGroups = []
@@ -53,33 +58,34 @@ class Client:
             pass
 
         for packageGroup in self.packageGroups:
-            self.packageList += webUtil.readBom(packageGroup)
-        
-        self.installed, self.uninstalled = webUtil.getClientInstalledUninstalled(self.name)
+            bomData = self.bomData.get(packageGroup)
+            if bomData:
+                self.packageList += self.bomData.get(packageGroup)
+
+        groupProgress = self.progressData[self.name]
+        self.installed, self.uninstalled = webUtil.getClientInstalledUninstalled(self.name, groupProgress)
 
         if self.packageList != []:
             self.percentage = 100.0 * (float(len(self.installed)) / float(len(self.packageList)))
-        contactNames = webUtil.getContactNames()
-        for contactName in contactNames:
-            contact = Contact.Contact(contactName)
+
+        for contactName in self.contactData.keys():
+            contact = Contact.Contact(contactName, self.contactData, self.projectData)
             contact.getInfo()
             if self.name in contact.managedClients:
                 self.managers.append(contactName)
             if self.name in contact.ownedClients:
                 self.owners.append(contactName)
 
-        projectNames = webUtil.getProjectNames()
-        for projectName in projectNames:
-            project = Project.Project(projectName)
+        for projectName in self.projectData.keys():
+            project = Project.Project(projectName, self.projectData, self.contactData)
             project.getInfo()
             if self.name in project.clients:
                 self.projects.append(projectName)
                 if project.endDays > self.endDays:
                     self.endDays = project.endDays
 
-        hardwareNames = webUtil.getHardwareNames()
-        for hardwareName in hardwareNames:
-            hardware = Hardware.Hardware(hardwareName)
+        for hardwareName in self.hardwareData.keys():
+            hardware = Hardware.Hardware(hardwareName, self.hardwareData)
             hardware.getInfo()
             if hardware.client == self.name:
                 self.hardware = hardwareName
@@ -89,10 +95,12 @@ class Client:
         # want to know the installation status of each package
         for packageGroup in self.packageGroups:
             self.packageDetail[packageGroup] = {"packages":{},"installedStatus":"OK"}
-            for packageName in webUtil.readBom(packageGroup):
-                if packageName in self.installed:
-                    self.packageDetail[packageGroup]["packages"][packageName] = "OK"
-                else:
-                    self.packageDetail[packageGroup]["packages"][packageName] = "FAIL"
-                    self.packageDetail[packageGroup]["installedStatus"] = "FAIL"
+            packageNames = self.bomData.get(packageGroup)
+            if packageNames:
+                for packageName in packageNames:
+                    if packageName in self.installed:
+                        self.packageDetail[packageGroup]["packages"][packageName] = "OK"
+                    else:
+                        self.packageDetail[packageGroup]["packages"][packageName] = "FAIL"
+                        self.packageDetail[packageGroup]["installedStatus"] = "FAIL"
 

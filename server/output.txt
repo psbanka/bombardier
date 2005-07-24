@@ -1,7 +1,7 @@
-A    d:\dev\tmp\testdb-data-2005-7-24-1-55-2-2/scripts
-A    d:\dev\tmp\testdb-data-2005-7-24-1-55-2-2/scripts/installer.py
-A    d:\dev\tmp\testdb-data-2005-7-24-1-55-2-2/scripts/uninstaller.py
-A    d:\dev\tmp\testdb-data-2005-7-24-1-55-2-2/scripts/package.ini
-A    d:\dev\tmp\testdb-data-2005-7-24-1-55-2-2/scripts/verify.py
-A    d:\dev\tmp\testdb-data-2005-7-24-1-55-2-2/scripts/backup.py
+A    d:\dev\tmp\testdb-data-2005-7-24-16-25-49-2/scripts
+A    d:\dev\tmp\testdb-data-2005-7-24-16-25-49-2/scripts/installer.py
+A    d:\dev\tmp\testdb-data-2005-7-24-16-25-49-2/scripts/uninstaller.py
+A    d:\dev\tmp\testdb-data-2005-7-24-16-25-49-2/scripts/package.ini
+A    d:\dev\tmp\testdb-data-2005-7-24-16-25-49-2/scripts/verify.py
+A    d:\dev\tmp\testdb-data-2005-7-24-16-25-49-2/scripts/backup.py
 Exported revision 3.

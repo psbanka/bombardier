@@ -5,8 +5,16 @@ import StatusPage
 import Client
 
 def clientDetail(clientName):
+    clientData = webUtil.readAllClientData()
+    projectData = webUtil.readAllProjectData()
+    hardwareData = webUtil.readAllHardwareData()
+    bomData = webUtil.readAllBomData()
+    progressData = webUtil.readAllProgressData()
+    contactData = webUtil.readAllContactData()
+
     output = []
-    client = Client.Client(clientName)
+    client = Client.Client(clientName, clientData, contactData,
+                           projectData, hardwareData, bomData, progressData)
     client.getInfo()
     client.getPackageDetail()
     # FIXME: must be defensive
@@ -53,9 +61,18 @@ def clientDetail(clientName):
     return '\n'.join(output)
 
 def rowGenerator():
-    clientNames = webUtil.getClientNames()
+    clientData = webUtil.readAllClientData()
+    projectData = webUtil.readAllProjectData()
+    hardwareData = webUtil.readAllHardwareData()
+    bomData = webUtil.readAllBomData()
+    progressData = webUtil.readAllProgressData()
+    contactData = webUtil.readAllContactData()
+    
+    clientNames = clientData.keys()
+    clientNames.sort()
     for clientName in clientNames:
-        client = Client.Client(clientName)
+        client = Client.Client(clientName, clientData, contactData,
+                               projectData, hardwareData, bomData, progressData)
         client.getInfo()
         record = [client.name, client.status, client.hardware, "%3.1f" % client.endDays, 
                   ','.join(client.projects), client.alive, "%3.1f" % client.percentage]

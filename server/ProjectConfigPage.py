@@ -1,22 +1,15 @@
 from static import *
 import cherrypy, Root, time
 import bombardier.Server
+import StatusPage
 
 server = bombardier.Server.Server(None, {"address":"http://127.0.0.1:8080"})
 
-class ProjectConfigPage(Root.Root):
+class ProjectConfigPage(StatusPage.StatusPage):
 
     known_methods = ["POST"]
 
     def POST(self, project, start, finish, contact, clients):
-        self.subMenuList = [{"name":"Clients", "link":"/website/server/clientstatus/"},
-                            {"name":"Projects", "link":"/website/server/projectstatus/",
-                             "explanation":"Describe the projects servers are used for"},
-                            {"name":"Contacts", "link":"/website/server/contacts/",
-                             "explanation":"Describe the people responsible for systems"},
-                            {"name":"Hardware", "link":"/website/server/hardware/",
-                             "explanation":"Describe the hardware that you have available"}]
-        self.menuList= [{"name":"Status", "link":"/website/server/clientstatus/"}]
         if type(clients) == type("string"):
             clients = [clients]
         config = {"start":start, "finish":finish, "contact":contact, "clients":clients}

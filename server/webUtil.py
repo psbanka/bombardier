@@ -16,6 +16,30 @@ def readData(path):
         return {}
     return data
 
+def readAllData(listFunction, readFunction):
+    output = {}
+    for recordName in listFunction():
+        output[recordName] = readFunction(recordName)
+    return output
+
+def readAllProgressData():
+    return readAllData(getClientNames, readClientProgress)
+
+def readAllBomData():
+    return readAllData(getBomNames, readBom)
+
+def readAllClientData():
+    return readAllData(getClientNames, readClientData)
+
+def readAllProjectData():
+    return readAllData(getProjectNames, readProjectData)
+
+def readAllContactData():
+    return readAllData(getContactNames, readContactData)
+
+def readAllHardwareData():
+    return readAllData(getHardwareNames, readHardwareData)
+
 def readClientData(clientName):
     return readData("deploy/client/"+clientName+".yml")
 
@@ -77,8 +101,9 @@ def getTimeStruct(s):
         timestruct = int(time.time())
     return timestruct
 
-def getClientInstalledUninstalled(clientName): 
-    progressData = readClientProgress(clientName)
+def getClientInstalledUninstalled(clientName, progressData = None): 
+    if not progressData:
+        progressData = readClientProgress(clientName)
     installed = []
     uninstalled = []
     for item in progressData.keys():
@@ -96,6 +121,9 @@ def getClientInstalledUninstalled(clientName):
             installed.append(stripVersion(item))
     return installed, uninstalled
 
+def getBomNames():
+    return filterBomFiles( server.serviceRequest("deploy/bom").split('\n') )
+
 def getClientNames():
     return filterYamlFiles( server.serviceRequest("deploy/client").split('\n') )
 
@@ -108,13 +136,20 @@ def getProjectNames():
 def getHardwareNames():
     return  filterYamlFiles(server.serviceRequest("deploy/hardware").split('\n'))
 
-def filterYamlFiles(listing):
+def filterFiles(listing, suffix):
     output = []
     for item in listing:
-        if item.endswith('.yml'):
-            output.append(item.split('.')[0])
+        if item.endswith(suffix):
+            basename = item[:item.rfind('.')]
+            output.append(basename)
     output.sort()
     return output
+    
+def filterYamlFiles(listing):
+    return filterFiles(listing, '.yml')
+
+def filterBomFiles(listing):
+    return filterFiles(listing, '.BOM')
 
 def makeTable(header, iterator):
     output = []
@@ -138,20 +173,22 @@ def makeTable(header, iterator):
     output.append('</table>')
     return output
 
-def clientSelectionBox(selectedItems, name='clients', multi=True):
+def selectionBox(items, selectedItems, name='clients', multi=True):
     output = []
     if multi:
         output.append('<SELECT multiple size="10" name="%s">' % name)
     else:
         output.append('<SELECT size="1" name="%s">' % name)
-    clientNames = getClientNames()
-    for client in clientNames:
-        if client in selectedItems:
-            output.append('<OPTION selected="selected" value="%s">%s</OPTION>' % (client, client))
+    for item in items:
+        if item in selectedItems:
+            output.append('<OPTION selected="selected" value="%s">%s</OPTION>' % (item, item))
         else:
-            output.append('<OPTION>%s</OPTION>' % client)
+            output.append('<OPTION>%s</OPTION>' % item)
     output.append('</SELECT>')
     return output
+
+def clientSelectionBox(selectedItems, name='clients', multi=True):
+    return selectionBox(getClientNames(), selectedItems, name, multi)
 
 def nicifyForLegacyClients(data):
     output = {}

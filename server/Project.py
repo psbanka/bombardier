@@ -6,16 +6,16 @@ from bombardier.Exceptions import *
 DAY = 60*60*24
 
 class Project:
-    def __init__(self, name):
+    def __init__(self, name, projectData, contactData):
+        self.projectData = projectData
+        self.contactData = contactData
+
         self.name = name
         self.new  = True
         self.contact = ''
 
     def getInfo(self):
-        try:
-            self.data = webUtil.readProjectData(self.name)
-        except ServerUnavailable:
-            self.data = {}
+        self.data = self.projectData.get(self.name)
 
         self.clients = []
         if not self.data:
@@ -31,9 +31,9 @@ class Project:
         self.start   = self.data.get("start")
         self.finish  = self.data.get("finish")
         contactid    = self.data.get("contact")
-        contactNames = webUtil.getContactNames()
-        for contactName in contactNames:
-            contact  = Contact.Contact(contactName)
+
+        for contactName in self.contactData.keys():
+            contact  = Contact.Contact(contactName, self.contactData, self.projectData)
             contact.getInfo()
             if contactid == contactName:
                 self.contact = contact.fullname

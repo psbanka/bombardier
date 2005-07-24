@@ -7,7 +7,7 @@ FOOTER       = "footer.html"
 
 def mainMenu(menuList):
     output = ""
-    menuHtml = '        <a href="/%(link)s" title="%(explanation)s">%(name)s</a> |'
+    menuHtml = '        <a href="%(link)s" title="%(explanation)s">%(name)s</a> |'
     for menuItem in menuList:
         explanation = menuItem.get('explanation')
         name = menuItem['name']

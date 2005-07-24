@@ -82,7 +82,7 @@ class Root:
 
     def _mainMenu(self):
         output = ""
-        menuHtml = '        <a href="/%(link)s" title="%(explanation)s">%(name)s</a> |'
+        menuHtml = '        <a href="%(link)s" title="%(explanation)s">%(name)s</a> |'
         for menuItem in self.menuList:
             explanation = menuItem.get('explanation')
             name = menuItem['name']

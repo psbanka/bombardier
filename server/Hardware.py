@@ -2,7 +2,8 @@ import webUtil
 from bombardier.Exceptions import *
 
 class Hardware:
-    def __init__(self, name):
+    def __init__(self, name, hardwareData):
+        self.hardwareData = hardwareData
         self.name = name
         self.data = {}
         self.location = ''
@@ -12,11 +13,8 @@ class Hardware:
         self.client = ''
 
     def getInfo(self):
-        try:
-            self.data = webUtil.readHardwareData(self.name)
-        except ServerUnavailable:
-            self.data = {}
-        if self.data == {}:
+        self.data = self.hardwareData.get(self.name)
+        if self.data == None:
             return
         self.location    = self.data.get("location")
         self.description = self.data.get("description")
