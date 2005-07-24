@@ -45,6 +45,7 @@ def post(request, logger, errlog):
 
 def writeLast(config):
     repeat    = False
+    clientPath = os.path.join(webUtil.getClientPath(), config["client"])
     lastPath  = os.path.join(clientPath, LAST_STATUS)
     fh        = open(lastPath, 'r')
     if 1 == 1:

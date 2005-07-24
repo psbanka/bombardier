@@ -1,6 +1,7 @@
-A  /tmp/bombardier-0.4-55-33/scripts
-A  /tmp/bombardier-0.4-55-33/scripts/installer.py
-A  /tmp/bombardier-0.4-55-33/scripts/uninstaller.py
-A  /tmp/bombardier-0.4-55-33/scripts/package.ini
-A  /tmp/bombardier-0.4-55-33/scripts/verify.py
-Exported revision 14352.
+A    d:\dev\tmp\testdb-data-2005-7-24-1-55-2-2/scripts
+A    d:\dev\tmp\testdb-data-2005-7-24-1-55-2-2/scripts/installer.py
+A    d:\dev\tmp\testdb-data-2005-7-24-1-55-2-2/scripts/uninstaller.py
+A    d:\dev\tmp\testdb-data-2005-7-24-1-55-2-2/scripts/package.ini
+A    d:\dev\tmp\testdb-data-2005-7-24-1-55-2-2/scripts/verify.py
+A    d:\dev\tmp\testdb-data-2005-7-24-1-55-2-2/scripts/backup.py
+Exported revision 3.

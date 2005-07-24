@@ -1,46 +1,211 @@
-import ConfigParser, urlparse, urllib2, template, threading, string, httplib, StringIO, urllib
-import yaml, os, random
+import ConfigParser, urlparse, urllib2, template, threading, string, httplib, StringIO, urllib, re
+import cherrypy
+import yaml, os, random, time, urllib
 
 from static import *
 
-config = ConfigParser.ConfigParser()
-config.read("webserver.ini")
-SERVICE = config.get("site", "address")
+EMPTY_LAST_STATUS = {"message": "", "section": "", "severity":"", "time":""}
+PACKAGE_MATCH = re.compile("(\S+)\-\d+")
 
+import bombardier.Server
+server = bombardier.Server.Server(None, {"address":"http://127.0.0.1:8080"})
 
-def findFile(clientName):
-    filename = ''
-    for inode in listConfigDir():
-        inodePath = getConfigFile(inode)
-        if not os.path.isfile(inodePath):
+def readData(path):
+    data = server.serviceYamlRequest(path)
+    if type(data) != type(dict()):
+        return {}
+    return data
+
+def readClientData(clientName):
+    return readData("deploy/client/"+clientName+".yml")
+
+def readContactData(contactName):
+    return readData("deploy/contacts/"+contactName+".yml")
+
+def readProjectData(projectName):
+    return readData("deploy/projects/"+projectName+".yml")
+
+def readHardwareData(hardwareName):
+    return readData("deploy/hardware/"+hardwareName+".yml")
+
+def readProjectData(projectName):
+    data = server.serviceYamlRequest("deploy/projects/"+projectName+".yml")
+    if type(data) != type(dict()):
+        return {}
+    return data
+    
+
+def readClientLastStatus(clientName):
+    try:
+        return server.serviceYamlRequest("deploy/log/"+ clientName + "/last.yml")
+    except:
+        return EMPTY_LAST_STATUS
+
+def filterList(list):
+    output = []
+    for item in list:
+        if item.strip() != '':
+            output.append(item)
+    return output
+
+def readBom(pkgGroup):
+    try:
+        return filterList(server.serviceRequest("deploy/bom/" + pkgGroup + ".BOM").split('\n'))
+    except:
+        return []
+
+def readClientProgress(clientName):
+    try:
+        return server.serviceYamlRequest("deploy/log/" + clientName + "/install-progress.yml")
+    except:
+        return {}
+
+def stripVersion(packageName):
+    if type(packageName) == type("string"):
+        match = PACKAGE_MATCH.findall(packageName)
+        if match:
+            return match[0]
+    return ''
+
+# FIXME: code envy from Package.py
+def getTimeStruct(s):
+    if s == "NA":
+        return 0
+    try:
+        timestruct = int(time.mktime(time.strptime(s)))
+    except:
+        timestruct = int(time.time())
+    return timestruct
+
+def getClientInstalledUninstalled(clientName): 
+    progressData = readClientProgress(clientName)
+    installed = []
+    uninstalled = []
+    for item in progressData.keys():
+        datum  = progressData[item]
+        if type(datum) != type(dict()):
             continue
-        basename  = ''.join(inode.split('.')[:-1])
-        extension = ''.join(inode.split('.')[-1:])
-        if basename.lower() == clientName.lower():
-            if extension.lower() == 'yml':
-                filename = getConfigFile(inode)
-                return filename, YML
-            elif extension.lower() == 'ini':
-                filename = getConfigFile(inode)
-    if filename:
-        return filename,INI
+        iTxt   = progressData[item].get("INSTALLED")
+        iInt   = getTimeStruct(iTxt)
+        uTxt   = progressData[item].get("UNINSTALLED")
+        uInt   = getTimeStruct(uTxt)
+        if uninstalled > installed:
+            uninstalled.append(stripVersion(item))
+            continue
+        else:
+            installed.append(stripVersion(item))
+    return installed, uninstalled
+
+def getClientNames():
+    return filterYamlFiles( server.serviceRequest("deploy/client").split('\n') )
+
+def getContactNames():
+    return filterYamlFiles( server.serviceRequest("deploy/contacts").split('\n') )
+
+def getProjectNames():
+    return  filterYamlFiles(server.serviceRequest("deploy/projects").split('\n'))
+
+def getHardwareNames():
+    return  filterYamlFiles(server.serviceRequest("deploy/hardware").split('\n'))
+
+def filterYamlFiles(listing):
+    output = []
+    for item in listing:
+        if item.endswith('.yml'):
+            output.append(item.split('.')[0])
+    output.sort()
+    return output
+
+def makeTable(header, iterator):
+    output = []
+    output.append('<table width=750>')
+    output.append(header)
+    colorize = False
+    for record in iterator():
+        if colorize:
+            output.append('<tr bgcolor=%s>' % ("#FFFFCC"))
+        else:
+            output.append('<tr bgcolor=%s>' % ("white"))
+        colorize = not colorize
+        name = record[0]
+        path = urllib.pathname2url(name)
+        path = name.replace(' ', '_')
+        print ">>>>>>>>>",path
+        output.append('<td><a href="./%s/">%s</a></td>' % (path, name))
+        for i in record[1:]:
+            output.append("<td>%s</td>" % i)
+        output.append("</tr>")
+    output.append('</table>')
+    return output
+
+def clientSelectionBox(selectedItems, name='clients', multi=True):
+    output = []
+    if multi:
+        output.append('<SELECT multiple size="10" name="%s">' % name)
     else:
-        return '', None
+        output.append('<SELECT size="1" name="%s">' % name)
+    clientNames = getClientNames()
+    for client in clientNames:
+        if client in selectedItems:
+            output.append('<OPTION selected="selected" value="%s">%s</OPTION>' % (client, client))
+        else:
+            output.append('<OPTION>%s</OPTION>' % client)
+    output.append('</SELECT>')
+    return output
+
+def nicifyForLegacyClients(data):
+    output = {}
+    for sectionName in data.keys():
+        section = data[sectionName]
+        if type(section) == type(dict()):
+            output[sectionName] = section
+        else:
+            if sectionName == "packageGroups":
+                newSection = {}
+                for i in range(0,len(section)):
+                    newSection["group"+`i`] = section[i]
+                output["packageGroups"] = newSection
+    return output
+
+####################
+
+def writeProjectInfo(projectInfo):
+    projectsPath = os.path.join(getConfigPath(), "projects.yml")
+    fh = open(projectsPath, 'w')
+    try:
+        yaml.dumpToFile(fh, projectInfo)
+        status = OK
+    except:
+        status =  FAIL
+    fh.close()
+    return status
+
+def getLogPath():
+    return os.path.join(getDeployPath(), "log")
+
 def getClientPath():
     return os.path.join(getDeployPath(), "client")
 
 def getConfigPath():
     return os.path.join(getDeployPath(), "config")
 
+def getInstallProgress(client):
+    return os.path.join(getStatusPath(), client, "install-progress.yml")
+
+def getStatusPath():
+    return config.get("site", "statusdirectory")
+
 def getConfigFile(filename):
     return os.path.join(getConfigPath(), filename)
 
-def listConfigDir():
-    return os.listdir(getConfigPath())
 
 def getDeployPath():
     path = config.get("site", "deployPath")
     return path
+
+def getPackagesPath():
+    packagesPath = os.path.join(getDeployPath(), PACKAGES_FILE)
+    return packagesPath
 
 def connectString(servername, instance, port):
     dataSource = servername
@@ -50,9 +215,16 @@ def connectString(servername, instance, port):
         dataSource += ","+port
     return dataSource
 
+def validateFilename(filename):
+    if '..' in filename:
+        return FAIL
+    if '/' in filename:
+        return FAIL
+    return OK
+
 def writeScratch(data=None, filename=None, location=None):
-    id = `random.randint(0,10000)`
-    filename = filename+id
+    identifier = `random.randint(0,10000)`
+    filename = filename+identifier
     if validateFilename(filename) == FAIL:
         return FAIL
     if not os.path.isdir(location):
@@ -66,50 +238,39 @@ def writeScratch(data=None, filename=None, location=None):
 def verifyAndWriteConfig(configData, iniFile):
     # need to trick ConfigParser
     dataFile = StringIO.StringIO(configData)
-    config = ConfigParser.ConfigParser()
-    config.readfp(dataFile)
+    configParser = ConfigParser.ConfigParser()
+    configParser.readfp(dataFile)
     dataFile.close()
     dataFile = open(iniFile, 'w')
-    config.write(dataFile)
+    configParser.write(dataFile)
     dataFile.close()
+    return OK
 
 def verifyAndWriteYaml(configData, outputPath):
     try:
-        config = yaml.load(configData)
-        ymlString = yaml.dump(config.next())
-        fh = open(outputPath, 'w').write(ymlString)
+        data = yaml.load(configData)
+        ymlString = yaml.dump(data.next())
+        fh = open(outputPath, 'w')
+        fh.write(ymlString)
+        fh.close()
         return OK
     except:
         return FAIL
 
-def getSystemNames():
-    baseDir = os.path.join('deploy','config')
+def serviceListing():
+    baseDir = os.path.join(getDeployPath(),'config')
     inodes = os.listdir(baseDir)
-    systemNames = ['']
+    systemNames = set([''])
     for inode in inodes:
-        if os.path.isfile(os.path.join(baseDir,inode)) and inode.endswith('.ini'):
-            systemName = inode[:inode.rfind('.ini')]
-            if systemName != '':
-                systemNames.append(systemName)
-    systemNames.sort()
-    return systemNames
-
-def processOptions(request, errlog, mandatoryList, optionalList):
-    status = OK
-    config = {}
-    for item in mandatoryList:
-        if request.args.get(item) == None:
-            request.write(err400(request, errlog, "BAD REQUEST", "Must provide %s\n" % item))
-            request.finish()
-            return FAIL, config
-        else:
-            config[item] = request.args.get(item)[0]
-    for item in optionalList:
-        if request.args.get(item) == None:
-            config[item] = None
-        else:
-            config[item] = request.args.get(item)[0]
-    return OK, config
+        if os.path.isfile(os.path.join(baseDir,inode)):
+            if inode.lower().endswith('.ini') or inode.lower().endswith(".yml"):
+                systemName = '.'.join(inode.split('.')[0:-1])
+                systemName = systemName.lower()
+                if systemName != '':
+                    systemNames.update([systemName])
+    systemList = list(systemNames)
+    systemList.sort()
+    return systemList
 
 
 class Process(threading.Thread):
@@ -136,28 +297,32 @@ class Process(threading.Thread):
         self.request.write(html)
         self.request.finish()
 
-def serviceConfigPut(path, config, args={}):
+def serviceConfigPut(path, configParser, args={}):
     datafile = StringIO.StringIO()
-    config.write(datafile)
+    configParser.write(datafile)
     datafile.seek(0)
     outputString = datafile.read()
     return servicePut(path, args, data=outputString)
 
 def servicePut(path, args={}, data=[], live = False):
     queryString = urllib.urlencode(args)
-    return put(SERVICE+path+"?"+queryString, data, live=live)
+    return put(SERVICE+path+"/?"+queryString, data, live=live)
 
-def put(location, data, username='', password='', live = False, logger=None):
+#^^^ Who uses this?
+def put(location, data, username='', password='', live = False):
+    location += '/'
     urldata = urlparse.urlparse(location)
     proto, site = urldata[:2]
-    if len(urldata) >= 3: path = urldata[2]
-    else: path=''
-    if len(urldata) >= 4: port = urldata[3]
-    else: port = ""
-    if len(urldata) >= 5: variables = urldata[4]
-    else: variables = ""
+    if len(urldata) >= 3:
+        path = urldata[2]
+    else:
+        path=''
+    if len(urldata) >= 5:
+        variables = urldata[4]
+    else:
+        variables = ""
     h = httplib.HTTP(site)
-    if logger: logger.debug( 'PUT', path+"/"+variables )
+    cherrypy.log( 'Sending a PUT to %s' % path+"/"+variables )
     h.putrequest('PUT', path+"?"+variables)
     h.putheader('Accept', '*/*')
     h.putheader('Allow', 'PUT')
@@ -168,11 +333,11 @@ def put(location, data, username='', password='', live = False, logger=None):
     h.putheader('Content-Length', str(len(data)))
     h.endheaders()
     h.send(data)
-    if logger: logger.debug( 'Getting reply...' )
+    cherrypy.log( 'Getting reply...' )
     try:
         errcode, errmsg, headers = h.getreply()
     except: # would be more specific, but it just throws an "error"
-        if logger: logger.warning( "Error performing PUT" )
+        cherrypy.log( "Error performing PUT" )
         return FAIL
     if live:
         return h.getfile()
@@ -184,128 +349,48 @@ def put(location, data, username='', password='', live = False, logger=None):
         return FAIL
 
 #^ RIPPED OFF FROM CONFIG
-def makeConfigObject(data, logger=None):
-    config = ConfigParser.ConfigParser()
+def makeConfigObject(data):
+    configParser = ConfigParser.ConfigParser()
     for section in data.keys():
-        if not config.has_section(section):
-            config.add_section(section)
+        if not configParser.has_section(section):
+            configParser.add_section(section)
         datum = data[section]
         if type(datum) == type(dict()):
             for option in datum.keys():
                 value = datum[option]
                 if type(value) != type(dict()):
-                    config.set(section, option, value)
+                    configParser.set(section, option, value)
                 else:
                     ermsg =  "incompatible types (ini/yaml) for (%s:%s)" % (section, option)
-                    if logger: logger.error(ermsg)
+                    cherrypy.log(ermsg)
         else:
-            if logger: logger.error( "incompatible types (ini/yaml) for (%s)" % (section) )
-    return config
+            cherrypy.lo( "incompatible types (ini/yaml) for (%s)" % (section) )
+    return configParser
+
+def configToDict(configPath):
+    configParser = ConfigParser.ConfigParser()
+    configParser.read(configPath)
+    outputDict = {}
+    for sectionName in configParser.sections():
+        outputDict[sectionName] = {}
+        for optionName in configParser.options(sectionName):
+            outputDict[sectionName][optionName] = configParser.get(sectionName, optionName)
+    return outputDict
 
 def configToYaml(configPath):
-    config = ConfigParser.ConfigParser()
-    config.read(configPath)
-    outputDict = {}
-    for sectionName in config.sections():
-        outputDict[sectionName] = {}
-        for optionName in config.options(sectionName):
-            outputDict[sectionName][optionName] = config.get(sectionName, optionName)
+    outputDict = configToDict(configPath)
     return yaml.dump(outputDict)
     
-
-def serviceYamlRequest(path, logger, args={}):
-    try:
-        ymlData = serviceRequest(path, args)
-        config = yaml.load(string.join(ymlData, '\n'))
-    except urllib2.HTTPError:
-        logger.error( "Unable to connect to the service %s" % path )
-        return {}
-    try:
-        return config.next() # FIXME
-    except:
-        logger.error( "error connecting to %s" % path )
-        logger.error( "Received bad YAML from server: %s" % ymlData )
-        return {}
-
-def serviceConfigRequest(path, args={}):
-    config = ConfigParser.ConfigParser()
-    try:
-        configData = serviceRequest(path, args)
-        # need to trick ConfigParser
-        dataFile = StringIO.StringIO(string.join(configData, '\n'))
-        config.readfp(dataFile)
-        dataFile.close()
-    except urllib2.HTTPError:
-        pass
-    return config
-
-def serviceRequest(path, args={}):
-    queryString = ""
-    if len(args.keys()) >= 1:
-        for argIndex in range(0, len(args.keys())):
-            key = args.keys()[argIndex]
-            value = args[args.keys()[argIndex]]
-            if argIndex == 0:
-                queryString += "?%s=%s" % (key, value)
-            else:
-                queryString += "&%s=%s" % (key, value)
-    print "connecting to %s" % SERVICE+path+queryString
-    return wget(SERVICE+path+queryString).split('\n')
-
-def wget(location, username='', password='', logger=None):
-    if username != '' and password != '':
-        auth_handler.add_password('Restricted', location, username, password)
-        opener = urllib2.build_opener(auth_handler)
-        urllib2.install_opener(opener)
-    if logger: logger.debug( "Making service connection to: %s" % location )
-    try:
-        urlHandle = urllib2.urlopen(location)
-    except urllib2.HTTPError, e:
-        if logger: logger.error( "HTTP Error: %s" % e )
-        return ""
-    data = urlHandle.read()
-    return data
-
-def err400(request, logger, errorString="Bad Request", instructions=""):
-    if instructions == '':
-        instructions = errorString
-    request.setResponseCode(400, errorString+"\n")
-    request.setHeader('Connection', 'close')
-    logger.warning( "ERR400 (%s) from (%s/%s)" % \
-                    (errorString, request.getClient(), request.getClientIP() ))
-    return instructions
-
-def err404(request, logger, filePath=''):
-    request.setResponseCode(404, 'Path Not Found')
-    request.setHeader('Connection', 'close')
-    logger.warning( "BAD FILENAME: %s (from %s/%s)" % \
-                  (filePath, request.getClient(), request.getClientIP() ) )
-    return '<h1>404 Path not found</h1>'    
-
-def err500(request, logger):
-    request.setResponseCode(500, "Access Denied")
-    request.setHeader("Connection", 'close')
-    logger.warning( "ACCESS DENIED: %s to (%s/%s)" % \
-                               (request.path, request.getClient(), request.getClientIP() ) )
-    return "<h1>500 Access denied</h1>"
-
-def err301(request, logger, location):
-    request.setResponseCode(301, "Moved Permanently")
-    request.setHeader("Location", location)
-    request.setHeader("Connection", 'close')
-    logger.warning( "Redirect: %s to %s" % \
-                    (request.getClient(), location ) )
-    return "<h1>301 Moved permanently to %s</h1>" % location
-
 # FIXME: Copy-and-paste from utility
-def getPackageGroups(config, type=INI):
+def getPackageGroups(configObj, filetype=INI):
     packageGroups = []
-    if type == INI:
+    if filetype == INI:
+        configParser = configObj
         groupNumber = 0
         while 1 == 1:
             try:
                 groupStr = "group"+`groupNumber`
-                group = config.get("packageGroups", groupStr)
+                group = configParser.get("packageGroups", groupStr)
                 packageGroups.append(group)
                 groupNumber += 1
             except ConfigParser.NoSectionError:
@@ -314,14 +399,15 @@ def getPackageGroups(config, type=INI):
                 break
         if packageGroups == []:
             try:
-                type = config.get("system", "type")
+                systemtype = configParser.get("system", "type")
             except ConfigParser.NoOptionError:
                 return []
             except ConfigParser.NoSectionError:
                 return []
-            packageGroups = ["base", type]
+            packageGroups = ["base", systemtype]
     else:
-        configData = yaml.load(config).next()
+        yamlObj = configObj
+        configData = yaml.load(yamlObj).next()
         if configData.has_key("packageGroups"):
             if type(configData["packageGroups"]) == {}:
                 packageGroups = configData["packageGroups"].values()
@@ -332,5 +418,22 @@ def getPackageGroups(config, type=INI):
             else:
                 packageGroups = []
     return packageGroups
-        
+
+def readPackageGroups(clientName):
+    output = {}
+    filename, filetype = findFile(clientName)
+    if not os.path.isfile(filename):
+        cherrypy.log( "Data error: %s does not exist for client %s" % (filename, clientName))
+        return output
+    dataFile = open(os.path.join(filename))
+
+    if filetype == INI:
+        config = ConfigParser.ConfigParser()
+        config.readfp(dataFile)
+        dataFile.close()
+        packageGroups = getPackageGroups(config)
+    else:
+        data = dataFile.read()
+        packageGroups = getPackageGroups(data, filetype=YML)
+    
 

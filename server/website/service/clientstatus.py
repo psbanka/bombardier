@@ -145,7 +145,7 @@ def put(request, logger, errlog):
             try:
                 os.mkdir(installProgressDir)
             except OSError:
-                return "Unable to create directory\n"
+                return "---\nUnable to create directory (%s)\n" % installProgressDir
         status = webUtil.verifyAndWriteYaml(data, os.path.join(installProgressDir, "install-progress.yml"))
     else:
         "Good Place to upload verify data"
