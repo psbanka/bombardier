@@ -16,7 +16,7 @@ class ContactConfigPage(StatusPage.StatusPage):
         config = {"fullname":fullname, "email":email,
                   "ownedclients":ownedclients, "managedclients":managedclients}
         contactPath = "website/service/putfile/contacts/%s.yml/" % contact
-        serverResponse = server.serviceYamlRequest(contactPath, putData = config, debug=True)
+        serverResponse = server.serviceYamlRequest(contactPath, putData = config, debug=True, legacyPathFix=False)
         output = []
         if serverResponse == "OK":
             output.append( "<h1>Contact %s has been modified</h1>" % contact )

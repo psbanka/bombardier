@@ -11,7 +11,7 @@ import bombardier.Server
 server = bombardier.Server.Server(None, {"address":"http://127.0.0.1:8080"})
 
 def readData(path):
-    data = server.serviceYamlRequest(path)
+    data = server.serviceYamlRequest(path, legacyPathFix=False)
     if type(data) != type(dict()):
         return {}
     return data
@@ -53,7 +53,7 @@ def readHardwareData(hardwareName):
     return readData("deploy/hardware/"+hardwareName+".yml")
 
 def readProjectData(projectName):
-    data = server.serviceYamlRequest("deploy/projects/"+projectName+".yml")
+    data = server.serviceYamlRequest("deploy/projects/"+projectName+".yml", legacyPathFix=False)
     if type(data) != type(dict()):
         return {}
     return data
@@ -61,7 +61,9 @@ def readProjectData(projectName):
 
 def readClientLastStatus(clientName):
     try:
-        return server.serviceYamlRequest("deploy/log/"+ clientName + "/last.yml")
+        clients = server.serviceRequest("deploy/log/", legacyPathFix=False)
+        clientName = lowerCaseSearch(clients, clientName)
+        return server.serviceYamlRequest("deploy/log/"+ clientName + "/last.yml", legacyPathFix=False)
     except:
         return EMPTY_LAST_STATUS
 
@@ -74,13 +76,13 @@ def filterList(list):
 
 def readBom(pkgGroup):
     try:
-        return filterList(server.serviceRequest("deploy/bom/" + pkgGroup + ".BOM").split('\n'))
+        return filterList(server.serviceRequest("deploy/bom/" + pkgGroup + ".BOM", legacyPathFix=False).split('\n'))
     except:
         return []
 
 def readClientProgress(clientName):
     try:
-        return server.serviceYamlRequest("deploy/log/" + clientName + "/install-progress.yml")
+        return server.serviceYamlRequest("deploy/log/" + clientName + "/install-progress.yml", legacyPathFix=False, debug=True)
     except:
         return {}
 
@@ -90,6 +92,15 @@ def stripVersion(packageName):
         if match:
             return match[0]
     return ''
+
+def lcDictFind(dictionary, item):
+    dictItem = lowerCaseSearch(dictionary.keys(), item)
+    return dictionary[dictItem]
+
+def lowerCaseSearch(list, item):
+    for listItem in list:
+        if listItem.lower() == item.lower():
+            return listItem
 
 # FIXME: code envy from Package.py
 def getTimeStruct(s):
@@ -122,19 +133,19 @@ def getClientInstalledUninstalled(clientName, progressData = None):
     return installed, uninstalled
 
 def getBomNames():
-    return filterBomFiles( server.serviceRequest("deploy/bom").split('\n') )
+    return filterBomFiles( server.serviceRequest("deploy/bom", legacyPathFix=False).split('\n') )
 
 def getClientNames():
-    return filterYamlFiles( server.serviceRequest("deploy/client").split('\n') )
+    return filterYamlFiles( server.serviceRequest("deploy/client", legacyPathFix=False, debug=True).split('\n') )
 
 def getContactNames():
-    return filterYamlFiles( server.serviceRequest("deploy/contacts").split('\n') )
+    return filterYamlFiles( server.serviceRequest("deploy/contacts", legacyPathFix=False).split('\n') )
 
 def getProjectNames():
-    return  filterYamlFiles(server.serviceRequest("deploy/projects").split('\n'))
+    return  filterYamlFiles(server.serviceRequest("deploy/projects", legacyPathFix=False).split('\n'))
 
 def getHardwareNames():
-    return  filterYamlFiles(server.serviceRequest("deploy/hardware").split('\n'))
+    return  filterYamlFiles(server.serviceRequest("deploy/hardware", legacyPathFix=False).split('\n'))
 
 def filterFiles(listing, suffix):
     output = []
@@ -224,7 +235,7 @@ def getClientPath():
     return os.path.join(getDeployPath(), "client")
 
 def getConfigPath():
-    return os.path.join(getDeployPath(), "config")
+    return os.path.join(getDeployPath(), "client")
 
 def getInstallProgress(client):
     return os.path.join(getStatusPath(), client, "install-progress.yml")
@@ -295,7 +306,7 @@ def verifyAndWriteYaml(configData, outputPath):
         return FAIL
 
 def serviceListing():
-    baseDir = os.path.join(getDeployPath(),'config')
+    baseDir = os.path.join(getDeployPath(),'client')
     inodes = os.listdir(baseDir)
     systemNames = set([''])
     for inode in inodes:

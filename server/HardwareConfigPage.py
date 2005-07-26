@@ -12,7 +12,7 @@ class HardwareConfigPage(StatusPage.StatusPage):
         config = {"location":location, "description":description,
                   "type":type, "rack":rack, "clients":clients}
         hardwarePath = "website/service/putfile/hardwares/%s.yml/" % hardware
-        serverResponse = server.serviceYamlRequest(hardwarePath, putData = config, debug=True)
+        serverResponse = server.serviceYamlRequest(hardwarePath, putData = config, debug=True, legacyPathFix=False)
         output = []
         if serverResponse == "OK":
             output.append( "<h1>Hardware %s has been modified</h1>" % hardware )

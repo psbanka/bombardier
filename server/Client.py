@@ -32,7 +32,7 @@ class Client:
         self.valid = True
 
     def getInfo(self):
-        self.config = self.clientData[self.name]
+        self.config = webUtil.lcDictFind(self.clientData, self.name)
         self.packageGroups = self.config.get("packageGroups")
         if self.packageGroups == None:
             self.packageGroups = []
@@ -62,7 +62,7 @@ class Client:
             if bomData:
                 self.packageList += self.bomData.get(packageGroup)
 
-        groupProgress = self.progressData[self.name]
+        groupProgress = webUtil.lcDictFind(self.progressData, self.name)
         self.installed, self.uninstalled = webUtil.getClientInstalledUninstalled(self.name, groupProgress)
 
         if self.packageList != []:
@@ -87,7 +87,7 @@ class Client:
         for hardwareName in self.hardwareData.keys():
             hardware = Hardware.Hardware(hardwareName, self.hardwareData)
             hardware.getInfo()
-            if hardware.client == self.name:
+            if hardware.client.lower() == self.name.lower():
                 self.hardware = hardwareName
                 break
         
