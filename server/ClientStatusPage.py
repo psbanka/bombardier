@@ -73,7 +73,7 @@ def rowGenerator():
     contactData = webUtil.readAllContactData()
     
     clientNames = clientData.keys()
-    clientNames.sort()
+    clientNames.sort(lambda x,y: cmp(x.lower(), y.lower()))
     for clientName in clientNames:
         client = Client.Client(clientName, clientData, contactData,
                                projectData, hardwareData, bomData, progressData)
