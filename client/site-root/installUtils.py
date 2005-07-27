@@ -93,17 +93,25 @@ class SiteCreator:
         self.ipAddress   =  ipAddress
         self.port       =  port
         self.securePort =  securePort
-        self.serverBindings = self.ipAddress + ":" + self.port + ":"
+        self.serverBindings = "%s:%s:" %( self.ipAddress, self.port )
         if self.securePort != None:
-            self.secureBindings = self.ipAddress + ":" + self.securePort + ":"
+            self.secureBindings = "%s:%s:" %( self.ipAddress, self.securePort )
         else:
             self.secureBindings = None
 
-    def createSite(self):
-        createWebSite(homeDirectory=self.homeDir, sourceFiles=self.sourceDir, 
+     def createSite(self):
+         Logger.info( "Creating site:" )
+         Logger.info( "\thomeDir    : %s" %self.homeDir )
+         Logger.info( "\tsourceDir  : %s" %self.sourceDir )
+         Logger.info( "\tsiteIndex  : %s" %self.siteIndex )
+         Logger.info( "\ttitle      : %s" %self.title )
+         Logger.info( "\tipAddress  : %s" %self.ipAddress )
+         Logger.info( "\tport       : %s" %self.port )
+         Logger.info( "\tsecurePort : %s" %self.securePort )
+         createWebSite(homeDirectory=self.homeDir, sourceFiles=self.sourceDir, 
                       siteIndex=self.siteIndex, ipAddress=self.ipAddress,
                       port=65534, title=self.title)
-        self.setSiteInfo()
+         self.setSiteInfo()
     
     def setSiteInfo(self):
         try:
