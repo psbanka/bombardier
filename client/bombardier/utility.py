@@ -46,7 +46,6 @@ def makeWritableRecursive( rootDir ):
             makeDirWritable(os.path.join(root, name))
         makeDirWritable( root )    
 
-
 def installFont(fontPath):
     baseName = fontPath.split('\\')[-1]
     fontDest = os.path.join(os.environ['WINDIR'], 'fonts', baseName)
@@ -245,7 +244,7 @@ def createWebSite(homeDirectory, sourceFiles, siteIndex, title,
                 removeDirectory(homeDirectory)
             except Exception, e:
                 Logger.warning( "Exception caught " \
-                                "doing shutil.rmtree on %s\n%s" \
+                                "while removing %s\n%s" \
                                 %(homeDirectory, e) )
 
         if sourceFiles:
