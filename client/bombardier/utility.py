@@ -28,6 +28,25 @@ import win32com.client, win32api, win32file, pywintypes, win32pdh, win32con
 from staticData import *
 import miniUtility, RegistryDict, Logger
 
+WRITABLE_FILE_MODE      = 33206
+WRITABLE_DIRECTORY_MODE = 16895
+
+def makeDirWritable( dir ):
+    os.chmod( dir, WRITABLE_DIRECTORY_MODE )
+
+def makeFileWritable( file ):
+    os.chmod( file, WRITABLE_FILE_MODE )
+
+def makeWritableRecursive( rootDir ):
+    for root, dirs, files in os.walk(rootDir, topdown=False):
+        for name in files:
+            makeFileWritable(os.path.join(root, name))
+        for name in dirs:
+            print "%s" %(os.path.join(root, name))
+            makeDirWritable(os.path.join(root, name))
+        makeDirWritable( root )    
+
+
 def installFont(fontPath):
     baseName = fontPath.split('\\')[-1]
     fontDest = os.path.join(os.environ['WINDIR'], 'fonts', baseName)
@@ -52,13 +71,18 @@ def rmScheduledDir(path):
                 for name in dirs:
                         rmScheduledFile(os.path.join(root, name))
 
+def removeDirectory( path ):
+    if os.path.isdir( path ):
+        makeWritableRecursive( path )
+        shutil.rmtree( path )
+
 def removeDirectories( deletePaths ):
     reboot = False
     for path in deletePaths:
         if os.path.isdir(path):
             Logger.info( "Attempting to remove %s" %(path) )
             try:
-                shutil.rmtree(path)
+                removeDirectory(path)
             except:
                 rmScheduledDir(path)
                 reboot = True
@@ -217,7 +241,12 @@ def createWebSite(homeDirectory, sourceFiles, siteIndex, title,
         os.system(r'%s %s -a w3svc/1 -v' % (cscript, os.path.join(ADMINSCRIPTS, "startsrv.vbs")))
         if os.path.isdir(homeDirectory):
             Logger.warning("Removing All files in directory %s" % homeDirectory)
-            shutil.rmtree(homeDirectory)
+            try:
+                removeDirectory(homeDirectory)
+            except Exception, e:
+                Logger.warning( "Exception caught " \
+                                "doing shutil.rmtree on %s\n%s" \
+                                %(homeDirectory, e) )
 
         if sourceFiles:
             shutil.copytree(sourceFiles, homeDirectory)
