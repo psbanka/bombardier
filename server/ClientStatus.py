@@ -32,7 +32,7 @@ def updateStatus(clientName):
     """ Determine whether the client is up-to-date or not """
 
     output = {}
-    clientPath = os.path.join(ROOT_DIR, "log", clientName)
+    clientPath = os.path.join(webUtil.getLogPath(), clientName)
     ymlPath = os.path.join(clientPath, LAST_STATUS)
     output = {"elapsed":0,
               "lastStatus":"",
@@ -192,7 +192,7 @@ class ClientStatus(Root.Root):
         cherrypy.response.headerMap["Content-type"] = "text/plain"
         data = cherrypy.request.body.read()
         if "INSTALL" in message.upper():
-            installProgressDir = os.path.join(ROOT_DIR, "log", client)
+            installProgressDir = os.path.join(webUtil.getLogPath(), client)
             if not os.path.isdir(installProgressDir):
                 try:
                     os.mkdir(installProgressDir)

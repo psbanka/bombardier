@@ -8,6 +8,9 @@ HEADER = '''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
 config = ConfigParser.ConfigParser()
 config.read("webserver.ini")
 
+TEMPLATE      = "template.html"
+FOOTER        = "footer.html"
+NEVER         = 99999
 SERVICE       = config.get("site", "address")
 DEPLOY_DIR    = config.get("site", "deployPath")
 ROOT_DIR      = config.get("site", "rootdirectory")

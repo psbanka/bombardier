@@ -41,31 +41,40 @@ def readAllHardwareData():
     return readAllData(getHardwareNames, readHardwareData)
 
 def readClientData(clientName):
-    return readData("deploy/client/"+clientName+".yml")
+    name = lowerCaseSearch(getClientNames(), clientName)
+    if name:
+        return readData("deploy/client/"+name+".yml")
+    else:
+        print "client %s HAS NO CONFIG" % clientName
 
 def readContactData(contactName):
-    return readData("deploy/contacts/"+contactName+".yml")
+    name = lowerCaseSearch(getContactNames(), contactName)
+    return readData("deploy/contacts/"+name+".yml")
 
 def readProjectData(projectName):
-    return readData("deploy/projects/"+projectName+".yml")
+    name = lowerCaseSearch(getProjectNames(), projectName)
+    return readData("deploy/projects/"+name+".yml")
 
 def readHardwareData(hardwareName):
-    return readData("deploy/hardware/"+hardwareName+".yml")
-
-def readProjectData(projectName):
-    data = server.serviceYamlRequest("deploy/projects/"+projectName+".yml", legacyPathFix=False)
-    if type(data) != type(dict()):
-        return {}
-    return data
-    
+    name = lowerCaseSearch(getHardwareNames(), hardwareName)
+    return readData("deploy/hardware/"+name+".yml")
 
 def readClientLastStatus(clientName):
     try:
-        clients = server.serviceRequest("deploy/log/", legacyPathFix=False)
-        clientName = lowerCaseSearch(clients, clientName)
-        return server.serviceYamlRequest("deploy/log/"+ clientName + "/last.yml", legacyPathFix=False)
+        clientNames = server.serviceRequest("deploy/log/", legacyPathFix=False).split('\n')
+        clientNames.sort()
+        foundClientName = lowerCaseSearch(clientNames, clientName)
+        if foundClientName:
+            data = server.serviceYamlRequest("deploy/log/"+ foundClientName + "/last.yml", legacyPathFix=False)
+            if type(data) == type(dict()):
+                return data
+            else:
+                cherrypy.log("%s has bad data" % foundClientName)
+        else:
+            cherrypy.log("%s has no data" % clientName)
     except:
-        return EMPTY_LAST_STATUS
+        pass
+    return EMPTY_LAST_STATUS
 
 def filterList(list):
     output = []
@@ -176,7 +185,6 @@ def makeTable(header, iterator):
         name = record[0]
         path = urllib.pathname2url(name)
         path = name.replace(' ', '_')
-        print ">>>>>>>>>",path
         output.append('<td><a href="./%s/">%s</a></td>' % (path, name))
         for i in record[1:]:
             output.append("<td>%s</td>" % i)
@@ -229,6 +237,8 @@ def writeProjectInfo(projectInfo):
     return status
 
 def getLogPath():
+    logPath = os.path.join(getDeployPath(), "log")
+    cherrypy.log("Log Path: %s" % logPath)
     return os.path.join(getDeployPath(), "log")
 
 def getClientPath():

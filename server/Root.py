@@ -1,9 +1,10 @@
 #!/cygdrive/c/Python24/python.exe
 import cherrypy
-import re
+import re, os
+from static import *
 
-TEMPLATE     = "template.html"
-FOOTER       = "footer.html"
+TEMPLATE_PATH = os.path.join(ROOT_DIR, TEMPLATE)
+FOOTER_PATH   = os.path.join(ROOT_DIR, FOOTER)
 
 def substituteFile(fileName, inputData):
     varMatch = re.compile("\%\((.*?)\)s")

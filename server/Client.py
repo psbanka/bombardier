@@ -6,6 +6,12 @@ import time
 import webUtil
 from bombardier.Exceptions import *
 
+def paragraphify(text):
+    output = []
+    for line in text.split('\n'):
+        output.append('<p>%s</p>' % line)
+    return '\n'.join(output)
+
 class Client:
     def __init__(self, name, clientData, contactData, projectData,
                  hardwareData, bomData, progressData):
@@ -25,7 +31,7 @@ class Client:
         self.owners    = []
         self.packageGroups = []
         self.percentage = 0.0
-        self.minSinceUpdate = DEAD_TIME + 1000
+        self.minSinceUpdate = NEVER
         self.packageList = []
         self.hardware    = ''
         self.packageDetail = {}
@@ -40,7 +46,7 @@ class Client:
         self.status = self.statusData.get("severity")
         if self.status == None or self.status == '':
             self.status = "UNKNOWN"
-        self.lastMessage = self.statusData.get("message")
+        self.lastMessage = paragraphify(self.statusData.get("message"))
         if self.lastMessage == None or self.lastMessage.strip() == '':
             self.lastMessage = "<< None >>"
 

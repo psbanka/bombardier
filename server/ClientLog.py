@@ -25,7 +25,7 @@ class ClientLog(Root.Root):
 
     known_methods = ["GET", "POST", "PUT"]
 
-    def writeLast(self, configData):
+    def writeLast(self, logEntry, configData):
         repeat    = False
         logPath   = os.path.join(webUtil.getLogPath(), configData["client"])
         lastPath  = os.path.join(logPath, LAST_STATUS)
@@ -40,7 +40,6 @@ class ClientLog(Root.Root):
                 if lastData["message"] == lastData["message"]:
                     repeat = True
         fh        = open(lastPath, 'w')
-        logEntry  = yaml.dump(configData)
         fh.write(logEntry)
         fh.close()
         return repeat
@@ -48,6 +47,7 @@ class ClientLog(Root.Root):
     def writeStatus(self, configData):
         logEntry   = yaml.dump(configData)
         logPath    = os.path.join(webUtil.getLogPath(), configData["client"])
+        print ">>>>>>>>>>>>>>>",logPath
         statusPath = os.path.join(logPath, STATUS_FILE)
         if not os.path.isdir(logPath):
             cherrypy.log("Making directory %s" % logPath)
@@ -56,7 +56,7 @@ class ClientLog(Root.Root):
             fh = open(statusPath, 'w')
         else:
             fh = open(statusPath, 'a')
-        repeat = self.writeLast(logEntry)
+        repeat = self.writeLast(logEntry, configData)
         if not repeat:
             fh.write(logEntry)
         return "OK\n"
