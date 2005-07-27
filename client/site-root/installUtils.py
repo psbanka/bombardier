@@ -125,6 +125,7 @@ class AspUserAccount:
         self.userName = userName
         self.userPass = userPass
         self.computerName = computerName
+        self.fs = Filesystem.Filesystem()
 
     def hobble( self ):
         self.removeFromAdminGroup()
@@ -144,18 +145,17 @@ class AspUserAccount:
         try:
             resourceKit = os.path.join("C:\\", "Progra~1", "Resour~1")
             ntrights = os.path.join(resourceKit, "ntrights.exe")
-            Filesystem.execute("%s /u %s +r SeNetworkLogonRight" % (ntrights, self.userName),
+            self.fs.execute("%s /u %s +r SeNetworkLogonRight" % (ntrights, self.userName),
                    "Unable to set Network Logon rights")
-            Filesystem.execute("%s /u %s +r SeBatchLogonRight" % (ntrights, self.userName),
+            self.fs.execute("%s /u %s +r SeBatchLogonRight" % (ntrights, self.userName),
                    "Unable to set Batch Logon rights")
-            Filesystem.execute("%s /u %s +r SeServiceLogonRight" % (ntrights, self.userName),
+            self.fs.execute("%s /u %s +r SeServiceLogonRight" % (ntrights, self.userName),
                    "Unable to set Service Logon rights")
 
-            Filesystem.execute("%s /u %s +r SeDenyInteractiveLogonRight" % (ntrights, self.userName), 
+            self.fs.execute("%s /u %s +r SeDenyInteractiveLogonRight" % (ntrights, self.userName), 
                    "Unable to deny interactive logon rights")
-        except:
-            errString = "Unable to set ntrights for " + \
-                        self.computerName + "\\" + self.userName  
+        except Exception, e:
+            errString = "Unable to set ntrights for %s\\%s\nException: %s" %( self.computerName, self.userName, e )  
             Logger.warning( errString )
 
     def setFilePermissions(self):
@@ -165,17 +165,17 @@ class AspUserAccount:
             tempDir = os.path.join(winDir, "temp")
             cacls   = os.path.join(winDir, "system32", "cacls.exe")
             frameworkPath = os.path.join(winDir, "Microsoft.NET", "Framework", "v1.1.4322")
-            Filesystem.execute('%s "%s" /t /e /p %s:f > cacls-spew.txt 2> cacls.txt' 
+            self.fs.execute('%s "%s" /t /e /p %s:f > cacls-spew.txt 2> cacls.txt' 
                    % (cacls, os.path.join(frameworkPath, "Temporary ASP.NET Files"), self.userName),
                    "can't change permissions")
             Logger.debug( '%s "%s" /t /e /p %s:rwc > cacls-spew.txt 2> cacls.txt'
                           % (cacls, tempDir, self.userName) )
-            Filesystem.execute('%s "%s" /t /e /p %s:c > cacls-spew.txt 2> cacls.txt'
+            self.fs.execute('%s "%s" /t /e /p %s:c > cacls-spew.txt 2> cacls.txt'
                    % (cacls, tempDir, self.userName), "can't change permissions")
-            Filesystem.execute('%s "%s" /t /e /p %s:r > cacls-spew.txt 2> cacls.txt'
+            self.fs.execute('%s "%s" /t /e /p %s:r > cacls-spew.txt 2> cacls.txt'
                    % (cacls, os.path.join(frameworkPath, "temp"), self.userName),
                    "can't change permissions")
-            Filesystem.execute('%s "%s" /t /e /p %s:r > cacls-spew.txt 2> cacls.txt'
+            self.fs.execute('%s "%s" /t /e /p %s:r > cacls-spew.txt 2> cacls.txt'
                    % (cacls, os.path.join(os.environ["WINDIR"], "assembly"), self.userName),
                    "can't change permissions")
     
