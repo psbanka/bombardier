@@ -68,14 +68,22 @@ class ClientStatusPage(StatusPage.StatusPage):
 
     known_methods = ["GET"]
 
+    def timelog(self, str):
+        elapsed = time.time() - self.time
+        open("time.log", 'a').write("%s :: %s elapsed\n" % (str, elapsed))
+        self.time = time.time()
+
     def rowGenerator(self):
+        self.time = time.time()
+        self.timelog("Start reading client data")
         clientData = webUtil.readAllClientData()
         projectData = webUtil.readAllProjectData()
         hardwareData = webUtil.readAllHardwareData()
         bomData = webUtil.readAllBomData()
+        self.timelog("Through BOM data")
         progressData = webUtil.readAllProgressData()
         contactData = webUtil.readAllContactData()
-        
+        self.timelog("Finished reading client data")
         clientNames = clientData.keys()
         clientNames.sort(lambda x,y: cmp(x.lower(), y.lower()))
         
@@ -96,7 +104,8 @@ class ClientStatusPage(StatusPage.StatusPage):
             record = [client.name, client.status, client.hardware, "%3.1f" % client.endDays, 
                       ','.join(client.projects), alive, "%3.1f" % client.percentage]
             yield record
-
+        self.timelog("Dump to screen")
+        
     def mainMenu(self):
         output = []
         output.append('<h1>Client Status</h1>')

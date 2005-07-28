@@ -40,6 +40,9 @@ def readAllContactData():
 def readAllHardwareData():
     return readAllData(getHardwareNames, readHardwareData)
 
+def readAllLocationData():
+    return readAllData(getLocationNames, readLocationData)
+
 def readClientData(clientName):
     name = lowerCaseSearch(getClientNames(), clientName)
     if name:
@@ -58,6 +61,10 @@ def readProjectData(projectName):
 def readHardwareData(hardwareName):
     name = lowerCaseSearch(getHardwareNames(), hardwareName)
     return readData("deploy/hardware/"+name+".yml")
+
+def readLocationData(locationName):
+    name = lowerCaseSearch(getLocationNames(), locationName)
+    return readData("deploy/location/"+name+".yml")
 
 def readClientLastStatus(clientName):
     try:
@@ -156,6 +163,9 @@ def getProjectNames():
 def getHardwareNames():
     return  filterYamlFiles(server.serviceRequest("deploy/hardware", legacyPathFix=False).split('\n'))
 
+def getLocationNames():
+    return  filterYamlFiles(server.serviceRequest("deploy/location", legacyPathFix=False).split('\n'))
+
 def filterFiles(listing, suffix):
     output = []
     for item in listing:
@@ -183,6 +193,7 @@ def makeTable(header, iterator):
             output.append('<tr bgcolor=%s>' % ("white"))
         colorize = not colorize
         name = record[0]
+        print ">>>>>>>>>>>>>>>>>><<<<<",name
         path = urllib.pathname2url(name)
         path = name.replace(' ', '_')
         output.append('<td><a href="./%s/">%s</a></td>' % (path, name))
@@ -192,7 +203,7 @@ def makeTable(header, iterator):
     output.append('</table>')
     return output
 
-def selectionBox(items, selectedItems, name='clients', multi=True):
+def selectionBox(items, selectedItems, name='clients', multi=False):
     output = []
     if multi:
         output.append('<SELECT multiple size="10" name="%s">' % name)

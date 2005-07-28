@@ -14,7 +14,9 @@ class StatusPage(Root.Root):
                             {"name":"Contacts", "link":"/website/server/contactstatus/",
                              "explanation":"Describe the people responsible for systems"},
                             {"name":"Hardware", "link":"/website/server/hardwarestatus/",
-                             "explanation":"Describe the hardware that you have available"}]
+                             "explanation":"Describe the hardware that you have available"},
+                            {"name":"Locations", "link":"/website/server/locationstatus/",
+                             "explanation":"Describe the locations that house systems"}]
         self.menuList= [{"name":"Status", "link":"/website/server/clientstatus/"}]
 
         

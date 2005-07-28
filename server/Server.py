@@ -6,6 +6,8 @@ import ContactStatusPage
 import ContactConfigPage
 import HardwareStatusPage
 import HardwareConfigPage
+import LocationStatusPage
+import LocationConfigPage
 
 class Server(Root.Root):
 
@@ -18,6 +20,8 @@ class Server(Root.Root):
         self.contactconfig = ContactConfigPage.ContactConfigPage()
         self.hardwarestatus = HardwareStatusPage.HardwareStatusPage()
         self.hardwareconfig = HardwareConfigPage.HardwareConfigPage()
+        self.locationstatus = LocationStatusPage.LocationStatusPage()
+        self.locationconfig = LocationConfigPage.LocationConfigPage()
         
         self.clientstatus.exposed = True
         self.projectstatus.exposed = True
@@ -25,6 +29,8 @@ class Server(Root.Root):
         self.contactstatus.exposed = True
         self.contactconfig.exposed = True
         self.hardwarestatus.exposed = True
+        self.locationstatus.exposed = True
+        self.locationconfig.exposed = True
         self.hardwareconfig.exposed = True
         self.default = self.clientstatus
 
