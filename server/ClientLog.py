@@ -47,7 +47,6 @@ class ClientLog(Root.Root):
     def writeStatus(self, configData):
         logEntry   = yaml.dump(configData)
         logPath    = os.path.join(webUtil.getLogPath(), configData["client"])
-        print ">>>>>>>>>>>>>>>",logPath
         statusPath = os.path.join(logPath, STATUS_FILE)
         if not os.path.isdir(logPath):
             cherrypy.log("Making directory %s" % logPath)

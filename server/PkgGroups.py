@@ -6,12 +6,7 @@ from static import *
 
 def getBomFiles(pkgGroup):
     if pkgGroup == None:
-        files = webUtil.listConfigDir()
-        bomFiles = []
-        for inode in files:
-            if inode.upper().endswith(".BOM"):
-                bomFiles.append(inode[:inode.upper().rfind(".BOM")])
-        return bomFiles
+        return webUtil.getBomNames()
     return webUtil.readBom(pkgGroup)
 
 class PkgGroups(Root.Root):

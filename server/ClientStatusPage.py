@@ -64,45 +64,63 @@ def clientDetail(clientName):
     output.append('</p>')
     return '\n'.join(output)
 
-def rowGenerator():
-    clientData = webUtil.readAllClientData()
-    projectData = webUtil.readAllProjectData()
-    hardwareData = webUtil.readAllHardwareData()
-    bomData = webUtil.readAllBomData()
-    progressData = webUtil.readAllProgressData()
-    contactData = webUtil.readAllContactData()
-    
-    clientNames = clientData.keys()
-    clientNames.sort(lambda x,y: cmp(x.lower(), y.lower()))
-    for clientName in clientNames:
-        client = Client.Client(clientName, clientData, contactData,
-                               projectData, hardwareData, bomData, progressData)
-        client.getInfo()
-        record = [client.name, client.status, client.hardware, "%3.1f" % client.endDays, 
-                  ','.join(client.projects), client.alive, "%3.1f" % client.percentage]
-        yield record
-
-def mainMenu():
-    output = []
-    output.append('<h1>Client summary</h1>')
-    header = []
-    header.append('<tr><th>Name</th>')
-    header.append('<th>status</th>')
-    header.append('<th>hardware</th>')
-    header.append('<th>Availability</th><th>Project</th>')
-    header.append('<th>Alive</th><th>% complete</th></tr>')
-    output += webUtil.makeTable('\n'.join(header), rowGenerator)
-    return '\n'.join(output)
-
 class ClientStatusPage(StatusPage.StatusPage):
 
     known_methods = ["GET"]
 
+    def rowGenerator(self):
+        clientData = webUtil.readAllClientData()
+        projectData = webUtil.readAllProjectData()
+        hardwareData = webUtil.readAllHardwareData()
+        bomData = webUtil.readAllBomData()
+        progressData = webUtil.readAllProgressData()
+        contactData = webUtil.readAllContactData()
+        
+        clientNames = clientData.keys()
+        clientNames.sort(lambda x,y: cmp(x.lower(), y.lower()))
+        
+        self.totalClients = len(clientNames)
+        self.fullyInstalled = 0
+        self.aliveClients   = 0
+        for clientName in clientNames:
+            client = Client.Client(clientName, clientData, contactData,
+                                   projectData, hardwareData, bomData, progressData)
+            client.getInfo()
+            if client.alive:
+                self.aliveClients += 1
+                alive = "<st><font color=#669900>yes</em></font>"
+            else:
+                alive = "<st><font color=#CC0000>no</em></font>"
+            if client.percentage == 100:
+                self.fullyInstalled += 1
+            record = [client.name, client.status, client.hardware, "%3.1f" % client.endDays, 
+                      ','.join(client.projects), alive, "%3.1f" % client.percentage]
+            yield record
+
+    def mainMenu(self):
+        output = []
+        output.append('<h1>Client Status</h1>')
+        header = []
+        header.append('<tr><th>Name</th>')
+        header.append('<th>status</th>')
+        header.append('<th>hardware</th>')
+        header.append('<th>Availability</th><th>Project</th>')
+        header.append('<th>Alive</th><th>% complete</th></tr>')
+        table = webUtil.makeTable('\n'.join(header), self.rowGenerator)
+        output.append('<h2>Summary</h2>')
+        output.append('<table width=400>')
+        output.append('<tr><td>Total clients:</td><td>%4d</td></tr>' % self.totalClients)
+        output.append('<tr><td>Clients alive:</td><td>%4d</td></tr>' % self.aliveClients)
+        output.append('<tr><td>Clients fully installed:</td><td>%4d</td></tr>' % self.fullyInstalled)
+        output.append('</table><hr>')
+        output += table
+        return '\n'.join(output)
+
     def GET(self, client=None):
         if not client:
-            self.title = "Client status"
-            self.subtitle = "Client Status Summary"
-            self.body = mainMenu()
+            self.title = "Bombardier Client Status"
+            self.subtitle = "Client Client Status"
+            self.body = self.mainMenu()
             return self.generateHtml()
         else:
             self.meta = '<META HTTP-EQUIV="REFRESH" CONTENT="50" />'
