@@ -1,4 +1,5 @@
 from static import *
+import Contact
 import cherrypy, Root, time
 import bombardier.Server
 import StatusPage
@@ -8,25 +9,26 @@ class ContactConfigPage(StatusPage.StatusPage):
 
     known_methods = ["POST"]
 
-    def POST(self, contact, fullname, email, ownedclients=[], managedclients=[]):
+    def POST(self, name, fullname, email, ownedclients=[], managedclients=[]):
+        contact = Contact.Contact(name)
         if type(ownedclients) == type("string"):
-            ownedclients = [ownedclients]
+            contact.ownedclients = [ownedclients]
         if type(managedclients) == type("string"):
-            managedclients = [managedclients]
-        config = {"fullname":fullname, "email":email,
-                  "ownedclients":ownedclients, "managedclients":managedclients}
-        contactPath = "website/service/putfile/contacts/%s.yml/" % contact
-        serverResponse = server.serviceYamlRequest(contactPath, putData = config, debug=True, legacyPathFix=False)
+            contact.managedclients = [managedclients]
+        contact.fullname = fullname
+        contact.email    = email
+        status = contact.commit()
+
         output = []
-        if serverResponse == "OK":
-            output.append( "<h1>Contact %s has been modified</h1>" % contact )
-            self.title = "Contact %s updated" % contact
-            self.subtitle = "Contact %s updated" % contact
+        if status == "OK":
+            output.append( "<h1>Contact %s has been modified</h1>" % contact.name )
+            self.title = "Contact %s updated" % contact.name
+            self.subtitle = "Contact %s updated" % contact.name
         else:
-            output.append("<h1>Contact %s has not been modified</h1>" % contact)
-            output.append("Error details: %s" % serverResponse)
-            self.title = "Error in %s contact data" % contact
-            self.subtitle = "Contact %s updated" % contact
+            output.append("<h1>Contact %s has not been modified</h1>" % contact.name)
+            output.append("Error details: %s" % status)
+            self.title = "Error in %s contact data" % contact.name
+            self.subtitle = "Contact %s updated" % contact.name
         output.append('<a href="/website/server/contactstatus/">Return to contact summary</a>')
         self.body = "\n".join(output)
         return self.generateHtml()

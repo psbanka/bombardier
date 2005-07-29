@@ -3,6 +3,7 @@ import cherrypy, Root, time, yaml
 import bombardier.Server
 import StatusPage
 server = bombardier.Server.Server(None, {"address":"http://127.0.0.1:8080"})
+import Location
 
 class LocationConfigPage(StatusPage.StatusPage):
 
@@ -10,28 +11,27 @@ class LocationConfigPage(StatusPage.StatusPage):
 
     def POST(self, thing, name, description, data):
         output = []
-        config = {}
         status = OK
+        location = Location.Location(name)
         
         if data.strip():
             try:
-                config = yaml.load(data).next()
-                if type(config) != type(dict()):
-                    config = {}
+                location.data = yaml.load(data).next()
+                if type(location.data) != type(dict()):
+                    location.data = {}
             except:
                 status = FAIL
                 errmsg = "Could not parse YAML configuration data "
         if status == OK:
-            config["description"] = description
-            locationPath = "website/service/putfile/location/%s.yml/" % name
-            serverResponse = server.serviceYamlRequest(locationPath, putData = config,
-                                                       debug=True, legacyPathFix=False)
-            if serverResponse == "OK":
+            location.description = description
+            status = location.commit()
+
+            if status == "OK":
                 output.append( "<h1>Location %s has been modified</h1>" % name )
                 self.title = "Location %s updated" % name
                 self.subtitle = "Location %s updated" % name
             else:
-                errmsg = "Server returned with message: %s" % serverResponse
+                errmsg = "Server returned with message: %s" % status
                 status = FAIL
         if status == FAIL:
             output.append("<h1>Location %s has not been modified</h1>" % name)

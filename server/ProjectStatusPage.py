@@ -11,11 +11,9 @@ def projectDetail(projectName):
     if project.new:
         startTime = time.strftime("%Y-%m-%d")
         endTime   = time.strftime("%Y-%m-%d", time.localtime(time.time()+(60*60*24*30))) # 30 days
-        contact   = ""
     else:
         startTime = project.start
         endTime   = project.finish
-        contact   = project.contact
     output = []
     output.append('<h1>Project %s</h1>' % projectName)
     output.append('<form action="/website/server/projectconfig/%s/" method=POST>' % (projectName))
@@ -47,7 +45,7 @@ def rowGenerator():
     for projectName in projectNames:
         project = Project.Project(projectName)
         record = [project.name, len(project.clients), project.start,
-                  project.finish, project.contact]
+                  project.finish, project.contactName]
         yield record
 
 def mainMenu():

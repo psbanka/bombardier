@@ -7,8 +7,6 @@ from static import *
 EMPTY_LAST_STATUS = {"message": "", "section": "", "severity":"", "time":""}
 PACKAGE_MATCH = re.compile("(\S+)\-\d+")
 
-IGNORE_FILES = ["index.yml"]
-
 import bombardier.Server
 server = bombardier.Server.Server(None, {"address":"http://127.0.0.1:8080"})
 
@@ -59,11 +57,11 @@ def readClientData(clientName):
 
 def readContactData(contactName):
     name = lowerCaseSearch(getContactNames(), contactName)
-    return readData("deploy/contacts/"+name+".yml")
+    return readData("deploy/contact/"+name+".yml")
 
 def readProjectData(projectName):
     name = lowerCaseSearch(getProjectNames(), projectName)
-    return readData("deploy/projects/"+name+".yml")
+    return readData("deploy/project/"+name+".yml")
 
 def readHardwareData(hardwareName):
     name = lowerCaseSearch(getHardwareNames(), hardwareName)
@@ -171,10 +169,10 @@ def getClientNames():
     return filterYamlFiles( server.serviceRequest("deploy/client", legacyPathFix=False, debug=True).split('\n') )
 
 def getContactNames():
-    return filterYamlFiles( server.serviceRequest("deploy/contacts", legacyPathFix=False).split('\n') )
+    return filterYamlFiles( server.serviceRequest("deploy/contact", legacyPathFix=False).split('\n') )
 
 def getProjectNames():
-    return  filterYamlFiles(server.serviceRequest("deploy/projects", legacyPathFix=False).split('\n'))
+    return  filterYamlFiles(server.serviceRequest("deploy/project", legacyPathFix=False).split('\n'))
 
 def getHardwareNames():
     return  filterYamlFiles(server.serviceRequest("deploy/hardware", legacyPathFix=False).split('\n'))
@@ -227,7 +225,7 @@ def selectionBox(items, selectedItems, name='clients', multi=False):
     else:
         output.append('<SELECT size="1" name="%s">' % name)
     for item in items:
-        if item in selectedItems:
+        if selectedItems and item in selectedItems:
             output.append('<OPTION selected="selected" value="%s">%s</OPTION>' % (item, item))
         else:
             output.append('<OPTION>%s</OPTION>' % item)

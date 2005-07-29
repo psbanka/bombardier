@@ -101,7 +101,7 @@ class ClientStatusPage(StatusPage.StatusPage):
     def GET(self, client=None):
         if not client:
             self.title = "Bombardier Client Status"
-            self.subtitle = "Client Client Status"
+            self.subtitle = "Client Status"
             self.body = self.mainMenu()
             return self.generateHtml()
         else:

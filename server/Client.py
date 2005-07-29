@@ -6,6 +6,7 @@ import Hardware
 import time
 import webUtil
 from bombardier.Exceptions import *
+import YamlData
 
 def paragraphify(text):
     output = []
@@ -13,7 +14,8 @@ def paragraphify(text):
         output.append('<p>%s</p>' % line)
     return '\n'.join(output)
 
-class Client:
+
+class Client(YamlData.YamlData):
 
     def timelog(self, str):
         elapsed = time.time() - self.time
@@ -21,14 +23,15 @@ class Client:
         self.time = time.time()
 
     def __init__(self, name):
-        self.name      = name
+        fields = ["packageGroups"]
+        YamlData.YamlData.__init__(self, name, fields)
+
         self.status    = "UNKNOWN"
         self.alive     = False
         self.projects  = []
         self.endDays   = 0
         self.managers  = []
         self.owners    = []
-        self.packageGroups = []
         self.percentage = 0.0
         self.minSinceUpdate = NEVER
         self.packageList = []
@@ -73,9 +76,9 @@ class Client:
         if self.packageList != []:
             self.percentage = 100.0 * (float(len(self.installed)) / float(len(self.packageList)))
 
-        self.managers = webUtil.getIndexed("client", self.name, "contacts", "managedclients")
-        self.owners   = webUtil.getIndexed("client", self.name, "contacts", "ownedclients")
-        self.projects = webUtil.getIndexed("client", self.name, "projects", "clients")
+        self.managers = webUtil.getIndexed("client", self.name, "contact", "managedclients")
+        self.owners   = webUtil.getIndexed("client", self.name, "contact", "ownedclients")
+        self.projects = webUtil.getIndexed("client", self.name, "project", "clients")
         self.hardware = webUtil.getIndexed("client", self.name, "hardware", "client")
         if self.hardware:
             self.hardware = self.hardware[0]

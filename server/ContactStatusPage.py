@@ -20,11 +20,11 @@ def contactDetail(contactName):
     output.append('value="%s" size="20"></td></tr>' % contact.email)
 
     output.append('<tr><td><p>Owner of clients<p>(control-click multiple clients)</td><td>')
-    output += webUtil.clientSelectionBox(contact.ownedClients, "ownedclients")
+    output += webUtil.clientSelectionBox(contact.ownedclients, "ownedclients")
     output.append('</td></tr>')
 
     output.append('<tr><td><p>Manager of clients<p>(control-click multiple clients)</td><td>')
-    output += webUtil.clientSelectionBox(contact.managedClients, "managedclients")
+    output += webUtil.clientSelectionBox(contact.managedclients, "managedclients")
     output.append('</td></tr>')
 
     output.append('<tr><td colspan=3><hr><input type="submit" ')
@@ -35,8 +35,17 @@ def contactDetail(contactName):
 def rowGenerator():
     for contactName in webUtil.getContactNames():
         contact = Contact.Contact(contactName)
-        record = [contact.name, contact.fullname, contact.email, len(contact.projects),
-                  len(contact.ownedClients), len(contact.managedClients)]
+        projectsNum       = 0
+        ownedClientsNum   = 0
+        managedClientsNum = 0
+        if type(contact.projects) == type([]):
+            projectsNum = len( contact.projects )
+        if type(contact.ownedclients) == type([]):
+            ownedClientsNum = len( contact.ownedclients )
+        if type(contact.managedclients) == type([]):
+            managedClientsNum = len( contact.managedclients )
+        record = [contact.name, contact.fullname, contact.email, projectsNum,
+                  ownedClientsNum, managedClientsNum]
         yield record
 
 def mainMenu():

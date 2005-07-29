@@ -5,21 +5,16 @@ import StatusPage
 import Location
 
 def locationDetail(locationName):
-    locationData = webUtil.readAllLocationData()
-    location = Location.Location(locationName, locationData)
-    location.getInfo()
+    location = Location.Location(locationName)
     output = []
     output.append('<h1>Location %s</h1>' % location.name)
     output.append('<form action="/website/server/locationconfig/%s/" '% locationName)
     output.append('method=POST>')
     output.append('<table>')
-    output.append('<tr><td>Name</td>')
-    output.append('<td><INPUT TYPE="text" NAME="name" maxlength="50" ')
-    output.append('value="%s" size="20"></td></tr>' % location.name)
 
     output.append('<tr><td>Description</td>')
     output.append('<td><INPUT TYPE="text" NAME="description" maxlength="50" ')
-    output.append('value="%s" size="67"></td></tr>' % location.description)
+    output.append('value="%s" size="65"></td></tr>' % location.description)
 
     output.append('<tr><td><p>YAML configuration data</p><p>(OPTIONAL)</p></td>')
     output.append('<td><TEXTAREA ROWS=20 COLS=50 NAME="data"> ')
@@ -33,14 +28,9 @@ def locationDetail(locationName):
     return '\n'.join(output)
 
 def rowGenerator():
-    locationData = webUtil.readAllLocationData()
-    locationNames = webUtil.getLocationNames()
-    for locationName in locationNames:
-        print ":::::::::",locationName
-        location = Location.Location(locationName, locationData)
-        location.getInfo()
+    for locationName in webUtil.getLocationNames():
+        location = Location.Location(locationName)
         record = [locationName, location.description, location.configKeys]
-        print "REcORD:",record 
         yield record
 
 def mainMenu():
