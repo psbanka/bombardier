@@ -23,10 +23,11 @@
 import os, sys, shutil
 
 import win32com.client, pywintypes, win32netcon, win32net
+from win32com.client import GetObject, Dispatch
 from time import sleep
 
 from bombardier.miniUtility import consoleSync
-from bombardier.utility import createWebSite
+from bombardier.utility import removeDirectory
 import bombardier.Logger as Logger
 import bombardier.Filesystem as Filesystem
 from bombardier.staticData import *
@@ -63,10 +64,10 @@ def removeFile( path ):
 def copyDirectory( _src, _dest ):
     try:
         if os.path.isdir(_dest):
-            shutil.rmtree(_dest)
+            removeDirectory( _dest )
         shutil.copytree(_src, _dest)
-    except:
-        errString = "error creating " + _dest + " directory" 
+    except Exception, e:
+        errString = "Error creating %s directory:\n%s" %(_dest, e) 
         if Logger != None:
             consoleFail(errString)
         else:
@@ -85,19 +86,24 @@ def copyFile( _src, _dest ):
             print errString
 
 class SiteCreator:
-    def __init__(self, homeDir, sourceDir, siteIndex, title, ipAddress, port, securePort=None):
-        self.homeDir    =  homeDir
-        self.sourceDir  =  sourceDir
-        self.siteIndex  =  siteIndex
-        self.title      =  title
-        self.ipAddress   =  ipAddress
-        self.port       =  port
-        self.securePort =  securePort
-        self.serverBindings = "%s:%s:" %( self.ipAddress, self.port )
-        if self.securePort != None:
-            self.secureBindings = "%s:%s:" %( self.ipAddress, self.securePort )
-        else:
-            self.secureBindings = None
+    def __init__(self, homeDir, sourceDir, siteIndex, title, 
+                 ipAddress, port, securePort=None, permissions=513):
+        try:
+            self.homeDir    =  homeDir
+            self.sourceDir  =  sourceDir
+            self.siteIndex  =  siteIndex
+            self.title      =  title
+            self.ipAddress   =  ipAddress
+            self.port       =  port
+            self.securePort =  securePort
+            self.permissions = permissions
+            self.serverBindings = "%s:%s:" %( self.ipAddress, self.port )
+            if self.securePort != None:
+                self.secureBindings = "%s:%s:" %( self.ipAddress, self.securePort )
+            else:
+                self.secureBindings = None
+        except Exception, e:        
+            Logger.info( "Exception creating SiteCreator: \n\t%s" %e )
 
     def createSite(self):
         Logger.info( "Creating site:" )
@@ -108,15 +114,57 @@ class SiteCreator:
         Logger.info( "\tipAddress  : %s" %self.ipAddress )
         Logger.info( "\tport       : %s" %self.port )
         Logger.info( "\tsecurePort : %s" %self.securePort )
-        try:
-            createWebSite(homeDirectory=self.homeDir, sourceFiles=self.sourceDir, 
-                          siteIndex=self.siteIndex, ipAddress=self.ipAddress,
-                          port=65534, title=self.title)
-        except:
-            consoleFail( "Could not create website" )
-        self.setSiteInfo()
+                                          
     
-    def setSiteInfo(self):
+        Logger.warning("Removing All files in directory %s" % self.homeDir)
+        copyDirectory( self.sourceDir, self.homeDir )
+
+        bindingString = "%s:%s:" % (self.ipAddress, self.port)
+        Logger.info("Binding string = %s" %bindingString )
+        try:
+            w3svc =GetObject( 'IIS://localhost/w3svc' )
+        except Exception, e:
+            consoleFail( "Exception trying to get w3svc: \n%s" %e )
+        Logger.info( "Created w3svc object, checking for duplicate sites" )    
+        for webServer in w3svc:
+            if webServer.Class == "IIsWebServer":
+                Logger.info( 'Found web server "%s": %s' %( webServer.serverComment, webServer.ServerBindings ) )
+                bindings = webServer.ServerBindings
+                if bindings == bindingString:
+                    logger.error("Site being created conflicts with another site")
+                    return FAIL
+        try:
+            webServer = GetObject( 'IIS://localhost/w3svc/%s' %self.siteIndex )
+            siteFoundAtIndex = True
+        except:
+            siteFoundAtIndex = False
+
+        if siteFoundAtIndex == True:     
+            consoleFail( "Object found at intended site index %s, failing" %self.siteIndex )
+        else:    
+            Logger.info( "No duplicate sites found, creating site" )                    
+            newSite = w3svc.Create("IIsWebServer", self.siteIndex)
+            newSite.SetInfo()
+            newSitePath='IIS://localhost/w3svc/%s' % self.siteIndex
+            newSiteObject = GetObject(newSitePath)
+            newSite.ServerBindings = bindingString
+            newSite.ServerComment = self.title
+            newSite.SetInfo()
+            Logger.info( "Site created, creating root directory" )
+            newDir = newSite.Create("IIsWebVirtualDir", "ROOT")
+            newDir.Path = self.homeDir
+            newDir.AccessRead = True
+            newDir.SetInfo()
+            Logger.info( "Root created, setting permissions" )
+            newDir.AppCreate(True)
+            newSite.AccessFlags = self.permissions
+            newSite.SetInfo()
+            del newSite
+
+            self.setServerBindings()
+            newSiteObject.Start()
+
+    def setServerBindings(self):
         try:
             Logger.info( "---------------------------" )
             Logger.info( "Index : " + self.siteIndex )
@@ -129,7 +177,8 @@ class SiteCreator:
                 site.Put( 'SecureBindings', self.secureBindings )
             site.SetInfo()
         except:
-            consoleFail( "Could not set site info" )
+            consoleFail( "Could not set serverBindings" )
+                
     
 class AspUserAccount:
     def __init__(self, userName, userPass, computerName):
