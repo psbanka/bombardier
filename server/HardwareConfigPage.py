@@ -10,9 +10,10 @@ class HardwareConfigPage(StatusPage.StatusPage):
 
     def POST(self, hardware, location, description, type, rack, client):
         config = {"location":location, "description":description,
-                  "type":type, "rack":rack, "clients":clients}
-        hardwarePath = "website/service/putfile/hardwares/%s.yml/" % hardware
-        serverResponse = server.serviceYamlRequest(hardwarePath, putData = config, debug=True, legacyPathFix=False)
+                  "type":type, "rack":rack, "client":client}
+        hardwarePath = "website/service/putfile/hardware/%s.yml/" % hardware
+        serverResponse = server.serviceYamlRequest(hardwarePath, putData = config,
+                                                   debug=True, legacyPathFix=False)
         output = []
         if serverResponse == "OK":
             output.append( "<h1>Hardware %s has been modified</h1>" % hardware )

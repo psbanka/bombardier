@@ -5,17 +5,17 @@ import StatusPage
 import Hardware
 
 def hardwareDetail(hardwareName):
-    hardwareData = webUtil.readAllHardwareData()
-    hardware = Hardware.Hardware(hardwareName, hardwareData)
-    hardware.getInfo()
+    hardware = Hardware.Hardware(hardwareName)
     output = []
     output.append('<h1>Hardware %s</h1>' % hardware.name)
     output.append('<form action="/website/server/hardwareconfig/%s/" '% hardwareName)
     output.append('method=POST>')
     output.append('<table>')
-    output.append('<tr><td>Location </td>')
-    output.append('<td><INPUT TYPE="text" NAME="location" maxlength="50" ')
-    output.append('value="%s" size="20"></td></tr>' % hardware.location)
+    output.append('<tr><td>Location </td><td>')
+
+    output += webUtil.selectionBox(webUtil.getLocationNames(), hardware.location,
+                                   name="location", multi=False)
+    output.append('</td></tr>')
 
     output.append('<tr><td>Description</td>')
     output.append('<td><INPUT TYPE="text" NAME="description" maxlength="50" ')
@@ -39,11 +39,8 @@ def hardwareDetail(hardwareName):
     return '\n'.join(output)
 
 def rowGenerator():
-    hardwareData = webUtil.readAllHardwareData()
-    hardwareNames = webUtil.getHardwareNames()
-    for hardwareName in hardwareNames:
-        hardware = Hardware.Hardware(hardwareName, hardwareData)
-        hardware.getInfo()
+    for hardwareName in webUtil.getHardwareNames():
+        hardware = Hardware.Hardware(hardwareName)
         record = [hardware.name, hardware.location, hardware.description,
                   hardware.type, hardware.rack, hardware.client]
         yield record

@@ -34,7 +34,6 @@ def locationDetail(locationName):
 
 def rowGenerator():
     locationData = webUtil.readAllLocationData()
-    print "...........",locationData
     locationNames = webUtil.getLocationNames()
     for locationName in locationNames:
         print ":::::::::",locationName

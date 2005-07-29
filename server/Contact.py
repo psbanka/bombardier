@@ -2,9 +2,7 @@ import webUtil
 from bombardier.Exceptions import *
 
 class Contact:
-    def __init__(self, name, contactData, projectData):
-        self.contactData = contactData
-        self.projectData = projectData
+    def __init__(self, name):
         self.name = name
         self.new  = True
         self.data = {}
@@ -14,9 +12,8 @@ class Contact:
         self.ownedClients = []
         self.managedClients = []
 
-    def getInfo(self):
         self.filename = self.name.lower()
-        self.data = self.contactData.get(self.name)
+        self.data = webUtil.readContactData(self.name)
         if self.data == {} or self.data == None:
             return
         self.new       = False
@@ -29,10 +26,5 @@ class Contact:
         if managedClients:
             self.managedClients = managedClients
 
-        for projectName in self.projectData.keys():
-            projectOwner = self.projectData.get("contact")
-            if type(projectOwner) != type("string"):
-                continue
-            if projectOwner.lower() == self.name.lower():
-                self.projects.append(projectName)
+        self.projects = webUtil.getIndexed("contacts", self.name, "projects", "contact")
 

@@ -5,10 +5,7 @@ import StatusPage
 import Contact
 
 def contactDetail(contactName):
-    contactData = webUtil.readAllContactData()
-    projectData = webUtil.readAllProjectData()
-    contact = Contact.Contact(contactName, contactData, projectData)
-    contact.getInfo()
+    contact = Contact.Contact(contactName)
     output = []
     output.append('<h1>Contact %s</h1>' % contact.name)
     output.append('<form action="/website/server/contactconfig/%s/" '% contactName)
@@ -36,12 +33,8 @@ def contactDetail(contactName):
     return '\n'.join(output)
 
 def rowGenerator():
-    contactData = webUtil.readAllContactData()
-    projectData = webUtil.readAllProjectData()
-    contactNames = webUtil.getContactNames()
-    for contactName in contactNames:
-        contact = Contact.Contact(contactName, contactData, projectData)
-        contact.getInfo()
+    for contactName in webUtil.getContactNames():
+        contact = Contact.Contact(contactName)
         record = [contact.name, contact.fullname, contact.email, len(contact.projects),
                   len(contact.ownedClients), len(contact.managedClients)]
         yield record

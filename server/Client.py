@@ -1,4 +1,5 @@
 from static import *
+import time
 import Project
 import Contact
 import Hardware
@@ -13,15 +14,13 @@ def paragraphify(text):
     return '\n'.join(output)
 
 class Client:
-    def __init__(self, name, clientData, contactData, projectData,
-                 hardwareData, bomData, progressData):
-        self.clientData   = clientData
-        self.projectData  = projectData
-        self.hardwareData = hardwareData
-        self.bomData      = bomData
-        self.progressData = progressData
-        self.contactData  = contactData
 
+    def timelog(self, str):
+        elapsed = time.time() - self.time
+        open("time.log", 'a').write("%s :: %s elapsed\n" % (str, elapsed))
+        self.time = time.time()
+
+    def __init__(self, name):
         self.name      = name
         self.status    = "UNKNOWN"
         self.alive     = False
@@ -36,9 +35,8 @@ class Client:
         self.hardware    = ''
         self.packageDetail = {}
         self.valid = True
-
-    def getInfo(self):
-        self.config = webUtil.lcDictFind(self.clientData, self.name)
+        
+        self.config = webUtil.readClientData(self.name)
         self.packageGroups = self.config.get("packageGroups")
         if self.packageGroups == None:
             self.packageGroups = []
@@ -64,44 +62,36 @@ class Client:
             pass
 
         for packageGroup in self.packageGroups:
-            bomData = self.bomData.get(packageGroup)
+            bomData = webUtil.readBom(packageGroup)
             if bomData:
-                self.packageList += self.bomData.get(packageGroup)
+                self.packageList += bomData
 
-        groupProgress = webUtil.lcDictFind(self.progressData, self.name)
+        groupProgress = webUtil.readClientProgress(self.name)
         self.installed, self.uninstalled = webUtil.getClientInstalledUninstalled(self.name, groupProgress)
+
 
         if self.packageList != []:
             self.percentage = 100.0 * (float(len(self.installed)) / float(len(self.packageList)))
 
-        for contactName in self.contactData.keys():
-            contact = Contact.Contact(contactName, self.contactData, self.projectData)
-            contact.getInfo()
-            if self.name in contact.managedClients:
-                self.managers.append(contactName)
-            if self.name in contact.ownedClients:
-                self.owners.append(contactName)
+        self.managers = webUtil.getIndexed("client", self.name, "contacts", "managedclients")
+        self.owners   = webUtil.getIndexed("client", self.name, "contacts", "ownedclients")
+        self.projects = webUtil.getIndexed("client", self.name, "projects", "clients")
+        self.hardware = webUtil.getIndexed("client", self.name, "hardware", "client")
+        if self.hardware:
+            self.hardware = self.hardware[0]
+        else:
+            self.hardware = ''
 
-        for projectName in self.projectData.keys():
-            project = Project.Project(projectName, self.projectData, self.contactData)
-            project.getInfo()
-            if self.name in project.clients:
-                self.projects.append(projectName)
-                if project.endDays > self.endDays:
-                    self.endDays = project.endDays
+        for projectName in self.projects:
+            project = Project.Project(projectName)
+            if project.endDays > self.endDays:
+                self.endDays = project.endDays
 
-        for hardwareName in self.hardwareData.keys():
-            hardware = Hardware.Hardware(hardwareName, self.hardwareData)
-            hardware.getInfo()
-            if hardware.client.lower() == self.name.lower():
-                self.hardware = hardwareName
-                break
-        
     def getPackageDetail(self):
         # want to know the installation status of each package
         for packageGroup in self.packageGroups:
             self.packageDetail[packageGroup] = {"packages":{},"installedStatus":"OK"}
-            packageNames = self.bomData.get(packageGroup)
+            packageNames = webUtil.readBom(packageGroup)
             if packageNames:
                 for packageName in packageNames:
                     if packageName in self.installed:

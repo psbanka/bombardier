@@ -5,17 +5,8 @@ import StatusPage
 import Client
 
 def clientDetail(clientName):
-    clientData = webUtil.readAllClientData()
-    projectData = webUtil.readAllProjectData()
-    hardwareData = webUtil.readAllHardwareData()
-    bomData = webUtil.readAllBomData()
-    progressData = webUtil.readAllProgressData()
-    contactData = webUtil.readAllContactData()
-
     output = []
-    client = Client.Client(clientName, clientData, contactData,
-                           projectData, hardwareData, bomData, progressData)
-    client.getInfo()
+    client = Client.Client(clientName)
     client.getPackageDetail()
     # FIXME: must be defensive
     output.append('<h1>%s</h1>' % client.name)
@@ -68,32 +59,15 @@ class ClientStatusPage(StatusPage.StatusPage):
 
     known_methods = ["GET"]
 
-    def timelog(self, str):
-        elapsed = time.time() - self.time
-        open("time.log", 'a').write("%s :: %s elapsed\n" % (str, elapsed))
-        self.time = time.time()
-
     def rowGenerator(self):
-        self.time = time.time()
-        self.timelog("Start reading client data")
-        clientData = webUtil.readAllClientData()
-        projectData = webUtil.readAllProjectData()
-        hardwareData = webUtil.readAllHardwareData()
-        bomData = webUtil.readAllBomData()
-        self.timelog("Through BOM data")
-        progressData = webUtil.readAllProgressData()
-        contactData = webUtil.readAllContactData()
-        self.timelog("Finished reading client data")
-        clientNames = clientData.keys()
+        clientNames = webUtil.getClientNames()
         clientNames.sort(lambda x,y: cmp(x.lower(), y.lower()))
         
         self.totalClients = len(clientNames)
         self.fullyInstalled = 0
         self.aliveClients   = 0
         for clientName in clientNames:
-            client = Client.Client(clientName, clientData, contactData,
-                                   projectData, hardwareData, bomData, progressData)
-            client.getInfo()
+            client = Client.Client(clientName)
             if client.alive:
                 self.aliveClients += 1
                 alive = "<st><font color=#669900>yes</em></font>"
@@ -104,7 +78,6 @@ class ClientStatusPage(StatusPage.StatusPage):
             record = [client.name, client.status, client.hardware, "%3.1f" % client.endDays, 
                       ','.join(client.projects), alive, "%3.1f" % client.percentage]
             yield record
-        self.timelog("Dump to screen")
         
     def mainMenu(self):
         output = []

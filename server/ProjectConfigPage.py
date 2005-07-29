@@ -14,7 +14,9 @@ class ProjectConfigPage(StatusPage.StatusPage):
             clients = [clients]
         config = {"start":start, "finish":finish, "contact":contact, "clients":clients}
         projectPath = "website/service/putfile/projects/%s.yml/" % project
-        serverResponse = server.serviceYamlRequest(projectPath, putData = config, debug=True, legacyPathFix=False)
+        serverResponse = server.serviceYamlRequest(projectPath, putData = config,
+                                                   debug=True, legacyPathFix=False)
+        #write index
         output = []
         if serverResponse == "OK":
             output.append( "<h1>Project %s has been modified</h1>" % project )

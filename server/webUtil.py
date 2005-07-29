@@ -7,11 +7,18 @@ from static import *
 EMPTY_LAST_STATUS = {"message": "", "section": "", "severity":"", "time":""}
 PACKAGE_MATCH = re.compile("(\S+)\-\d+")
 
+IGNORE_FILES = ["index.yml"]
+
 import bombardier.Server
 server = bombardier.Server.Server(None, {"address":"http://127.0.0.1:8080"})
 
+def getYaml(path):
+##     filename = os.path.join(DEPLOY_DIR, '..', path)
+##     return yaml.loadFile(filename).next()
+    return server.serviceYamlRequest(path, legacyPathFix=False)
+
 def readData(path):
-    data = server.serviceYamlRequest(path, legacyPathFix=False)
+    data = getYaml(path)
     if type(data) != type(dict()):
         return {}
     return data
@@ -72,7 +79,7 @@ def readClientLastStatus(clientName):
         clientNames.sort()
         foundClientName = lowerCaseSearch(clientNames, clientName)
         if foundClientName:
-            data = server.serviceYamlRequest("deploy/log/"+ foundClientName + "/last.yml", legacyPathFix=False)
+            data = getYaml("deploy/log/"+ foundClientName + "/last.yml")
             if type(data) == type(dict()):
                 return data
             else:
@@ -97,8 +104,9 @@ def readBom(pkgGroup):
         return []
 
 def readClientProgress(clientName):
+    name = lowerCaseSearch(getClientNames(), clientName)
     try:
-        return server.serviceYamlRequest("deploy/log/" + clientName + "/install-progress.yml", legacyPathFix=False, debug=True)
+        return getYaml("deploy/log/" + name + "/install-progress.yml")
     except:
         return {}
 
@@ -148,6 +156,14 @@ def getClientInstalledUninstalled(clientName, progressData = None):
             installed.append(stripVersion(item))
     return installed, uninstalled
 
+def getIndexed(table1, item, table2, field):
+    index = getYaml("deploy/%s/index.yml" % table1)
+    if index.get(item):
+        if index[item].get(table2):
+            if index[item][table2].get(field):
+                return index[item][table2][field]
+    return []
+
 def getBomNames():
     return filterBomFiles( server.serviceRequest("deploy/bom", legacyPathFix=False).split('\n') )
 
@@ -169,6 +185,8 @@ def getLocationNames():
 def filterFiles(listing, suffix):
     output = []
     for item in listing:
+        if item in IGNORE_FILES:
+            continue
         if item.endswith(suffix):
             basename = item[:item.rfind('.')]
             output.append(basename)
@@ -193,7 +211,6 @@ def makeTable(header, iterator):
             output.append('<tr bgcolor=%s>' % ("white"))
         colorize = not colorize
         name = record[0]
-        print ">>>>>>>>>>>>>>>>>><<<<<",name
         path = urllib.pathname2url(name)
         path = name.replace(' ', '_')
         output.append('<td><a href="./%s/">%s</a></td>' % (path, name))
