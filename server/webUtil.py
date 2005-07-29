@@ -155,7 +155,10 @@ def getClientInstalledUninstalled(clientName, progressData = None):
     return installed, uninstalled
 
 def getIndexed(table1, item, table2, field):
-    index = getYaml("deploy/%s/index.yml" % table1)
+    try:
+        index = getYaml("deploy/%s/index.yml" % table1)
+    except:
+        return []
     if index.get(item):
         if index[item].get(table2):
             if index[item][table2].get(field):

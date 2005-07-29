@@ -7,7 +7,6 @@ def projectDetail(projectName):
     project = Project.Project(projectName)
     allClients  = webUtil.getClientNames()
     allClients.sort()
-    projectClients = project.clients
     if project.new:
         startTime = time.strftime("%Y-%m-%d")
         endTime   = time.strftime("%Y-%m-%d", time.localtime(time.time()+(60*60*24*30))) # 30 days
@@ -25,13 +24,13 @@ def projectDetail(projectName):
     output.append('<td><INPUT TYPE="text" NAME="finish" maxlength="50" ')
     output.append('value="%s" size="20"></td></tr>' % endTime)
     output.append('<tr><td>Project contact</td><td>')
-    output += webUtil.selectionBox(webUtil.getContactNames(), project.contactid, "contact", False)
+    output += webUtil.selectionBox(webUtil.getContactNames(), project.contactid, "contactid", False)
     output.append('</td></tr>')
 
     output.append('<tr><td><p>Clients<p>(control-click multiple systems)')
     output.append('</td><td><SELECT multiple size="10" name="clients">')
     for client in allClients:
-        if client in projectClients:
+        if project.clients and client in project.clients:
             output.append('<OPTION selected="selected" value="%s">%s</OPTION>' % (client, client))
         else:
             output.append('<OPTION>%s</OPTION>' % client)
@@ -43,6 +42,7 @@ def projectDetail(projectName):
 def rowGenerator():
     projectNames = webUtil.getProjectNames()
     for projectName in projectNames:
+        print "PROJECT: ",projectName
         project = Project.Project(projectName)
         record = [project.name, len(project.clients), project.start,
                   project.finish, project.contactName]

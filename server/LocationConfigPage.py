@@ -9,7 +9,7 @@ class LocationConfigPage(StatusPage.StatusPage):
 
     known_methods = ["POST"]
 
-    def POST(self, thing, name, description, data):
+    def POST(self, name, description, data={}):
         output = []
         status = OK
         location = Location.Location(name)

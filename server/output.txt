@@ -1,6 +1,0 @@
-A  /tmp/bombardier-0.4-98-47/scripts
-A  /tmp/bombardier-0.4-98-47/scripts/installer.py
-A  /tmp/bombardier-0.4-98-47/scripts/uninstaller.py
-A  /tmp/bombardier-0.4-98-47/scripts/package.ini
-A  /tmp/bombardier-0.4-98-47/scripts/verify.py
-Exported revision 15288.

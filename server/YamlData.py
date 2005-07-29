@@ -31,8 +31,11 @@ def getIndex(table1RecordName, table2, field): #clientName, tableName, fieldName
     return output
 
 def mkIndex(table1, table2, field): #tableName, fieldName):
-    table1Index       = webUtil.getYaml("deploy/%s/%s" % (table1, INDEX_FILE))
-    table1YamlFiles   = server.serviceRequest("deploy/%s/" % table1,
+    try:
+        table1Index = webUtil.getYaml("deploy/%s/%s" % (table1, INDEX_FILE))
+    except:
+        table1Index = {}
+    table1YamlFiles = server.serviceRequest("deploy/%s/" % table1,
                                               legacyPathFix=False).split('\n')
     for yamlFileName in table1YamlFiles:
         if not yamlFileName.endswith('.yml') or yamlFileName == INDEX_FILE:
@@ -44,9 +47,6 @@ def mkIndex(table1, table2, field): #tableName, fieldName):
             table1Index[table1RecordName][table2] = {}
         value = getIndex(table1RecordName, table2, field)
         table1Index[table1RecordName][table2][field] = value
-        print "============================"
-        print yamlFileName
-        print ">>>>>>",value
     uploadPath = "website/service/putfile/%s/%s" % (table1, INDEX_FILE)
     serverResponse = server.serviceYamlRequest(uploadPath, putData = table1Index,
                                                legacyPathFix=False)
@@ -87,7 +87,10 @@ class YamlData:
         self.cname   = self.__class__.__name__.lower()
         recordNames  = filterYamlFiles( server.serviceRequest("deploy/%s" % self.cname,
                                                              legacyPathFix=False, debug=True).split('\n') )
-        lowerName    = lowerCaseSearch(recordNames, name)
+        if recordNames:
+            lowerName = lowerCaseSearch(recordNames, name)
+        else:
+            lowerName = None
         if lowerName == None:
             self.name = name.lower()
             self.new  = True
@@ -124,7 +127,6 @@ class YamlData:
     def mkIndexes(self):
         status = OK
         for dependentTable in self.indexes.keys():
-            print "MAKING INDEX: ", dependentTable
             field = self.indexes[dependentTable]
             indexStatus = mkIndex(dependentTable, self.cname, field)
             if indexStatus == FAIL:

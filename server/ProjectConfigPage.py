@@ -10,7 +10,7 @@ class ProjectConfigPage(StatusPage.StatusPage):
 
     known_methods = ["POST"]
 
-    def POST(self, name, start, finish, contact, clients):
+    def POST(self, name, start, finish, contactid, clients):
         project = Project.Project(name)
         if type(clients) == type("string"):
             project.clients = [clients]
@@ -18,7 +18,7 @@ class ProjectConfigPage(StatusPage.StatusPage):
             project.clients = clients
         project.start   = start
         project.finish  = finish
-        project.contact = contact
+        project.contactid = contactid
         status = project.commit()
 
         output = []
