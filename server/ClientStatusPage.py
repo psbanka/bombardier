@@ -1,5 +1,5 @@
 from static import *
-import cherrypy, Root, time
+import cherrypy, Root, time, yaml
 import webUtil
 import StatusPage
 import Client
@@ -29,8 +29,12 @@ def clientDetail(clientName):
     output.append('<br>')
     output.append('</p>')
     output.append('<p><hr></p>')
-    
+    output.append('<h2>Configuration</h2><hr>')
+    output.append('<TEXTAREA ROWS=16 COLS=70 NAME="data" READONLY>')
+    output += yaml.dump(client.data).split('\n')
+    output.append('</TEXTAREA>')
     output.append('<p><h2>Package Installation Status</h2><hr></p>')
+    
     packageStatus = client.packageDetail
 
     for packageGroupName in packageStatus.keys():
@@ -96,18 +100,21 @@ class ClientStatusPage(StatusPage.StatusPage):
         output.append('<tr><td>Clients fully installed:</td><td>%4d</td></tr>' % self.fullyInstalled)
         output.append('</table><hr>')
         output += table
-        return '\n'.join(output)
+        return '\n'.join(output) 
 
     def GET(self, client=None):
         if not client:
             self.title = "Bombardier Client Status"
             self.subtitle = "Client Status"
-            self.body = self.mainMenu()
-            return self.generateHtml()
+            self.body = ''
+            yield self.generateNoFooter()
+            yield self.mainMenu()
         else:
+            print '\n'.join(["==========================================="] * 100)
+
             self.meta = '<META HTTP-EQUIV="REFRESH" CONTENT="50" />'
             self.title = "Client %s" % client
             self.subtitle = "Status for client: %s" % client
             self.body = clientDetail(client)
-            return self.generateHtml()
+            yield self.generateHtml()
 

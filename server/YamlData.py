@@ -81,12 +81,9 @@ def readData(path):
 
 class YamlData:
 
-    def __init__(self, name, fields, indexes = {}):
-        self.fields  = fields
-        self.indexes = indexes
-        self.cname   = self.__class__.__name__.lower()
+    def findName(self, name):
         recordNames  = filterYamlFiles( server.serviceRequest("deploy/%s" % self.cname,
-                                                             legacyPathFix=False, debug=True).split('\n') )
+                                                             legacyPathFix=False).split('\n') )
         if recordNames:
             lowerName = lowerCaseSearch(recordNames, name)
         else:
@@ -97,13 +94,27 @@ class YamlData:
         else:
             self.name = lowerName
             self.new  = False
+ 
+    def __init__(self, name, fields, indexes = {}):
+        self.fields  = fields
+        self.indexes = indexes
+        self.cname   = self.__class__.__name__.lower()
+
+        self.new  = False
+        self.name = name
         self.path = "deploy/%s/%s.yml" % (self.cname, self.name)
-        if not self.new:
+        try:
             self.data = readData(self.path)
-            if self.data:
-                self.new = False
-        else:
+        except:
             self.data = {}
+        if self.data == {}:
+            self.findName(name)
+            if self.new:
+                self.data = {}
+            else:
+                self.data = readData(self.path)
+                if self.data:
+                    self.new = False
         for field in fields:
             if self.data.get(field):
                 command = "self.%s = self.data['%s']" % (field, field)

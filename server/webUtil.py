@@ -102,11 +102,14 @@ def readBom(pkgGroup):
         return []
 
 def readClientProgress(clientName):
-    name = lowerCaseSearch(getClientNames(), clientName)
     try:
-        return getYaml("deploy/log/" + name + "/install-progress.yml")
+        return getYaml("deploy/log/" + clientName + "/install-progress.yml")
     except:
-        return {}
+        name = lowerCaseSearch(getClientNames(), clientName)
+        try:
+            return getYaml("deploy/log/" + name + "/install-progress.yml")
+        except:
+            return {}
 
 def stripVersion(packageName):
     if type(packageName) == type("string"):
@@ -154,11 +157,14 @@ def getClientInstalledUninstalled(clientName, progressData = None):
             installed.append(stripVersion(item))
     return installed, uninstalled
 
-def getIndexed(table1, item, table2, field):
-    try:
-        index = getYaml("deploy/%s/index.yml" % table1)
-    except:
-        return []
+def getIndexed(table1, item, table2, field, data = {}):
+    if data == {}:
+        try:
+            index = getYaml("deploy/%s/index.yml" % table1)
+        except:
+            return []
+    else:
+        index = data
     if index.get(item):
         if index[item].get(table2):
             if index[item][table2].get(field):

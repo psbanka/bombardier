@@ -21,7 +21,7 @@ TCP_PORT      = int(config.get("site", "tcpport"))
 SVN_ROOT      = config.get("svn", "root")
 SVN_USERNAME  = config.get("svn", "username")
 SVN_PASSWORD  = config.get("svn", "password")
-DEAD_TIME     = 30
+DEAD_TIME     = 100
 
 SWITCH_ADDRESS    = ""
 SWITCH_LOGINPASS  = ""

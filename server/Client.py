@@ -76,10 +76,11 @@ class Client(YamlData.YamlData):
         if self.packageList != []:
             self.percentage = 100.0 * (float(len(self.installed)) / float(len(self.packageList)))
 
-        self.managers = webUtil.getIndexed("client", self.name, "contact", "managedclients")
-        self.owners   = webUtil.getIndexed("client", self.name, "contact", "ownedclients")
-        self.projects = webUtil.getIndexed("client", self.name, "project", "clients")
-        self.hardware = webUtil.getIndexed("client", self.name, "hardware", "client")
+        index = webUtil.getYaml("deploy/client/index.yml")
+        self.managers = webUtil.getIndexed("client", self.name, "contact", "managedclients", index)
+        self.owners   = webUtil.getIndexed("client", self.name, "contact", "ownedclients", index)
+        self.projects = webUtil.getIndexed("client", self.name, "project", "clients", index)
+        self.hardware = webUtil.getIndexed("client", self.name, "hardware", "client", index)
         if self.hardware:
             self.hardware = self.hardware[0]
         else:
