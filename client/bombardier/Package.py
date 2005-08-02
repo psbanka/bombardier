@@ -615,9 +615,12 @@ class Package:
         del fh
         gc.collect() # just try removing these and see if the unit tests pass -pbanka
         hostname = os.environ["COMPUTERNAME"]
-        status = self.server.serviceYamlRequest("clientstatus", 
-                                                {"client":hostname, "message":"install"},
-                                                putData=progressData)
+        try:
+            status = self.server.serviceYamlRequest("clientstatus", 
+                                                    {"client":hostname, "message":"install"},
+                                                    putData=progressData)
+        except Exceptions.ServerUnavailable:
+            status = FAIL
         if status == "FAIL":
             ermsg = "Unable to upload installation progress"
             Logger.warning(ermsg)

@@ -26,9 +26,12 @@ from staticData import *
 def getSpkgPath():
     import _winreg as winreg
     keyName = r"Software\GE-IT\Bombardier"
-    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
-                         keyName, 0, winreg.KEY_QUERY_VALUE)
-    path, dummy = winreg.QueryValueEx(key, "InstallPath")
+    try:
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                             keyName, 0, winreg.KEY_QUERY_VALUE)
+        path, dummy = winreg.QueryValueEx(key, "InstallPath")
+    except:
+        return r"C:\spkg"
     return path
 
 def checkLogSize():
@@ -72,10 +75,11 @@ filename    = os.path.join(spkgPath, LOG_FILE)
 try:
     fileHandler = logging.FileHandler(filename)
 except IOError, e:
-    ermsg = "Unable to open file %s for logging %s\n" % (filename , e)
-    open("c:\\spkg\\logerror.txt", 'a').write( ermsg)
-    fileHandler = logging.StreamHandler(sys.stderr )
-formatter   = logging.Formatter('%(asctime)s|%(levelname)s|%(message)s')
+    try:
+        fileHandler = logging.FileHandler(filename)
+    except IOError, e:
+        fileHandler = logging.StreamHandler(sys.stderr)
+formatter = logging.Formatter('%(asctime)s|%(levelname)s|%(message)s')
 fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(logging.DEBUG)

@@ -26,10 +26,12 @@ import bombardier.Server as Server
 import bombardier.Config as Config
 import bombardier.Logger as Logger
 import bombardier.Repository as Repository
+import bombardier.Exceptions as Exceptions
 
 filesystem = Filesystem.Filesystem()
 server     = Server.Server(filesystem)
-server.getServerData()
+#server.getServerData()
+
 windows    = Windows.Windows()
 config     = Config.Config(filesystem, server, windows)
 config.freshen()
