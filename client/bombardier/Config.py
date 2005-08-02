@@ -36,10 +36,8 @@ def generatePassword():
 def findIncludeList(data):
     includeList = []
     for key in data.keys():
-        if key.upper() == "INCLUDES":
-            includes = data[key]
-            for index, value in includes.iteritems():
-                includeList.append(value)
+        if key.upper() == "INCLUDE":
+            includeList += data[key]
     return includeList
 
 class Config(dict):
@@ -85,12 +83,14 @@ class Config(dict):
         return []
 
     ### TESTED
-    def downloadConfig(self, configName, include=True):
+    def downloadConfig(self, configName, include=False):
         Logger.debug("Downloading configuration data...")
         if not include:
-            newData = self.server.serviceYamlRequest("/deploy/client/%s.yml" % configName}, debug=True)
+            newData = self.server.serviceYamlRequest("deploy/client/%s.yml" % configName,
+                                                     debug=True, legacyPathFix=False)
         else:
-            newData = self.server.serviceYamlRequest("/deploy/include/%s.yml" % configName}, debug=True)
+            newData = self.server.serviceYamlRequest("deploy/include/%s.yml" % configName, debug=True,
+                                                     legacyPathFix=False)
         self.data = miniUtility.addDictionaries(self.data, newData)
         self.makeConfigObject()
         newIncludes = findIncludeList(newData)
@@ -101,7 +101,7 @@ class Config(dict):
         for includeName in newIncludes:
             if includeName not in self.includes:
                 self.includes.append(includeName)
-                self.downloadConfig(includeName)
+                self.downloadConfig(includeName, True)
 
     def readLocalConfig(self):
         configPath = os.path.join(miniUtility.getSpkgPath(), CONFIG_FILE)
@@ -120,7 +120,7 @@ class Config(dict):
         self.data = {}
         status = self.readLocalConfig()
         if status == FAIL:
-            status = self.downloadConfig(self.filesystem.environ["COMPUTERNAME"], include=False)
+            status = self.downloadConfig(self.filesystem.environ["COMPUTERNAME"], False)
         if status == FAIL:
             self.data = savedData
             return FAIL

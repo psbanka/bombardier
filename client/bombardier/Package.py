@@ -389,8 +389,9 @@ class Package:
             Logger.info("Removing current backup directory")
             try:
                 self.filesystem.rmtree(self.backupPath)
-            except OSError:
-                Logger.error("Unable to remove old backup directory")
+            except OSError, e:
+                Logger.error("Unable to remove old backup directory (%s)" % self.backupPath)
+                Logger.error("Error message: %s" % e)
                 return FAIL
         self.filesystem.mkdir(self.backupPath)
         return OK

@@ -271,9 +271,11 @@ def writeProjectInfo(projectInfo):
     fh.close()
     return status
 
+def getBomPath():
+    return os.path.join(getDeployPath(), "bom")
+
 def getLogPath():
     logPath = os.path.join(getDeployPath(), "log")
-    cherrypy.log("Log Path: %s" % logPath)
     return os.path.join(getDeployPath(), "log")
 
 def getClientPath():
@@ -290,7 +292,6 @@ def getStatusPath():
 
 def getConfigFile(filename):
     return os.path.join(getConfigPath(), filename)
-
 
 def getDeployPath():
     path = config.get("site", "deployPath")
