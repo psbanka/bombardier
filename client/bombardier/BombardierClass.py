@@ -525,7 +525,8 @@ class Bombardier:
         if pkgGroups == []:
             Logger.warning("No packages configures for this system %s" % pkgGroups)
             if self.windows.testConsole(): # Try to pull up the WebUI
-                if type(self.config.repository) == type(dict()) and self.config.repository.get("address"):
+                if type(self.config.repository) == type(dict()) and\
+                       self.config.repository.get("address"):
                     hostName = os.environ["COMPUTERNAME"]
                     configUrl = "%s/website/client/clientpackages?"\
                                 "client=%s" % (self.config.repository["address"],hostName)
@@ -533,7 +534,9 @@ class Bombardier:
                 self.filesystem.clearLock()
         packageNames = sets.Set([])
         for pkgGroup in pkgGroups:
-            pkgString = self.server.serviceRequest("pkggroups", args={"group":pkgGroup}, debug=False)
+            pkgString = self.server.serviceRequest("pkggroups",
+                                                   args={"group":pkgGroup},
+                                                   debug=False)
             if pkgString == '':
                 ermsg = "Package group %s does not exist on the repository (ignoring)" % pkgGroup
                 Logger.warning(ermsg)

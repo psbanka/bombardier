@@ -70,12 +70,12 @@ class ReconcileThread(threading.Thread):
                 Logger.info("========== ENDING thread ID %s:OK " % (self.id))
                 filesystem.updateCurrentStatus(IDLE, "Finished with installation activities")
                 filesystem.updateCurrentAction("", 100)
-                self.server.serverLog("INFO", "Finished installing")
+                #self.server.serverLog("INFO", "Finished installing")
             else:
                 ermsg = "========== ENDING thread ID %s:FAIL " % (self.id)
                 filesystem.updateCurrentStatus(ERROR, "Error installing")
                 Logger.info(ermsg)
-                self.server.serverLog("INFO", "Failed to installing")
+                #self.server.serverLog("INFO", "Error installing")
         except Exceptions.ServerUnavailable, e:
             self.commSocketToService.sendStop()
             filesystem.clearLock()

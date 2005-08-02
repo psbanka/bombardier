@@ -33,21 +33,21 @@ def generatePassword():
     password = ''.join([ random.choice(characters) for x in range(0,PASSWORD_LENGTH)])
     return password
 
-def findParentList(data):
-    parentList = []
+def findIncludeList(data):
+    includeList = []
     for key in data.keys():
-        if key.upper() == "PARENTS":
-            parents = data[key]
-            for index, value in parents.iteritems():
-                parentList.append(value)
-    return parentList
+        if key.upper() == "INCLUDES":
+            includes = data[key]
+            for index, value in includes.iteritems():
+                includeList.append(value)
+    return includeList
 
 class Config(dict):
 
     """This object retains the complete configuration for a system. It
     provides that information either as a dictionary or a
     ConfigParser. It will download its own configuration from the
-    repository as well as following any 'parent' chains to create a
+    repository as well as following any 'include' chains to create a
     single unified dictionary."""
     
     ### TESTED
@@ -57,7 +57,7 @@ class Config(dict):
         self.windows    = windows
         self.repository = None
         self.config     = ConfigParser.ConfigParser()
-        self.parents    = []
+        self.includes    = []
         self.automated  = False
         self.data       = {}
         self.username   = None
@@ -85,21 +85,23 @@ class Config(dict):
         return []
 
     ### TESTED
-    def downloadConfig(self, configName):
+    def downloadConfig(self, configName, include=True):
         Logger.debug("Downloading configuration data...")
-        newData = self.server.serviceYamlRequest("clientconfig", 
-                                                 {"client": configName, "type":"YAML"}, debug=True)
+        if not include:
+            newData = self.server.serviceYamlRequest("/deploy/client/%s.yml" % configName}, debug=True)
+        else:
+            newData = self.server.serviceYamlRequest("/deploy/include/%s.yml" % configName}, debug=True)
         self.data = miniUtility.addDictionaries(self.data, newData)
         self.makeConfigObject()
-        newParents = findParentList(newData)
-        self.loadParents(newParents)
+        newIncludes = findIncludeList(newData)
+        self.loadIncludes(newIncludes)
         return OK
 
-    def loadParents(self, newParents):
-        for parentName in newParents:
-            if parentName not in self.parents:
-                self.parents.append(parentName)
-                self.downloadConfig(parentName)
+    def loadIncludes(self, newIncludes):
+        for includeName in newIncludes:
+            if includeName not in self.includes:
+                self.includes.append(includeName)
+                self.downloadConfig(includeName)
 
     def readLocalConfig(self):
         configPath = os.path.join(miniUtility.getSpkgPath(), CONFIG_FILE)
@@ -118,7 +120,7 @@ class Config(dict):
         self.data = {}
         status = self.readLocalConfig()
         if status == FAIL:
-            status = self.downloadConfig(self.filesystem.environ["COMPUTERNAME"])
+            status = self.downloadConfig(self.filesystem.environ["COMPUTERNAME"], include=False)
         if status == FAIL:
             self.data = savedData
             return FAIL
@@ -187,8 +189,8 @@ class Config(dict):
         output = []
         if self.config.has_section(section):
             output = self.config.options(section)
-        for parentName in self.parents.keys():
-            output += self.parents[parentName].options(section)
+        for includeName in self.includes.keys():
+            output += self.includes[includeName].options(section)
         return output
 
     ### TESTED

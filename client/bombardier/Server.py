@@ -209,7 +209,7 @@ class Server:
         fh.close()
 
     def serviceRequest(self, path, args={}, putData=None, debug=False,
-                       putFile=None, timeout=30):
+                       putFile=None, timeout=30, legacyPathFix=True):
         if self.serverData == None:
             self.getServerData()
         if type(self.serverData) == type(None):
@@ -217,8 +217,10 @@ class Server:
             raise Exceptions.ServerUnavailable, (path, "server not configured")
         base = self.serverData.get("base")
         if base == None:
-            base = "website/service/"
-        fullPath = self.serverData["address"] + "/" + base + path +"/"
+            base = "/"
+        if legacyPathFix:
+            path = "website/service/"+path+"/"
+        fullPath = self.serverData["address"] + "/" + base + path
         queryString = makeQueryString(args)
         url = fullPath+queryString
         if debug:
@@ -227,11 +229,13 @@ class Server:
             c = prepareCurlObject(url, self.serverData)
         except pycurl.error, e:
             raise Exceptions.ServerUnavailable, (url, `e`)
-        data = StringIO.StringIO()
+        data   = StringIO.StringIO()
+        header = StringIO.StringIO()
         c.setopt(pycurl.WRITEFUNCTION, data.write)
         c.setopt(pycurl.CONNECTTIMEOUT, timeout)
-        c.setopt(pycurl.FOLLOWLOCATION, 1) # Neccessary for twisted->cherrypy migration
+        c.setopt(pycurl.FOLLOWLOCATION, 1)
         c.setopt(pycurl.MAXREDIRS, 4)
+        c.setopt(pycurl.HEADERFUNCTION, header.write)
         #c.setopt(pycurl.VERBOSE, 1)
         if putData:
             putFile = StringIO.StringIO(putData)
@@ -242,17 +246,20 @@ class Server:
         try:
             c.perform()
             data.seek(0)
+            header.seek(0)
             output = data.read()
             return output
         except pycurl.error, e:
             raise Exceptions.ServerUnavailable, (url, e[1])
 
-    def serviceYamlRequest( self, path, args={}, putData=None, debug=False, timeout=30):
+    def serviceYamlRequest( self, path, args={}, putData=None, debug=False,
+                            timeout=30, legacyPathFix=True):
         if putData:
             if type(putData) == type(["list"]) or type(putData) == type({}):
                 putData = yaml.dump(putData)
         ymlData = self.serviceRequest(path, args, putData,
-                                      debug=debug, timeout=timeout)
+                                      debug=debug, timeout=timeout,
+                                      legacyPathFix=legacyPathFix)
         if ymlData == '':
             return {}
         config = yaml.load(ymlData)
