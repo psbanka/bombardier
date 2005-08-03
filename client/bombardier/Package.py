@@ -614,7 +614,7 @@ class Package:
         fh.close()
         del fh
         gc.collect() # just try removing these and see if the unit tests pass -pbanka
-        hostname = os.environ["COMPUTERNAME"]
+        hostname = os.environ["COMPUTERNAME"].lower()
         try:
             status = self.server.serviceYamlRequest("clientstatus", 
                                                     {"client":hostname, "message":"install"},

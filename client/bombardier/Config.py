@@ -70,16 +70,7 @@ class Config(dict):
 
     def getPackageGroups(self):
         if self.data.has_key("packageGroups"):
-            if type(self.data["packageGroups"]) == type({}):
-                packageGroups = []
-                for groupId,packageGroup in self.data["packageGroups"].items():
-                    packageGroups.append(packageGroup)
-                return packageGroups
-        if self.data.has_key("system"):
-            if self.data["system"].has_key("type"):
-                packageGroup = self.data["system"]["type"]
-                if type(packageGroup) == type("string"):
-                    return ["base", packageGroup]
+            return self.data["packageGroups"]
         return []
 
     ### TESTED
@@ -120,7 +111,7 @@ class Config(dict):
         self.data = {}
         status = self.readLocalConfig()
         if status == FAIL:
-            status = self.downloadConfig(self.filesystem.environ["COMPUTERNAME"], False)
+            status = self.downloadConfig(self.filesystem.environ["COMPUTERNAME"].lower(), False)
         if status == FAIL:
             self.data = savedData
             return FAIL

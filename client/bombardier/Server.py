@@ -271,7 +271,7 @@ class Server:
 
     def serverLog( self, severity, message, section = "GENERAL"):
         try:
-            hostname = os.environ["COMPUTERNAME"]
+            hostname = os.environ["COMPUTERNAME"].lower()
             args = {"client":hostname, "severity":severity, "section":section}
             response = self.serviceRequest("clientlog", args, message, debug=True)
             if response.strip() == "OK":
@@ -356,7 +356,7 @@ class Server:
         if len(badData) > 0: 
             message = "Verify Failed: " + ','.join(badData)
 
-        hostname = os.environ["COMPUTERNAME"]
+        hostname = os.environ["COMPUTERNAME"].lower()
         content_type, body = encode_multipart_formdata(
             [("time",int(time.time())),
             ("host",hostname),
