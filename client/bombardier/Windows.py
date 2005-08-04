@@ -534,8 +534,7 @@ class Windows:
                 Logger.error("The account this service runs under does "\
                                   "not have the 'act as part of operating system right'")
             else:
-                Logger.debug("password: %s" % self.password)
-                Logger.error("User '%s' cannot log in (%s)" % (self.username, details))
+                Logger.info("User '%s' cannot log in (%s)" % (self.username, details))
             return FAIL
         return OK
     

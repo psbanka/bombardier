@@ -33,6 +33,15 @@ def generatePassword():
     password = ''.join([ random.choice(characters) for x in range(0,PASSWORD_LENGTH)])
     return password
 
+def getKey(data, index):
+    output = None
+    object = data
+    for key in index:
+        object = object.get(key)
+        if object == None:
+            return
+    return object
+            
 def findIncludeList(data):
     includeList = []
     for key in data.keys():
@@ -88,6 +97,33 @@ class Config(dict):
         self.loadIncludes(newIncludes)
         return OK
 
+    def downloadExtraData(self):
+        index = self.server.serviceYamlRequest("deploy/client/index.yml",
+                                               debug=True, legacyPathFix=False)
+        hostname = self.filesystem.environ["COMPUTERNAME"].lower()
+        projects = getKey(index, [hostname, "project", "clients"])
+        if projects:
+            for project in projects:
+                newData = self.server.serviceYamlRequest("deploy/project/%s.yml" % project,
+                                                         debug=True, legacyPathFix=False)
+                if newData.get("data"):
+                    self.data = miniUtility.addDictionaries(self.data, newData["data"])
+                    self.makeConfigObject()
+        serverNameList = getKey(index, [hostname, "hardware", "client"])
+        if serverNameList:
+            if len(serverNameList) == 1:
+                serverName = serverNameList[0]
+                serverData = self.server.serviceYamlRequest("deploy/hardware/%s.yml" % serverName, 
+                                                            debug=True, legacyPathFix=False)
+                location = serverData.get("location")
+                if location:
+                    newData = self.server.serviceYamlRequest("deploy/location/%s.yml" % location, 
+                                                             debug=True, legacyPathFix=False)
+                    if newData.get("data"):
+                        self.data = miniUtility.addDictionaries(self.data, newData["data"])
+                        self.makeConfigObject()
+        return OK
+
     def loadIncludes(self, newIncludes):
         for includeName in newIncludes:
             if includeName not in self.includes:
@@ -111,8 +147,9 @@ class Config(dict):
         self.data = {}
         status = self.readLocalConfig()
         if status == FAIL:
-            status = self.downloadConfig(self.filesystem.environ["COMPUTERNAME"].lower(), False)
-        if status == FAIL:
+            status1 = self.downloadConfig(self.filesystem.environ["COMPUTERNAME"].lower(), False)
+            status2 = self.downloadExtraData()
+        if status1 == FAIL or status2 == FAIL:
             self.data = savedData
             return FAIL
         self.username = DEFAULT_USER
@@ -141,12 +178,6 @@ class Config(dict):
                     value = datum[option]
                     if type(value) != type(dict()):
                         self.config.set(section, option, value)
-                    else:
-                        ermsg =  "incompatible types (ini/yaml) for (%s:%s)" % (section, option)
-                        Logger.warning(ermsg)
-            else:
-                pass
-                Logger.warning("incompatible types (ini/yaml) for (%s)" % (section))
 
     ### TESTED
     def set(self, section, option, value):
