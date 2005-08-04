@@ -619,6 +619,9 @@ class Package:
             status = self.server.serviceYamlRequest("clientstatus", 
                                                     {"client":hostname, "message":"install"},
                                                     putData=progressData)
+            if status == OK:
+                status = self.server.serverLog("INFO", "Finished installing %s" % self.fullName,
+                                               self.name)
         except Exceptions.ServerUnavailable:
             status = FAIL
         if status == "FAIL":

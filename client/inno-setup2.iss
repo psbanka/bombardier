@@ -34,7 +34,7 @@ Source: release\bombardier-0.4.tar.gz; DestDir: {app}\scratch
 Source: spkgDir\rescue.py; DestDir: {app}\scratch
 
 [Icons]
-Name: {group}\Bombardier; Filename: {reg:HKLM\Software\Python\PythonCore\2.4\InstallPath,(Default)|C:\Python24}\Lib\site-packages\bombardier\BombardierUi.py; WorkingDir: {app}; HotKey: ctrl+alt+b; Parameters: -a; IconFilename: {app}\big-icon.ico; Comment: Bombardier Client
+Name: {group}\Bombardier; Filename: {app}\BombardierUi.py; WorkingDir: {app}; HotKey: ctrl+alt+b; Parameters: -a; IconFilename: {app}\big-icon.ico; Comment: Bombardier Client
 Name: {group}\Uninstall Bombardier; Filename: {uninstallexe}
 Name: {group}\Management Interface; Filename: {app}\website.url
 
