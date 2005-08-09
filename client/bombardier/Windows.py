@@ -366,20 +366,7 @@ class Windows:
         r = RegistryDict.RegistryDict(path, flags=win32con.KEY_ALL_ACCESS)
         r[obj] = value
 
-    def findUser(self, username):
-        users = win32net.NetUserEnum('.', 0, win32netcon.FILTER_NORMAL_ACCOUNT)[0]
-        for user in users:
-            if user['name'].lower() == username.lower():
-                return OK
-        return FAIL
-
-    def removeKeyHKLM( self, keyName ):
-        Logger.info("Removing key %s" % keyName)
-        try:
-            winreg.DeleteKey( winreg.HKEY_LOCAL_MACHINE, keyName )
-        except Exception, e:
-            Logger.warning("Unable to delete key %s; (%s)" % (keyName, e))
-
+    # This is the main removal function. keyName is a string
     def removeSubKeys( self, keyName ):
         try:
             keyList = self.getSubKeys( keyName )
@@ -387,6 +374,13 @@ class Windows:
                 self.removeKeyHKLM( k )
         except:
             pass
+
+    def removeKeyHKLM( self, keyName ):
+        Logger.info("Removing key %s" % keyName)
+        try:
+            winreg.DeleteKey( winreg.HKEY_LOCAL_MACHINE, keyName )
+        except Exception, e:
+            Logger.warning("Unable to delete key %s; (%s)" % (keyName, e))
 
     def getSubKeys( self, keyName ):
         keyList = []
@@ -425,6 +419,15 @@ class Windows:
                 self.popStrings( l, strList )
             else:
                 strList.append( l )
+
+    # User commands
+
+    def findUser(self, username):
+        users = win32net.NetUserEnum('.', 0, win32netcon.FILTER_NORMAL_ACCOUNT)[0]
+        for user in users:
+            if user['name'].lower() == username.lower():
+                return OK
+        return FAIL
 
     def mkServiceUser(self, username, password, domain='', local=False, comment=''):
         if not local:
@@ -533,8 +536,8 @@ class Windows:
             if details[0] == 1314:
                 Logger.error("The account this service runs under does "\
                                   "not have the 'act as part of operating system right'")
-            else:
-                Logger.info("User '%s' cannot log in (%s)" % (self.username, details))
+            #else:
+                #Logger.info("User '%s' cannot log in (%s)" % (self.username, details))
             return FAIL
         return OK
     

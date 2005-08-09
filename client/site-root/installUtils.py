@@ -20,14 +20,20 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
+WRITABLE_FILE_MODE      = 33206
+WRITABLE_DIRECTORY_MODE = 16895
+
 import os, sys, shutil
 
-import win32com.client, pywintypes, win32netcon, win32net
+import pywintypes, win32netcon, win32net
 from win32com.client import GetObject, Dispatch
+import _winreg as winreg
 from time import sleep
+import win32api, win32file
 
 from bombardier.miniUtility import consoleSync
 from bombardier.utility import removeDirectory
+from bombardier.Windows import Windows
 import bombardier.Logger as Logger
 import bombardier.Filesystem as Filesystem
 from bombardier.staticData import *
@@ -61,6 +67,32 @@ def removeFile( path ):
     if os.path.isfile( path ):
         os.remove( path )
 
+def registerDlls(directory, dlls):
+    Logger.info("Registering DLLs..")
+    winDir = os.environ["windir"]
+    status = OK
+    for dll in dlls:
+        dllPath = os.path.join(directory, "dll", dll)
+        cmd = "%s %s /s" % (os.path.join(winDir, "system32", "regsvr32.exe"), dllPath)
+        status = os.system(cmd)
+        if status == FAIL:
+            status = FAIL
+            Logger.warning("Error registering %s." % dll)
+    return status
+
+def unregisterDlls(directory, dlls):
+    Logger.info("Un-registering DLLs..")
+    winDir = os.environ["windir"]
+    status = OK
+    for dll in dlls:
+        dllPath = os.path.join(directory, "dll", dll)
+        cmd = "%s %s /s /u" % (os.path.join(winDir, "system32", "regsvr32.exe"), dllPath)
+        status = os.system(cmd)
+        if status == FAIL:
+            Logger.warning("Error un-registering %s." % dll)
+            status = FAIL
+    return status
+
 def copyDirectory( _src, _dest ):
     try:
         if os.path.isdir(_dest):
@@ -85,18 +117,166 @@ def copyFile( _src, _dest ):
         else:
             print errString
 
+def makeDirWritable( dir ):
+    os.chmod( dir, WRITABLE_DIRECTORY_MODE )
+
+def makeFileWritable( file ):
+    os.chmod( file, WRITABLE_FILE_MODE )
+
+def makeWritableRecursive( rootDir ):
+    for root, dirs, files in os.walk(rootDir, topdown=False):
+        for name in files:
+            makeFileWritable(os.path.join(root, name))
+        for name in dirs:
+            print "%s" %(os.path.join(root, name))
+            makeDirWritable(os.path.join(root, name))
+        makeDirWritable( root )
+
+def deleteDirectory( path ):
+    if os.path.isdir( path ):
+        makeWritableRecursive( path )
+        shutil.rmtree( path )
+
+def rmScheduledFile(filename):
+    try:
+        win32api.MoveFileEx(filename, None,
+                            win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
+    except pywintypes.error, e:
+        Logger.error("Cannot remove file: %s (%s)" % (filename, e))
+
+def rmScheduledDir(path):
+        for root, dirs, files in os.walk(path):
+                for name in files:
+                        rmScheduledFile(os.path.join(root, name))
+                for name in dirs:
+                        rmScheduledFile(os.path.join(root, name))
+
+def deleteDirectories( deletePaths ):
+    reboot = False
+    for path in deletePaths:
+        if path == "\\" or path.lower() == "c:\\":
+            Logger.error("Refusing to delete %s" % path)
+            return FAIL
+        if os.path.isdir(path):
+            Logger.info( "Attempting to remove %s" %(path) )
+            try:
+                deleteDirectory(path)
+            except:
+                Logger.info("%s not deletable...scheduling for deletion." % path)
+                rmScheduledDir(path)
+                reboot = True
+    if reboot:
+        return REBOOT
+    else:
+        return OK
+
+def removeOldDsn( dataSourceName ):
+    windows = Windows()
+    try:
+        windows.removeKeyHKLM("SOFTWARE\\ODBC\\ODBC.INI\\%s" % dataSourceName)
+    except WindowsError:
+        pass
+    try:
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources",
+                             0, winreg.KEY_ALL_ACCESS )
+        winreg.DeleteValue(key, dataSourceName)
+    except WindowsError:
+        pass
+
+def makeAccessDsn( dataSourceName, dbFilePath ):
+    try:
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
+                                 "SOFTWARE\\ODBC\\ODBC.INI\\%s" % dataSourceName )
+        driverPath = os.path.join( os.environ['windir'], 'system32', 'odbcjt32.dll' )
+        winreg.SetValueEx( hKey, "Driver",           0, winreg.REG_SZ, driverPath )
+        winreg.SetValueEx( hKey, "DBQ",              0, winreg.REG_SZ, dbFilePath )
+        winreg.SetValueEx( hKey, "DriverId",         0, winreg.REG_DWORD, 19 )
+        winreg.SetValueEx( hKey, "FIL",              0, winreg.REG_SZ, "MS Access;" )
+        winreg.SetValueEx( hKey, "SafeTransactions", 0, winreg.REG_DWORD, 0 )
+        winreg.SetValueEx( hKey, "UID",              0, winreg.REG_SZ, "" )
+        winreg.CloseKey(hKey)
+
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
+                                 "SOFTWARE\\ODBC\\ODBC.INI\\%s\\Engines" %dataSourceName )
+        winreg.CloseKey(hKey)
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
+                                 "SOFTWARE\\ODBC\\ODBC.INI\\%s\\Engines\\Jet" %dataSourceName )
+        winreg.SetValueEx( hKey, "ImplicitCommitSync", 0, winreg.REG_SZ, "" )
+        winreg.SetValueEx( hKey, "MaxBufferSize",      0, winreg.REG_DWORD, 800 )
+        winreg.SetValueEx( hKey, "PageTimeout",        0, winreg.REG_DWORD, 5 )
+        winreg.SetValueEx( hKey, "Threads",            0, winreg.REG_DWORD, 3 )
+        winreg.SetValueEx( hKey, "UserCommitSync",     0, winreg.REG_SZ, "Yes" )
+        winreg.CloseKey(hKey)
+
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
+                   "SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources" )
+        winreg.SetValueEx( hKey, dataSourceName, 0, winreg.REG_SZ, "Microsoft Access Driver (*.mdb)" )
+        winreg.CloseKey( hKey )
+    except Exception, e:
+        Logger.Error( "Unable to create Access DSN:\n%s" %e )
+        sys.exit( 1 )
+
+def makeNewDsn( dataSourceName, dbName, defaultUser, serverName, desc=None ):
+    try:
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
+                                 "SOFTWARE\\ODBC\\ODBC.INI\\%s" %dataSourceName )
+
+        driverPath = os.path.join( os.environ['windir'], 'system32', 'SQLSRV32.dll' )
+        winreg.SetValueEx( hKey, "Database",    0, winreg.REG_SZ, dbName )
+        winreg.SetValueEx( hKey, "Driver",      0, winreg.REG_SZ, driverPath   )
+        winreg.SetValueEx( hKey, "LastUser",    0, winreg.REG_SZ, defaultUser  )
+        winreg.SetValueEx( hKey, "Server",      0, winreg.REG_SZ, serverName       )
+        if desc != None:
+            winreg.SetValueEx( hKey, "Description", 0, winreg.REG_SZ, desc  )
+
+        winreg.CloseKey(hKey)
+
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
+                                 "SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources" )
+        winreg.SetValueEx( hKey, dataSourceName, 0, winreg.REG_SZ, "SQL Server" )
+        winreg.CloseKey( hKey )
+    except Exception, e:
+        Logger.Error( "Unable to create DSN:\n%s" %e )
+        sys.exit( 1 )
+
+def removeSite( _siteIndex ):
+    w3svcPath = "IIS://localhost/w3svc"
+    sitePath = "%s/%s" %(w3svcPath, str( _siteIndex ))
+    try:
+        w3svc = GetObject( w3svcPath )
+    except:
+        Logger.warning( "Unable to get w3svc object" )
+    try:
+        GetObject( sitePath )
+    except:
+        Logger.warning( 'The path "%s" was not found' %sitePath )
+        return
+
+    Logger.info( "Removing %s" %sitePath )
+    try:
+        w3svc.Delete( 'IIsWebServer', str( _siteIndex ) )
+    except:
+        Logger.warning( "Error removing site" )
+
 class SiteCreator:
+
+    POOLED = 2
+    MD_AUTH_MD5 = 16
+    MD_AUTH_NT  = 4
+    NT_AUTH = MD_AUTH_MD5 | MD_AUTH_NT
+    
     def __init__(self, homeDir, sourceDir, siteIndex, title, 
-                 ipAddress, port, securePort=None, permissions=513):
+                 ipAddress, port, securePort=None, permissions=513, authFlags = None):
         try:
             self.homeDir    =  homeDir
             self.sourceDir  =  sourceDir
             self.siteIndex  =  siteIndex
             self.title      =  title
-            self.ipAddress   =  ipAddress
+            self.ipAddress  =  ipAddress
             self.port       =  port
             self.securePort =  securePort
             self.permissions = permissions
+            self.authFlags   = authFlags
             self.serverBindings = "%s:%s:" %( self.ipAddress, self.port )
             if self.securePort != None:
                 self.secureBindings = "%s:%s:" %( self.ipAddress, self.securePort )
@@ -104,6 +284,54 @@ class SiteCreator:
                 self.secureBindings = None
         except Exception, e:        
             Logger.info( "Exception creating SiteCreator: \n\t%s" %e )
+
+    def setScriptMap(self, scripts): # scripts is a list of dictionaries
+        RESERVED = 1 # I have no idea what this is
+        bigSmString = []
+        for script in scripts:
+            extension = script["extension"]
+            command   = script["command"]
+            smString = '%s,%s,%s' % (extension, command, RESERVED)
+            verbs     = script.get("verbs")
+            if verbs:
+                smString = "%s,%s" % (smString, ','.join(verbs))
+            bigSmString.append(smString)
+        root = GetObject( 'IIS://localhost/w3svc/%s/ROOT'  % self.siteIndex )
+        root.ScriptMaps = bigSmString
+        root.SetInfo()
+    
+    def getIisWebDirObject(self, dir):
+        root = GetObject( 'IIS://localhost/w3svc/%s/ROOT'  % self.siteIndex )
+        newDir = root.Create( 'IISWebDirectory', dir )
+        return newDir
+
+    def setWebDirPermissions(self, dir, permissions):
+        newDir = self.getIisWebDirObject(dir)
+        newDir.AccessRead = True # FIXME: what is this, really?
+        newDir.AccessFlags = permissions
+        newDir.SetInfo()
+
+    def createApplicationRoot( self, dir, authFlags=None ):
+        newDir = self.getIisWebDirObject(dir)
+        newDir.AppCreate(True)
+        newDir.AccessFlags = 513
+        if authFlags:
+            newDir.AuthFlags = authFlags
+        newDir.SetInfo()
+
+    def createVirtualDir( self, name, dir, permissions=None, authFlags=None ):
+        if permissions == None:
+            permissions = self.permissions
+        root = GetObject( 'IIS://localhost/w3svc/%s/ROOT'  %self.siteIndex )
+        newDir = root.Create( 'IISWebVirtualDir', name )
+        newDir.Path = dir
+        newDir.AccessRead = True
+        newDir.SetInfo()
+        newDir.AppCreate(True)
+        newDir.AccessFlags = permissions
+        if authFlags:
+            newDir.AuthFlags = authFlags
+        newDir.SetInfo()
 
     def createSite(self):
         Logger.info( "Creating site:" )
@@ -114,7 +342,6 @@ class SiteCreator:
         Logger.info( "\tipAddress  : %s" %self.ipAddress )
         Logger.info( "\tport       : %s" %self.port )
         Logger.info( "\tsecurePort : %s" %self.securePort )
-                                          
     
         Logger.warning("Removing All files in directory %s" % self.homeDir)
         copyDirectory( self.sourceDir, self.homeDir )
@@ -131,7 +358,7 @@ class SiteCreator:
                 Logger.info( 'Found web server "%s": %s' %( webServer.serverComment, webServer.ServerBindings ) )
                 bindings = webServer.ServerBindings
                 if bindings == bindingString:
-                    logger.error("Site being created conflicts with another site")
+                    Logger.error("Site being created conflicts with another site")
                     return FAIL
         try:
             webServer = GetObject( 'IIS://localhost/w3svc/%s' %self.siteIndex )
@@ -139,7 +366,7 @@ class SiteCreator:
         except:
             siteFoundAtIndex = False
 
-        if siteFoundAtIndex == True:     
+        if siteFoundAtIndex:     
             consoleFail( "Object found at intended site index %s, failing" %self.siteIndex )
         else:    
             Logger.info( "No duplicate sites found, creating site" )                    
@@ -151,18 +378,22 @@ class SiteCreator:
             newSite.ServerComment = self.title
             newSite.SetInfo()
             Logger.info( "Site created, creating root directory" )
-            newDir = newSite.Create("IIsWebVirtualDir", "ROOT")
-            newDir.Path = self.homeDir
-            newDir.AccessRead = True
-            newDir.SetInfo()
-            Logger.info( "Root created, setting permissions" )
-            newDir.AppCreate(True)
+            newRoot = newSite.Create("IIsWebVirtualDir", "ROOT")
+            newRoot.Path = self.homeDir
+            newRoot.AccessFlags = self.permissions
+            newRoot.SetInfo()
             newSite.AccessFlags = self.permissions
             newSite.SetInfo()
+            if self.authFlags:
+                newRoot.AuthFlags = self.authFlags
+                newRoot.SetInfo()
+            Logger.info( "Root created, setting permissions" )
+            newRoot.AppCreate2(SiteCreator.POOLED)
             del newSite
 
             self.setServerBindings()
             newSiteObject.Start()
+        return OK
 
     def setServerBindings(self):
         try:
@@ -171,7 +402,7 @@ class SiteCreator:
             Logger.info( "serverBindings : %s" %( self.serverBindings ) )
             Logger.info( "secureBindings : %s" %( str(self.secureBindings) ) )
     
-            site = win32com.client.GetObject( "IIS://localhost/W3SVC/" + self.siteIndex )
+            site = GetObject( "IIS://localhost/W3SVC/" + self.siteIndex )
             site.Put( 'ServerBindings', self.serverBindings )
             if self.secureBindings != None:
                 site.Put( 'SecureBindings', self.secureBindings )
@@ -272,7 +503,7 @@ class AspUserAccount:
 
 class AutoItControl:
     def __init__(self):
-        self.aut = win32com.client.Dispatch( "AutoItX3.Control.1" )
+        self.aut = Dispatch( "AutoItX3.Control.1" )
 
     def verifyActivate( self, title ):
         Logger.debug( "AutoItControl activating window %s" %(title) )

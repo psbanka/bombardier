@@ -22,12 +22,13 @@
 
 import sys, os
 import ConfigParser
-import miniUtility, Logger
+import bombardier.miniUtility as miniUtility
+import bombardier.Logger as Logger
 
 #^ FIXME: REMOVE!!
 sys.path = ["d:\\dev\\dmoweasel"] + sys.path
 
-from staticData import *
+from bombardier.staticData import *
 
 try:
     import dbprocess2
@@ -74,7 +75,7 @@ def getPaths(config):
         pass
     return dataPath, logPath
 
-def installDbPackage(config):
+def installDbPackage(config, logger):
     hostname = os.environ['COMPUTERNAME']
     try:
         instance = config.get('sql', 'instance')
@@ -85,7 +86,7 @@ def installDbPackage(config):
     connectionString = miniUtility.connectString(hostname, instance, port)
     dataPath, logPath = getPaths(config)
     databaseNames, role = dbOwnership()
-    status = dbprocess2.installDbs(databaseNames, role, connectionString, dataPath, logPath)
+    status = dbprocess2.installDbs(databaseNames, role, connectionString, logger, dataPath, logPath)
     if status == FAIL:
         miniUtility.consoleSync(FAIL)
         sys.exit(1)
