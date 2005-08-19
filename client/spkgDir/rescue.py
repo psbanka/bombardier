@@ -253,7 +253,7 @@ class Rescue:
             if todos[todo] == DWIZ:
                 self.installDwiz(todo)
             if todos[todo] == INNO:
-                os.system('%s /VERYSILENT /NORESTART /COMPONENTS="service"' % todo)
+                os.system('%s /VERYSILENT /NORESTART /LOG' % todo)
             if todos[todo] == SETUP:
                 startDir = os.getcwd()
                 os.chdir(todo)
@@ -282,7 +282,8 @@ def usage():
     sys.exit(1)
 
 def getConf():
-    conf = {"repository":'', "go":False, "installServices":True}
+    conf = {"repository":'', "go":False, 
+            "installServices":True, "servicesOnly":False}
     for i in range(1,len(sys.argv)):
         option = sys.argv[i]
         if option == "-g":
@@ -291,6 +292,8 @@ def getConf():
             conf["installServices"] = False
         elif option == "-r":
             conf["repository"] = sys.argv[i+1]
+        elif option == "-s":
+            conf["servicesOnly"] = True
         elif option.startswith('-'):
             usage()
     return conf
@@ -316,6 +319,12 @@ if __name__ == "__main__":
     """  
     conf = getConf()
     rescue = Rescue(conf)
+    if conf['servicesOnly']:
+        try:
+            rescue.startService()
+            sys.exit( 0 )
+        except:
+            sys.exit( 1 )
     rescue.performRescue()
     if conf["go"]:
         os.chdir(spkgPath)
