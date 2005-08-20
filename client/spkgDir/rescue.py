@@ -252,6 +252,8 @@ class Rescue:
             self.logger.info("Installing %s" % todo)
             if todos[todo] == DWIZ:
                 self.installDwiz(todo)
+            if todo == 'wxPython2.6-win32-unicode-2.6.0.0-py24.exe':
+                removeWx()
             if todos[todo] == INNO:
                 os.system('%s /VERYSILENT /NORESTART /LOG' % todo)
             if todos[todo] == SETUP:
@@ -297,6 +299,25 @@ def getConf():
         elif option.startswith('-'):
             usage()
     return conf
+
+def removeWx():
+    print "Attempting to uninstall wx"
+    try:
+        from _winreg import OpenKey, QueryValueEx
+        from _winreg import KEY_READ, HKEY_LOCAL_MACHINE
+        print "Imported from _winreg correctly"
+        subKey = r'SOFTWARE\Microsoft\Windows\CurrentVersion' + \
+                     r'\Uninstall\wxPython2.6-unicode-py24_is1' 
+        print subKey             
+        k = OpenKey( HKEY_LOCAL_MACHINE, subKey, 0, KEY_READ )
+        print "Opened registry key"             
+        uninstallString = str( QueryValueEx( k, 'UninstallString' )[0] )
+        print "UninstallString : %s" %uninstallString
+        if os.path.isfile( uninstallString ):
+            print "Found %s" %uninstallString
+            os.system( "start /wait %s /SILENT /SUPPRESSMESSAGEBOXES /LOG" %uninstallString )
+    except:
+        pass
 
 if __name__ == "__main__":
     """
