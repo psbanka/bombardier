@@ -16,7 +16,7 @@ class PkgGroups(Root.Root):
     def PUT(self, group):
         cherrypy.response.headerMap["Content-type"] = "text/plain"
         data = cherrypy.request.body.read()
-        bomFile = os.path.join(webUtil.getBomPathi(), group+".BOM")
+        bomFile = os.path.join(webUtil.getBomPath(), group+".BOM")
         fd = open(bomFile, 'w')
         fd.write(data)
         return "OK"

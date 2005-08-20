@@ -13,8 +13,10 @@ cpconf = { "/deploy" : {"staticFilter.on" : True,
                         "staticFilter.listing": True},
            "global" : {"server.socketPort": 8080,
                        "server.threadPool": 10,
-                       "server.environment": "development" },
-                       "sessionFilter.default.storageType": "ram"}
+                       "server.environment": "production" },
+           "sessionFilter.default.storageType": "ram",
+           "server.logToScreen": False,
+           "server.logFile": "server.log"}
 
 cherrypy.config.update(cpconf)
 cherrypy.server.start()

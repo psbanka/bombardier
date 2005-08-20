@@ -278,6 +278,9 @@ def getLogPath():
     logPath = os.path.join(getDeployPath(), "log")
     return os.path.join(getDeployPath(), "log")
 
+def getBomPath():
+    return os.path.join(getDeployPath(), "bom")
+
 def getClientPath():
     return os.path.join(getDeployPath(), "client")
 
