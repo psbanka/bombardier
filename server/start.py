@@ -11,12 +11,13 @@ cherrypy.root.website = WebSite.WebSite()
 cpconf = { "/deploy" : {"staticFilter.on" : True,
                         "staticFilter.dir" : DEPLOY_DIR,
                         "staticFilter.listing": True},
-           "global" : {"server.socketPort": 8080,
+           "global" : {"server.socketPort": TCP_PORT,
                        "server.threadPool": 10,
-                       "server.environment": "production" },
+                       "server.environment": ENVIRONMENT },
            "sessionFilter.default.storageType": "ram",
-           "server.logToScreen": False,
-           "server.logFile": "server.log"}
+           "server.logToScreen": LOG_TO_SCREEN}
+if LOG_FILE:
+    cpconf["server.logFile"]  = LOG_FILE
 
 cherrypy.config.update(cpconf)
 cherrypy.server.start()

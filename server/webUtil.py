@@ -291,13 +291,13 @@ def getInstallProgress(client):
     return os.path.join(getStatusPath(), client, "install-progress.yml")
 
 def getStatusPath():
-    return config.get("site", "statusdirectory")
+    return STATUS_PATH
 
 def getConfigFile(filename):
     return os.path.join(getConfigPath(), filename)
 
 def getDeployPath():
-    path = config.get("site", "deployPath")
+    path = DEPLOY_PATH
     return path
 
 def getPackagesPath():

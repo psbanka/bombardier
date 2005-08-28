@@ -1,26 +1,51 @@
-import ConfigParser
+import yaml
 import sys
 
 HEADER = '''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
 "http://www.w3.org/TR/REC-html40/loose.dtd">
 <HTML>'''
 
-config = ConfigParser.ConfigParser()
-config.read("webserver.ini")
+configData = open("webserver.yml", 'r').read()
+config = yaml.load(configData).next()
 
 IGNORE_FILES = ["index.yml"]
 
 TEMPLATE      = "template.html"
 FOOTER        = "footer.html"
 NEVER         = 99999
-SERVICE       = config.get("site", "address")
-DEPLOY_DIR    = config.get("site", "deployPath")
-ROOT_DIR      = config.get("site", "rootdirectory")
-TMP_DIR       = config.get("site", "tmpdirectory")
-TCP_PORT      = int(config.get("site", "tcpport"))
-SVN_ROOT      = config.get("svn", "root")
-SVN_USERNAME  = config.get("svn", "username")
-SVN_PASSWORD  = config.get("svn", "password")
+
+## Defaults:
+SERVICE       = "http://localhost:8080/website/service/"
+DEPLOY_DIR    = "./deploy"
+ROOT_DIR      = "."
+TMP_DIR       = "./tmp"
+TCP_PORT      = 8080
+SVN_ROOT      = "file:repos/"
+SVN_USERNAME  = "foo"
+SVN_PASSWORD  = "bar"
+LOG_TO_SCREEN = True
+LOG_FILE      = None
+ENVIRONMENT   = "production"
+STATUS_PATH   = "log"
+DEPLOY_PATH   = "deploy"
+
+if config.get("site"):
+    SERVICE       = config["site"]["address"]
+    DEPLOY_DIR    = config["site"]["deployPath"]
+    ROOT_DIR      = config["site"]["rootPath"]
+    TMP_DIR       = config["site"]["tmpPath"]
+    TCP_PORT      = config["site"]["tcpport"]
+    ENVIRONMENT   = config["site"]["environment"]
+    STATUS_PATH   = config["site"]["statusPath"]
+    DEPLOY_PATH   = config["site"]["deployPath"]
+if config.get("svn"):
+    SVN_ROOT      = config["svn"]["root"]
+    SVN_USERNAME  = config["svn"]["username"]
+    SVN_PASSWORD  = config["svn"]["password"]
+if config.get("log"):
+    LOG_TO_SCREEN = config["log"]["toscreen"]
+    if config["log"].get("filename"):
+        LOG_FILE  = config["log"]["filename"]
 DEAD_TIME     = 100
 
 SWITCH_ADDRESS    = ""

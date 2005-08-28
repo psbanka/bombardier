@@ -9,6 +9,7 @@ import yaml
 import tarfile
 import commands
 import time
+import ConfigParser
 
 from static import *
 
@@ -293,7 +294,7 @@ class Package(Root.Root):
 
         cherrypy.response.headerMap["Content-type"] = "text/plain"
         if not type or type == GENERIC:
-            cherrypy.log( "Package generic package request" )
+            cherrypy.log( "Package: generic request" )
             packageThread = PackageCreationThread(packagename, releaseinfo,
                                                   installscript)
         elif type == DBPATCH:

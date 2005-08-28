@@ -26,6 +26,7 @@ class PutFile(Root.Root):
         filepath = DEPLOY_DIR
         for item in manipPath:
             filepath = os.path.join(filepath, item)
+        cherrypy.log("writing file to %s" % filepath)
         try:
             fh = open(filepath, 'wb')
             data = '0'
