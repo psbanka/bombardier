@@ -27,18 +27,6 @@ import os, string, yaml, time, gc, datetime, win32api, ConfigParser
 import miniUtility, MetaData, Exceptions, Logger
 from staticData import *
 
-def datesort(x, y):
-    return x[1] - y[1]
-
-def getTimeStruct(s):
-    if s == "NA":
-        return 0
-    try:
-        timestruct = int(time.mktime(time.strptime(s)))
-    except ValueError:
-        timestruct = int(time.time())
-    return timestruct
-
 class Package:
 
     """This class provides an abstraction for a downloadable,
@@ -71,12 +59,12 @@ class Package:
         self.workingDir   = ''
         self.scriptsDir   = ''
         self.downloaded   = False
-        self.filesystem.updateProgressFile({"status": {"package":self.name}})
+        self.filesystem.updateProgress({"status": {"package":self.name}}, self.server)
 
     def invalidate(self):
         erstr = "INVALID PACKAGE: %s" % self.name
         Logger.error(erstr)
-        self.server.serverLog("ERROR", erstr, self.name)
+        self.filesystem.warningLog(erstr, self.server)
         self.status = FAIL
         
     def gatherDependencies(self):
@@ -133,7 +121,7 @@ class Package:
             raise Exceptions.BadPackage, (self.name, msg)
 
     def initialize(self):
-        self.filesystem.updateCurrentAction("Initializing package.", 0)
+        self.filesystem.updateCurrentAction("Initializing package.", 0, self.server)
         self.metaData = self.repository.getMetaData(self.name)
         self.checkMetaData()
         self.checksum = self.metaData.data['install'].get('md5sum')
@@ -163,7 +151,7 @@ class Package:
         newDir = os.path.join(packagePath, self.fullName)
         self.scriptsDir = os.path.join(newDir, "scripts")
         if not self.filesystem.isdir(self.scriptsDir):
-            self.filesystem.updateCurrentAction("Package is corrupt or missing.", 0)
+            self.filesystem.updateCurrentAction("Package is corrupt or missing.", 0, self.server)
             Logger.error("Scripts directory does not exist")
             self.status = FAIL
             return FAIL
@@ -171,16 +159,16 @@ class Package:
         injectorDir = os.path.join(newDir, "injector")
         if self.filesystem.isdir(backupDir):
             self.workingDir = backupDir
-            self.filesystem.updateCurrentAction("Verified package structure", 30)
+            self.filesystem.updateCurrentAction("Verified package structure", 30, self.server)
             return OK
         elif self.filesystem.isdir(injectorDir):
             self.workingDir = injectorDir
-            self.filesystem.updateCurrentAction("Verified package structure", 30)
+            self.filesystem.updateCurrentAction("Verified package structure", 30, self.server)
             return OK
         else:
             Logger.error("Neither the injector nor the "\
                               "backup directory exists for [%s]" % self.fullName)
-            self.filesystem.updateCurrentAction("Package is corrupt or missing.", 0)
+            self.filesystem.updateCurrentAction("Package is corrupt or missing.", 0, self.server)
             self.status = FAIL
             return FAIL
 
@@ -208,7 +196,8 @@ class Package:
                         "Downloading %s from %s..." % \
                         (downloadFile, downloadSource)
                 Logger.info(erstr)
-                self.filesystem.updateCurrentAction("Downloading dependency: %s" % downloadFile, 27)
+                self.filesystem.updateCurrentAction("Downloading dependency: %s" % downloadFile,
+                                                    27, self.server)
                 status = OK
                 if status == FAIL:
                     Logger.error("Unable to download (%s) from %s, aborting"\
@@ -270,13 +259,13 @@ class Package:
 
     def download(self, abortIfTold):
         if not self.downloaded:
-            self.filesystem.updateCurrentAction("Downloading package...", 10)
+            self.filesystem.updateCurrentAction("Downloading package...", 10, self.server)
             abortIfTold()
             status = self.repository.getPackage(self.name, abortIfTold, checksum=self.checksum)
             if status == FAIL:
                 self.status = FAIL
-                self.server.serverLog("ERROR", "Problems downloading package %s" % self.name,
-                                      self.name)
+                self.filesystem.warningLog("Problems downloading package %s" % self.name,
+                                           self.server)
                 return FAIL
             status = self.injector()
             self.downloaded = True
@@ -289,7 +278,7 @@ class Package:
             erstr = "Package %s is corrupt or could not be "\
                     "downloaded." % self.fullName
             Logger.error(erstr)
-            self.server.serverLog("ERROR", erstr, self.name)
+            self.filesystem.warningLog(erstr, self.server)
             return FAIL
         if self.action == INSTALL:
             abortIfTold()
@@ -336,7 +325,7 @@ class Package:
     # TESTED
     def install(self, packageList, abortIfTold): 
         self.download(abortIfTold)
-        self.filesystem.updateCurrentAction("Installing...", 50)
+        self.filesystem.updateCurrentAction("Installing...", 50, self.server)
         message = "Beginning installation of (%s)" % self.fullName
         Logger.info(message)
         self.preload()
@@ -347,7 +336,7 @@ class Package:
     # TESTED
     def verify(self, abortIfTold): 
         self.download(abortIfTold)
-        self.filesystem.updateCurrentAction("Verifying...", 90)
+        self.filesystem.updateCurrentAction("Verifying...", 90, self.server)
         message = "Verifying package %s" % self.fullName
         Logger.info(message)
         abortIfTold()
@@ -370,7 +359,7 @@ class Package:
             Logger.info("Not attempting to uninstall malformed package.")
             return FAIL
         Logger.info("Uninstalling package %s" % self.name)
-        self.filesystem.updateCurrentAction("Uninstalling...", 70)
+        self.filesystem.updateCurrentAction("Uninstalling...", 70, self.server)
         abortIfTold()
         status = self.findCmd(UNINSTALL, abortIfTold)
         if status != FAIL:
@@ -422,7 +411,7 @@ class Package:
             self.rootName = self.name
         self.tarFileName = self.rootName + ".tar.gz"
         self.dateString = self.getDateString()
-        self.filesystem.updateCurrentAction("Backing up...", 40)
+        self.filesystem.updateCurrentAction("Backing up...", 40, self.server)
         Logger.info("Backing up package %s" % self.fullName)
         self.chdir()
         self.backupPath = os.path.join(miniUtility.getPackagePath(), self.fullName, 'backup')
@@ -453,7 +442,7 @@ class Package:
 
     #^ UNTESTED
     def buildTarFile(self):
-        self.filesystem.updateCurrentAction("Packing and compressing backup...", 50)
+        self.filesystem.updateCurrentAction("Packing and compressing backup...", 50, self.server)
         errmsg = "Creating tarfile %s in backupPath %s..." %( self.tarFileName, self.backupPath )
         Logger.info(errmsg)
         if not self.filesystem.isdir( self.backupPath ):
@@ -467,7 +456,7 @@ class Package:
 
     #^ UNTESTED
     def sendTarFileToWebService( self ):
-        self.filesystem.updateCurrentAction("Uploading backup to web service...", 60)
+        self.filesystem.updateCurrentAction("Uploading backup to web service...", 60, self.server)
         self.newPackageName = "%s-%s" %(self.rootName, self.dateString)
         Logger.debug( "newPackageName : %s" %(self.newPackageName) )
         Logger.debug( "Creating spkg %s from %s using the webservice..."
@@ -480,7 +469,8 @@ class Package:
             Logger.error("No data in backup file %s" % filePath)
             return FAIL
         try:
-            output = self.server.serviceYamlRequest( "package", args, putData, debug=True )
+            output = self.server.serviceYamlRequest( "website/service/package/", args, putData,
+                                                     debug=True, legacyPathFix=False )
         except Exceptions.ServerUnavailable, e:
             Logger.error("Unable to send backup data to server %s" % e)
             return FAIL
@@ -505,7 +495,7 @@ class Package:
 
     ### TESTED
     def pickMostRecentPackage(self):
-        self.filesystem.updateCurrentAction("Determining most recent version...", 5)
+        self.filesystem.updateCurrentAction("Determining most recent version...", 5, self.server)
         installablePackages = self.repository.getFullPackageNames()
         targetPackages = []
         for package in installablePackages:
@@ -523,20 +513,7 @@ class Package:
         return OK
 
     def mkInstallSummary(self, progressData):
-        installed = []
-        uninstalled = []
-        for item in progressData.keys():
-            iTxt   = progressData[item]["INSTALLED"]
-            iInt   = getTimeStruct(iTxt)
-            uTxt   = progressData[item]["UNINSTALLED"]
-            uInt   = getTimeStruct(uTxt)
-            if uninstalled > installed:
-                uninstalled.append([item, uInt, uTxt])
-                continue
-            else:
-                installed.append([item, iInt, iTxt])
-        installed.sort(datesort)
-        uninstalled.sort(datesort)
+        installed, uninstalled = miniUtility.getInstalledUninstalledTimes(progressData)
         output = []
         for package in installed:
             output.append("%25s: %s" % (package[0], package[2]))
@@ -554,78 +531,40 @@ class Package:
 
     ### TESTED
     def writeProgress(self):
-        # FIXME: REMOVE EVEN IF NOT SAME VERSION
-        """ will write its progress status to the
-        'install-progress.yml' file.  """
-        self.filesystem.updateCurrentAction("Finished.", 100)
+        self.filesystem.updateCurrentAction("Finished.", 100, self.server)
 
-        progressPath = miniUtility.getProgressPath()
         timeString = time.ctime()
-        progressData = {}
-
-        if self.filesystem.isfile(progressPath):
-          content = self.filesystem.convertProgressData(open(progressPath).read())
-          try:
-            progressData = yaml.load(content).next()
-          except Exception, e:
-            Logger.error("Loading the progress data: %s" % progressPath)
-            Logger.error("%s" % e)
-            return FAIL
-
+        progressData = self.filesystem.getProgressData()
+        if progressData == {}:
+            Logger.warning("Empty status data")
         gc.collect() # does windows suck? here's proof. -pbanka
-        if type(progressData) != type(dict()):
-            Logger.error("Invalid installation progress data: %s" % content)
-            Logger.error("ASSUMING EMPTY PROGRESS.")
-            progressData = {}
         if not progressData.has_key(self.fullName):
             progressData[self.fullName] = {"INSTALLED": "NA", "UNINSTALLED": "NA", "VERIFIED": "NA"}
         if self.action == INSTALL:
-          if progressData.get(self.fullName) != None:
-            if  progressData[self.fullName]['INSTALLED'] != 'NA':
-              erstr = "Possible installation cycling with '%s'." % self.fullName
-              Logger.error(erstr)
-              return OK
-          else:
-            progressData[self.fullName] = {}
-          if self.fullName:
-            progressData[self.fullName]['INSTALLED']   = timeString
-            progressData[self.fullName]['VERIFIED']    = timeString
-            progressData[self.fullName]['UNINSTALLED'] = 'NA'
-          else:
-            Logger.error("Unnamed package installed: (%s)" % (self.name))
-            return FAIL
-
+            if progressData.get(self.fullName) != None:
+                if  progressData[self.fullName]['INSTALLED'] != 'NA':
+                    erstr = "Possible installation cycling with '%s'." % self.fullName
+                    Logger.error(erstr)
+                    return OK
+            else:
+                progressData[self.fullName] = {}
+            if self.fullName:
+                progressData[self.fullName]['INSTALLED']   = timeString
+                progressData[self.fullName]['VERIFIED']    = timeString
+                progressData[self.fullName]['UNINSTALLED'] = 'NA'
+            else:
+                Logger.error("Unnamed package installed: (%s)" % (self.name))
+                return FAIL
+    
         elif self.action == UNINSTALL:
-          progressData[self.fullName]['UNINSTALLED'] = timeString
-          progressData[self.fullName]['INSTALLED']   = 'NA'
+            progressData[self.fullName]['UNINSTALLED'] = timeString
+            progressData[self.fullName]['INSTALLED']   = 'NA'
 
         elif self.action == VERIFY:
-          progressData[self.fullName]['VERIFIED'] = timeString
-
-        yamlString = yaml.dump(progressData)
-        try:
-            os.unlink(progressPath)
-        except:
-            gc.collect() # paranoia
-            pass
-        fh = self.filesystem.open(progressPath, 'wb')
-        fh.write(yamlString)
-        fh.flush()
-        fh.close()
-        del fh
+            progressData[self.fullName]['VERIFIED'] = timeString
+        data = {"install-progress":progressData}
+        self.filesystem.updateProgress({"install-progress":progressData},
+                                       self.server, overwrite=True)
         gc.collect() # just try removing these and see if the unit tests pass -pbanka
-        hostname = os.environ["COMPUTERNAME"].lower()
-        try:
-            status = self.server.serviceYamlRequest("clientstatus", 
-                                                    {"client":hostname, "message":"install"},
-                                                    putData=progressData)
-            if status == OK:
-                status = self.server.serverLog("INFO", "Finished installing %s" % self.fullName,
-                                               self.name)
-        except Exceptions.ServerUnavailable:
-            status = FAIL
-        if status == "FAIL":
-            ermsg = "Unable to upload installation progress"
-            Logger.warning(ermsg)
         self.mkInstallSummary(progressData)
         return OK

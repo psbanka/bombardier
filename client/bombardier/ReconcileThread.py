@@ -32,12 +32,13 @@ import Logger, Filesystem, Exceptions
 class ReconcileThread(threading.Thread):
     
     def __init__(self, command, commSocketFromService, commSocketToService,
-                 config, server, windows, bombardier):
+                 config, server, windows, filesystem, bombardier):
         threading.Thread.__init__(self)
-        self.command = command
-        self.config  = config
-        self.server  = server
-        self.windows = windows
+        self.command    = command
+        self.config     = config
+        self.server     = server
+        self.windows    = windows
+        self.filesystem = filesystem
         self.bombardier = bombardier
         self.id      = random.randint(0,10000)
         self.commSocketToService   = commSocketToService
@@ -47,12 +48,11 @@ class ReconcileThread(threading.Thread):
         
     def run(self):
         status = OK
-        filesystem = Filesystem.Filesystem()
         try: 
             self.windows.CoInitialize()
             if self.command == CHECK or self.command == AUTOMATED:
                 Logger.info("In Check Thread, calling reconcileSystem")
-                filesystem.updateCurrentStatus(INSTALLING, "Checking for packages to install")
+                self.filesystem.updateCurrentStatus(INSTALLING, "Checking for packages to install", self.server)
                 status = self.bombardier.reconcileSystem(self.commSocketFromService.testStop)
             elif self.command == VERIFY:
                 Logger.info("In Verify Thread, calling verifySystem")
@@ -68,22 +68,21 @@ class ReconcileThread(threading.Thread):
 
             if status == OK:
                 Logger.info("========== ENDING thread ID %s:OK " % (self.id))
-                filesystem.updateCurrentStatus(IDLE, "Finished with installation activities")
-                filesystem.updateCurrentAction("", 100)
-                #self.server.serverLog("INFO", "Finished installing")
+                self.filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", self.server)
+                self.filesystem.updateCurrentAction("", 100, self.server)
             else:
                 ermsg = "========== ENDING thread ID %s:FAIL " % (self.id)
-                filesystem.updateCurrentStatus(ERROR, "Error installing")
+                self.filesystem.updateCurrentStatus(ERROR, "Error installing", self.server)
                 Logger.info(ermsg)
-                #self.server.serverLog("INFO", "Error installing")
+                self.filesystem.warningLog("Error installing", self.server)
         except Exceptions.ServerUnavailable, e:
             self.commSocketToService.sendStop()
-            filesystem.clearLock()
-            filesystem.updateCurrentStatus(ERROR, "Cannot communicate with server")
+            self.filesystem.clearLock()
+            self.filesystem.updateCurrentStatus(ERROR, "Cannot communicate with server", self.server)
             return
         except:
             self.commSocketToService.sendStop()
-            filesystem.updateCurrentStatus(ERROR, "Unhandled exception encountered")
+            self.filesystem.updateCurrentStatus(ERROR, "Unhandled exception encountered", self.server)
             ermsg = 'Exception in thread %s: %s' % (self.id, sys.exc_type) 
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
@@ -92,9 +91,9 @@ class ReconcileThread(threading.Thread):
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
             Logger.critical(ermsg)
-            self.server.serverLog("CRITICAL", ermsg)
+            self.filesystem.warningLog(ermsg, self.server)
             return
-        filesystem.updateCurrentStatus(IDLE, "Finished with installation activities")
+        self.filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", self.server)
         Logger.info("stopped thread")
         self.commSocketToService.sendStop()
 
@@ -119,7 +118,7 @@ def runWithoutService():
     repository = Repository.Repository(config, filesystem, server)
     repository.getPackageData()
     bombardier = BombardierClass.Bombardier(repository, config, filesystem, server, windows)
-    reconcileThread = ReconcileThread(CHECK, cs1, cs2, config, server, windows, bombardier)
+    reconcileThread = ReconcileThread(CHECK, cs1, cs2, config, server, windows, filesystem, bombardier)
     reconcileThread.run()
         
 if __name__ == "__main__":

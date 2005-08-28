@@ -209,7 +209,7 @@ class Server:
         fh.close()
 
     def serviceRequest(self, path, args={}, putData=None, debug=False,
-                       putFile=None, timeout=30, legacyPathFix=True):
+                       putFile=None, timeout=30, legacyPathFix=True, verbose=False):
         if self.serverData == None:
             self.getServerData()
         if type(self.serverData) == type(None):
@@ -236,7 +236,8 @@ class Server:
         c.setopt(pycurl.FOLLOWLOCATION, 1)
         c.setopt(pycurl.MAXREDIRS, 4)
         c.setopt(pycurl.HEADERFUNCTION, header.write)
-        #c.setopt(pycurl.VERBOSE, 1)
+        if verbose:
+            c.setopt(pycurl.VERBOSE, 1)
         if putData:
             putFile = StringIO.StringIO(putData)
             c.setopt(c.INFILESIZE, len(putData))
@@ -250,16 +251,18 @@ class Server:
             output = data.read()
             return output
         except pycurl.error, e:
+            if e[0] == 22:
+                raise Exceptions.FileNotFound(url)
             raise Exceptions.ServerUnavailable, (url, e[1])
 
     def serviceYamlRequest( self, path, args={}, putData=None, debug=False,
-                            timeout=30, legacyPathFix=True):
-        if putData:
+                            timeout=30, legacyPathFix=True, verbose=False):
+        if putData != None:
             if type(putData) == type(["list"]) or type(putData) == type({}):
                 putData = yaml.dump(putData)
         ymlData = self.serviceRequest(path, args, putData,
                                       debug=debug, timeout=timeout,
-                                      legacyPathFix=legacyPathFix)
+                                      legacyPathFix=legacyPathFix, verbose=verbose)
         if ymlData == '':
             return {}
         config = yaml.load(ymlData)
@@ -268,21 +271,6 @@ class Server:
         except:
             ermsg = "Received bad YAML: %s" % (repr(ymlData))
             raise Exceptions.ServerUnavailable, (path, ermsg)
-
-    def serverLog( self, severity, message, section = "GENERAL"):
-        try:
-            hostname = os.environ["COMPUTERNAME"].lower()
-            args = {"client":hostname, "severity":severity, "section":section}
-            response = self.serviceRequest("clientlog", args, message, debug=True)
-            if response.strip() == "OK":
-                Logger.info("Message severity %s delivered to server" % severity)
-                return OK
-        except Exceptions.ServerUnavailable, e:
-            ermsg = "Connection problem delivering "\
-                    "severity %s message to server (%s)" % (severity, e)
-            Logger.warning(ermsg)
-        Logger.warning("Unable to deliver status messages to the server")
-        return FAIL
 
     def wget(self, path, filename, destDir = '', retries = 4,
              checksum = '', abortIfTold=None):

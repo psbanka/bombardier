@@ -89,27 +89,21 @@ class StatusThread(threading.Thread):
         base = {"status":{}, "timestamp":0, "todo":[]}
         status = {"action":"", "overall":0, "main": "", "package":"", "percentage":0}
         for key, thing in base.iteritems():
-            if not self.current.has_key(key):
-                self.current[key] = thing
+            if not self.status.has_key(key):
+                self.status[key] = thing
         for key, thing in status.iteritems():
-            if not self.current["status"].has_key(key):
-                self.current["status"][key] = thing
-        if type(self.complete) != type({}):
-            self.complete = {}
+            if not self.status["status"].has_key(key):
+                self.status["status"][key] = thing
 
     def updateData(self):
         try:
-            currentPath = os.path.join(miniUtility.getSpkgPath(),CURRENT_FILE)
-            self.current = self.filesystem.loadYaml(currentPath)
+            statusPath = os.path.join(miniUtility.getSpkgPath(),STATUS_FILE)
+            self.status = self.filesystem.loadYaml(statusPath)
             self.badData = False
         except:
-            self.current = {}
+            self.status = {}
             self.set({"main": "Unable to determine status", "lightColor": REDLIGHT})
             self.badData = True
-        try:
-            self.complete = self.filesystem.loadYaml(miniUtility.getProgressPath())
-        except:
-            self.complete = {}
         
     def set(self, updateDict):
         for key, value in updateDict.iteritems():
@@ -120,7 +114,7 @@ class StatusThread(threading.Thread):
     def updateTimestamp(self):
         if self.badData:
             return
-        timestamp = self.current.get("timestamp")
+        timestamp = self.status.get("timestamp")
         if timestamp == None or time.time() - timestamp > DEAD_TIME:
             self.stalled = True
             self.set({"lightColor": REDLIGHT,
@@ -130,21 +124,25 @@ class StatusThread(threading.Thread):
             self.stalled = False
 
     def updateGauges(self):
-        if self.current.get("status") == None:
+        if self.status.get("status") == None:
             return FAIL
-        if self.current["status"].has_key("percentage"):
+        if self.status["status"].has_key("percentage"):
             try:
-                appPercent = int(self.current["status"].get("percentage"))
+                appPercent = int(self.status["status"].get("percentage"))
             except TypeError:
                 appPercent = 0
-            if self.current.has_key("todo"):
-                todo = self.current["todo"]
+            if self.status.has_key("todo"):
+                todo = self.status["todo"]
                 leftToDo = float(len(todo))
-                total    = float(len(self.complete.keys()) + leftToDo)
-                if total == 0:
-                    percentDone = 100
+                progressData = self.status.get("install-progress")
+                if progressData:
+                    total    = float(len(progressData.keys()) + leftToDo)
+                    if total == 0:
+                        percentDone = 100
+                    else:
+                        percentDone = 100.0 * ((total - leftToDo) / total)
                 else:
-                    percentDone = 100.0 * ((total - leftToDo) / total)
+                    percentDone = 0
                 
         self.set({"application":appPercent, "overall": percentDone, "todo": todo})
         return OK
@@ -153,9 +151,9 @@ class StatusThread(threading.Thread):
         light  = OFFLIGHT
         sub = ''
         if not self.stalled and not self.badData:
-            overall = self.current["status"].get("overall")
+            overall = self.status["status"].get("overall")
             if overall == INSTALLING:
-                sub = self.current["status"]["package"]
+                sub = self.status["status"]["package"]
                 light = GREENLIGHT
             elif overall == IDLE:
                 light = GREENLIGHT
@@ -179,9 +177,9 @@ class StatusThread(threading.Thread):
             self.ensureStructure()
             self.updateTimestamp()
             self.updateGauges()
-            self.set({"action": self.current["status"]["action"]})
+            self.set({"action": self.status["status"]["action"]})
             if not self.stalled and not self.badData:
-                self.set({"main": self.current["status"]["main"]})
+                self.set({"main": self.status["status"]["main"]})
             self.examineOverall()
             self.paintScreen()
             time.sleep(self.updateMult * UPDATE_FREQ)

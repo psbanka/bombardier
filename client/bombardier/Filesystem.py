@@ -26,17 +26,6 @@ import gc
 import Exceptions, miniUtility, Logger
 from staticData import *
 
-### TESTED
-def stripVersion(packageFile):
-    if packageFile.rfind('-') == -1:
-        return packageFile
-    ending = packageFile[packageFile.rfind('-')+1:]
-    validator = re.compile("([0-9]+)")
-    if validator.search(ending):
-        if validator.search(ending).groups()[0] == ending:
-            packageFile = packageFile[:packageFile.rfind('-')]
-    return packageFile
-
 class Filesystem:
 
     """The purpose of this class is to provide an abstraction layer
@@ -195,54 +184,50 @@ class Filesystem:
         return OK
 
     def loadCurrent(self):
-        statusPath = os.path.join(miniUtility.getSpkgPath(), CURRENT_FILE)
+        statusPath = os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)
         try:
             data = yaml.loadFile(statusPath).next()
         except:
             data = {}
         return data
 
-    def updateCurrentStatus(self, overall, message):
-        self.updateProgressFile({"status": {"overall": overall, "main":message}})
+    def warningLog(self, message, server):
+        self.updateProgress({"warnings": {time.time(): message}}, server)
+        
+    def updateCurrentStatus(self, overall, message, server):
+        self.updateProgress({"status": {"overall": overall, "main":message}}, server)
 
-    def updateCurrentAction(self, message, percent):
-        self.updateProgressFile({"status": {"action": message, "percentage": percent}})
+    def updateCurrentAction(self, message, percent, server):
+        self.updateProgress({"status": {"action": message, "percentage": percent}}, server)
 
-    def updateTimestampOnly(self):
-        self.updateProgressFile({})
+    def updateTimestampOnly(self, server):
+        self.updateProgress({}, server)
 
-    def updateProgressFile(self, dictionary, overwrite=False):
-        statusPath = os.path.join(miniUtility.getSpkgPath(), CURRENT_FILE)
+    def updateProgress(self, dictionary, server, overwrite=False):
+        statusPath = os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)
         data = self.loadCurrent()
-        data["timestamp"] = time.time()
         try:
+            intData = miniUtility.integrate(data, dictionary, overwrite)
+            yamlString = yaml.dump(intData)
             fh = open(statusPath, 'w')
-            if overwrite:
-                for key, value in dictionary.iteritems():
-                    data[key] = value
-            else:
-                data = self.updateDict(dictionary, data)
-            yaml.dumpToFile(fh, data)
+            fh.write(yamlString)
             fh.flush()
             fh.close()
         except Exception, e:
-            Logger.warning("Cannot update progress data: %s" % `e`)
+            Logger.warning("Cannot update progress data: %s" % e)
+            return
+        try:
+            path = "website/service/putfile/log/%s/status.yml" % os.environ["hostname"].lower()
+            server.serviceYamlRequest(path, putData=data, legacyPathFix=False)
+        except Exceptions.ServerUnavailable:
+            ermsg = "Unable to upload progress"
+            Logger.warning(ermsg)
             
     def getCurrentAction(self):
         data = self.loadCurrent()
         if data.get("status"):
             return data["status"].get("action")
         return None
-
-    def updateDict(self, newdict, olddict):
-        for key, value in newdict.iteritems():
-            if type(value) == type({}) and olddict.has_key(key):
-                olddict[key] = self.updateDict(value, olddict[key])
-            elif type(value) == type(["list"]) and olddict.has_key(key):
-                olddict[key] = olddict[key] + value
-            else:
-                olddict[key] = value
-        return olddict
 
     def append(self, source, dest):
         fin = open(source, "rb")
@@ -261,33 +246,36 @@ class Filesystem:
             filename = os.path.join(miniUtility.getSpkgPath(), filename)
             if not os.path.isfile(filename):
                 return []
-
-        data = self.convertProgressData(open(filename).read())
         try:
-            progressData = yaml.load(data).next()
+            data = open(filename, 'r').read()
+            packagesData = yaml.load(data).next()
         except:
-            print "BAD YAML:",progressData
+            Logger.warning("BAD YAML: %s" % data)
             return []
-        if type(progressData) != type(dict()):
-            return []
-        instPkgs = filter(lambda x: progressData[x]['INSTALLED'] != 'NA',
-                          progressData.keys())               
+        if type(packagesData) != type(dict()):
+            return packagesData
+        instPkgs = filter(lambda x: packagesData[x]['INSTALLED'] != 'NA',
+                          packagesData.keys())               
         if stripVersionFromName:
             return map(stripVersion, instPkgs)
         else:
             return instPkgs
 
-    def getProgressData(self):
-        filename = os.path.join(miniUtility.getSpkgPath(), PROGRESS_FILE)
+    def getProgressData(self, stripVersionFromName = False):
+        filename = os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)
         if not os.path.isfile(filename):
             return {}
-
+        data = open(filename, 'r').read()
         try:
-            retVal = yaml.load(self.convertProgressData(open(filename).read())).next()
+            retVal = yaml.load(data).next()
         except:
-            return {}
-
-        return retVal
+            raise Exceptions.InvalidProgress(data)
+        if retVal.has_key("install-progress"):
+            progressData = retVal["install-progress"]
+            if stripVersionFromName:
+                return miniUtility.stripVersionFromKeys(progressData)
+            return progressData
+        return {}
 
     def watchForTermination(self, sleepTime = 10.0, timeout = 600, abortIfTold=None):
         start = time.time()
@@ -325,42 +313,6 @@ class Filesystem:
         consoleFile = os.path.join(miniUtility.getSpkgPath(),CONSOLE_MONITOR)
         f = open(consoleFile, 'w')
         f.close()
-
-    def convertProgressData(self, data): # Scheduled for demolition
-        retVal = {}
-        try:
-            retVal = yaml.load(data).next()
-        except:
-            for line in data.strip().split("\n"):
-                if re.match(r'[\w=+-]+', line):
-                    retVal[line] = {}
-
-        for package in retVal.keys():
-            if type(retVal[package]) == type(''):
-                if retVal[package] == 'UNINSTALLED':
-                    retVal[package] = { 'INSTALLED': 'NA',
-                                        'UNINSTALLED': time.ctime() }
-                else:
-                    retVal[package] = {}
-            elif type(retVal[package]) == type([]):
-                if retVal[package][0] == 'UNINSTALLED':
-                    if retVal[package][1]:
-                        retVal[package] = { 'INSTALLED': 'NA',
-                                            'UNINSTALLED': retVal[package][1] }
-                    else:
-                        retVal[package] = { 'INSTALLED': 'NA',
-                                            'UNINSTALLED': time.ctime() }
-                elif len(retVal[package]) > 1:
-                    retVal[package] = {'INSTALLED': retVal[package][1] }
-
-            if 'INSTALLED'   not in retVal[package]:
-                retVal[package]['INSTALLED']   = time.ctime()
-            if 'VERIFIED'    not in retVal[package]:
-                retVal[package]['VERIFIED']    = time.ctime()
-            if 'UNINSTALLED' not in retVal[package]:
-                retVal[package]['UNINSTALLED'] = 'NA'
-
-        return yaml.dump(retVal)
 
     def tryPatiently(self, action, verify, errorMessage=None, retries = 100):
         succeeded = True

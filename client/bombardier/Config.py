@@ -34,13 +34,12 @@ def generatePassword():
     return password
 
 def getKey(data, index):
-    output = None
-    object = data
+    obj = data
     for key in index:
-        object = object.get(key)
-        if object == None:
+        obj = obj.get(key)
+        if obj == None:
             return
-    return object
+    return obj
             
 def findIncludeList(data):
     includeList = []

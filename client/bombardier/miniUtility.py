@@ -18,9 +18,85 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
-import os, Filesystem, re
+import os, Filesystem, re, time
 import _winreg as winreg
 from staticData import *
+
+def datesort(x, y):
+    return x[1] - y[1]
+
+def getTimeStruct(s):
+    if s == "NA":
+        return 0
+    try:
+        timestruct = int(time.mktime(time.strptime(s)))
+    except ValueError:
+        timestruct = int(time.time())
+    return timestruct
+
+def stripVersion(packageFile):
+    if packageFile.rfind('-') == -1:
+        return packageFile
+    ending = packageFile[packageFile.rfind('-')+1:]
+    validator = re.compile("([0-9]+)")
+    if validator.search(ending):
+        if validator.search(ending).groups()[0] == ending:
+            packageFile = packageFile[:packageFile.rfind('-')]
+    return packageFile
+
+def stripVersionFromKeys(progressData):
+    output = {}
+    for key in progressData.keys():
+        output[stripVersion(key)] = progressData[key]
+    return output
+
+def getInstalledUninstalledTimes(progressData, stripVersionFromName = False):
+    installed = []
+    uninstalled = []
+    for item in progressData.keys():
+        iTxt   = progressData[item]["INSTALLED"]
+        if iTxt == "NA":
+            if progressData[item].has_key("UNINSTALLED"):
+                uTxt   = progressData[item]["UNINSTALLED"]
+                uInt   = getTimeStruct(uTxt)
+                uninstalled.append([item, uInt, uTxt])
+                continue
+        iInt   = getTimeStruct(iTxt)
+        if progressData[item].has_key("UNINSTALLED"):
+            uTxt   = progressData[item]["UNINSTALLED"]
+            if uTxt != "NA":
+                uInt   = getTimeStruct(uTxt)
+                if uninstalled > installed:
+                    uninstalled.append([item, uInt, uTxt])
+                    continue
+        installed.append([item, iInt, iTxt])
+    installed.sort(datesort)
+    uninstalled.sort(datesort)
+    return installed, uninstalled
+
+def getInstalled(progressData, stripVersionFromName = False):
+    installed, uninstalled = getInstalledUninstalledTimes(progressData, stripVersionFromName)
+    installedPackageNames = [packageName[0] for packageName in installed]
+    return installedPackageNames
+
+def integrate(data, dictionary, overwrite):
+    data["timestamp"] = time.time()
+    if overwrite:
+        for key, value in dictionary.iteritems():
+            data[key] = value
+    else:
+        data = updateDict(dictionary, data)
+    return data
+
+def updateDict(newdict, olddict):
+    for key, value in newdict.iteritems():
+        if type(value) == type({}) and olddict.has_key(key):
+            olddict[key] = updateDict(value, olddict[key])
+        elif type(value) == type(["list"]) and olddict.has_key(key):
+            olddict[key] = olddict[key] + value
+        else:
+            olddict[key] = value
+    return olddict
 
 def standAloneMode(filesystem):
     configPath = os.path.join(getSpkgPath(), CONFIG_FILE)
@@ -201,10 +277,6 @@ def getSpkgPath():
             count += 1
     return str(spkgPath)
 
-# NOT WORTH TESTING
-def getBomPath():
-    return os.path.join(getSpkgPath(), BOM_FILE)
-
 def getPythonPath():
     return os.path.join(sys.prefix, "python.exe")
 
@@ -218,7 +290,7 @@ def getBombardierPath():
 
 # TESTED
 def getProgressPath():
-    newPath = os.path.join(getSpkgPath(), PROGRESS_FILE)
+    newPath = os.path.join(getSpkgPath(), STATUS_FILE)
     return newPath
 
 # TESTED

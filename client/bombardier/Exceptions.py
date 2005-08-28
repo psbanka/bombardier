@@ -30,6 +30,16 @@ class BadPackage(Exception):
     def __str__(self):
         return "%s: %s" % (self.packageName, self.errmsg)
 
+class BadBillOfMaterials(Exception):
+    def __init__(self, errmsg):
+        e = Exception()
+        Exception.__init__(e)
+        self.errmsg = errmsg
+    def __repr__(self):
+        return "%s" % self.errmsg
+    def __str__(self):
+        return "%s" % self.errmsg
+
 class NoYamlData(Exception):
     def __init__(self, filename):
         e = Exception()
@@ -61,6 +71,10 @@ class ServerUnavailable(Exception):
     def __str__(self):
         return "%s: %s" % (self.url, self.errmsg)
 
+class FileNotFound(ServerUnavailable):
+    def __init__(self, url):
+        ServerUnavailable.__init__(self, url, "")
+
 class PipeNotListenable(Exception):
     def __init__(self, pipeName):
         e = Exception()
@@ -72,6 +86,16 @@ class PipeNotListenable(Exception):
 class StoppedExecution(Exception):
     pass
 
+class InvalidProgress(Exception):
+    def __init__(self, progressData):
+        e = Exception()
+        Exception.__init__(e)
+        self.badData = progressData
+    def __str__(self):
+        return "Invalid progress: %s" % self.badData
+    def __repr__(self):
+        return "Invalid progress: %s" % self.badData
+    
 class MissingComponent(Exception):
     def __init__(self, name):
         e = Exception()

@@ -111,7 +111,8 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                                                                self.commSocketToThread,
                                                                self.commSocketFromThread,
                                                                self.config, self.server,
-                                                               self.windows, self.b)
+                                                               self.windows, self.filesystem,
+                                                               self.b)
         if command == AUTOMATED:
             Logger.info("The bombardier user has reached the console...")
             self.reconcileThread.config.automated = True
