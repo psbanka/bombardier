@@ -159,6 +159,10 @@ class Server:
     def __init__(self, filesystem=None, serverData = None):
         self.filesystem = filesystem
         self.serverData = serverData
+        self.cache      = {}
+
+    def clearCache(self):
+        self.cache = {}
 
     def getServerData(self):
         serverDataPath = os.path.join(miniUtility.getSpkgPath(), SERVERDATA_FILE)
@@ -209,7 +213,7 @@ class Server:
         fh.close()
 
     def serviceRequest(self, path, args={}, putData=None, debug=False,
-                       putFile=None, timeout=30, legacyPathFix=True, verbose=False):
+                       putFile=None, timeout=30, legacyPathFix=False, verbose=False):
         if self.serverData == None:
             self.getServerData()
         if type(self.serverData) == type(None):
@@ -223,6 +227,16 @@ class Server:
         fullPath = self.serverData["address"] + "/" + base + path
         queryString = makeQueryString(args)
         url = fullPath+queryString
+        if putFile or putData:
+            return self.interact(debug, url, timeout, verbose, putData, putFile)
+        if path not in self.cache.keys():
+            output = self.interact(debug, url, timeout, verbose, putData, putFile)
+            self.cache[path] = output
+            return output
+        else:
+            return self.cache[path]
+
+    def interact(self, debug, url, timeout, verbose, putData, putFile):
         if debug:
             Logger.debug("Performing service request to %s" % url)
         try:
@@ -256,7 +270,7 @@ class Server:
             raise Exceptions.ServerUnavailable, (url, e[1])
 
     def serviceYamlRequest( self, path, args={}, putData=None, debug=False,
-                            timeout=30, legacyPathFix=True, verbose=False):
+                            timeout=30, legacyPathFix=False, verbose=False):
         if putData != None:
             if type(putData) == type(["list"]) or type(putData) == type({}):
                 putData = yaml.dump(putData)
@@ -265,8 +279,8 @@ class Server:
                                       legacyPathFix=legacyPathFix, verbose=verbose)
         if ymlData == '':
             return {}
-        config = yaml.load(ymlData)
         try:
+            config = yaml.load(ymlData)
             return config.next()
         except:
             ermsg = "Received bad YAML: %s" % (repr(ymlData))

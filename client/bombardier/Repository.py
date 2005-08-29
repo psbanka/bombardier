@@ -42,7 +42,7 @@ class Repository:
     # TESTED
     def getPackageData(self):
         Logger.debug("Downloading package data...")
-        self.packages = self.server.serviceYamlRequest("package", args= {"type":"yaml"}, debug=True)
+        self.packages = self.server.serviceYamlRequest("deploy/packages.yml")
 
     # TESTED
     def getFullPackageNames(self):

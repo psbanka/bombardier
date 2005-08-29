@@ -573,6 +573,7 @@ class Bombardier:
         return shouldBeInstalled, shouldntBeInstalled
 
     def verifySystem(self, testStop):
+        self.server.clearCache()
         self.testStop = testStop
         progressData = self.filesystem.getProgressData()
         pkgList = miniUtility.getInstalled(progressData)
@@ -613,6 +614,7 @@ class Bombardier:
 
     ### TESTED
     def reconcileSystem(self, testStop, packageNames = None):
+        self.server.clearCache()
         self.testStop = testStop
         spkgPath = miniUtility.getSpkgPath()
         pkgGroups  = self.config.getPackageGroups()

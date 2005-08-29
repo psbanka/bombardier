@@ -216,6 +216,10 @@ class Filesystem:
         except Exception, e:
             Logger.warning("Cannot update progress data: %s" % e)
             return
+        if not "main" in dictionary.keys():
+            if not "install-progress" in dictionary.keys():
+                if not "overall" in dictionary.keys():
+                    return
         try:
             path = "website/service/putfile/log/%s/status.yml" % os.environ["hostname"].lower()
             server.serviceYamlRequest(path, putData=data, legacyPathFix=False)
