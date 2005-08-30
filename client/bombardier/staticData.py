@@ -23,7 +23,7 @@ import os, sys
 
 # ================================================== Statics
 
-VERSION       = "0.4-pre1"
+VERSION       = "0.41"
 TEST_RELEASE  = False
 
 HEADER_TEXT   = """Bombardier-%s, Copyright (C) 2005 Peter Banka et. al \n

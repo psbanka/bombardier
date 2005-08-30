@@ -1,6 +1,6 @@
 [Setup]
 AppName=Bombardier
-AppVerName=Bombardier 0.4-pre-1
+AppVerName=Bombardier 0.41
 DefaultDirName=C:\spkg
 DefaultGroupName=Bombardier
 AppCopyright=Copyright 2004, 2005 Peter Banka et al
