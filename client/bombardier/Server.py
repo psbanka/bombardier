@@ -250,6 +250,12 @@ class Server:
         c.setopt(pycurl.FOLLOWLOCATION, 1)
         c.setopt(pycurl.MAXREDIRS, 4)
         c.setopt(pycurl.HEADERFUNCTION, header.write)
+        if self.serverData.has_key("user"):
+            username = self.serverData["user"]
+            password = self.serverData.get("password")
+            if password:
+                c.setopt(pycurl.USERPWD, "%s:%s" % (username, password))
+                c.setopt(pycurl.HTTPAUTH, pycurl.HTTPAUTH_ANY)
         if verbose:
             c.setopt(pycurl.VERBOSE, 1)
         if putData:
