@@ -1,8 +1,5 @@
 from static import *
 import time
-import Project
-import Contact
-import Hardware
 import time
 import webUtil
 from bombardier.Exceptions import *
@@ -26,7 +23,7 @@ class Client(YamlData.YamlData):
         fields = ["packageGroups"]
         YamlData.YamlData.__init__(self, name, fields)
 
-        self.status    = "UNKNOWN"
+        self.action    = "UNKNOWN"
         self.alive     = False
         self.projects  = []
         self.endDays   = 0
@@ -35,26 +32,20 @@ class Client(YamlData.YamlData):
         self.percentage = 0.0
         self.minSinceUpdate = NEVER
         self.packageList = []
-        self.hardware    = ''
         self.packageDetail = {}
         self.valid = True
         
-        self.config = webUtil.readClientData(self.name)
-        self.packageGroups = self.config.get("packageGroups")
-        if self.packageGroups == None:
-            self.packageGroups = []
-        self.statusData = webUtil.readClientLastStatus(self.name)
-        self.status = self.statusData.get("severity")
+        self.statusData = webUtil.readClientStatus(self.name)
+        self.status = self.statusData.get("status")
         if self.status == None or self.status == '':
-            self.status = "UNKNOWN"
-        self.lastMessage = paragraphify(self.statusData.get("message"))
-        if self.lastMessage == None or self.lastMessage.strip() == '':
-            self.lastMessage = "<< None >>"
-
-        if self.statusData.get("time"):
+            self.status = {}
+        else:
+            self.action = self.status.get("action")
+            if self.action == None or self.action == '':
+                self.action = "UNKNOWN"
+        if self.statusData.get("timestamp"):
             try:
-                self.lastUpdate = time.mktime(time.strptime(self.statusData["time"]))
-                self.minSinceUpdate = float(time.time() - self.lastUpdate) / (60.0)
+                self.minSinceUpdate = float(time.time() - self.statusData["timestamp"]) / (60.0)
                 if self.minSinceUpdate > DEAD_TIME:
                     self.alive = False
                 else:
@@ -64,34 +55,36 @@ class Client(YamlData.YamlData):
         else:
             pass
 
+        self.packageGroups = self.data.get("packageGroups")
+        if self.packageGroups == None:
+            self.packageGroups = []
         for packageGroup in self.packageGroups:
             bomData = webUtil.readBom(packageGroup)
             if bomData:
                 self.packageList += bomData
 
-        groupProgress = webUtil.readClientProgress(self.name)
-        self.installed, self.uninstalled = webUtil.getClientInstalledUninstalled(self.name, groupProgress)
+        self.todo = self.statusData.get("todo")
+        if self.todo:
+            if self.packageList != []:
+                totalPackages = float(len(self.packageList))
+                self.percentage = 100.0 * ((totalPackages - float(len(self.todo))) / totalPackages)
 
-
-        if self.packageList != []:
-            self.percentage = 100.0 * (float(len(self.installed)) / float(len(self.packageList)))
-
+    def getIndexes(self):
         index = webUtil.getYaml("deploy/client/index.yml")
         self.managers = webUtil.getIndexed("client", self.name, "contact", "managedclients", index)
         self.owners   = webUtil.getIndexed("client", self.name, "contact", "ownedclients", index)
         self.projects = webUtil.getIndexed("client", self.name, "project", "clients", index)
-        self.hardware = webUtil.getIndexed("client", self.name, "hardware", "client", index)
-        if self.hardware:
-            self.hardware = self.hardware[0]
-        else:
-            self.hardware = ''
-
+        
+    def getAvailability(self):
         for projectName in self.projects:
             project = Project.Project(projectName)
             if project.endDays > self.endDays:
                 self.endDays = project.endDays
 
     def getPackageDetail(self):
+        groupProgress = self.statusData.get("install-progress")
+        self.installed, self.uninstalled = webUtil.getClientInstalledUninstalled(self.name,
+                                                                                 groupProgress)
         # want to know the installation status of each package
         for packageGroup in self.packageGroups:
             self.packageDetail[packageGroup] = {"packages":{},"installedStatus":"OK"}

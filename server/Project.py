@@ -19,11 +19,12 @@ class Project(YamlData.YamlData):
             self.endDays = 0
             self.contactName = ""
             return
+        self.endTime = time.strptime(self.finish, "%Y-%m-%d")
+        self.endDays = (time.mktime(self.endTime) - time.time()) / DAY
 
+    def getContact(self):
         if self.contactid:
             self.contactName = Contact.Contact(self.contactid).fullname
         else:
             self.contactName = ""
-        self.endTime = time.strptime(self.finish, "%Y-%m-%d")
-        self.endDays = (time.mktime(self.endTime) - time.time()) / DAY
 

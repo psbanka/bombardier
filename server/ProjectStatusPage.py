@@ -44,6 +44,7 @@ def rowGenerator():
     for projectName in projectNames:
         print "PROJECT: ",projectName
         project = Project.Project(projectName)
+        project.getContact()
         record = [project.name, len(project.clients), project.start,
                   project.finish, project.contactName]
         yield record

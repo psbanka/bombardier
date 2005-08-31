@@ -4,28 +4,39 @@ import webUtil
 import StatusPage
 import Client
 
+def makeNiceTime(minutes):
+    time = ""
+    if minutes > 1500:
+        time += "%4d days, " % (minutes / 1440.0)
+        minutes = minutes % 1400.0
+    if minutes > 60:
+        time += "%2d hours, " % (minutes / 60.0)
+        minutes = minutes % 60.0
+    if minutes > 1.0:
+        time += "%2d minutes, " % minutes
+    return time[:time.rfind(',')]
+
 def clientDetail(clientName):
     output = []
     client = Client.Client(clientName)
     client.getPackageDetail()
+    client.getAvailability()
     # FIXME: must be defensive
     output.append('<h1>%s</h1>' % client.name)
     output.append('<p>')
     output.append('<table cellpadding="3" cellspacing="0" width=600>')
-    output.append('<tr><td><strong>Status</strong></td><td>%s</td></tr>' % client.status)
+    output.append('<tr><td><strong>Status</strong></td><td>%s</td></tr>' % client.status.get("overall"))
     output.append('<tr><td>Managers</td><td>%s<td></tr>' % ','.join(client.managers))
     output.append('<tr><td>Owners</td><td>%s<td></tr>' % ','.join(client.owners))
     if client.minSinceUpdate == NEVER:
-        output.append('<tr><td>Minutes since contact</td><td>(client has never contacted server)<td></tr>')
+        output.append('<tr><td>Time since contact</td><td>(client has never contacted server)<td></tr>')
     else:
-        output.append('<tr><td>Minutes since contact</td><td>%4.2f<td></tr>' % client.minSinceUpdate)
-    output.append('<tr><td>Projects</td><td>%s<td></tr>' % ','.join(client.projects))
-    output.append('<tr><td>Hardware used</td><td>%s</tr>' % client.hardware)
+        output.append('<tr><td>Time since contact</td><td>%s<td></tr>' % makeNiceTime(client.minSinceUpdate))
     output.append('<tr><td>System will be available in</td>')
     output.append('<td> %3.1f days</td</tr>' % client.endDays)
     output.append('</table>')
     output.append('<h2>Last Message</h2>')
-    output.append('<p>%s' % client.lastMessage)
+    output.append('<p>%s' % client.action)
     output.append('<br>')
     output.append('</p>')
     output.append('<p><hr></p>')
@@ -79,8 +90,7 @@ class ClientStatusPage(StatusPage.StatusPage):
                 alive = "<st><font color=#CC0000>no</em></font>"
             if client.percentage == 100:
                 self.fullyInstalled += 1
-            record = [client.name, client.status, client.hardware, "%3.1f" % client.endDays, 
-                      ','.join(client.projects), alive, "%3.1f" % client.percentage]
+            record = [client.name, client.action, alive, "%3.1f" % client.percentage] 
             yield record
         
     def mainMenu(self):
@@ -89,12 +99,10 @@ class ClientStatusPage(StatusPage.StatusPage):
         header = []
         header.append('<tr><th>Name</th>')
         header.append('<th>status</th>')
-        header.append('<th>hardware</th>')
-        header.append('<th>Availability</th><th>Project</th>')
         header.append('<th>Alive</th><th>% complete</th></tr>')
         table = webUtil.makeTable('\n'.join(header), self.rowGenerator)
         output.append('<h2>Summary</h2>')
-        output.append('<table width=400>')
+        output.append('<table width=200>')
         output.append('<tr><td>Total clients:</td><td>%4d</td></tr>' % self.totalClients)
         output.append('<tr><td>Clients alive:</td><td>%4d</td></tr>' % self.aliveClients)
         output.append('<tr><td>Clients fully installed:</td><td>%4d</td></tr>' % self.fullyInstalled)
@@ -110,8 +118,6 @@ class ClientStatusPage(StatusPage.StatusPage):
             yield self.generateNoFooter()
             yield self.mainMenu()
         else:
-            print '\n'.join(["==========================================="] * 100)
-
             self.meta = '<META HTTP-EQUIV="REFRESH" CONTENT="50" />'
             self.title = "Client %s" % client
             self.subtitle = "Status for client: %s" % client

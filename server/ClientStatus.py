@@ -56,7 +56,7 @@ def clientDetail(clientName):
               "packageGroups": client.packageGroups,
               "percentage":client.percentage,
               "lastUpdateElapsed":client.lastUpdateElapsed,
-              "alive":client.alive,
+              "minutes":client.minSinceUpdate,
               "projects":client.projects,
               "endTime":time.mktime(client.endTime),
               "itContact":client.itContact,
@@ -161,7 +161,9 @@ class ClientStatus(Root.Root):
             clientNames = webUtil.getSystemNames()
             output = {}
             for clientName in clientNames:
-                if clientName != '':
+                print ">>>>>",clientName
+                #if clientName != '':
+                if clientName == 'slecjsxh31':
                     client = Client(clientName)
                     client.gatherData()
                     if not client.valid:

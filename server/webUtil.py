@@ -11,8 +11,6 @@ import bombardier.Server
 server = bombardier.Server.Server(None, {"address":"http://127.0.0.1:8080"})
 
 def getYaml(path):
-##     filename = os.path.join(DEPLOY_DIR, '..', path)
-##     return yaml.loadFile(filename).next()
     return server.serviceYamlRequest(path, legacyPathFix=False)
 
 def readData(path):
@@ -71,19 +69,14 @@ def readLocationData(locationName):
     name = lowerCaseSearch(getLocationNames(), locationName)
     return readData("deploy/location/"+name+".yml")
 
-def readClientLastStatus(clientName):
+def readClientStatus(clientName):
+    clientName = clientName.lower()
     try:
-        clientNames = server.serviceRequest("deploy/log/", legacyPathFix=False).split('\n')
-        clientNames.sort()
-        foundClientName = lowerCaseSearch(clientNames, clientName)
-        if foundClientName:
-            data = getYaml("deploy/log/"+ foundClientName + "/last.yml")
-            if type(data) == type(dict()):
-                return data
-            else:
-                cherrypy.log("%s has bad data" % foundClientName)
+        data = getYaml("deploy/log/"+ clientName + "/status.yml")
+        if type(data) == type(dict()):
+            return data
         else:
-            cherrypy.log("%s has no data" % clientName)
+            cherrypy.log("%s has bad data" % foundClientName)
     except:
         pass
     return EMPTY_LAST_STATUS
@@ -100,16 +93,6 @@ def readBom(pkgGroup):
         return filterList(server.serviceRequest("deploy/bom/" + pkgGroup + ".BOM", legacyPathFix=False).split('\n'))
     except:
         return []
-
-def readClientProgress(clientName):
-    try:
-        return getYaml("deploy/log/" + clientName + "/install-progress.yml")
-    except:
-        name = lowerCaseSearch(getClientNames(), clientName)
-        try:
-            return getYaml("deploy/log/" + name + "/install-progress.yml")
-        except:
-            return {}
 
 def stripVersion(packageName):
     if type(packageName) == type("string"):
@@ -139,7 +122,8 @@ def getTimeStruct(s):
 
 def getClientInstalledUninstalled(clientName, progressData = None): 
     if not progressData:
-        progressData = readClientProgress(clientName)
+        print ">>>>>>>>"
+        return [], []
     installed = []
     uninstalled = []
     for item in progressData.keys():
