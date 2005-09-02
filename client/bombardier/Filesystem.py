@@ -221,7 +221,7 @@ class Filesystem:
                 if not "overall" in dictionary.keys():
                     return
         try:
-            path = "website/service/putfile/log/%s/status.yml" % os.environ["hostname"].lower()
+            path = "website/service/putfile/log/%s/status.yml" % os.environ["COMPUTERNAME"].lower()
             server.serviceYamlRequest(path, putData=data, legacyPathFix=False)
         except Exceptions.ServerUnavailable:
             ermsg = "Unable to upload progress"

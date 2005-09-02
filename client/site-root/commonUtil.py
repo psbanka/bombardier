@@ -41,7 +41,6 @@ updateDict = miniUtility.updateDict
 getAllFromFile = filesystem.getAllFromFile
 catToLog = filesystem.catToLog
 getProgressData = filesystem.getProgressData
-getPackagesFromFile = filesystem.getPackagesFromFile
 stripVersion = miniUtility.stripVersion
 system = filesystem.execute
     
