@@ -22,7 +22,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, string, yaml, time, gc, datetime, win32api, ConfigParser
+import os, string, time, gc, datetime, win32api, ConfigParser
 
 import miniUtility, MetaData, Exceptions, Logger
 from staticData import *
@@ -562,7 +562,6 @@ class Package:
 
         elif self.action == VERIFY:
             progressData[self.fullName]['VERIFIED'] = timeString
-        data = {"install-progress":progressData}
         self.filesystem.updateProgress({"install-progress":progressData},
                                        self.server, overwrite=True)
         gc.collect() # just try removing these and see if the unit tests pass -pbanka

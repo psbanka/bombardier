@@ -244,27 +244,6 @@ class Filesystem:
         fout.flush()
         fout.close()
 
-    ### TESTED
-    def getPackagesFromFile(self, filename, stripVersionFromName = False):
-        if not os.path.isfile(filename):
-            filename = os.path.join(miniUtility.getSpkgPath(), filename)
-            if not os.path.isfile(filename):
-                return []
-        try:
-            data = open(filename, 'r').read()
-            packagesData = yaml.load(data).next()
-        except:
-            Logger.warning("BAD YAML: %s" % data)
-            return []
-        if type(packagesData) != type(dict()):
-            return packagesData
-        instPkgs = filter(lambda x: packagesData[x]['INSTALLED'] != 'NA',
-                          packagesData.keys())               
-        if stripVersionFromName:
-            return map(stripVersion, instPkgs)
-        else:
-            return instPkgs
-
     def getProgressData(self, stripVersionFromName = False):
         filename = os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)
         if not os.path.isfile(filename):

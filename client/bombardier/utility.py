@@ -48,25 +48,25 @@ def makeWritableRecursive( rootDir ):
 
 def makeNewDsn( dataSourceName, dbName, defaultUser, serverName, desc=None ):
     try:
-        hKey = winreg.CreateKey( HKEY_LOCAL_MACHINE,
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
                                  "SOFTWARE\\ODBC\\ODBC.INI\\%s" %dataSourceName )
 
         driverPath = os.path.join( os.environ['windir'], 'system32', 'SQLSRV32.dll' )
-        winreg.SetValueEx( hKey, "Database",    0, REG_SZ, dbName )
-        winreg.SetValueEx( hKey, "Driver",      0, REG_SZ, driverPath   )
-        winreg.SetValueEx( hKey, "LastUser",    0, REG_SZ, defaultUser  )
-        winreg.SetValueEx( hKey, "Server",      0, REG_SZ, serverName       )
+        winreg.SetValueEx( hKey, "Database",    0, winreg.REG_SZ, dbName )
+        winreg.SetValueEx( hKey, "Driver",      0, winreg.REG_SZ, driverPath   )
+        winreg.SetValueEx( hKey, "LastUser",    0, winreg.REG_SZ, defaultUser  )
+        winreg.SetValueEx( hKey, "Server",      0, winreg.REG_SZ, serverName       )
         if desc != None:
-            winreg.SetValueEx( hKey, "Description", 0, REG_SZ, desc  )
+            winreg.SetValueEx( hKey, "Description", 0, winreg.REG_SZ, desc  )
 
         winreg.CloseKey(hKey)
 
-        hKey = winreg.CreateKey( HKEY_LOCAL_MACHINE,
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
                                  "SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources" )
-        winreg.SetValueEx( hKey, dataSourceName, 0, REG_SZ, "SQL Server" )
+        winreg.SetValueEx( hKey, dataSourceName, 0, winreg.REG_SZ, "SQL Server" )
         winreg.CloseKey( hKey )
     except Exception, e:
-        logger.Error( "Unable to create DSN:\n%s" %e )
+        Logger.error( "Unable to create DSN:\n%s" %e )
         sys.exit( 1 )
 
 def installFont(fontPath):

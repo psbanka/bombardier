@@ -50,7 +50,7 @@ def stripVersionFromKeys(progressData):
         output[stripVersion(key)] = progressData[key]
     return output
 
-def getInstalledUninstalledTimes(progressData, stripVersionFromName = False):
+def getInstalledUninstalledTimes(progressData):
     installed = []
     uninstalled = []
     for item in progressData.keys():
@@ -74,8 +74,8 @@ def getInstalledUninstalledTimes(progressData, stripVersionFromName = False):
     uninstalled.sort(datesort)
     return installed, uninstalled
 
-def getInstalled(progressData, stripVersionFromName = False):
-    installed, uninstalled = getInstalledUninstalledTimes(progressData, stripVersionFromName)
+def getInstalled(progressData):
+    installed, uninstalled = getInstalledUninstalledTimes(progressData)
     installedPackageNames = [packageName[0] for packageName in installed]
     return installedPackageNames
 
@@ -100,7 +100,7 @@ def updateDict(newdict, olddict):
 
 def standAloneMode(filesystem):
     configPath = os.path.join(getSpkgPath(), CONFIG_FILE)
-    if os.path.isfile(configPath):
+    if filesystem.isfile(configPath):
         return True
     return False
 
