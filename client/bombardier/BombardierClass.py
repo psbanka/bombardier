@@ -533,8 +533,12 @@ class Bombardier:
             raise Exceptions.BadBillOfMaterials(errmsg)
         packageNames = sets.Set([])
         for pkgGroup in pkgGroups:
-            newPackageNames = self.server.serviceYamlRequest("deploy/bom/%s.yml" % pkgGroup,
-                                                             legacyPathFix=False)
+            try:
+                newPackageNames = self.server.serviceYamlRequest("deploy/bom/%s.yml" % pkgGroup,
+                                                                 legacyPathFix=False)
+            except Exceptions.FileNotFound:
+                Logger.warning("Package Group %s was not found on the server." % pkgGroup)
+                continue
             if newPackageNames == []:
                 ermsg = "Package group %s does not exist on the repository (ignoring)" % pkgGroup
                 Logger.warning(ermsg)
