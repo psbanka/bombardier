@@ -37,14 +37,12 @@ loadCurrent = filesystem.loadCurrent
 updateCurrentStatus = filesystem.updateCurrentStatus
 updateCurrentAction = filesystem.updateCurrentAction
 getCurrentAction = filesystem.getCurrentAction
-updateDict = filesystem.updateDict
-updateProgressFile = filesystem.updateProgressFile
+updateDict = miniUtility.updateDict
 getAllFromFile = filesystem.getAllFromFile
 catToLog = filesystem.catToLog
-convertProgressData = filesystem.convertProgressData
 getProgressData = filesystem.getProgressData
 getPackagesFromFile = filesystem.getPackagesFromFile
-stripVersion = bombardier.Filesystem.stripVersion
+stripVersion = miniUtility.stripVersion
 system = filesystem.execute
     
 import bombardier.Windows
@@ -79,7 +77,6 @@ import bombardier.Server
 server = bombardier.Server.Server(filesystem)
 serviceRequest = server.serviceRequest
 serviceYamlRequest = server.serviceYamlRequest
-serverLog = server.serverLog
 wget = server.wget
 wgetMultiple = server.wgetMultiple
 nagiosLog = server.nagiosLog
