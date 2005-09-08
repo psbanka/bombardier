@@ -287,7 +287,10 @@ def createWebSite(homeDirectory, sourceFiles, siteIndex, title,
         cmd = '%s %s -a w3svc/%s -v' % (cscript, os.path.join(ADMINSCRIPTS, "startsrv.vbs"), siteIndex)
         os.system(cmd)
 
-def modifyTemplate(inputFile, outputFile, configSection, config, encoding=None, processEscape = False):
+def modifyTemplate(inputFile, outputFile, configSections, config, encoding=None, processEscape = False):
+        if configSections.__class__ == ''.__class__:
+            configSections = [configSections]
+
         varMatch = re.compile("\%\((.*?)\)s")
         if encoding == None:
             configData = open(inputFile, 'r').read()
@@ -300,11 +303,16 @@ def modifyTemplate(inputFile, outputFile, configSection, config, encoding=None, 
             variables = varMatch.findall(line)
             configDict = {}
             for variable in variables:
-                    configValue = config.get(configSection, variable)
-                    if processEscape:
-                        configDict[variable] = doubleEscape(configValue)
-                    else:
-                        configDict[variable] = configValue
+                for configSection in configSections:
+                    if config.has_section( configSection ) and \
+                        config.has_option( configSection, variable ):
+                            configValue = config.get(configSection, variable)
+                            if processEscape:
+                                 configDict[variable] = doubleEscape(configValue)
+                            else:
+                                configDict[variable] = configValue
+                            break    
+                    configDict[variable] = 'UNKNOWN_TEMPLATE_VALUE'
             if configDict == {}:
                 output.append(line)
             else:
