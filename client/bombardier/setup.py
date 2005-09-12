@@ -1,5 +1,3 @@
-#!/cygdrive/c/Python24/python.exe
-
 # setup.py: sets bombardier up.
 
 # Copyright (C) 2005 Peter Banka
@@ -35,10 +33,10 @@ Prequisites:
 
 from distutils.core import setup
 setup (name = "bombardier",
-       description = "A Pure Python Yaml Parser Dumper",
+       description = "Open Source Configuration management and package delivery",
        version = VERSION,
        packages = ["bombardier"],
        author = "Peter Banka et al",
        author_email = "peter@thebankas.com",
-       url = "http://www.thebankas.com/bombardier/"
+       url = "http://bombardierinstaller.org/"
 )

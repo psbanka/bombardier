@@ -84,7 +84,8 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
         self.windows.noRestartOnLogon()
         if not self.initialized:
             errmsg = "Cannot run system checks because the repository has not been contacted"
-            self.filesystem.updateCurrentStatus(ERROR, "Cannot contact the repository.")
+            self.filesystem.updateCurrentStatus(ERROR, "Cannot contact the repository.",
+                                                self.server)
             Logger.error(errmsg)
             return
         if self.reconcileThread != None:
@@ -135,7 +136,8 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 message = self.commSocketFromThread.getMessage()
                 Logger.info("Waiting for last reconcileThread to quit. (%s)" % message)
             self.reconcileThread.join()
-            self.filesystem.updateCurrentStatus(IDLE, "Bombardier process interrupted")
+            self.filesystem.updateCurrentStatus(IDLE, "Bombardier process interrupted",
+                                                self.server)
             self.reconcileThread = None
 
     ## TESTED (indirectly)

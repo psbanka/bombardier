@@ -30,9 +30,12 @@ sys.path = ["d:\\dev\\dmoweasel"] + sys.path
 
 from bombardier.staticData import *
 
-try:
-    import dbprocess2
-except ImportError:
+if 1 == 1:
+#try:
+    import dmoweasel.dbprocess2 as dbprocess2
+    import dmoweasel.SQLDMOServer as SQLDMOServer
+else:
+#except ImportError:
     print  "SQL DMO libraries are not installed. Aborting." 
     print  "This package is dependent upon DMOWEASEL being installed."
     sys.exit(1)
@@ -46,25 +49,29 @@ def dbOwnership():
     try:
         databaseCsl = packageConfig.get("backup", "databases")
         databases = databaseCsl.split(',')
-    except ConfigParser.NoSectionError, e:
+    except ConfigParser.NoSectionError:
         return None, None
-    except ConfigParser.NoOptionError, e:
+    except ConfigParser.NoOptionError:
         return None, None
     role = DATA
     try:
         roleInfo = packageConfig.get("backup", "role")
         if roleInfo.upper().startswith("STRUCT"):
             role = STRUCTURE
-            Logger.info( "This script is 'owner' for the following databases: %s" % databases )
+            errmsg = "This script is 'owner' for the following "\
+                     "databases: %s" % databases 
+            Logger.info( errmsg )
         else:
-            Logger.info( "This script will augment the following databases: %s" % databases )
-    except ConfigParser.NoSectionError, e:
+            errmsg = "This script will augment the following "\
+                     "databases: %s" % databases 
+            Logger.info( errmsg )
+    except ConfigParser.NoSectionError:
         pass
-    except ConfigParser.NoOptionError, e:
+    except ConfigParser.NoOptionError:
         pass
     return databases, role
 
-def getPaths(config):
+def getPaths(config, databaseName):
     dataPath = ''
     logPath  = '' 
     try:
@@ -75,7 +82,7 @@ def getPaths(config):
         pass
     return dataPath, logPath
 
-def installDbPackage(config, logger):
+def installDbPackage(config, logger=None):
     hostname = os.environ['COMPUTERNAME']
     try:
         instance = config.get('sql', 'instance')
@@ -83,10 +90,50 @@ def installDbPackage(config, logger):
     except:
         instance = ''
         port = ''
+    try:
+        dbpassword = config.get('sql', 'sapassword')
+        dbuser   = "sa"
+    except:
+        dbuser = None
+        dbpassword = None
     connectionString = miniUtility.connectString(hostname, instance, port)
-    dataPath, logPath = getPaths(config)
     databaseNames, role = dbOwnership()
-    status = dbprocess2.installDbs(databaseNames, role, connectionString, logger, dataPath, logPath)
+    if len(databaseNames) == 1:
+        dataPath, logPath = getPaths(config, databaseNames[0])
+    else:
+        dataPath = ''
+        logPath  = ''
+    status = dbprocess2.installDbs(databaseNames, role, connectionString,
+                                   dbuser, dbpassword, Logger, dataPath, logPath)
+    if status == FAIL:
+        miniUtility.consoleSync(FAIL)
+        sys.exit(1)
+    miniUtility.consoleSync(OK)
+    sys.exit(OK)
+
+def verifyDbPackage(config, logger=None):
+    hostname = os.environ['COMPUTERNAME']
+    try:
+        instance = config.get('sql', 'instance')
+        port = config.get('sql', 'port')
+    except:
+        instance = ''
+        port = ''
+    try:
+        dbpassword = config.get('sql', 'sapassword')
+        dbuser   = "sa"
+    except:
+        dbuser = None
+        dbpassword = None
+    connectionString = miniUtility.connectString(hostname, instance, port)
+    databaseNames, role = dbOwnership()
+    if len(databaseNames) == 1:
+        dataPath, logPath = getPaths(config, databaseNames[0])
+    else:
+        dataPath = ''
+        logPath  = ''
+    status = dbprocess2.verifyDbs(databaseNames, role, connectionString,
+                                  dbuser, dbpassword, Logger)
     if status == FAIL:
         miniUtility.consoleSync(FAIL)
         sys.exit(1)
@@ -104,8 +151,10 @@ def uninstallDbPackage(config):
     connectionString = miniUtility.connectString(hostname, instance, port)
     dbOwnershipNames, role = dbOwnership()
     if role == STRUCTURE:
-        Logger.info("As this is a structure package, uninstalling this package drops the database")
-        status = dbprocess2.uninstallDbs(dbOwnershipNames, connectionString)
+        errmsg = "As this is a structure package, uninstalling this "\
+                 "package drops the database"
+        Logger.info( errmsg )
+        status = dbprocess2.uninstallDbs(dbOwnershipNames, connectionString, Logger)
         if status == FAIL:
             miniUtility.consoleSync(FAIL)
             sys.exit(1)
@@ -114,11 +163,11 @@ def uninstallDbPackage(config):
 
 def backupDbPackage(config):
     path = os.getcwd()
-    packageName = ''
     if path.split('\\')[-1] == "injector" or path.split('\\')[-1] == "backup":
         packageName = path[-2]
     else:
-        errmsg = "Unable to determine my package name. Expected to be in an injector or backup directory"
+        errmsg = "Unable to determine my package name. Expected "\
+                 "to be in an injector or backup directory"
         Logger.error( errmsg )
         sys.exit(1)
 
@@ -134,9 +183,15 @@ def backupDbPackage(config):
     if role != DATA:
         Logger.info("This is not a data package -- not backing up")
         sys.exit(NO_BACKUP)
-    status = dbprocess2.backupDb(databaseNames, connectionString)
+    status = dbprocess2.backupDb(databaseNames, connectionString, Logger)
     sys.exit(status)
 
-def verifyDbPackage(config):
-    Logger.info("verify not implemented")
-    sys.exit(0)
+def getServer(connectionString, user=None, password=None):
+    server = SQLDMOServer.SQLDMOServer(connectionString, user, password)
+    return server
+
+def execQuery(connectionString, database, query, user=None, password=None):
+    server = getServer(connectionString, user, password)
+    results = server.exec_query(database, query)
+    return results
+    

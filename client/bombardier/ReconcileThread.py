@@ -82,7 +82,6 @@ class ReconcileThread(threading.Thread):
             return
         except:
             self.commSocketToService.sendStop()
-            self.filesystem.updateCurrentStatus(ERROR, "Unhandled exception encountered", self.server)
             ermsg = 'Exception in thread %s: %s' % (self.id, sys.exc_type) 
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
@@ -92,6 +91,7 @@ class ReconcileThread(threading.Thread):
                 ermsg += "\n||>>>%s" % line
             Logger.critical(ermsg)
             self.filesystem.warningLog(ermsg, self.server)
+            self.filesystem.updateCurrentStatus(ERROR, "Unhandled exception encountered", self.server)
             return
         self.filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", self.server)
         Logger.info("stopped thread")
