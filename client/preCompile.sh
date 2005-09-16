@@ -46,13 +46,13 @@ tar -xzf ../$PY_YAML.tar.gz
 
 mkdir $DMOWEASEL
 cd $DMOWEASEL
-if [ -e ../$DMOWEASEL ]; then
+if [ -e ../$DMOWEASEL.tar.gz ]; then
     echo "DMOWeasel has already been downloaded (skipping download)"
 else
     echo "Downloading dmoWeasel..."
-    curl $DOWNLOADS/$DMOWEASEL.tar.gz > ../../$DMOWEASEL.tar.gz
+    curl $DOWNLOADS/$DMOWEASEL.tar.gz > ../$DMOWEASEL.tar.gz
 fi
-tar -xzvf ../../$DMOWEASEL.tar.gz
+tar -xzvf ../$DMOWEASEL.tar.gz
 
 mkdir $PY_WIN32
 cd $PY_WIN32
