@@ -28,6 +28,9 @@ import pycurl
 import Exceptions, miniUtility, Logger
 from staticData import *
 
+GET  = 0
+POST = 1
+
 def postServerMessage(content_type, body, url):
     """ 
     Author: Wade Leftwich, 
@@ -213,7 +216,8 @@ class Server:
         fh.close()
 
     def serviceRequest(self, path, args={}, putData=None, debug=False,
-                       putFile=None, timeout=30, legacyPathFix=False, verbose=False):
+                       putFile=None, timeout=30, legacyPathFix=False, verbose=False,
+                       method=GET):
         if self.serverData == None:
             self.getServerData()
         if type(self.serverData) == type(None):
@@ -225,18 +229,21 @@ class Server:
         if legacyPathFix:
             path = "website/service/"+path+"/"
         fullPath = self.serverData["address"] + "/" + base + path
+        if method == POST:
+            return self.interact(debug, fullPath, timeout, verbose, putData=None,
+                                 putFile=None, method=POST, args=args)
         queryString = makeQueryString(args)
         url = fullPath+queryString
-        if putFile or putData:
-            return self.interact(debug, url, timeout, verbose, putData, putFile)
+        if putFile or putData or method == POST:
+            return self.interact(debug, url, timeout, verbose, putData, putFile, method, args)
         if path not in self.cache.keys():
-            output = self.interact(debug, url, timeout, verbose, putData, putFile)
+            output = self.interact(debug, url, timeout, verbose, putData, putFile, method, args)
             self.cache[path] = output
             return output
         else:
             return self.cache[path]
 
-    def interact(self, debug, url, timeout, verbose, putData, putFile):
+    def interact(self, debug, url, timeout, verbose, putData, putFile, method, args):
         if debug:
             Logger.debug("Performing service request to %s" % url)
         try:
@@ -258,6 +265,9 @@ class Server:
                 c.setopt(pycurl.HTTPAUTH, pycurl.HTTPAUTH_ANY)
         if verbose:
             c.setopt(pycurl.VERBOSE, 1)
+        if method == POST:
+            c.setopt(pycurl.POST, 1)
+            c.setopt(pycurl.POSTFIELDS, makeQueryString(args)[1:])
         if putData:
             putFile = StringIO.StringIO(putData)
             c.setopt(c.INFILESIZE, len(putData))

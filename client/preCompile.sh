@@ -5,6 +5,7 @@ PY_CURL=pycurl-ssl-zlib-7.14.0.win32-py2.4
 PY_YAML=pyyaml-46
 PY_WIN32=pywin32-204.win32-py2.4
 WX_PYTHON=wxPython2.6-win32-unicode-2.6.0.0-py24
+DMOWEASEL=dmoweasel
 
 if [ -e http_proxy.txt ]; then
     echo "using http_proxy.txt to set proxy"
@@ -42,6 +43,16 @@ else
     curl $DOWNLOADS/$PY_YAML.tar.gz > ../$PY_YAML.tar.gz
 fi
 tar -xzf ../$PY_YAML.tar.gz
+
+mkdir $DMOWEASEL
+cd $DMOWEASEL
+if [ -e ../$DMOWEASEL ]; then
+    echo "DMOWeasel has already been downloaded (skipping download)"
+else
+    echo "Downloading dmoWeasel..."
+    curl $DOWNLOADS/$DMOWEASEL.tar.gz > ../../$DMOWEASEL.tar.gz
+fi
+tar -xzvf ../../$DMOWEASEL.tar.gz
 
 mkdir $PY_WIN32
 cd $PY_WIN32

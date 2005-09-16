@@ -605,14 +605,14 @@ def uninstallMsi(msiFile):
         sys.exit(1)
     checkLog(logFile)
 
-def installMsi(msiFile):
+def installMsi(msiFile, flags=""):
     logFile = 'c:\\spkg\\log\\%s-install.log' % msiFile
     try:
         os.unlink(logFile)
     except:
         pass
     print "Starting installation..."
-    cmd = 'start /wait %s /I%s.msi /QN /L* "%s"' % (MSIEXEC, msiFile, logFile)
+    cmd = 'start /wait %s /I%s.msi %s /QN /L* "%s"' % (MSIEXEC, msiFile, flags, logFile)
     status = os.system(cmd)
     if status == FAIL:
         print "Can't install. MSI file failed to run"

@@ -148,9 +148,9 @@ class Config(dict):
         if status == FAIL:
             status1 = self.downloadConfig(self.filesystem.environ["COMPUTERNAME"].lower(), False)
             status2 = self.downloadExtraData()
-        if status1 == FAIL or status2 == FAIL:
-            self.data = savedData
-            return FAIL
+            if status1 == FAIL or status2 == FAIL:
+                self.data = savedData
+                return FAIL
         self.username = DEFAULT_USER
         self.password = generatePassword()
         self.domain   = DEFAULT_DOMAIN
