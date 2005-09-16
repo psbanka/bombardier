@@ -53,6 +53,7 @@ else
     curl $DOWNLOADS/$DMOWEASEL.tar.gz > ../$DMOWEASEL.tar.gz
 fi
 tar -xzvf ../$DMOWEASEL.tar.gz
+cd ..
 
 mkdir $PY_WIN32
 cd $PY_WIN32
