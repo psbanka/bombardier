@@ -377,11 +377,17 @@ class Bombardier:
             if package.status == FAIL:
                 Logger.warning("Package could not download. Giving up.")
                 return FAIL
-            if package.preboot:
+            if package.preboot and self.config.freshStart == False:
                 Logger.warning("Package %s wants the system to "\
-                               "reboot before installing..." % package)
-                self.rebootForMoreInstallation(package, packages)
+                               "reboot before installing..." % package.name)
+                errmsg = "Rebooting prior to installing package %s" % package.name
+                self.filesystem.updateCurrentStatus(WARNING, errmsg, self.server)
+                self.filesystem.clearLock()
+                status = self.windows.autoLogin(self.config)
+                self.windows.restartOnLogon()
+                self.windows.rebootSystem(message="Rebooting for a fresh start")
             status = package.process(self.abortIfTold, installList)
+            self.config.freshStart = False
             if status == REBOOT:
                 Logger.warning("Package %s wants the system to "\
                                "reboot after installing..." % package)

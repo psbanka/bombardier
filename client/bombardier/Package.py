@@ -137,6 +137,8 @@ class Package:
         self.reboot = miniUtility.evalBoolean(chk)
         chk = self.metaData.data["install"].get('autoreboot')
         self.autoReboot = miniUtility.evalBoolean(chk)
+        chk = self.metaData.data["install"].get('preboot')
+        self.preboot = miniUtility.evalBoolean(chk)
         self.evalPriority()
         self.gatherDependencies()
 
