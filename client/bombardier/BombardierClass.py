@@ -356,7 +356,6 @@ class Bombardier:
 
     # TESTED
     def installPackages(self, packages):
-        self.filesystem.updateCurrentStatus(INSTALLING, "Installing packages", self.server)
         installList = self.installList(packages)
         packagesLeft = []
         [ packagesLeft.append(x) for x in installList ]
@@ -364,10 +363,11 @@ class Bombardier:
             Logger.info("Packages remaining to install: %s" % packagesLeft)
             detailedTodos = self.getDetailedTodolist(packagesLeft)
             packagesLeft.remove(packageName)
-            self.filesystem.updateProgress({"todo": detailedTodos}, self.server, True)
             self.abortIfTold()
             package = packages[packageName]
-            self.filesystem.updateProgress({"status": {"package":packageName}}, self.server)
+            self.filesystem.updateProgress({"todo": detailedTodos}, self.server, True)
+            self.filesystem.updateProgress({"status": {"package":packageName}},
+                                           self.server, fastUpdate=True)
             erstr = "Currently installing package "\
                     "priority %s [%s]" % (package.priority, packageName)
             Logger.info(erstr)
@@ -434,17 +434,16 @@ class Bombardier:
         self.windows.noRestartOnLogon()
         self.windows.noAutoLogin()
         if status == FAIL:
-            self.filesystem.updateCurrentStatus(ERROR, logmessage, self.server)
+            self.filesystem.updateCurrentStatus(ERROR, logmessage, self.server,
+                                                fastUpdate=True)
             if logmessage:
                 Logger.error(logmessage)
                 self.filesystem.warningLog(logmessage, self.server)
             return FAIL
         else:
-            self.filesystem.updateCurrentStatus(IDLE, logmessage, self.server)
             self.filesystem.clearLock()
         if self.config.automated:
             errmsg = "Rebooting after auto-logon..."
-            self.filesystem.updateCurrentStatus(IDLE, errmsg, self.server)
             Logger.info(errmsg)
             self.abortIfTold()
             self.windows.rebootSystem(message = errmsg)
@@ -461,7 +460,7 @@ class Bombardier:
                 newPackage.initialize()
                 packages[packageName] = newPackage
             except Exceptions.BadPackage, e:
-                errmsg = "Skipping %s" % `e`
+                errmsg = "Skipping bad package: %s" % `e`
                 Logger.warning(errmsg)
                 self.filesystem.warningLog(errmsg, self.server)
         return packages
@@ -479,10 +478,15 @@ class Bombardier:
             # as a result of being a dependency of another package
             Logger.info("Scheduling package %s for removal because it is "\
                         "not on the bill of materials." % packageName)
-            newPackage = Package.Package(packageName, self.repository,
-                                         self.config, self.filesystem,
-                                         self.server, self.windows)
-            newPackage.initialize()
+            try:
+                newPackage = Package.Package(packageName, self.repository,
+                                             self.config, self.filesystem,
+                                             self.server, self.windows)
+                newPackage.initialize()
+            except Exceptions.BadPackage, e:
+                errmsg = "Skipping Bad package: %s" % `e`
+                Logger.warning(errmsg)
+                self.filesystem.warningLog(errmsg, self.server)
             newPackage.action = UNINSTALL
             packages[packageName] = newPackage
         if sets.Set(installedPackageNames) == sets.Set(packages.keys()):
@@ -635,7 +639,6 @@ class Bombardier:
         if self.filesystem.setLock() == FAIL:
             return self.cleanup(FAIL)
         self.abortIfTold()
-        self.filesystem.updateCurrentStatus(IDLE, "Initializing", self.server)
         self.filesystem.chdir(spkgPath)
         if packageNames == None:
             Logger.debug("Downloading BOM")

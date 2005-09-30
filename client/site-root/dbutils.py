@@ -111,7 +111,7 @@ def installDbPackage(config, logger=None):
     miniUtility.consoleSync(OK)
     sys.exit(OK)
 
-def verifyDbPackage(config, logger=None):
+def getConnectionString(config):
     hostname = os.environ['COMPUTERNAME']
     try:
         instance = config.get('sql', 'instance')
@@ -126,6 +126,27 @@ def verifyDbPackage(config, logger=None):
         dbuser = None
         dbpassword = None
     connectionString = miniUtility.connectString(hostname, instance, port)
+    return connectionString, dbuser, dbpassword
+    
+def updateDbPackage(config):
+    connectionString, dbuser, dbpassword = getConnectionString(config)
+    databaseNames, role = dbOwnership()
+    if len(databaseNames) == 1:
+        dataPath, logPath = getPaths(config, databaseNames[0])
+    else:
+        dataPath = ''
+        logPath  = ''
+    status = dbprocess2.updateDbs(databaseNames, {}, role, connectionString,
+                                  dbuser, dbpassword, Logger)
+    if status == FAIL:
+        miniUtility.consoleSync(FAIL)
+        sys.exit(1)
+    miniUtility.consoleSync(OK)
+    sys.exit(OK)    
+
+def verifyDbPackage(config, logger=None):
+    hostname = os.environ['COMPUTERNAME']
+    connectionString, dbuser, dbpassword = getConnectionString(config)
     databaseNames, role = dbOwnership()
     if len(databaseNames) == 1:
         dataPath, logPath = getPaths(config, databaseNames[0])
@@ -187,11 +208,15 @@ def backupDbPackage(config):
     sys.exit(status)
 
 def getServer(connectionString, user=None, password=None):
-    server = SQLDMOServer.SQLDMOServer(connectionString, user, password)
+    config = {"connectionString":connectionString,
+              "username": user, "password":password}
+    server = SQLDMOServer.SQLDMOServer(config, Logger)
     return server
 
 def execQuery(connectionString, database, query, user=None, password=None):
-    server = getServer(connectionString, user, password)
+    config = {"connectionString":connectionString,
+              "username": user, "password":password}
+    server = SQLDMOServer.SQLDMOServer(config, Logger)
     results = server.exec_query(database, query)
-    return results
+    return results.output()
     

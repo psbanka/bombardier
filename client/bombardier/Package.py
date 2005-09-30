@@ -59,7 +59,6 @@ class Package:
         self.workingDir   = ''
         self.scriptsDir   = ''
         self.downloaded   = False
-        self.filesystem.updateProgress({"status": {"package":self.name}}, self.server)
 
     def invalidate(self):
         erstr = "INVALID PACKAGE: %s" % self.name
@@ -121,7 +120,6 @@ class Package:
             raise Exceptions.BadPackage, (self.name, msg)
 
     def initialize(self):
-        self.filesystem.updateCurrentAction("Initializing package.", 0, self.server)
         self.metaData = self.repository.getMetaData(self.name)
         self.checkMetaData()
         self.checksum = self.metaData.data['install'].get('md5sum')
@@ -161,11 +159,9 @@ class Package:
         injectorDir = os.path.join(newDir, "injector")
         if self.filesystem.isdir(backupDir):
             self.workingDir = backupDir
-            self.filesystem.updateCurrentAction("Verified package structure", 30, self.server)
             return OK
         elif self.filesystem.isdir(injectorDir):
             self.workingDir = injectorDir
-            self.filesystem.updateCurrentAction("Verified package structure", 30, self.server)
             return OK
         else:
             Logger.error("Neither the injector nor the "\
@@ -261,7 +257,8 @@ class Package:
 
     def download(self, abortIfTold):
         if not self.downloaded:
-            self.filesystem.updateCurrentAction("Downloading package...", 10, self.server)
+            self.filesystem.updateCurrentAction("Downloading package...", 10,
+                                                self.server, fastUpdate=True)
             abortIfTold()
             status = self.repository.getPackage(self.name, abortIfTold, checksum=self.checksum)
             if status == FAIL:
@@ -327,7 +324,8 @@ class Package:
     # TESTED
     def install(self, packageList, abortIfTold): 
         self.download(abortIfTold)
-        self.filesystem.updateCurrentAction("Installing...", 50, self.server)
+        self.filesystem.updateCurrentAction("Installing...", 50, self.server,
+                                            fastUpdate=True)
         message = "Beginning installation of (%s)" % self.fullName
         Logger.info(message)
         self.preload()
@@ -338,7 +336,8 @@ class Package:
     # TESTED
     def verify(self, abortIfTold): 
         self.download(abortIfTold)
-        self.filesystem.updateCurrentAction("Verifying...", 90, self.server)
+        self.filesystem.updateCurrentAction("Verifying...", 90, self.server,
+                                            fastUpdate=True)
         message = "Verifying package %s" % self.fullName
         Logger.info(message)
         abortIfTold()

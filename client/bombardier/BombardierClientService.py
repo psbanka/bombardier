@@ -160,7 +160,6 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
 
     # CHECK_INTERVAL should ALWAYS be greater then VERIFY_INTERVAL -mhickman
     def checkTimers(self):
-        self.filesystem.updateTimestampOnly(self.server)
         if time.time() > self.checkTime:
             Logger.info("Time for install/uninstall run")
             self.checkTime = time.time() + CHECK_INTERVAL

@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
-import os, Filesystem, re, time
+import os, Filesystem, re, time, random
 import _winreg as winreg
 from staticData import *
 
@@ -97,6 +97,15 @@ def updateDict(newdict, olddict):
         else:
             olddict[key] = value
     return olddict
+
+def getTmpPath():
+    alphabet = map(chr, range(97, 123))
+    tmpFn    = "tmp"
+    tmpFn   += random.choice(alphabet)
+    tmpFn   += random.choice(alphabet)
+    tmpFn   += random.choice(alphabet)
+    tmpPath  = os.path.join(getSpkgPath(), tmpFn)
+    return tmpPath
 
 def standAloneMode(filesystem):
     configPath = os.path.join(getSpkgPath(), CONFIG_FILE)

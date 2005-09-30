@@ -192,30 +192,43 @@ class Filesystem:
         return data
 
     def warningLog(self, message, server):
-        self.updateProgress({"warnings": {time.time(): message}}, server)
+        self.updateProgress({"warnings": {time.time(): message}}, server,
+                            fastUpdate=True)
         
     def updateCurrentStatus(self, overall, message, server):
         self.updateProgress({"status": {"overall": overall, "main":message}}, server)
 
-    def updateCurrentAction(self, message, percent, server):
-        self.updateProgress({"status": {"action": message, "percentage": percent}}, server)
+    def updateCurrentAction(self, message, percent, server, fastUpdate=False):
+        self.updateProgress({"status": {"action": message, "percentage": percent}},
+                            server, fastUpdate=fastUpdate)
 
     def updateTimestampOnly(self, server):
         self.updateProgress({}, server)
 
-    def updateProgress(self, dictionary, server, overwrite=False):
+    def updateProgress(self, dictionary, server, overwrite=False, fastUpdate=False):
         statusPath = os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)
+        tmpPath    = miniUtility.getTmpPath()
         data = self.loadCurrent()
         try:
             intData = miniUtility.integrate(data, dictionary, overwrite)
+            newTimestamp = intData["timestamp"]
+            # This code is for debugging. It's dangerous.
+##             timestamp = data.get("timestamp")
+##             if ( not fastUpdate ) and ( (newTimestamp - timestamp) < 0.05 ):
+##                 raise "out of control error (%s)" % (newTimestamp - timestamp)
             yamlString = yaml.dump(intData)
-            fh = open(statusPath, 'w')
+            fh = open(tmpPath, 'w')
             fh.write(yamlString)
             fh.flush()
             fh.close()
-        except Exception, e:
+            shutil.copy(tmpPath, statusPath)
+            os.unlink(tmpPath)
+        except IOError, e:
             Logger.warning("Cannot update progress data: %s" % e)
             return
+##         except Exception, e:
+##             Logger.warning("Cannot update progress data: %s" % e)
+##             return
         if not "main" in dictionary.keys():
             if not "install-progress" in dictionary.keys():
                 if not "overall" in dictionary.keys():
