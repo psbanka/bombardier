@@ -104,6 +104,8 @@ def getTmpPath():
     tmpFn   += random.choice(alphabet)
     tmpFn   += random.choice(alphabet)
     tmpFn   += random.choice(alphabet)
+    tmpFn   += random.choice(alphabet)
+    tmpFn   += random.choice(alphabet)
     tmpPath  = os.path.join(getSpkgPath(), tmpFn)
     return tmpPath
 

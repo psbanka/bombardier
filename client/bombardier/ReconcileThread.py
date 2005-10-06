@@ -51,10 +51,10 @@ class ReconcileThread(threading.Thread):
         try: 
             self.windows.CoInitialize()
             if self.command == CHECK or self.command == AUTOMATED:
-                Logger.info("In Check Thread, calling reconcileSystem")
+                #Logger.info("In Check Thread, calling reconcileSystem")
                 status = self.bombardier.reconcileSystem(self.commSocketFromService.testStop)
             elif self.command == VERIFY:
-                Logger.info("In Verify Thread, calling verifySystem")
+                #Logger.info("In Verify Thread, calling verifySystem")
                 results = self.bombardier.verifySystem(self.commSocketFromService.testStop)
                 status  = OK
                 if type(results) != type({}):

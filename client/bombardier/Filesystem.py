@@ -157,7 +157,7 @@ class Filesystem:
         return( data )
 
     def setLock(self):
-        Logger.info("Setting installation lock.")
+        #Logger.info("Setting installation lock.")
         lockPath = os.path.join(miniUtility.getSpkgPath(), INSTALL_LOCK)
         if os.path.isfile(lockPath):
             erstr = "There is another installation currently "\
@@ -195,8 +195,9 @@ class Filesystem:
         self.updateProgress({"warnings": {time.time(): message}}, server,
                             fastUpdate=True)
         
-    def updateCurrentStatus(self, overall, message, server):
-        self.updateProgress({"status": {"overall": overall, "main":message}}, server)
+    def updateCurrentStatus(self, overall, message, server, fastUpdate=False):
+        self.updateProgress({"status": {"overall": overall, "main":message}}, server,
+                            fastUpdate=fastUpdate)
 
     def updateCurrentAction(self, message, percent, server, fastUpdate=False):
         self.updateProgress({"status": {"action": message, "percentage": percent}},
@@ -211,18 +212,19 @@ class Filesystem:
         data = self.loadCurrent()
         try:
             intData = miniUtility.integrate(data, dictionary, overwrite)
-            newTimestamp = intData["timestamp"]
             # This code is for debugging. It's dangerous.
+##             newTimestamp = intData["timestamp"]
 ##             timestamp = data.get("timestamp")
 ##             if ( not fastUpdate ) and ( (newTimestamp - timestamp) < 0.05 ):
 ##                 raise "out of control error (%s)" % (newTimestamp - timestamp)
             yamlString = yaml.dump(intData)
+            Logger.debug("dumping to %s" % tmpPath) # ^^ DEBUGGING
             fh = open(tmpPath, 'w')
             fh.write(yamlString)
             fh.flush()
             fh.close()
             shutil.copy(tmpPath, statusPath)
-            os.unlink(tmpPath)
+            #os.unlink(tmpPath) # ^^ DEBUGGING
         except IOError, e:
             Logger.warning("Cannot update progress data: %s" % e)
             return

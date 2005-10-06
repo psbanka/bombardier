@@ -86,11 +86,9 @@ class Config(dict):
     def downloadConfig(self, configName, include=False):
         Logger.debug("Downloading configuration data...")
         if not include:
-            newData = self.server.serviceYamlRequest("deploy/client/%s.yml" % configName,
-                                                     debug=True, legacyPathFix=False)
+            newData = self.server.serviceYamlRequest("deploy/client/%s.yml" % configName)
         else:
-            newData = self.server.serviceYamlRequest("deploy/include/%s.yml" % configName, debug=True,
-                                                     legacyPathFix=False)
+            newData = self.server.serviceYamlRequest("deploy/include/%s.yml" % configName)
         self.data = miniUtility.addDictionaries(self.data, newData)
         self.makeConfigObject()
         newIncludes = findIncludeList(newData)

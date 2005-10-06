@@ -107,7 +107,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
             return
         self.commSocketToThread = CommSocket.CommSocket()
         self.commSocketFromThread = CommSocket.CommSocket()
-        Logger.info("Creating reconcilethread...")
+        #Logger.info("Creating reconcilethread...")
         self.reconcileThread = ReconcileThread.ReconcileThread(command,
                                                                self.commSocketToThread,
                                                                self.commSocketFromThread,
