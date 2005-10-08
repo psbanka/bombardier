@@ -84,7 +84,7 @@ class Config(dict):
 
     ### TESTED
     def downloadConfig(self, configName, include=False):
-        Logger.debug("Downloading configuration data...")
+        #Logger.debug("Downloading configuration data...")
         if not include:
             newData = self.server.serviceYamlRequest("deploy/client/%s.yml" % configName)
         else:

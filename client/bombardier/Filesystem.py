@@ -187,8 +187,8 @@ class Filesystem:
         statusPath = os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)
         try:
             data = yaml.loadFile(statusPath).next()
-        except:
-            data = {}
+        except Exception, e:
+            raise Exceptions.StatusException(statusPath)
         return data
 
     def warningLog(self, message, server):

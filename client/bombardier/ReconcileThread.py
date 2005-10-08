@@ -22,7 +22,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import threading, sys, traceback, StringIO, random
+import threading, sys, traceback, StringIO, random, time
 
 from staticData import *
 import Logger, Filesystem, Exceptions
@@ -88,7 +88,6 @@ class ReconcileThread(threading.Thread):
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
             Logger.critical(ermsg)
-            self.filesystem.warningLog(ermsg, self.server)
             self.filesystem.updateCurrentStatus(ERROR, "Unhandled exception encountered", self.server)
             return
         Logger.info("stopped thread")

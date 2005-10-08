@@ -19,6 +19,16 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+class StatusException(Exception):
+    def __init__(self, yamlFile):
+        e = Exception()
+        Exception.__init__(e)
+        self.yamlFile  = yamlFile
+    def __repr__(self):
+        return "Bad YAML data in file %s" % (self.yamlFile)
+    def __str__(self):
+        return "Bad YAML data in file %s" % (self.yamlFile)
+
 class BadPackage(Exception):
     def __init__(self, packageName, errmsg):
         e = Exception()

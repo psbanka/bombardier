@@ -179,7 +179,7 @@ class Server:
             return
         if len(serverDataDirectory) == 1:
             serverName = serverDataDirectory.keys()[0]
-            Logger.info("Using server %s because it is the only one" % serverName)
+            #Logger.info("Using server %s because it is the only one" % serverName)
             self.serverData = serverDataDirectory[serverName]
             return
         try:
