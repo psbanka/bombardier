@@ -22,6 +22,11 @@ import os, Filesystem, re, time, random
 import _winreg as winreg
 from staticData import *
 
+BROKEN_INSTALL   = 0
+INSTALLED        = 1
+BROKEN_UNINSTALL = 2
+UNINSTALLED      = 3
+
 def datesort(x, y):
     return x[1] - y[1]
 
@@ -50,34 +55,54 @@ def stripVersionFromKeys(progressData):
         output[stripVersion(key)] = progressData[key]
     return output
 
+def determineInstallStatus(item, progressData):
+    # 1. Broken installation
+    # 2. Installed, not uninstalled.
+    # 3. Broken uninstallation
+    # 4. ok uninstallation
+    if progressData[item].get("INSTALLED") == None:
+        progressData[item]["INSTALLED"] = ''
+    if progressData[item].get("UNINSTALLED") == None:
+        progressData[item]["UNINSTALLED"] = ''
+    iTxt = progressData[item]["INSTALLED"]
+    uTxt = progressData[item]["UNINSTALLED"]
+    if iTxt == "BROKEN":
+        return BROKEN_INSTALL, None
+    if uTxt == "BROKEN":
+        return BROKEN_UNINSTALL, None
+    if iTxt == "NA":
+        return UNINSTALLED, None
+    iInt = getTimeStruct(iTxt)
+    if uTxt != "NA":
+        uInt = getTimeStruct(uTxt)
+        if uInt > iInt:
+            return UNINSTALLED, uInt
+    return INSTALLED, iInt
+
 def getInstalledUninstalledTimes(progressData):
     installed = []
+    brokenInstalled = []
     uninstalled = []
+    brokenUninstalled = []
     for item in progressData.keys():
-        iTxt   = progressData[item]["INSTALLED"]
-        if iTxt == "NA":
-            if progressData[item].has_key("UNINSTALLED"):
-                uTxt   = progressData[item]["UNINSTALLED"]
-                uInt   = getTimeStruct(uTxt)
-                uninstalled.append([item, uInt, uTxt])
-                continue
-        iInt   = getTimeStruct(iTxt)
-        if progressData[item].has_key("UNINSTALLED"):
-            uTxt   = progressData[item]["UNINSTALLED"]
-            if uTxt != "NA":
-                uInt   = getTimeStruct(uTxt)
-                if uninstalled > installed:
-                    uninstalled.append([item, uInt, uTxt])
-                    continue
-        installed.append([item, iInt, iTxt])
+        status, lastAction = determineInstallStatus(item, progressData)
+        if status == INSTALLED:
+            installed.append([item, lastAction])
+        elif status == UNINSTALLED:
+            uninstalled.append([item, lastAction])
+        elif status == BROKEN_INSTALL:
+            brokenInstalled.append([item, lastAction])
+        elif status == BROKEN_UNINSTALL:
+            brokenUninstalled.append([item, lastAction])
     installed.sort(datesort)
     uninstalled.sort(datesort)
-    return installed, uninstalled
+    return installed, uninstalled, brokenInstalled, brokenUninstalled
 
 def getInstalled(progressData):
-    installed, uninstalled = getInstalledUninstalledTimes(progressData)
+    installed, uninstalled, brokenInstalled, brokenUninstalled = getInstalledUninstalledTimes(progressData)
     installedPackageNames = [packageName[0] for packageName in installed]
-    return installedPackageNames
+    brokenPackageNames    = [packageName[0] for packageName in brokenInstalled]
+    return installedPackageNames, brokenPackageNames
 
 def integrate(data, dictionary, overwrite):
     data["timestamp"] = time.time()

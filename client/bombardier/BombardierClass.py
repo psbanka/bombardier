@@ -28,8 +28,8 @@ from staticData import *
 
 class PackageChain:
     def __init__(self, priority, startPackageName, packages,
-                 installedPackageNames, repository, config, 
-                 filesystem, server, windows):
+                 installedPackageNames, brokenPackageNames, repository,
+                 config, filesystem, server, windows):
         self.priority   = priority
         self.packages   = packages
         self.filesystem = filesystem
@@ -40,8 +40,19 @@ class PackageChain:
         self.config     = config
         self.vPackages  = VirtualPackages(repository.packages)
         self.installedPackageNames = self.vPackages.resolveVPkgList( installedPackageNames )
+        self.brokenPackageNames = brokenPackageNames
         self.packageChain(startPackageName)
+        self.filterBadPackages()
 
+    def filterBadPackages(self):
+        goodPackageChain = []
+        for pkgIndex in range(0, len(self.chain)):
+            packageName = self.chain[pkgIndex]
+            if packageName in self.brokenPackageNames:
+                pkgIndex -= 1
+                Logger.warning("Omitting packages %s due to bad package" % (self.chain[pkgIndex:]))
+                break
+        self.chain = self.chain[:pkgIndex+1]
 
     ### TESTED
     def addToDependencyErrors(self, packageName, dependencyName):
@@ -81,7 +92,10 @@ class PackageChain:
                 continue
             self.syncDependencies( depName, pkgName )
             dependency = self.packages.get(self.getActualPkgName( depName ))
-            self.priority = max( dependency.priority, self.priority )
+            if depName in self.brokenPackageNames:
+                self.priority = 0
+            else:
+                self.priority = max( dependency.priority, self.priority )
             self.packageChain( depName )
 
     def syncDependencies( self, depName, pkgName ):
@@ -275,20 +289,24 @@ class Bombardier:
     def createPackageChains(self, packageDict):
         chains = []
         packageData = self.filesystem.getProgressData(stripVersionFromName = True)
-        installedPackageNames = miniUtility.getInstalled(packageData)
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(packageData)
         for packageName in packageDict.keys():
+            if packageName in brokenPackageNames:
+                Logger.warning("Skipping broken package %s" % packageName)
+                continue
             if packageName not in installedPackageNames:
                 chainPriority = packageDict[packageName].priority
             else:
                 chainPriority = 0
             try:
                 newChain = PackageChain(chainPriority, packageName, packageDict,
-                                        installedPackageNames, self.repository,
+                                        installedPackageNames, brokenPackageNames,
+                                        self.repository,
                                         self.config, self.filesystem,
                                         self.server, self.windows)
             except Exceptions.BadPackage, e:
                 errmsg = "Package %s will not be installed because it is "\
-                         "dependent upon one or more broken packages:" % packageName
+                         "dependent upon one or more broken packages" % packageName
                 Logger.warning(errmsg)
                 Logger.warning(`e`)
                 continue
@@ -314,7 +332,7 @@ class Bombardier:
 
         chains = self.createPackageChains(packageDict)
         progressData = self.filesystem.getProgressData(stripVersionFromName = True)
-        installedPackageNames = miniUtility.getInstalled(progressData)
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         # - Put all the packages of each chain into the installation
         # order, excluding those that have already been installed in order
         # of chain priority. If a package is already in the installation
@@ -356,52 +374,60 @@ class Bombardier:
 
     # TESTED
     def installPackages(self, packages):
-        installList = self.installList(packages)
-        packagesLeft = []
-        [ packagesLeft.append(x) for x in installList ]
-        for packageName in installList:
-            Logger.info("Packages remaining to install: %s" % packagesLeft)
-            detailedTodos = self.getDetailedTodolist(packagesLeft)
-            packagesLeft.remove(packageName)
-            self.abortIfTold()
-            package = packages[packageName]
-            self.filesystem.updateProgress({"todo": detailedTodos}, self.server, True)
-            self.filesystem.updateProgress({"status": {"package":packageName}},
-                                           self.server, fastUpdate=True)
-            erstr = "Currently installing package "\
-                    "priority %s [%s]" % (package.priority, packageName)
-            Logger.info(erstr)
-            if package.console:
-                if self.handleConsole(package) == FAIL:
+        makingProgress = True
+        packagesLeft = ['initialize']
+        while makingProgress == True and packagesLeft:
+            makingProgress = False
+            installList = self.installList(packages)
+            packagesLeft = []
+            [ packagesLeft.append(x) for x in installList ]
+            for packageName in installList:
+                Logger.info("Packages remaining to install: %s" % packagesLeft)
+                detailedTodos = self.getDetailedTodolist(packagesLeft)
+                packagesLeft.remove(packageName)
+                self.abortIfTold()
+                package = packages[packageName]
+                self.filesystem.updateProgress({"todo": detailedTodos}, self.server, True)
+                self.filesystem.updateProgress({"status": {"package":packageName}},
+                                               self.server, fastUpdate=True)
+                erstr = "Currently installing package "\
+                        "priority %s [%s]" % (package.priority, packageName)
+                Logger.info(erstr)
+                if package.console:
+                    if self.handleConsole(package) == FAIL:
+                        return FAIL
+                if package.status == FAIL:
+                    Logger.warning("Package could not download. Giving up.")
                     return FAIL
-            if package.status == FAIL:
-                Logger.warning("Package could not download. Giving up.")
-                return FAIL
-            if package.preboot and self.config.freshStart == False:
-                Logger.warning("Package %s wants the system to "\
-                               "reboot before installing..." % package.name)
-                errmsg = "Rebooting prior to installing package %s" % package.name
-                self.filesystem.updateCurrentStatus(WARNING, errmsg, self.server)
-                self.filesystem.clearLock()
-                status = self.windows.autoLogin(self.config)
-                self.windows.restartOnLogon()
-                self.windows.rebootSystem(message="Rebooting for a fresh start")
-            status = package.process(self.abortIfTold, installList)
-            self.config.freshStart = False
-            if status == REBOOT:
-                Logger.warning("Package %s wants the system to "\
-                               "reboot after installing..." % package)
-                self.filesystem.updateCurrentStatus(WARNING, "Rebooting after package %s" % package.name,
-                                                    self.server)
-                self.rebootForMoreInstallation(package, packages)
-            if status == FAIL:
-                erstr = "B11 Aborting due to package "\
-                        "installation failure"
-                self.filesystem.updateCurrentStatus(ERROR, "Bad package %s" % package.name,
-                                                    self.server)
-                Logger.error(erstr)
-                return FAIL
-            self.checkReboot(package, packages)
+                if package.preboot and self.config.freshStart == False:
+                    Logger.warning("Package %s wants the system to "\
+                                   "reboot before installing..." % package.name)
+                    errmsg = "Rebooting prior to installing package %s" % package.name
+                    self.filesystem.updateCurrentStatus(WARNING, errmsg, self.server)
+                    self.filesystem.clearLock()
+                    status = self.windows.autoLogin(self.config)
+                    self.windows.restartOnLogon()
+                    self.windows.rebootSystem(message="Rebooting for a fresh start")
+                status = package.process(self.abortIfTold, installList)
+                self.config.freshStart = False
+                if status == REBOOT:
+                    Logger.warning("Package %s wants the system to "\
+                                   "reboot after installing..." % package)
+                    self.filesystem.updateCurrentStatus(WARNING, "Rebooting after package %s" % package.name,
+                                                        self.server)
+                    self.rebootForMoreInstallation(package, packages)
+                if status == FAIL:
+                    erstr = "Package installation failure -- re-calculating package installation order"
+                    self.filesystem.updateCurrentStatus(ERROR, "Bad package %s" % package.name,
+                                                        self.server)
+                    Logger.error(erstr)
+                    continue
+                else:
+                    makingProgress = True
+                self.checkReboot(package, packages)
+        if packagesLeft:
+            Logger.error("There are packages that are broken, and we have done all we can do.")
+            return FAIL
         return OK
 
     def uninstallPackages(self, packages):
@@ -415,13 +441,13 @@ class Bombardier:
             if package.console:
                 if self.handleConsole(package) == FAIL:
                     return FAIL
-            status = package.uninstall(self.abortIfTold)
-            if status == REBOOT:
+            package.uninstall(self.abortIfTold)
+            if package.status == REBOOT:
                 self.abortIfTold()
                 Logger.warning("Package %s wants the system to "\
                                "reboot after uninstalling..." % package)
                 self.rebootForMoreInstallation(package, packages)
-            if status == FAIL:
+            if package.status == FAIL:
                 erstr = "B11 Aborting due to package "\
                         "uninstallation failure"
                 Logger.error(erstr)
@@ -470,7 +496,7 @@ class Bombardier:
         vPackages = VirtualPackages(self.repository.packages)
         packages = {}
         progressData = self.filesystem.getProgressData(stripVersionFromName = True)
-        installedPackageNames = miniUtility.getInstalled(progressData)
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         # create package objects for all the packages
         # in the list that we want to remove
         for packageName in delPackageNames:
@@ -571,18 +597,18 @@ class Bombardier:
         shouldBeInstalled = []
         shouldntBeInstalled = []
         progressData = self.filesystem.getProgressData(stripVersionFromName = True)
-        installed = miniUtility.getInstalled(progressData)
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         dependencyErrors = self.dependenciesInstalled(bomPackageNames)
         if dependencyErrors:
             errmsg = "The following packages are installed as "\
                      "dependencies %s" % dependencyErrors
             Logger.debug(errmsg)
         bomPackageNames += dependencyErrors
-        for package in installed:
+        for package in installedPackageNames:
             if package not in bomPackageNames:
                 shouldntBeInstalled.append(package)
         for package in bomPackageNames:
-            if package not in installed:
+            if package not in installedPackageNames:
                 shouldBeInstalled.append(package)
         return shouldBeInstalled, shouldntBeInstalled
 
@@ -590,10 +616,10 @@ class Bombardier:
         self.server.clearCache()
         self.testStop = testStop
         progressData = self.filesystem.getProgressData()
-        pkgList = miniUtility.getInstalled(progressData)
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         testResults = {}
 
-        for fullPackageName in pkgList:
+        for fullPackageName in installedPackageNames:
             try:
                 shortPackageName = miniUtility.stripVersion(fullPackageName)
                 package = Package.Package(shortPackageName, self.repository, self.config,
@@ -615,7 +641,8 @@ class Bombardier:
 
             if timer + interval <= time.time():
                 package.action = VERIFY
-                testResults[shortPackageName] = package.verify(self.abortIfTold)
+                package.verify(self.abortIfTold)
+                testResults[shortPackageName] = package.status
 
         return testResults
 

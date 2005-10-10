@@ -96,12 +96,14 @@ class Package:
                 self.priority = AVERAGE
 
     def checkMetaData(self):
+        self.status = FAIL
         if self.metaData.data:
             if type(self.metaData.data) == type(dict()):
                 if self.metaData.data.get("install"):
                     if type(self.metaData.data["install"]) == type({}):
                         self.fullName = self.metaData.data['install'].get('fullName')
                         if self.fullName:
+                            self.status = OK
                             return
                         else:
                             msg = "Package does not exist on the server"
@@ -287,16 +289,14 @@ class Package:
                 self.windows.autoLogin(self.config)
                 self.windows.restartOnLogon()
                 self.writeProgress()
-            installResult = self.install(packageList, abortIfTold)
-            Logger.info("Install result: %s" % installResult)
-            if installResult != FAIL:
+            self.install(packageList, abortIfTold)
+            Logger.info("Install result: %s" % self.status)
+            if self.status != FAIL:
                 abortIfTold()
-                verifyResult = self.verify(abortIfTold)
-                Logger.info("Verify result: %s" % verifyResult)
-                if verifyResult == OK:
-                    self.writeProgress()
-                    return installResult
-            return FAIL
+                self.verify(abortIfTold)
+                Logger.info("Verify result: %s" % self.status)
+            self.writeProgress()
+            return self.status
         Logger.error("Unknown action: [%s]" % self.action)
         return FAIL
 
@@ -330,8 +330,8 @@ class Package:
         Logger.info(message)
         self.preload()
         abortIfTold()
-        status = self.findCmd(INSTALL, abortIfTold, packageList)
-        return status
+        self.status = self.findCmd(INSTALL, abortIfTold, packageList)
+        return self.status
     
     # TESTED
     def verify(self, abortIfTold): 
@@ -341,10 +341,10 @@ class Package:
         message = "Verifying package %s" % self.fullName
         Logger.info(message)
         abortIfTold()
-        status = self.findCmd(VERIFY, abortIfTold)
+        self.status = self.findCmd(VERIFY, abortIfTold)
         if self.action != INSTALL:
-          self.writeProgress()
-        return status
+            self.writeProgress()
+        return self.status
 
     # TESTED
     def uninstall(self, abortIfTold):
@@ -362,10 +362,9 @@ class Package:
         Logger.info("Uninstalling package %s" % self.name)
         self.filesystem.updateCurrentAction("Uninstalling...", 70, self.server)
         abortIfTold()
-        status = self.findCmd(UNINSTALL, abortIfTold)
-        if status != FAIL:
-            self.writeProgress()
-        return status
+        self.status = self.findCmd(UNINSTALL, abortIfTold)
+        self.writeProgress()
+        return self.status
 
     # TESTED
     def getDateString(self):
@@ -514,14 +513,18 @@ class Package:
         return OK
 
     def mkInstallSummary(self, progressData):
-        installed, uninstalled = miniUtility.getInstalledUninstalledTimes(progressData)
+        installed, uninstalled, brokenInstalled, brokenUninstalled = miniUtility.getInstalledUninstalledTimes(progressData)
         output = []
         for package in installed:
-            output.append("%25s: %s" % (package[0], package[2]))
+            output.append("%25s: %s" % (package[0], package[1]))
         if uninstalled:
             output.append("===============================")
             for package in uninstalled:
-                output.append("(%25s: %s)" % (package[0], package[2]))
+                output.append("(%25s: %s)" % (package[0], package[1]))
+        if brokenInstalled:
+            output.append("BROKEN:========================")
+            for package in brokenInstalled:
+                output.append("- %25s" % (package[0]))
         progressPath = miniUtility.getProgressPath2()
 
         fh = self.filesystem.open(progressPath, 'wb')
@@ -542,24 +545,28 @@ class Package:
         if not progressData.has_key(self.fullName):
             progressData[self.fullName] = {"INSTALLED": "NA", "UNINSTALLED": "NA", "VERIFIED": "NA"}
         if self.action == INSTALL:
-            if progressData.get(self.fullName) != None:
-                if  progressData[self.fullName]['INSTALLED'] != 'NA':
-                    erstr = "Possible installation cycling with '%s'." % self.fullName
-                    Logger.error(erstr)
-                    return OK
-            else:
+            if progressData.get(self.fullName) == None:
                 progressData[self.fullName] = {}
             if self.fullName:
-                progressData[self.fullName]['INSTALLED']   = timeString
-                progressData[self.fullName]['VERIFIED']    = timeString
-                progressData[self.fullName]['UNINSTALLED'] = 'NA'
+                if self.status == OK:
+                    progressData[self.fullName]['INSTALLED']   = timeString
+                    # FIXME: shouldn't this next line be 'NA'? -- pbanka
+                    progressData[self.fullName]['VERIFIED']    = timeString 
+                    progressData[self.fullName]['UNINSTALLED'] = 'NA'
+                else:
+                    progressData[self.fullName]['INSTALLED']   = "BROKEN"
+                    progressData[self.fullName]['VERIFIED']    = 'NA'
+                    progressData[self.fullName]['UNINSTALLED'] = 'NA'
             else:
                 Logger.error("Unnamed package installed: (%s)" % (self.name))
                 return FAIL
     
         elif self.action == UNINSTALL:
-            progressData[self.fullName]['UNINSTALLED'] = timeString
-            progressData[self.fullName]['INSTALLED']   = 'NA'
+            if self.status == OK:
+                progressData[self.fullName]['UNINSTALLED'] = timeString
+                progressData[self.fullName]['INSTALLED']   = 'NA'
+            else:
+                progressData[self.fullName]['UNINSTALLED'] = "BROKEN"
 
         elif self.action == VERIFY:
             progressData[self.fullName]['VERIFIED'] = timeString
