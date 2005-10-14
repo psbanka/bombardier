@@ -20,7 +20,8 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 import ConfigParser, yaml
 from staticData import *
@@ -78,9 +79,13 @@ class Config(dict):
         self.data[key] = value
 
     def getPackageGroups(self):
+        groups   = []
+        packages = []
         if self.data.has_key("packageGroups"):
-            return self.data["packageGroups"]
-        return []
+            groups = self.data["packageGroups"]
+        if self.data.has_key("packages"):
+            packages = self.data["packages"]
+        return groups, packages
 
     ### TESTED
     def downloadConfig(self, configName, include=False):

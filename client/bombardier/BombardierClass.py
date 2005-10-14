@@ -351,7 +351,7 @@ class Bombardier:
 
     def getSources(self, installList):
         source = {} # this is a dictionary of package name: groups it comes from
-        pkgGroups  = self.config.getPackageGroups()
+        pkgGroups,individualPackageNames  = self.config.getPackageGroups()
         for packageName in installList:
             source[packageName] = []
             for groupName in pkgGroups:
@@ -359,6 +359,8 @@ class Bombardier:
                                                                legacyPathFix=False)
                 if packageName in groupPackages:
                     source[packageName].append(groupName)
+        for packageName in individualPackageNames:
+            source[packageName] = ["Individually-selected"]
         return source
 
     def getDetailedTodolist(self, installList):
@@ -558,7 +560,7 @@ class Bombardier:
     def downloadBom(self, pkgGroups):
         Logger.info("configured for the following package groups: %s" % pkgGroups)
         if type(pkgGroups) != type(["list"]):
-            ermsg = "Invalid input to function. Should be a list of strings, got: %s" % pkgGroups
+            ermsg = "Invalid input to function. Should be a list of strings, got: %s" % str(pkgGroups)
             raise Exceptions.BadBillOfMaterials(ermsg)
         self.filesystem.updateCurrentAction("Downloading Bill of Materials...", 0, self.server)
         spkgPath = miniUtility.getSpkgPath()
@@ -658,7 +660,7 @@ class Bombardier:
         self.server.clearCache()
         self.testStop = testStop
         spkgPath = miniUtility.getSpkgPath()
-        pkgGroups  = self.config.getPackageGroups()
+        pkgGroups,individualPackageNames  = self.config.getPackageGroups()
         if not self.inMaintenanceWindow():
             erstr = "Currently a maintenance window: no activity will take place"
             Logger.warning(erstr)
@@ -670,6 +672,7 @@ class Bombardier:
         if packageNames == None:
             Logger.debug("Downloading BOM")
             packageNames = self.downloadBom(pkgGroups)
+            packageNames += individualPackageNames
         self.abortIfTold()
         addPackageNames, delPackageNames = self.checkBom(packageNames)
         addPackages = self.getPackagesToAdd(addPackageNames)
@@ -682,7 +685,9 @@ class Bombardier:
         self.abortIfTold()
         Logger.info("Packages to install: %s" % addPackages.keys())
         Logger.info("Packages to remove: %s" % delPackages.keys())
-        status = self.uninstallPackages(delPackages)
+        status = OK
+        if delPackages.keys():
+            status = self.uninstallPackages(delPackages)
         if status == FAIL:
             errmsg = "Uninstallation failed. Not continuing with "\
                      "installation of %s" % addPackages

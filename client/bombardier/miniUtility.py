@@ -18,6 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
+
 import os, Filesystem, re, time, random
 import _winreg as winreg
 from staticData import *
@@ -28,7 +29,12 @@ BROKEN_UNINSTALL = 2
 UNINSTALLED      = 3
 
 def datesort(x, y):
-    return x[1] - y[1]
+    if type(x) == type(["list"]):
+        if type(y) == type(["list"]):
+            if x[1]:
+                if y[1]:
+                    return x[1] - y[1]
+    return False
 
 def getTimeStruct(s):
     if s == "NA":
