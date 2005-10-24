@@ -50,7 +50,8 @@ Name: {app}\bc.py; Type: files
 
 [Run]
 Filename: {win}\SYSTEM32\msiexec.exe; Parameters: /Ipython-2.4.1.msi ALLUSERS=1 /QN; WorkingDir: {app}\dependencies; StatusMsg: Installing Python, please wait...; Flags: postinstall; Description: Install Python
-Filename: {reg:HKLM\Software\Python\PythonCore\2.4\InstallPath,(Default)|C:\Python24}\python.exe; WorkingDir: {app}\scratch; Flags: postinstall shellexec; Description: Install Python modules; StatusMsg: Installing Bombardier Python Modules; Parameters: rescue.py -g
+Filename: {reg:HKLM\Software\Python\PythonCore\2.4\InstallPath,(Default)|C:\Python24}\python.exe; WorkingDir: {app}\scratch; Flags: postinstall shellexec; Description: Install Python modules; StatusMsg: Installing Bombardier Python Modules; Parameters: rescue.py -n
+Filename: {reg:HKLM\Software\Python\PythonCore\2.4\InstallPath,(Default)|C:\Python24}\python.exe; WorkingDir: {app}\scratch; Flags: postinstall shellexec; Description: Install Python services; StatusMsg: Installing Bombardier Python Services; Parameters: rescue.py -s
 
 [UninstallDelete]
 Name: {app}\ntrights.exe; Type: files
