@@ -9,8 +9,6 @@ mv versionedStaticData.py bombardier/staticData.py
 
 /cygdrive/c/Python24/python.exe versioner.py
 
-exit 0
-
 cd ../TEST || exit 1
 /cygdrive/c/Python24/python.exe unitTests.py || exit 1
 
