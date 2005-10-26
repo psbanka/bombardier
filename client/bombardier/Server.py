@@ -322,7 +322,6 @@ class Server:
                 fileHandle.flush()
                 fileHandle.close()
                 del fileHandle # necessary because the file may
-                               # need to be moved before gc. -pbanka
                 status, ccsum = computeMd5(filename, checksum)
                 if status == FAIL:
                     retries -= 1

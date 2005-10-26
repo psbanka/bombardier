@@ -541,7 +541,7 @@ class Package:
         progressData = self.filesystem.getProgressData()
         if progressData == {}:
             Logger.warning("Empty status data")
-        gc.collect() # does windows suck? here's proof. -pbanka
+        # gc.collect() # does windows suck? here's proof. -pbanka
         if not progressData.has_key(self.fullName):
             progressData[self.fullName] = {"INSTALLED": "NA", "UNINSTALLED": "NA", "VERIFIED": "NA"}
         if self.action == INSTALL:
@@ -572,6 +572,6 @@ class Package:
             progressData[self.fullName]['VERIFIED'] = timeString
         self.filesystem.updateProgress({"install-progress":progressData},
                                        self.server, overwrite=True)
-        gc.collect() # just try removing these and see if the unit tests pass -pbanka
+        # gc.collect() # just try removing these and see if the unit tests pass -pbanka
         self.mkInstallSummary(progressData)
         return OK

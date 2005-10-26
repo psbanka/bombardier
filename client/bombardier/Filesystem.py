@@ -236,7 +236,7 @@ class Filesystem:
                 if not "overall" in dictionary.keys():
                     return
         try:
-            path = "website/service/putfile/log/%s/status.yml" % os.environ["COMPUTERNAME"].lower()
+            path = "website/service/putfile/log/%s.yml" % os.environ["COMPUTERNAME"].lower()
             server.serviceYamlRequest(path, putData=data, legacyPathFix=False)
         except Exceptions.ServerUnavailable:
             ermsg = "Unable to upload progress"
@@ -338,8 +338,8 @@ class Filesystem:
         return FAIL
 
     def moveToDestination(self, destDir, filename):
-        gc.collect() # File this under the category
-                     # 'windows sucks': can't have open files! - pbanka
+        #gc.collect() # File this under the category
+        #             # 'windows sucks': can't have open files! - pbanka
         if destDir == '':
             return OK
         if not os.path.isdir(destDir):

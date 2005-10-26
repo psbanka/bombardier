@@ -1,4 +1,4 @@
-#!/cygdrive/c/Python24/python.exe
+#!c:\Python24\python.exe
 import cherrypy
 import Root
 import WebSite

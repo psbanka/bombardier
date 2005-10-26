@@ -378,20 +378,21 @@ class SiteCreator:
             newSite.ServerComment = self.title
             newSite.SetInfo()
             Logger.info( "Site created, creating root directory" )
-            newRoot = newSite.Create("IIsWebVirtualDir", "ROOT")
-            newRoot.Path = self.homeDir
-            newRoot.AccessFlags = self.permissions
-            newRoot.SetInfo()
-            newSite.AccessFlags = self.permissions
-            newSite.SetInfo()
-            if self.authFlags:
-                newRoot.AuthFlags = self.authFlags
+            if self.siteIndex != 1:
+                newRoot = newSite.Create("IIsWebVirtualDir", "ROOT")
+                newRoot.Path = self.homeDir
+                newRoot.AccessFlags = self.permissions
                 newRoot.SetInfo()
-            Logger.info( "Root created, setting permissions" )
-            newRoot.AppCreate2(SiteCreator.POOLED)
-            del newSite
+                newSite.AccessFlags = self.permissions
+                newSite.SetInfo()
+                if self.authFlags:
+                    newRoot.AuthFlags = self.authFlags
+                    newRoot.SetInfo()
+                Logger.info( "Root created, setting permissions" )
+                newRoot.AppCreate2(SiteCreator.POOLED)
+                self.setServerBindings()
 
-            self.setServerBindings()
+            del newSite
             newSiteObject.Start()
         return OK
 

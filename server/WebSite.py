@@ -14,7 +14,3 @@ class WebSite(Root.Root):
         self.server.exposed  = True
         self.service.exposed = True
         self.default = self.server
-
-    def GET(self):
-        return "hello"
-
