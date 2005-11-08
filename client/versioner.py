@@ -3,7 +3,7 @@
 import os
 
 BOMBARDIER_VERSION = os.environ[ 'BOMBARDIER_VERSION' ]
-for dir in [ 'bombardier', 'spkgDir', 'site-root' ]:
+for dir in [ 'bombardier', 'spkgDir', 'site-root', "dmoweasel", "dmoweasel/dmoweasel" ]:
     for f in [ os.path.join( dir, x ) for x in os.listdir(dir) if x.endswith( '.py' )]:
         fp = open( f, 'r' )
         lines = fp.readlines()
