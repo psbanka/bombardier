@@ -81,7 +81,8 @@ class Rescue:
         self.unzip()
         self.unTar()
         os.system("net stop bombardieragent")
-        self.runSetup()
+        if not self.conf['servicesOnly']:
+            self.runSetup()
         if self.conf['installServices']:
             self.startService()
 
@@ -328,12 +329,6 @@ if __name__ == "__main__":
     """  
     conf = getConf()
     rescue = Rescue(conf)
-    if conf['servicesOnly']:
-        try:
-            rescue.startService()
-            sys.exit( 0 )
-        except:
-            sys.exit( 1 )
     rescue.performRescue()
     if conf["go"]:
         os.chdir(spkgPath)
