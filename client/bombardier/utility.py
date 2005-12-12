@@ -49,6 +49,14 @@ def makeWritableRecursive( rootDir ):
 def makeNewDsn( dataSourceName, dbName, defaultUser, serverName, desc=None ):
     try:
         hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
+                                 "SOFTWARE\\Microsoft\\MSSQLServer\\Client\\ConnectTo\\" )
+        winreg.SetValueEx( hKey, serverName, 0, winreg.REG_SZ, "DBMSSOCN,%s" %serverName )
+
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
+                                 "SOFTWARE\\Microsoft\\MSSQLServer\\Client\\TDS\\" )
+        winreg.SetValueEx( hKey, serverName, 0, winreg.REG_SZ, "7.0" )
+
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
                                  "SOFTWARE\\ODBC\\ODBC.INI\\%s" %dataSourceName )
 
         driverPath = os.path.join( os.environ['windir'], 'system32', 'SQLSRV32.dll' )
