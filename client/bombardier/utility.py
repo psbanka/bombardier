@@ -48,6 +48,9 @@ def makeWritableRecursive( rootDir ):
 
 def makeNewDsn( dataSourceName, dbName, defaultUser, serverName, desc=None ):
     try:
+        # The following two keys fix the problem caused when "Dynamically 
+        # determine port" is checked when using a non-default port.
+
         hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
                                  "SOFTWARE\\Microsoft\\MSSQLServer\\Client\\ConnectTo\\" )
         winreg.SetValueEx( hKey, serverName, 0, winreg.REG_SZ, "DBMSSOCN,%s" %serverName )
