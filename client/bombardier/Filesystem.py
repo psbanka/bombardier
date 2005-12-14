@@ -218,13 +218,12 @@ class Filesystem:
 ##             if ( not fastUpdate ) and ( (newTimestamp - timestamp) < 0.05 ):
 ##                 raise "out of control error (%s)" % (newTimestamp - timestamp)
             yamlString = yaml.dump(intData)
-            Logger.debug("dumping to %s" % tmpPath) # ^^ DEBUGGING
             fh = open(tmpPath, 'w')
             fh.write(yamlString)
             fh.flush()
             fh.close()
             shutil.copy(tmpPath, statusPath)
-            #os.unlink(tmpPath) # ^^ DEBUGGING
+            os.unlink(tmpPath)
         except IOError, e:
             Logger.warning("Cannot update progress data: %s" % e)
             return
