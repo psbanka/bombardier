@@ -24,7 +24,9 @@
 import _winreg as winreg
 import win32net, win32netcon, win32con, win32security, win32service, win32file, winerror
 import pywintypes, win32api, win32serviceutil, servicemanager, win32event, ntsecuritycon
-import win32pipe, win32com.client, pythoncom, threading, os, time
+import win32pipe, win32com.client, pythoncom,
+
+import threading, os, time
 
 import miniUtility, Logger, RegistryDict, Exceptions
 from win32process import CreateProcess, NORMAL_PRIORITY_CLASS, STARTUPINFO

@@ -24,12 +24,12 @@
 import logging, os, sys
 import logging.handlers
 import time
-import win32serviceutil
-import win32service, win32event, pywintypes, servicemanager
+import win32serviceutil, win32service, win32event, pywintypes, servicemanager
+import Windows
 from staticData import *
 from distutils.core import setup
 
-import Windows, Filesystem, Exceptions
+import Filesystem, Exceptions
 
 SLEEP_INTERVAL = 25
 TIME_TO_CHECK  = 1000

@@ -76,7 +76,7 @@ class Filesystem:
     def listdir(self, path):
         return os.listdir(path)
     def mkdir(self, path):
-        os.mkdir(path)
+        os.makedirs(path)
     def execute(self, cmd, errorString="", debug=0, dieOnExit=False,
                 workingDirectory = '.', captureOutput=False):
         capture = ''

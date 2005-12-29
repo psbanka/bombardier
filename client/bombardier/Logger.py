@@ -19,20 +19,34 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import logging, sys, os, shutil
+import logging, sys, os, shutil, yaml
 import logging.handlers
 from staticData import *
 
+def getLinuxConfig():
+    data = open("/etc/bombardier.yml", 'r').read()
+    config = yaml.load(data).next()
+    return config
+
+def putLinuxConfig(config):
+    data = open("/etc/bombardier.yml", 'w')
+    data.write(yaml.dump(config))
+
 def getSpkgPath():
-    import _winreg as winreg
-    keyName = r"Software\GE-IT\Bombardier"
-    try:
-        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
-                             keyName, 0, winreg.KEY_QUERY_VALUE)
-        path, dummy = winreg.QueryValueEx(key, "InstallPath")
-    except:
-        return r"C:\spkg"
-    return path
+    spkgPath = ''
+    if sys.platform == "linux2":
+        config = getLinuxConfig()
+        spkgPath = config.get("spkgPath")
+    else:
+        import _winreg as winreg
+        keyName = r"Software\GE-IT\Bombardier"
+        try:
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                                 keyName, 0, winreg.KEY_QUERY_VALUE)
+            spkgPath, dummy = winreg.QueryValueEx(key, "InstallPath")
+        except:
+            spkgPath = r"C:\spkg"
+    return spkgPath
 
 def checkLogSize():
     # Because we're dealing with Windows, we can't use Python's
@@ -189,14 +203,15 @@ class Logger:
 
 if __name__ == "__main__":
     import time
+    REPS = 10
     start = time.time()
     logger = Logger()
     testString = "now is the time for all good men to come to the aid of their country"
-    for i in range(1,10000):
+    for i in range(1,REPS):
         logger.info(testString)
     print "elapsed 1:", time.time()-start
     start = time.time()
-    for i in range(1,10000):
+    for i in range(1,REPS):
         Logger().info(testString)
     print "elapsed 1:", time.time()-start
     

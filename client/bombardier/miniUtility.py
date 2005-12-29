@@ -19,8 +19,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, Filesystem, re, time, random
-import _winreg as winreg
+import os, Filesystem, re, time, random, yaml
 from staticData import *
 
 BROKEN_INSTALL   = 0
@@ -306,18 +305,30 @@ class Logger:
     def rmFileLogging(self):
         pass
 
+def getLinuxConfig():
+    data = open("/etc/bombardier.yml", 'r').read()
+    config = yaml.load(data).next()
+    return config
+
+def putLinuxConfig(config):
+    data = open("/etc/bombardier.yml", 'w')
+    data.write(yaml.dump(config))
+
 def getSpkgPath():
-    count = 0
-    keyName = r"Software\GE-IT\Bombardier"
-    while count < 4:
-        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
-                            keyName, 0, winreg.KEY_QUERY_VALUE)
-        spkgPath, objtype = winreg.QueryValueEx(key, "InstallPath")
+    spkgPath = ''
+    if sys.platform == "linux2":
+        config = getLinuxConfig()
+        spkgPath = config.get("spkgPath")
+    else:
+        import _winreg as winreg
+        keyName = r"Software\GE-IT\Bombardier"
         try:
-            return str(spkgPath)
-        except UnicodeEncodeError:
-            count += 1
-    return str(spkgPath)
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                                 keyName, 0, winreg.KEY_QUERY_VALUE)
+            spkgPath, dummy = winreg.QueryValueEx(key, "InstallPath")
+        except:
+            spkgPath = r"C:\spkg"
+    return spkgPath
 
 def getPythonPath():
     return os.path.join(sys.prefix, "python.exe")

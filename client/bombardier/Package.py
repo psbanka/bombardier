@@ -22,7 +22,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, string, time, gc, datetime, win32api, ConfigParser
+import os, string, time, gc, datetime, ConfigParser
 
 import miniUtility, MetaData, Exceptions, Logger
 from staticData import *
@@ -240,7 +240,9 @@ class Package:
             elif fullCmd.endswith(".bat"):
                 self.windows.runCmd( fullCmd, self.workingDir )
             else: # crutch for running perl until we decide on a permanent location
-                win32api.ShellExecute(0, "open", "perl.exe", fullCmd, self.workingDir, 1)
+                if sys.platform != "linux2":
+                    import win32api
+                    win32api.ShellExecute(0, "open", "perl.exe", fullCmd, self.workingDir, 1)
             status = self.filesystem.watchForTermination(sleepTime=1, abortIfTold=abortIfTold)
         else:
             if packageList: # don't know how to do this with shellExecute
@@ -302,6 +304,7 @@ class Package:
 
     def chdir(self):
         self.cwd = os.getcwd()
+        Logger.debug(" Changing directory to %s" % os.path.join(miniUtility.getSpkgPath(), PACKAGES))
         self.filesystem.chdir(os.path.join(miniUtility.getSpkgPath(), PACKAGES))
         if self.fullName:
             try:
@@ -415,6 +418,7 @@ class Package:
         Logger.info("Backing up package %s" % self.fullName)
         self.chdir()
         self.backupPath = os.path.join(miniUtility.getPackagePath(), self.fullName, 'backup')
+        Logger.debug("Backing up to %s" % self.backupPath)
         abortIfTold()
         status = self.cleanBackupPath()
         if status == FAIL:
@@ -422,7 +426,7 @@ class Package:
         status = self.injector()
         if status == FAIL:
             return returnNice(startDir, FAIL, self.filesystem)
-        if self.workingDir.split('\\')[-1] != "backup":
+        if self.workingDir.split(os.path.sep)[-1] != "backup":
             Logger.error("could not create a backup directory: %s" % os.getcwd())
             return returnNice(startDir, FAIL, self.filesystem)
         abortIfTold()
