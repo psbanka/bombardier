@@ -28,15 +28,17 @@ OK   = 0
 FAIL = 1
 
 def dumpOutput():
-    output = open("outfile.txt", 'r').read().strip()
-    if output:
-        print "============================= BCP OUTPUT"
-        print output
-    errors = open("errfile.txt", 'r').read().strip()
-    if errors:
-        print "============================= BCP ERRORS"
-        print errors
-        print "============================= "
+    if os.path.isfile("outfile.txt"):
+        output = open("outfile.txt", 'r').read().strip()
+        if output:
+            print "============================= BCP OUTPUT"
+            print output
+    if os.path.isfile("errfile.txt"):
+        errors = open("errfile.txt", 'r').read().strip()
+        if errors:
+            print "============================= BCP ERRORS"
+            print errors
+            print "============================= "
 
 class SQLDMOBCP:
 
@@ -65,7 +67,7 @@ class SQLDMOBCP:
             return FAIL
         cmd = ""
         if os.path.isfile(fmtPath):
-            cmdString = 'bcp "%s..%s" in %s -S %s -f %s %s -o outfile.txt -e errfile.txt'
+            cmdString = 'bcp "%s..%s" in %s -S %s -f "%s" %s -o outfile.txt -e errfile.txt'
             cmd = cmdString % ( databaseName, tableName, dataPath, cs, fmtPath, authString )
         else:
             print "(Not using format file because it could not be found)"
@@ -85,8 +87,8 @@ class SQLDMOBCP:
         tableName  = tableName[:tableName.rfind('/')]
         dataPath   = os.path.join(self.fullPath, 'Data')
         fmtPath    = os.path.join(self.fullPath, 'format.fmt')
-        cmd1       = 'bcp "%s..%s" format fmt.txt -n -S %s -f %s %s -o outfile -e errfile' % ( databaseName, tableName, cs, fmtPath, authString )
-        cmd2       = 'bcp "%s..%s" out "%s" -n -S %s %s -o outfile -e errfile' % ( databaseName, tableName, dataPath, cs, authString )
+        cmd1       = 'bcp "%s..%s" format fmt.txt -n -S %s -f "%s" %s -o outfile.txt -e errfile.txt' % ( databaseName, tableName, cs, fmtPath, authString )
+        cmd2       = 'bcp "%s..%s" out "%s" -n -S %s %s -o outfile.txt -e errfile.txt' % ( databaseName, tableName, dataPath, cs, authString )
         if verbose:
             print "(1) EXECUTING: %s" % cmd1
         status1  = os.system(cmd1)

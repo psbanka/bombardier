@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.41-156
 
 # db-data2.py: This executable is for dumping or loading data from a
 # database independent of its structure.
@@ -60,7 +61,7 @@ if __name__ == '__main__':
 	usage()
 
     config = {'direction': "dump", 'truncate': False, 'verbose': False,
-              'repository': serverName, 'password': False, 'username': False}
+              'repository': serverName, "username":None, "password":None}
 
     for o, a in opts:
         if o=="-d":
@@ -92,6 +93,6 @@ if __name__ == '__main__':
         if not config['username'] and config['password']:
             print "Can't have username without password and vice versa/n/n"
             usage()
-    server = SQLDMOServer.SQLDMOServer(serverName)
-    status = dbprocess2.process_data(config, server, databaseName, logger, tableName)
-
+    config['connectionString'] = serverName
+    status = dbprocess2.process_data(config, databaseName, logger)
+    sys.exit(status)

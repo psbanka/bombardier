@@ -279,7 +279,7 @@ def process_data(config, databaseName, logger, tableName=''):
         if config['truncate']:
            tableObject.com.TruncateData()
         elif config['direction'] == "dump":
-            bcpFile.dump_table(databaseName, tableObject)
+            bcpFile.dump_table(databaseName, tableObject, config["verbose"])
         elif config['direction'] == "load":
             try:
                 bcpFile.load_table(databaseName, tableObject)
@@ -491,7 +491,7 @@ def process_data(config, databaseName, logger, tableName=''):
         if config['truncate']:
            tableObject.com.TruncateData()
         elif config['direction'] == "dump":
-            bcpFile.dump_table(databaseName, tableObject)
+            bcpFile.dump_table(databaseName, tableObject, config["verbose"])
         elif config['direction'] == "load":
             try:
                 bcpFile.load_table(databaseName, tableObject)
