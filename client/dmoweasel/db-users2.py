@@ -75,5 +75,7 @@ if __name__ == "__main__":
             config['password'] = a
         elif o == '-v':
             config['verbose'] = True
-    dbprocess2.process_users(config, serverName, database, logger)
+
+    config['connectionString'] = serverName
+    dbprocess2.process_users(config, database, logger)
 

@@ -1,5 +1,4 @@
 #!/cygdrive/c/Python24/python.exe
-# Version 0.41-156
 
 # db-struct.py: This executable is for loading or dumping database
 # structure (table schema, indexes, triggers, stored procedures, and
@@ -93,6 +92,5 @@ if __name__ == '__main__':
             config['password'] = a
 
     config['connectionString'] = serverName
-    server = SQLDMOServer.SQLDMOServer(config, logger)
     status = dbprocess2.process_structure(config, databaseName, logger)
     sys.exit( status )
