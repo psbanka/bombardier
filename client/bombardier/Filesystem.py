@@ -21,7 +21,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import shutil, os, sys, tarfile, gzip, yaml, re, time
+import shutil, os, sys, tarfile, gzip, yaml, re, time, sys
 import gc
 import Exceptions, miniUtility, Logger
 from staticData import *
@@ -235,7 +235,7 @@ class Filesystem:
                 if not "overall" in dictionary.keys():
                     return
         try:
-            path = "website/service/putfile/log/%s.yml" % os.environ["COMPUTERNAME"].lower()
+            path = "log/%s.yml" % self.getHostname()
             server.serviceYamlRequest(path, putData=data, legacyPathFix=False)
         except Exceptions.ServerUnavailable:
             ermsg = "Unable to upload progress"
@@ -273,6 +273,13 @@ class Filesystem:
                 return miniUtility.stripVersionFromKeys(progressData)
             return progressData
         return {}
+
+    def getHostname(self):
+        if sys.platform == "linux2":
+            hostname = open("/proc/sys/kernel/hostname").read().strip().lower()
+        else:
+            hostname = self.environ["COMPUTERNAME"].lower()
+        return hostname
 
     def watchForTermination(self, sleepTime = 10.0, timeout = 600, abortIfTold=None):
         start = time.time()

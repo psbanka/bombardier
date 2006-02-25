@@ -28,13 +28,12 @@ import win32pipe, win32com.client, pythoncom
 
 import threading, os, time
 
-import miniUtility, Logger, RegistryDict, Exceptions
+import miniUtility, Logger, RegistryDict, Exceptions, OperatingSystem
 from win32process import CreateProcess, NORMAL_PRIORITY_CLASS, STARTUPINFO
 
 from staticData import *
 
 LOGIN_KEY_NAME = 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon'
-DEBUG = 0
 
 keyMapping = {"HKLM": winreg.HKEY_LOCAL_MACHINE,
               "HKEY_LOCAL_MACHINE": winreg.HKEY_LOCAL_MACHINE,
@@ -67,19 +66,13 @@ def findInitialKey(path):
     return initialKey, path
 
 
-
-    
-
-class Windows:
+class Windows(OperatingSystem.OperatingSystem):
 
     """This is another abstraction class to wrap all activities which
     require interaction with the system registry. -pbanka"""
 
     def __init__(self):
-        self.domain = ''
-        self.username = ''
-        self.password = ''
-        self.testConsoleValue = False
+        OperatingSystem.OperatingSystem.__init__(self)
 
     def ShellExecuteSimple(self, runCmd):
         return win32api.ShellExecute(0, "open", runCmd, None, '', 1)
@@ -92,7 +85,6 @@ class Windows:
 
     def runProcess( self, workingDirectory, cmd ):
         fullCommand = 'cmd /c %s: && cd "%s" && %s' %( workingDirectory[0], workingDirectory, cmd )
-        print fullCommand
         return self.spawnReturnId( fullCommand )
 
     def runPython( self, file, workingDirectory=os.getcwd() ):
@@ -585,7 +577,7 @@ class Windows:
 
     def rebootSystem(self, message="Server Rebooting", timeout=5,
                      bForce=1, bReboot=1):
-        if DEBUG:
+        if self.DEBUG:
             erstr = "REFUSING TO REBOOT SYSTEM DURING DEBUG MODE"
             Logger.info(erstr)
             sys.exit(0)

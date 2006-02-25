@@ -232,7 +232,7 @@ class Package:
             Logger.error("Could not find an appropriate script.")
             return FAIL
         erstr = "Unable to run script script: %s" % fullCmd
-        if self.console and action== INSTALL:
+        if sys.platform != "linux2" and self.console and action== INSTALL:
             abortIfTold()
             self.filesystem.beginConsole()
             if fullCmd.endswith(".py"):
@@ -245,6 +245,8 @@ class Package:
                     win32api.ShellExecute(0, "open", "perl.exe", fullCmd, self.workingDir, 1)
             status = self.filesystem.watchForTermination(sleepTime=1, abortIfTold=abortIfTold)
         else:
+            if sys.platform == "linux2":
+                fullCmd = "python %s" % fullCmd
             if packageList: # don't know how to do this with shellExecute
                 fullCmd += " %s" %string.join(packageList,',')
             status = self.filesystem.execute(fullCmd, erstr, dieOnExit=0, captureOutput=True,

@@ -19,6 +19,27 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
+class FeatureRemovedException(Exception):
+    def __init__(self, featureName):
+        e = Exception()
+        Exception.__init__(e)
+        self.featureName  = featureName
+    def __repr__(self):
+        return "Feature %s is obsolete" % (self.featureName)
+    def __str__(self):
+        return "Feature %s is obsolete" % (self.featureName)
+
+class AbstractClassException(Exception):
+    def __init__(self, className):
+        e = Exception()
+        Exception.__init__(e)
+        self.className  = className
+    def __repr__(self):
+        return "Class %s was attempted in an abstract class" % (self.className)
+    def __str__(self):
+        return "Class %s was attempted in an abstract class" % (self.className)
+
 class StatusException(Exception):
     def __init__(self, yamlFile):
         e = Exception()

@@ -364,7 +364,13 @@ class Bombardier:
         return source
 
     def getDetailedTodolist(self, installList):
-        '''This returns a list of strings, of the form "package,dependency"'''
+        '''This returns a list of strings, of the form
+        "package,packageGroup", or if the package comes from more than
+        one packagegroup, it will return
+        "package,packageGroup1/packageGroup2". If the package does not
+        have any packageGroups, it will return
+        "package,<<dependency>>"'''
+        
         source = self.getSources(installList)
         output = []
         for packageName in source.keys():

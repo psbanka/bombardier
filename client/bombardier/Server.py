@@ -218,6 +218,8 @@ class Server:
     def serviceRequest(self, path, args={}, putData=None, debug=False,
                        putFile=None, timeout=30, legacyPathFix=False, verbose=False,
                        method=GET):
+        if legacyPathFix:
+            raise Exceptions.FeatureRemovedException, "legacyPathFix"
         if self.serverData == None:
             self.getServerData()
         if type(self.serverData) == type(None):
@@ -226,8 +228,6 @@ class Server:
         base = self.serverData.get("base")
         if base == None:
             base = "/"
-        if legacyPathFix:
-            path = "website/service/"+path+"/"
         fullPath = self.serverData["address"] + "/" + base + path
         if method == POST:
             return self.interact(debug, fullPath, timeout, verbose, putData=None,
@@ -294,7 +294,7 @@ class Server:
                                       debug=debug, timeout=timeout,
                                       legacyPathFix=legacyPathFix, verbose=verbose)
         if ymlData == '':
-            return {}
+            return "OK"
         try:
             config = yaml.load(ymlData)
             return config.next()

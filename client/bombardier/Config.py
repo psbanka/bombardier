@@ -103,7 +103,7 @@ class Config(dict):
     def downloadExtraData(self):
         index = self.server.serviceYamlRequest("deploy/client/index.yml",
                                                debug=True, legacyPathFix=False)
-        hostname = self.filesystem.environ["COMPUTERNAME"].lower()
+        hostname = self.filesystem.getHostname()
         projects = getKey(index, [hostname, "project", "clients"])
         if projects:
             for project in projects:
@@ -150,7 +150,7 @@ class Config(dict):
         self.data = {}
         status = self.readLocalConfig()
         if status == FAIL:
-            status1 = self.downloadConfig(self.filesystem.environ["COMPUTERNAME"].lower(), False)
+            status1 = self.downloadConfig(self.filesystem.getHostname(), False)
             status2 = self.downloadExtraData()
             if status1 == FAIL or status2 == FAIL:
                 self.data = savedData
