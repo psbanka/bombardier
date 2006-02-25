@@ -79,6 +79,8 @@ class Filesystem:
         os.makedirs(path)
     def execute(self, cmd, errorString="", debug=0, dieOnExit=False,
                 workingDirectory = '.', captureOutput=False):
+        if cmd.rfind(".py") != -1 and sys.platform == "linux2":
+            cmd = "python %s" % cmd
         capture = ''
         if captureOutput:
             capture = " 2> result1.txt > result2.txt"
