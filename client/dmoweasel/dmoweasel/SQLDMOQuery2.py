@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.41-168
 
 # SQLDMOQuery.py: Deals with handling queries to an MSSQL database.
 

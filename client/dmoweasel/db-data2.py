@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.41-168
 
 # db-data2.py: This executable is for dumping or loading data from a
 # database independent of its structure.

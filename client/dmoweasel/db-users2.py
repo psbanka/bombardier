@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.41-168
 
 # db-users.py: This executable is for dumping and loading user
 # information

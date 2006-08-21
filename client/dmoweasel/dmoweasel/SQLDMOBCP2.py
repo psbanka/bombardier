@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.41-168
 
 # SQLDMOBCP.py: This library is used for copying data into and out of
 # a database.

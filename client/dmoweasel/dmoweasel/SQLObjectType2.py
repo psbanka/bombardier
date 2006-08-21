@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.41-168
 
 # SQLObjectType2.py: Handles all kinds of static data.
 

@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.41-168
 
 # db-struct.py: This executable is for loading or dumping database
 # structure (table schema, indexes, triggers, stored procedures, and

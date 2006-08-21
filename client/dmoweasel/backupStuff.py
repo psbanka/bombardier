@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.41-168
 
 import yaml, datetime, urlparse, tarfile
 import dmoweasel.dbprocess2 as dbprocess2

@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.41-168
 
 # SQLDMOObject.py: This library is for dealing with either objects
 # within an MSSQL database or collections of objects within that DB.
