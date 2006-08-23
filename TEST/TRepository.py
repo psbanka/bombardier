@@ -37,7 +37,7 @@ class RepositoryTest(unittest.TestCase):
     def testGetAndUnpack(self):
         self.filesystem.gzipfile = StringIO.StringIO("data")
         self.filesystem.tarObject.data = {"item1": "data"}
-        self.server.output["deploy"] = "data"
+        self.server.output["/deploy"] = "data"
         base = os.path.join(os.getcwd(), "packages")
         self.filesystem.files = [os.path.join(base, "testbaduninstallpackage1-1.spkg")]
         self.filesystem.directories = [os.path.join(base, "testbaduninstallpackage1-1")]
@@ -59,7 +59,7 @@ class RepositoryTest(unittest.TestCase):
         assert `fcalls[8]`.startswith('unlink'), `fcalls[8]`
         assert len(scalls) == 2, len(scalls)
         assert `scalls[0]`.startswith("serviceYamlRequest"), `scalls[0]`
-        assert `scalls[1]`.startswith("wget('deploy', 'testbaduninstallpackage1-1.spkg"), `scalls[1]`
+        assert `scalls[1]`.startswith("wget('/deploy', 'testbaduninstallpackage1-1.spkg"), `scalls[1]`
         assert status == OK
 
     def testGetPackage(self):
