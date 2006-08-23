@@ -1,5 +1,5 @@
 #!/bin/bash
-DOWNLOADS="http://bombardierinstaller.org/downloads"
+DOWNLOADS="http://www.bombardierinstaller.com/downloads"
 PYTHON_24=python-2.4.1
 PY_CURL=pycurl-ssl-zlib-7.14.0.win32-py2.4
 PY_YAML=pyyaml-46
