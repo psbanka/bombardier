@@ -228,7 +228,7 @@ class Server:
         base = self.serverData.get("base")
         if base == None:
             base = "/"
-        fullPath = self.serverData["address"] + "/" + base + path
+        fullPath = self.serverData["address"] + base + path
         if method == POST:
             return self.interact(debug, fullPath, timeout, verbose, putData=None,
                                  putFile=None, method=POST, args=args)
@@ -248,6 +248,9 @@ class Server:
             Logger.debug("Performing service request to %s" % url)
         try:
             c = prepareCurlObject(url, self.serverData)
+            #c = pycurl.Curl()
+            #print "Preparing for %s" % url
+            #c.setopt(pycurl.URL, url)
         except pycurl.error, e:
             raise Exceptions.ServerUnavailable, (url, `e`)
         data   = StringIO.StringIO()
@@ -282,7 +285,7 @@ class Server:
             return output
         except pycurl.error, e:
             if e[0] == 22:
-                raise Exceptions.FileNotFound(url)
+               raise Exceptions.FileNotFound(url, e[1])
             raise Exceptions.ServerUnavailable, (url, e[1])
 
     def serviceYamlRequest( self, path, args={}, putData=None, debug=False,
@@ -304,7 +307,7 @@ class Server:
 
     def wget(self, path, filename, destDir = '', retries = 4,
              checksum = '', abortIfTold=None):
-        source = self.serverData["address"]+"/"+path+"/"
+        source = self.serverData["address"]+path+"/"
         url = urlparse.urljoin(source, filename)
         while retries:
             if abortIfTold != None:

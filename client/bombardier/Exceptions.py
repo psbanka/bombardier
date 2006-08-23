@@ -103,8 +103,8 @@ class ServerUnavailable(Exception):
         return "%s: %s" % (self.url, self.errmsg)
 
 class FileNotFound(ServerUnavailable):
-    def __init__(self, url):
-        ServerUnavailable.__init__(self, url, "")
+    def __init__(self, url, data=""):
+        ServerUnavailable.__init__(self, url, data)
 
 class PipeNotListenable(Exception):
     def __init__(self, pipeName):

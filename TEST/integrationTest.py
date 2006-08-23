@@ -22,12 +22,13 @@ if sys.platform == "linux2":
 else:
     import bombardier.Windows as Windows
     operatingSystem = Windows.Windows()
+#    operatingSystem.setKey(r"Software\GE-IT\Bombardier\InstallPath", os.getcwd()
 
 import bombardier.miniUtility as miniUtility
 import bombardier.BombardierClass as BombardierClass
 
-TEST_PATH    = os.getcwd()
-NORMAL_PATH  = miniUtility.getSpkgPath()
+tcommon = Tcommon.Tcommon()
+tcommon.setForTest()
 
 logger     = Logger.Logger()
 filesystem = Filesystem.Filesystem()
@@ -36,6 +37,19 @@ config     = Config.Config(filesystem, server, operatingSystem)
 repo       = Repository.Repository(config, filesystem, server)
 server.getServerData()
 repo.getPackageData()
+# push up a sample configuration
+configData = {"info": {"itContact": "Scott Freeman",
+                       "owner": "Peter Banka",
+                       "project": "bombardier-testing",
+                       "system": "laptop-CJSXH31"},
+              "packageGroups": ["base"]}
+hostname = filesystem.getHostname()
+server.serviceYamlRequest("deploy/client/"+hostname+".yml",
+                          putData=configData)
+indexData = {hostname: {"contact": {"ownedclients": []},
+                        "hardware": {"client": []},
+                        "project": {"clients": []}}}
+server.serviceYamlRequest("deploy/client/index.yml", putData=indexData)
 config.freshen()
 
 class CommandThread(threading.Thread):
@@ -660,8 +674,6 @@ def setBom(bomList):
     return currentBom
 
 if __name__ == "__main__":
-    tcommon = Tcommon.Tcommon()
-    tcommon.setForTest()
     operatingSystem.DEBUG = True
     suite = unittest.TestSuite()
     #suite.addTest(BombardierTest("testBackupUninstall"))

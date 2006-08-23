@@ -68,11 +68,11 @@ class Repository:
                 "%s..." % (fullPackageName, self.server.serverData["address"])
         Logger.info(erstr)
         if type(checksum) != type(["list"]):
-            status = self.server.wget("deploy", fullPackageName+".spkg",
+            status = self.server.wget("/deploy", fullPackageName+".spkg",
                                       destDir=miniUtility.getPackagePath(),
                                       checksum=checksum, abortIfTold=abortIfTold)
         else:
-            status = self.server.wgetMultiple("deploy", fullPackageName+".spkg", 
+            status = self.server.wgetMultiple("/deploy", fullPackageName+".spkg", 
                                               destDir=miniUtility.getPackagePath(),
                                               checksumList=checksum, abortIfTold=abortIfTold)
         if status == FAIL:

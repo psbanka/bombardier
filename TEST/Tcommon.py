@@ -1,6 +1,7 @@
 #!/cygdrive/c/Python23/python.exe
 
 import os, gc, sys
+
 if sys.platform != 'linux2':
     import _winreg as winreg
 else:

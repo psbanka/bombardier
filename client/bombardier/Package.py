@@ -267,8 +267,6 @@ class Package:
             status = self.repository.getPackage(self.name, abortIfTold, checksum=self.checksum)
             if status == FAIL:
                 self.status = FAIL
-                self.filesystem.warningLog("Problems downloading package %s" % self.name,
-                                           self.server)
                 return FAIL
             status = self.injector()
             self.downloaded = True
