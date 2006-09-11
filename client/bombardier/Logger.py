@@ -53,6 +53,7 @@ def checkLogSize():
     # fancy rolling logger effectively. We therefore have to see
     # if the log is too big and deal with it periodically. -
     # pbanka
+    print getSpkgPath()
     logPath = os.path.join(getSpkgPath(), LOG_FILE)
     if not os.path.isfile(logPath):
         return

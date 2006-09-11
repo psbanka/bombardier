@@ -93,6 +93,7 @@ class Windows(OperatingSystem.OperatingSystem):
         return self.runProcess(workingDirectory, fullCmd)
 
     def runCmd( self, file, workingDirectory=os.getcwd() ):
+        Logger.debug("WINDOWS")
         fullCmd = '"%s"' % file
         return self.runProcess(workingDirectory, fullCmd)
 

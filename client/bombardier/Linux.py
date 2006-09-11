@@ -33,10 +33,19 @@ class Linux(OperatingSystem.OperatingSystem):
         raise Exceptions.AbstractClassException, "runProcess"
 
     def runPython( self, file, workingDirectory=os.getcwd() ):
-        raise Exceptions.AbstractClassException, "runPython"
+        Logger.info("LINUX")
+        cwd = os.getcwd()
+        os.chdir(workingDirectory)
+        status = os.system("/usr/local/bin/python2.4 %s" % file) #^^ FIXME
+        os.chdir(cwd)
+        return status
 
     def runCmd( self, file, workingDirectory=os.getcwd() ):
-        raise Exceptions.AbstractClassException, "runCmd"
+        cwd = os.getcwd()
+        os.chdir(workingDirectory)
+        status = os.system(file)
+        os.chdir(cwd)
+        return status
 
     def serviceStatus(self, serviceName):
         raise Exceptions.AbstractClassException, "serviceStatus"
@@ -87,7 +96,7 @@ class Linux(OperatingSystem.OperatingSystem):
         raise Exceptions.AbstractClassException, "restartOnLogon"
 
     def noRestartOnLogon(self): 
-        pass #^^ FIXME
+        pass
 
     def adjustPrivilege(self, priv, enable = 1):
         raise Exceptions.AbstractClassException, "adjustPrivilege"

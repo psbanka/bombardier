@@ -22,11 +22,12 @@
 
 import os, sys, re, ConfigParser, shutil, string, md5
 
-import _winreg as winreg
-import win32com.client, win32api, win32file, pywintypes, win32pdh, win32con
+if sys.platform != "linux2":
+    import _winreg as winreg
+    import win32com.client, win32api, win32file, pywintypes, win32pdh, win32con, RegistryDict
 
 from staticData import *
-import miniUtility, RegistryDict, Logger
+import miniUtility, Logger
 
 WRITABLE_FILE_MODE      = 33206
 WRITABLE_DIRECTORY_MODE = 16895
@@ -91,6 +92,9 @@ def installFont(fontPath):
     winreg.SetValueEx(fontKey, "fontName", 0, winreg.REG_SZ, baseName)
 
 def rmScheduledFile(filename):
+    if sys.platform == "linux2":
+        Logger("Removing a file in a scheduled manner is not necessary in Linux")
+        return
     try:
         win32api.MoveFileEx(filename, None,
                             win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
@@ -191,7 +195,10 @@ def removeRoBit(directory):
     os.system(ATTRIB+' /S '+directory)
 
 def makeWritable(path):
-    chmod = r"C:\cygwin\bin\chmod.exe"
+    if sys.platform == "linux2":
+        chmod = "/bin/chmod"
+    else:
+        chmod = r"C:\cygwin\bin\chmod.exe"
     status = os.system(chmod+" 666 "+path)
     return status
 
@@ -262,7 +269,10 @@ class NTGroup:
 
 def createHostEntry(siteName, ipAddress):
     # FIXME: support multiple names for IP address
-    HOSTSFILE = os.path.join(os.environ['WINDIR'], "SYSTEM32", "DRIVERS", "ETC", "HOSTS")
+    if sys.platform == "linux2":
+        HOSTSFILE = "/etc/hosts"
+    else:
+        HOSTSFILE = os.path.join(os.environ['WINDIR'], "SYSTEM32", "DRIVERS", "ETC", "HOSTS")
     hostEntry = "%s\t%s" % (ipAddress, siteName)
     status = replaceInFile("(%s).*" % ipAddress, hostEntry, HOSTSFILE)
     return status

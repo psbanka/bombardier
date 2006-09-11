@@ -36,12 +36,12 @@ class Package:
 
     ### TESTED
     # FIXME: Refactor: we do not need a config *and* a repository value
-    def __init__(self, name, repository, config, filesystem, server, windows):
+    def __init__(self, name, repository, config, filesystem, server, operatingSystem):
         self.name         = name
         self.repository   = repository
         self.filesystem   = filesystem
         self.server       = server
-        self.windows      = windows
+        self.operatingSystem      = operatingSystem
         self.action       = INSTALL
         self.installed    = False
         self.dependencies = []
@@ -216,7 +216,7 @@ class Package:
 
     def findCmd(self, action, abortIfTold, packageList=[]):
         fullCmd = ''
-        extensions = [".py", ".bat", ".pl"]
+        extensions = [".py", ".bat", ".pl", ".sh"]
         cmds = {INSTALL: "installer", UNINSTALL: "uninstaller", VERIFY: "verify", BACKUP: "backup"}
         cmd = cmds.get(action)
         if not cmd:
@@ -236,15 +236,19 @@ class Package:
             abortIfTold()
             self.filesystem.beginConsole()
             if fullCmd.endswith(".py"):
-                self.windows.runPython( fullCmd, self.workingDir )
+                self.operatingSystem.runPython( fullCmd, self.workingDir )
+            elif fullCmd.endswith(".sh"):
+                self.operatingSystem.runCmd( "bash %s" % fullCmd, self.workingDir)
             elif fullCmd.endswith(".bat"):
-                self.windows.runCmd( fullCmd, self.workingDir )
+                self.operatingSystem.runCmd( fullCmd, self.workingDir )
             else: # crutch for running perl until we decide on a permanent location
                 if sys.platform != "linux2":
                     import win32api
                     win32api.ShellExecute(0, "open", "perl.exe", fullCmd, self.workingDir, 1)
             status = self.filesystem.watchForTermination(sleepTime=1, abortIfTold=abortIfTold)
         else:
+            if fullCmd.endswith(".sh"):
+                fullCmd = "bash %s" % fullCmd
             if packageList: # don't know how to do this with shellExecute
                 fullCmd += " %s" %string.join(packageList,',')
             status = self.filesystem.execute(fullCmd, erstr, dieOnExit=0, captureOutput=True,
@@ -267,6 +271,8 @@ class Package:
             status = self.repository.getPackage(self.name, abortIfTold, checksum=self.checksum)
             if status == FAIL:
                 self.status = FAIL
+                self.filesystem.warningLog("Problems downloading package %s" % self.name,
+                                           self.server)
                 return FAIL
             status = self.injector()
             self.downloaded = True
@@ -286,8 +292,8 @@ class Package:
             if self.autoReboot:
                 Logger.info("This is an auto-reboot package. "\
                                  "Assuming package installs successfully.")
-                self.windows.autoLogin(self.config)
-                self.windows.restartOnLogon()
+                self.operatingSystem.autoLogin(self.config)
+                self.operatingSystem.restartOnLogon()
                 self.writeProgress()
             self.install(packageList, abortIfTold)
             Logger.info("Install result: %s" % self.status)

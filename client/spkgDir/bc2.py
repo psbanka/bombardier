@@ -1,10 +1,8 @@
-#!/cygdrive/c/Python24/python.exe
+#!/usr/local/bin/python2.4
 
-# ReconcileThread.py: This module is responsible for threading
-# activity related to running a Bombardier session. This could
-# probably be pulled out and placed in BombardierClass.py, but it
-# seems ok where it is.
-
+# bc2.py: This module is essentially a hacked version of 
+# ReconcileThread.py, and is meant to be run on a linux machine.
+# It could use some refinement, but seems to work now.
 # Copyright (C) 2005 Peter Banka
 
 # This program is free software; you can redistribute it and/or
@@ -24,46 +22,44 @@
 
 import threading, sys, traceback, StringIO, random, time
 
-from staticData import *
-import Logger, Filesystem, Exceptions
+from bombardier.staticData import *
+from bombardier.Logger import logger, addStdErrLogging
+import bombardier.Filesystem, bombardier.Exceptions
+
+try:
+    import yaml
+    import pycurl
+except ImportError:
+    print "Error: python libraries are not installed. Need yaml and pycurl"
+    sys.exit(1)
 
 # ======================== Worker thread
 
 class ReconcileThread(threading.Thread):
     
     def __init__(self, command, commSocketFromService, commSocketToService,
-                 config, server, windows, filesystem, bombardier):
+                 config, server, operatingSystem, filesystem, bombardier):
         threading.Thread.__init__(self)
         self.command    = command
         self.config     = config
         self.server     = server
-        self.windows    = windows
+        self.operatingSystem    = operatingSystem
         self.filesystem = filesystem
         self.bombardier = bombardier
         self.id      = random.randint(0,10000)
         self.commSocketToService   = commSocketToService
         self.commSocketFromService = commSocketFromService
-        Logger.info("========== Starting thread ID %s..." % self.id)
+        logger.info("========== Starting thread ID %s..." % self.id)
         self.config.automated = False
         
     def run(self):
         status = OK
         try: 
-            self.windows.CoInitialize()
-            #^^^ This runs bombardier in a thread. Instead, this needs to determine if it should run
-            #^^^ Bombardier or not. If so, gank the system. Perhaps there should be a configuration
-            #^^^ option. Or not. I need to make a hard choice, maybe. I hate that. Ok, so this is
-            #^^^ going to just kick the system in the ass if it needs to do installation work. But
-            #^^^ what about workstations? I guess we have to give those up; never really worked
-            #^^^ for crap on workstations. Face it-- this is a server deployment system. We need
-            #^^^ some new methods in the bombardierClass to determine if the system should
-            #^^^ get the boot.
-            
             if self.command == CHECK or self.command == AUTOMATED:
-                #Logger.info("In Check Thread, calling reconcileSystem")
+                #logger.info("In Check Thread, calling reconcileSystem")
                 status = self.bombardier.reconcileSystem(self.commSocketFromService.testStop)
             elif self.command == VERIFY:
-                #Logger.info("In Verify Thread, calling verifySystem")
+                #logger.info("In Verify Thread, calling verifySystem")
                 results = self.bombardier.verifySystem(self.commSocketFromService.testStop)
                 status  = OK
                 if type(results) != type({}):
@@ -75,14 +71,14 @@ class ReconcileThread(threading.Thread):
                 self.server.nagiosLog(status, results)
 
             if status == OK:
-                Logger.info("========== ENDING thread ID %s:OK " % (self.id))
+                logger.info("========== ENDING thread ID %s:OK " % (self.id))
                 self.filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", self.server)
             else:
                 ermsg = "========== ENDING thread ID %s:FAIL " % (self.id)
                 self.filesystem.updateCurrentStatus(ERROR, "Error installing", self.server)
-                Logger.info(ermsg)
+                logger.info(ermsg)
                 self.filesystem.warningLog("Error installing", self.server)
-        except Exceptions.ServerUnavailable, e:
+        except bombardier.Exceptions.ServerUnavailable, e:
             self.commSocketToService.sendStop()
             self.filesystem.clearLock()
             self.filesystem.updateCurrentStatus(ERROR, "Cannot communicate with server", self.server)
@@ -96,34 +92,39 @@ class ReconcileThread(threading.Thread):
             data = e.read()
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
-            Logger.critical(ermsg)
+            logger.critical(ermsg)
             self.filesystem.updateCurrentStatus(ERROR, "Unhandled exception encountered", self.server)
             return
-        Logger.info("stopped thread")
+        logger.info("stopped thread")
         self.commSocketToService.sendStop()
 
 def runWithoutService():
-    import Config, Windows, Server, CommSocket
-    import Repository, BombardierClass, Exceptions
+    import bombardier.Config, bombardier.OperatingSystem, bombardier.Server, bombardier.CommSocket
+    import bombardier.Repository, bombardier.BombardierClass
 
-    Logger.addStdErrLogging()
-    filesystem = Filesystem.Filesystem()
+    addStdErrLogging()
+    filesystem = bombardier.Filesystem.Filesystem()
     filesystem.clearLock()
-    server = Server.Server(filesystem)
-    config = Config.Config(filesystem, server, Windows.Windows())
+    server = bombardier.Server.Server(filesystem)
+    config = bombardier.Config.Config(filesystem, server, bombardier.OperatingSystem.OperatingSystem())
     try:
         config.freshen()
-    except Exceptions.ServerUnavailable, e:
+    except bombardier.Exceptions.ServerUnavailable, e:
         print "Cannot connect to server (%s)" % e
         sys.exit(1)
-    windows = Windows.Windows()
-    cs1 = CommSocket.CommSocket()
-    cs2 = CommSocket.CommSocket()
+    if sys.platform == "linux2":
+        import bombardier.Linux
+        operatingSystem = bombardier.Linux.Linux()
+    else:
+        import bombardier.Windows
+        operatingSystem = bombardier.Windows.Windows()
+    cs1 = bombardier.CommSocket.CommSocket()
+    cs2 = bombardier.CommSocket.CommSocket()
 
-    repository = Repository.Repository(config, filesystem, server)
+    repository = bombardier.Repository.Repository(config, filesystem, server)
     repository.getPackageData()
-    bombardier = BombardierClass.Bombardier(repository, config, filesystem, server, windows)
-    reconcileThread = ReconcileThread(CHECK, cs1, cs2, config, server, windows, filesystem, bombardier)
+    bombardier = bombardier.BombardierClass.Bombardier(repository, config, filesystem, server, operatingSystem)
+    reconcileThread = ReconcileThread(CHECK, cs1, cs2, config, server, operatingSystem, filesystem, bombardier)
     reconcileThread.run()
         
 if __name__ == "__main__":

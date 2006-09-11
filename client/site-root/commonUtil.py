@@ -44,30 +44,36 @@ getProgressData = filesystem.getProgressData
 stripVersion = miniUtility.stripVersion
 system = filesystem.execute
     
-import bombardier.Windows
-windows = bombardier.Windows.Windows()
-getWindowsType = windows.getWindowsType
-testCredentials = windows.testCredentials
-findUser = windows.findUser
-checkForKey = windows.checkForKey
-makeKeys = windows.makeKeys
-getDc = windows.getDc
-AdjustPrivilege = windows.AdjustPrivilege
-mkServiceUser = windows.mkServiceUser
-rmServiceUser = windows.rmServiceUser
-adjustPrivilege = windows.adjustPrivilege
-rebootSystem = windows.rebootSystem
-abortReboot = windows.abortReboot
-#from serviceUtil:
-startService = windows.startService
-stopService = windows.stopService
-restartService = windows.restartService
-evalStatus = windows.evalStatus
-getRunKey = windows.getRunKey
-restartOnLogon = windows.restartOnLogon
-noRestartOnLogon = windows.noRestartOnLogon
-createScriptUser = windows.createScriptUser
-removeScriptUser = windows.removeScriptUser
+if sys.platform != "linux2":
+    import bombardier.Windows
+    windows = bombardier.Windows.Windows()
+    operatingSystem = windows
+    getWindowsType = windows.getWindowsType
+    testCredentials = windows.testCredentials
+    findUser = windows.findUser
+    checkForKey = windows.checkForKey
+    makeKeys = windows.makeKeys
+    getDc = windows.getDc
+    AdjustPrivilege = windows.AdjustPrivilege
+    mkServiceUser = windows.mkServiceUser
+    rmServiceUser = windows.rmServiceUser
+    adjustPrivilege = windows.adjustPrivilege
+    rebootSystem = windows.rebootSystem
+    abortReboot = windows.abortReboot
+    #from serviceUtil:
+    startService = windows.startService
+    stopService = windows.stopService
+    restartService = windows.restartService
+    evalStatus = windows.evalStatus
+    getRunKey = windows.getRunKey
+    restartOnLogon = windows.restartOnLogon
+    noRestartOnLogon = windows.noRestartOnLogon
+    createScriptUser = windows.createScriptUser
+    removeScriptUser = windows.removeScriptUser
+else:
+    import bombardier.Linux
+    linux = bombardier.Linux.Linux()
+    operatingSystem = linux
 
 import bombardier.Logger as Logger
 logger = Logger.Logger()
@@ -81,7 +87,7 @@ wgetMultiple = server.wgetMultiple
 nagiosLog = server.nagiosLog
 
 import bombardier.Config as Config
-config = Config.Config(filesystem, server, windows)
+config = Config.Config(filesystem, server, operatingSystem)
 try:
     config.freshen()
 except Exceptions.ServerUnavailable, e:

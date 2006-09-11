@@ -29,12 +29,12 @@ from staticData import *
 class PackageChain:
     def __init__(self, priority, startPackageName, packages,
                  installedPackageNames, brokenPackageNames, repository,
-                 config, filesystem, server, windows):
+                 config, filesystem, server, operatingSystem):
         self.priority   = priority
         self.packages   = packages
         self.filesystem = filesystem
         self.server     = server
-        self.windows    = windows
+        self.operatingSystem    = operatingSystem
         self.chain      = [startPackageName]
         self.repository = repository
         self.config     = config
@@ -109,7 +109,7 @@ class PackageChain:
 
     def getNewPackage( self, pkgName ):
         newPackage = Package.Package(pkgName, self.repository, self.config, 
-                                     self.filesystem, self.server, self.windows) 
+                                     self.filesystem, self.server, self.operatingSystem) 
         newPackage.initialize()
         return newPackage
 
@@ -148,13 +148,15 @@ def nop():
 class Bombardier:
 
     def __init__(self, repository, config, 
-                 filesystem, server, windows):
+                 filesystem, server, operatingSystem):
         self.repository = repository
         self.config     = config
         self.filesystem = filesystem
         self.server     = server
-        self.windows    = windows
+        self.operatingSystem    = operatingSystem
         self.testStop   = nop
+        self.addPackages = {}
+        self.delPackages = {}
         
     ### TESTED
     def dependenciesInstalled(self, bomPackageNames):
@@ -177,13 +179,13 @@ class Bombardier:
 
     ### WON'T BE TESTED
     def handleConsole(self, package):
-        if self.windows.testConsole() == FAIL:
+        if self.operatingSystem.testConsole() == FAIL:
             self.filesystem.updateCurrentStatus(IDLE, "Rebooting for console", self.server)
             erstr = "Logging in for console access "\
                     "for package %s..." % (package.name)
             Logger.info(erstr)
             self.filesystem.clearLock()
-            status = self.windows.autoLogin(self.config)
+            status = self.operatingSystem.autoLogin(self.config)
             if status == FAIL:
                 ermsg = "Cannot gain console access because this system "\
                         "does not have valid login credentials."
@@ -192,18 +194,18 @@ class Bombardier:
                                                     self.server)
                 self.filesystem.warningLog(ermsg, self.server)
                 return FAIL
-            self.windows.restartOnLogon()
-            self.windows.rebootSystem(message="Rebooting to gain console access")
+            self.operatingSystem.restartOnLogon()
+            self.operatingSystem.rebootSystem(message="Rebooting to gain console access")
         return OK
 
     ### WON'T BE TESTED
-    def rebootForMoreInstallation(self, package, packages):
+    def rebootForMoreInstallation(self, package):
         self.filesystem.clearLock()
-        if packages:
+        if self.addPackages:
             erstr = "Setting system to auto-login "\
-                    "to process the following %s" % `packages.keys()`
+                    "to process the following %s" % `self.addPackages.keys()`
             Logger.info(erstr)
-            status = self.windows.autoLogin(self.config)
+            status = self.operatingSystem.autoLogin(self.config)
             if status == FAIL:
                 self.filesystem.updateCurrentStatus(ERROR,"ERROR: Cannot reboot system",
                                                     self.server)
@@ -212,10 +214,10 @@ class Bombardier:
                 Logger.error(ermsg)
                 self.filesystem.warningLog(ermsg, self.server)
                 return FAIL
-            self.windows.restartOnLogon()
+            self.operatingSystem.restartOnLogon()
         else:
-            self.windows.noAutoLogin()
-            self.windows.noRestartOnLogon()
+            self.operatingSystem.noAutoLogin()
+            self.operatingSystem.noRestartOnLogon()
         if package.autoReboot:
             self.filesystem.updateCurrentStatus(IDLE, "Waiting for reboot", self.server)
             erstr = "Waiting for package %s to reboot "\
@@ -224,21 +226,21 @@ class Bombardier:
         else:
             self.filesystem.updateCurrentStatus(IDLE, "Rebooting to continue install",
                                                 self.server)
-            self.windows.rebootSystem(message="Rebooting after installing %s" % package.fullName)
+            self.operatingSystem.rebootSystem(message="Rebooting after installing %s" % package.fullName)
         return OK
 
 
     ### WON'T BE TESTED
-    def checkReboot(self, package, packages):
+    def checkReboot(self, package):
         self.abortIfTold()
         if package.action == INSTALL and (package.reboot or package.autoReboot):
-            if not packages:
+            if not self.addPackages:
                 erstr = "Setting system NOT to auto-login "\
                         "because all packages are processed."
                 Logger.info(erstr)
                 self.filesystem.updateCurrentStatus(IDLE, "Idle", self.server)
                 self.cleanup(OK, logmessage="Rebooting system to continue installation")
-            self.rebootForMoreInstallation(package, packages)
+            self.rebootForMoreInstallation(package)
 
     ### TESTED
     def inMaintenanceWindow(self):
@@ -303,7 +305,7 @@ class Bombardier:
                                         installedPackageNames, brokenPackageNames,
                                         self.repository,
                                         self.config, self.filesystem,
-                                        self.server, self.windows)
+                                        self.server, self.operatingSystem)
             except Exceptions.BadPackage, e:
                 errmsg = "Package %s will not be installed because it is "\
                          "dependent upon one or more broken packages" % packageName
@@ -381,20 +383,24 @@ class Bombardier:
         return output
 
     # TESTED
-    def installPackages(self, packages):
+    def installPackages(self):
         makingProgress = True
         packagesLeft = ['initialize']
         while makingProgress == True and packagesLeft:
+            Logger.debug("--------0")
             makingProgress = False
-            installList = self.installList(packages)
+            #Logger.debug("--------0.1 %s" % self.addPackages)
+            installList = self.installList(self.addPackages)
+            Logger.debug("--------0.2 %s" % installList)
             packagesLeft = []
             [ packagesLeft.append(x) for x in installList ]
             for packageName in installList:
+                Logger.debug("-------- %s" % packageName)
                 Logger.info("Packages remaining to install: %s" % packagesLeft)
                 detailedTodos = self.getDetailedTodolist(packagesLeft)
                 packagesLeft.remove(packageName)
                 self.abortIfTold()
-                package = packages[packageName]
+                package = self.addPackages[packageName]
                 self.filesystem.updateProgress({"todo": detailedTodos}, self.server, True)
                 self.filesystem.updateProgress({"status": {"package":packageName}},
                                                self.server, fastUpdate=True)
@@ -413,9 +419,9 @@ class Bombardier:
                     errmsg = "Rebooting prior to installing package %s" % package.name
                     self.filesystem.updateCurrentStatus(WARNING, errmsg, self.server)
                     self.filesystem.clearLock()
-                    status = self.windows.autoLogin(self.config)
-                    self.windows.restartOnLogon()
-                    self.windows.rebootSystem(message="Rebooting for a fresh start")
+                    status = self.operatingSystem.autoLogin(self.config)
+                    self.operatingSystem.restartOnLogon()
+                    self.operatingSystem.rebootSystem(message="Rebooting for a fresh start")
                 status = package.process(self.abortIfTold, installList)
                 self.config.freshStart = False
                 if status == REBOOT:
@@ -423,7 +429,7 @@ class Bombardier:
                                    "reboot after installing..." % package)
                     self.filesystem.updateCurrentStatus(WARNING, "Rebooting after package %s" % package.name,
                                                         self.server)
-                    self.rebootForMoreInstallation(package, packages)
+                    self.rebootForMoreInstallation(package)
                 if status == FAIL:
                     erstr = "Package installation failure -- re-calculating package installation order"
                     self.filesystem.updateCurrentStatus(ERROR, "Bad package %s" % package.name,
@@ -432,7 +438,7 @@ class Bombardier:
                     continue
                 else:
                     makingProgress = True
-                self.checkReboot(package, packages)
+                self.checkReboot(package)
         if packagesLeft:
             Logger.error("There are packages that are broken, and we have done all we can do.")
             return FAIL
@@ -460,13 +466,13 @@ class Bombardier:
                         "uninstallation failure"
                 Logger.error(erstr)
                 return FAIL
-            self.checkReboot(package, packages)
+            self.checkReboot(package)
         return OK
 
     ### WON'T BE TESTED
     def cleanup(self, status, logmessage=''):
-        self.windows.noRestartOnLogon()
-        self.windows.noAutoLogin()
+        self.operatingSystem.noRestartOnLogon()
+        self.operatingSystem.noAutoLogin()
         if status == FAIL:
             self.filesystem.updateCurrentStatus(ERROR, logmessage, self.server,
                                                 fastUpdate=True)
@@ -480,7 +486,7 @@ class Bombardier:
             errmsg = "Rebooting after auto-logon..."
             Logger.info(errmsg)
             self.abortIfTold()
-            self.windows.rebootSystem(message = errmsg)
+            self.operatingSystem.rebootSystem(message = errmsg)
         return OK
 
     ### TESTED
@@ -490,7 +496,7 @@ class Bombardier:
             try:
                 newPackage = Package.Package(packageName, self.repository,
                                              self.config, self.filesystem,
-                                             self.server, self.windows)
+                                             self.server, self.operatingSystem)
                 newPackage.initialize()
                 packages[packageName] = newPackage
             except Exceptions.BadPackage, e:
@@ -515,7 +521,7 @@ class Bombardier:
             try:
                 newPackage = Package.Package(packageName, self.repository,
                                              self.config, self.filesystem,
-                                             self.server, self.windows)
+                                             self.server, self.operatingSystem)
                 newPackage.initialize()
             except Exceptions.BadPackage, e:
                 errmsg = "Skipping Bad package: %s" % `e`
@@ -538,7 +544,7 @@ class Bombardier:
                                  "ignoring" % packageName)
                     continue # already know that one will be deleted
                 package = Package.Package(packageName, self.repository, self.config, 
-                                          self.filesystem, self.server, self.windows)
+                                          self.filesystem, self.server, self.operatingSystem)
                 package.initialize()
                 package.action = UNINSTALL
                 for tombstonedPackageName in packages.keys():
@@ -631,7 +637,7 @@ class Bombardier:
             try:
                 shortPackageName = miniUtility.stripVersion(fullPackageName)
                 package = Package.Package(shortPackageName, self.repository, self.config,
-                                          self.filesystem, self.server, self.windows)
+                                          self.filesystem, self.server, self.operatingSystem)
                 package.initialize()
             except Exceptions.BadPackage, e:
                 errmsg = "Not testing %s (%s)" % (fullPackageName, e)
@@ -661,11 +667,11 @@ class Bombardier:
             self.filesystem.updateCurrentStatus(IDLE, "Aborted last action", self.server)
             raise Exceptions.StoppedExecution
 
-    ### TESTED
-    def reconcileSystem(self, testStop, packageNames = None):
+    def checkInstallationStatus(self, testStop, packageNames = None):
+        self.testStop     = testStop
+        self.packageNames = packageNames
+        spkgPath          = miniUtility.getSpkgPath()
         self.server.clearCache()
-        self.testStop = testStop
-        spkgPath = miniUtility.getSpkgPath()
         pkgGroups,individualPackageNames  = self.config.getPackageGroups()
         if not self.inMaintenanceWindow():
             erstr = "Currently a maintenance window: no activity will take place"
@@ -675,35 +681,41 @@ class Bombardier:
             return self.cleanup(FAIL)
         self.abortIfTold()
         self.filesystem.chdir(spkgPath)
-        if packageNames == None:
+        if self.packageNames == None:
             Logger.debug("Downloading BOM")
-            packageNames = self.downloadBom(pkgGroups)
-            packageNames += individualPackageNames
+            self.packageNames = self.downloadBom(pkgGroups)
+            self.packageNames += individualPackageNames
         self.abortIfTold()
-        addPackageNames, delPackageNames = self.checkBom(packageNames)
-        addPackages = self.getPackagesToAdd(addPackageNames)
+        addPackageNames, delPackageNames = self.checkBom(self.packageNames)
+        self.addPackages = self.getPackagesToAdd(addPackageNames)
         try:
-            delPackages = self.getPackagesToRemove(delPackageNames)
+            self.delPackages = self.getPackagesToRemove(delPackageNames)
         except Exceptions.BadPackage, e:
             logmessage = "Halting: there are packages installed that cannot be removed"
             logmessage += `e`
             return self.cleanup(OK, logmessage)
         self.abortIfTold()
-        Logger.info("Packages to install: %s" % addPackages.keys())
-        Logger.info("Packages to remove: %s" % delPackages.keys())
-        status = OK
-        if delPackages.keys():
-            status = self.uninstallPackages(delPackages)
+        Logger.info("Packages to install: %s" % self.addPackages.keys())
+        Logger.info("Packages to remove: %s" % self.delPackages.keys())
+        return OK
+
+    ### TESTED
+    def reconcileSystem(self, testStop, packageNames = None):
+        status = self.checkInstallationStatus(testStop, packageNames)
+        if status != OK:
+            return self.cleanup(status)
+        if self.delPackages.keys():
+            status = self.uninstallPackages(self.delPackages)
         if status == FAIL:
             errmsg = "Uninstallation failed. Not continuing with "\
-                     "installation of %s" % addPackages
+                     "installation of %s" % self.addPackages
             Logger.error(errmsg)
             return self.cleanup(FAIL, logmessage="Finished installing (ERRORS ENCOUNTERED).")
         self.abortIfTold()
-        addPackageNames, delPackageNames = self.checkBom(packageNames)
+        addPackageNames, delPackageNames = self.checkBom(self.packageNames)
         self.abortIfTold()
         addPackages = self.getPackagesToAdd(addPackageNames)
-        status = self.installPackages(addPackages) # I think the DRWatson exists in here...
+        status = self.installPackages() # I think the DRWatson exists in here...
         return self.cleanup(status, logmessage="Finished installing.")
 
 if __name__ == "__main__":

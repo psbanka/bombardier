@@ -153,14 +153,14 @@ class PackageTest(unittest.TestCase):
         package.uninstall(self.commSocket.testStop)
         assert package.status == FAIL, "uninstallation of a bogus package succeeded"
         calls = self.filesystem.getAllCalls()
-        assert len(calls) == 13, len(calls)
+        assert len(calls) == 14, `calls`
         assert `calls[3]`.startswith("isdir"), `calls[3]`
         assert `calls[4]`.startswith("isfile"), `calls[4]`
         assert `calls[5]` == "updateCurrentAction('Uninstalling...', 70, <UNPRINTABLE>)"
         assert `calls[6]`.startswith("isfile"), `calls[6]`
         assert `calls[7]`.startswith("isfile"), `calls[7]`
         assert `calls[8]`.startswith("isfile"), `calls[8]`
-        assert `calls[11]`.startswith("updateProgress")
+        assert `calls[12]`.startswith("updateProgress")
 
     def testUninstallOkPackage(self):
         self.repository.packages = {"pkg1": {"install": {"fullName": "testokpackage1-1"}}}
@@ -211,7 +211,7 @@ class PackageTest(unittest.TestCase):
         package.verify(self.commSocket.testStop)
         assert package.status == FAIL, "verification of a bogus package succeeded"
         calls = self.filesystem.getAllCalls()
-        assert len(calls) == 12, len(calls)
+        assert len(calls) == 13, len(calls)
         assert `calls[3]`.startswith("isdir"), `calls[3]`
         assert `calls[4]` == "updateCurrentAction('Verifying...', 90, <UNPRINTABLE>, fastUpdate=True)"
         assert `calls[5]`.startswith("isfile"), `calls[5]`
@@ -220,7 +220,9 @@ class PackageTest(unittest.TestCase):
         assert `calls[6]`.endswith("verify.bat')"), `calls[6]`
         assert `calls[7]`.startswith("isfile"), `calls[7]`
         assert `calls[7]`.endswith("verify.pl')"), `calls[7]`
-        assert `calls[10]`.startswith("updateProgress"), calls[10]
+        assert `calls[8]`.startswith("isfile"), `calls[7]`
+        assert `calls[8]`.endswith("verify.sh')"), `calls[7]`
+        assert `calls[11]`.startswith("updateProgress"), calls[10]
 
     def testVerifyOkPackage(self):
         self.repository.packages = {"pkg1": {"install": {"fullName": "testokpackage-1"}}}
