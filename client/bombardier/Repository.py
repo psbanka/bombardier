@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.41-179
 
 # Repository.py: This module is responsible for keeping track of
 # packages on the repository, downloading them, extracting them, etc.
@@ -42,7 +43,7 @@ class Repository:
     # TESTED
     def getPackageData(self):
         #Logger.debug("Downloading package data...")
-        self.packages = self.server.serviceYamlRequest("deploy/packages.yml")
+        self.packages = self.server.serviceYamlRequest("deploy/packages/packages.yml")
 
     # TESTED
     def getFullPackageNames(self):
@@ -68,11 +69,11 @@ class Repository:
                 "%s..." % (fullPackageName, self.server.serverData["address"])
         Logger.info(erstr)
         if type(checksum) != type(["list"]):
-            status = self.server.wget("/deploy", fullPackageName+".spkg",
+            status = self.server.wget("/deploy/packages/", fullPackageName+".spkg",
                                       destDir=miniUtility.getPackagePath(),
                                       checksum=checksum, abortIfTold=abortIfTold)
         else:
-            status = self.server.wgetMultiple("/deploy", fullPackageName+".spkg", 
+            status = self.server.wgetMultiple("/deploy/packages/", fullPackageName+".spkg", 
                                               destDir=miniUtility.getPackagePath(),
                                               checksumList=checksum, abortIfTold=abortIfTold)
         if status == FAIL:

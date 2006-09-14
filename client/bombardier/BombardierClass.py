@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.41-179
 
 # BombardierClass.py: This is the central focal point of most of the
 # activities of this software. The reconcileSystem method kicks off
@@ -578,9 +579,8 @@ class Bombardier:
         spkgPath = miniUtility.getSpkgPath()
         self.writeSystemType(pkgGroups)
         if pkgGroups == []:
-            errmsg = "No packages configured for this system"
-            self.filesystem.clearLock()
-            raise Exceptions.BadBillOfMaterials(errmsg)
+            errmsg = "No package groups configured for this system"
+            return []
         packageNames = sets.Set([])
         for pkgGroup in pkgGroups:
             try:
@@ -672,6 +672,7 @@ class Bombardier:
         self.packageNames = packageNames
         spkgPath          = miniUtility.getSpkgPath()
         self.server.clearCache()
+        Logger.debug( ">>>>>>>>> %s " % self.config.data )
         pkgGroups,individualPackageNames  = self.config.getPackageGroups()
         if not self.inMaintenanceWindow():
             erstr = "Currently a maintenance window: no activity will take place"
@@ -686,6 +687,9 @@ class Bombardier:
             self.packageNames = self.downloadBom(pkgGroups)
             self.packageNames += individualPackageNames
         self.abortIfTold()
+        if self.packageNames == []:
+            self.filesystem.clearLock()
+            raise Exceptions.BadBillOfMaterials(errmsg)
         addPackageNames, delPackageNames = self.checkBom(self.packageNames)
         self.addPackages = self.getPackagesToAdd(addPackageNames)
         try:

@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.41-179
 
 # Config.py: This class provides the functionality of providing
 # heirarchichal configuration data through either a dictionary
@@ -81,10 +82,11 @@ class Config(dict):
     def getPackageGroups(self):
         groups   = []
         packages = []
-        if self.data.has_key("packageGroups"):
-            groups = self.data["packageGroups"]
+        if self.data.has_key("bom"):
+            groups = self.data["bom"]
         if self.data.has_key("packages"):
             packages = self.data["packages"]
+            Logger.debug("PACKAGES: %s" % packages)
         return groups, packages
 
     ### TESTED
