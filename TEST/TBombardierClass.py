@@ -122,11 +122,10 @@ class BombardierTest(unittest.TestCase):
         assert len(scalls) == 0, `scalls`
         fcalls = self.filesystem.getAllCalls()
         wcalls = self.windows.getAllCalls()
-        assert len(fcalls) == 3, fcalls
+        assert len(fcalls) == 2, fcalls
         assert `fcalls[0]` == "updateCurrentAction('Downloading "\
                "Bill of Materials...', 0, <UNPRINTABLE>)", `fcalls`
         assert `fcalls[1]`.startswith("open")
-        assert `fcalls[2]`.startswith("clearLock()"), `fcalls[2]`
         assert len(wcalls) == 0, `wcalls`
         
     def testDownloadBomMultiple(self):
