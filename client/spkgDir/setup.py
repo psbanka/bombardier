@@ -31,29 +31,31 @@ Prequisites:
 
 def install(spkgPath):
     noFileWarningTemplate = "Warning! %s/%s does not exist. Not copying." 
-    system32Path = os.path.join( os.environ['WINDIR'], "system32" )
     for inode in os.listdir("."):
         if os.path.isfile(inode):
             sys.stdout.write( "copying %s -> %s\n" % (inode, spkgPath) )
             shutil.copy(inode, os.path.join(spkgPath, inode))
         else:
             print noFileWarningTemplate % (os.getcwd(), inode)
-    for f in [ "msvcr71.dll", "mfc71.dll" ]:
-        if os.path.isfile( f ):
-            if not os.path.isfile( os.path.join( system32Path, f ) ):
-                sys.stdout.write( "copying %s -> %s\n" % ( f, system32Path ) )
-                shutil.copy( f, os.path.join( system32Path, f ) )
-        else:
-            print noFileWarningTemplate % ( os.getcwd(), f )
 
-    startDir = os.getcwd()
-    regSvr = os.path.join(system32Path, "regsvr32.exe")
-    dlls = ["AutoItX3.dll", "InstallTools.dll"]
-    for dll in dlls:
-        os.system("%s /s %s" % (regSvr, dll))
+    if sys.platform == "win32":
+        system32Path = os.path.join( os.environ['WINDIR'], "system32" )
+        for f in [ "msvcr71.dll", "mfc71.dll" ]:
+            if os.path.isfile( f ):
+                if not os.path.isfile( os.path.join( system32Path, f ) ):
+                    sys.stdout.write( "copying %s -> %s\n" % ( f, system32Path ) )
+                    shutil.copy( f, os.path.join( system32Path, f ) )
+            else:
+                print noFileWarningTemplate % ( os.getcwd(), f )
+
+        startDir = os.getcwd()
+        regSvr = os.path.join(system32Path, "regsvr32.exe")
+        dlls = ["AutoItX3.dll", "InstallTools.dll"]
+        for dll in dlls:
+            os.system("%s /s %s" % (regSvr, dll))
+        os.chdir(startDir)
 
     sys.stdout.write("Successfully updated spkg.\n")
-    os.chdir(startDir)
 
 if __name__ == "__main__":
     try:
