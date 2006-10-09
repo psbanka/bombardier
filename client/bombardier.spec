@@ -3,7 +3,7 @@ Packager:  	Peter Banka <peter.banka@ge.com>
 
 Summary:   	An open-source package manager for Windows and Linux
 Name:      	bombardier
-Version:   	$BOMBARDIER_VERSION
+Version:   	
 Release:   	1
 Requires: 	python pyyaml pycurl
 License: 	GNU/GPL
