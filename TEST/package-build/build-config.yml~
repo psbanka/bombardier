@@ -1,0 +1,10 @@
+---
+server:
+    rootPath: "d:/mydocuments/dev/bombardier-svn/trunk/TEST/server-directory/"
+    deployPath: "d:/mydocuments/dev/bombardier-svn/trunk/TEST/server-directory/deploy/"
+site:
+    tmpPath: c:/temp
+svn:
+    root: file:///d:/mydocuments/dev/bombardier-svn/trunk/TEST/package-build/svn/scripts
+    username: -
+    password: -

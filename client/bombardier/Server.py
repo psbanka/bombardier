@@ -107,6 +107,8 @@ def prepareCurlObject(url, serverData):
     c.setopt(pycurl.FAILONERROR, 1)
     c.setopt(pycurl.FOLLOWLOCATION, 1)
     c.setopt(pycurl.MAXREDIRS, 4)
+    if serverData.has_key("header"):
+        c.setopt(pycurl.HTTPHEADER, [serverData["header"]])
     if serverData.has_key("username") and serverData.has_key("password"):
         c.setopt(pycurl.USERPWD, "%s:%s" % (serverData["username"],serverData["password"]))
         #c.setopt(pycurl.HTTPAUTH, pycurl.HTTPAUTH_ANYSAFE)

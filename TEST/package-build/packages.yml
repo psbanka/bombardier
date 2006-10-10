@@ -13,6 +13,16 @@ test:
         md5sum: b50afbbb77e37cf26074615c4a23de58
         priority: '150'
         reboot: FALSE
+testPackage:
+    config: {}
+    dependencies: {}
+    install:
+        autoreboot: FALSE
+        console: TRUE
+        fullName: testPackage-3
+        md5sum: '70b742c55542768de59fda3fca84f337'
+        priority: '70'
+        reboot: TRUE
 testbadpackage1:
     dependencies: {}
     install:

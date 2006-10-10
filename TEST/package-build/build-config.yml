@@ -1,0 +1,9 @@
+---
+server:
+#    address: "file:///d:/mydocuments/dev/bombardier-svn/trunk/TEST/server-directory"
+    address: "http://172.17.50.56"
+    header: "Expect:"
+site:
+    tmpPath: c:/temp
+svn:
+    root: file:///d:/mydocuments/dev/bombardier-svn/trunk/TEST/package-build/svn/scripts

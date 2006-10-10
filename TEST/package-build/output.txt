@@ -1,0 +1,4 @@
+A    c:/temp/testPackage-4/scripts
+A    c:/temp/testPackage-4/scripts/TestPackage.py
+A    c:/temp/testPackage-4/scripts/package.ini
+Exported revision 3.
