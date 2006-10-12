@@ -12,17 +12,35 @@ import ConfigParser
 import bombardier.Server as Server
 import bombardier.Filesystem as Filesystem
 
+PACKAGES_FILE = "packages.yml"
+PACKAGES_PATH = "deploy/packages/"
+
+OK          = 0
+FAIL        = 1
+
 def getChecksum( fullPath ):
     fp = open( fullPath, 'rb' )
     checkSum = md5.new( fp.read() ).hexdigest()
     fp.close()
     return( checkSum )
 
-PACKAGES_FILE = "packages.yml"
-PACKAGES_PATH = "deploy/packages/"
+def findClassName():
+    ignoredList = ["installer.py", "uninstaller.py", "configure.py", "verify.py"]
+    for filename in os.listdir('.'):
+        if filename.endswith(".py"):
+            if filename not in ignoredList:
+                print "Class file: %s" % filename[:-3]
+                return filename[:-3]
+    return ''
 
-OK          = 0
-FAIL        = 1
+class MockConfig:
+    def __init__(self):
+        self.requests = {}
+    def get(self, section, option, default=""):
+        if not self.requests.has_key(section):
+            self.requests[section] = {}
+        self.requests[section][option] = default
+        return default
 
 class PackageCreationThread:
 
@@ -64,28 +82,45 @@ class PackageCreationThread:
 
     def updateMetaData(self):
         iniPath = os.path.join(self.destDir,'scripts','package.ini')
-        if not os.path.isfile(iniPath):
-            self.errors.append("%s file does not exist" % iniPath)
-            return FAIL
-        packageData = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE)
-        d = {}
-        configParser = ConfigParser.ConfigParser()
-        configParser.read(iniPath)
-        for section in configParser.sections():
-            d[section] = {}
-            for option in configParser.options(section):
-                d[section][option] =  configParser.get(section, option)
-        d['install']['fullName'] = self.fullname
         checksum = getChecksum(self.spkg)
-        d['install']['md5sum'] = checksum
+        metadata = {}
+        if os.path.isfile(iniPath):
+            print "processing metadata for a type 1 package..."
+            configParser = ConfigParser.ConfigParser()
+            configParser.read(iniPath)
+            for section in configParser.sections():
+                metadata[section] = {}
+                for option in configParser.options(section):
+                    metadata[section][option] =  configParser.get(section, option)
+            metadata['package-version'] = 1
+        else:
+            print "processing metadata for a type 2 or greater package"
+            os.chdir(self.fullname+'/'+'scripts')
+            className = findClassName()
+            sys.path.append('.')
+            exec("import %s as Pkg" % className )
+            os.chdir(self.config["site"]["tmpPath"])
+            if not hasattr(Pkg, "metadata"):
+                self.warnings.append("Package does not contain any metadata")
+            else:
+                metadata = Pkg.metadata
+            config = MockConfig()
+            exec ('object = Pkg.%s(config)' % className)
+            metadata['configuration'] = config.requests
+
+        metadata['install']['fullName'] = self.fullname
+        metadata['install']['md5sum'] = checksum
+        packageData = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE)
         print "amending %s for %s" % (PACKAGES_FILE, self.packageName)
         try:
-            packageData[self.packageName] = d
+            packageData[self.packageName] = metadata
         except Exception, e:
             self.errors.append("unable to modify metadata database: %s" % e)
             return FAIL
-        status = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE, packageData)
-        self.verifyYamlData(packageData)
+        print ">>>>>>>",yaml.dump(packageData)
+        status = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE, putData=packageData)
+        if status == OK:
+            status = self.verifyYamlData(packageData)
         return status
 
     def createTarball(self):

@@ -490,6 +490,13 @@ class Bombardier:
             self.operatingSystem.rebootSystem(message = errmsg)
         return OK
 
+    def checkConfiguration(self, package):
+        if package.metaData.has_key("configuration"):
+            requiredConfigs = package.metaData["configuration"]
+            if miniUtility.compareDicts(requiredConfigs, self.config.data) == False:
+                return FAIL
+        return OK
+
     ### TESTED
     def getPackagesToAdd(self, addPackageNames):
         packages = {}
@@ -499,9 +506,14 @@ class Bombardier:
                                              self.config, self.filesystem,
                                              self.server, self.operatingSystem)
                 newPackage.initialize()
+                if self.checkConfiguration(newPackage) == FAIL:
+                    errmsg = "This machine does not have sufficient "\
+                             "configuration data to install this "\
+                             "package."
+                    raise Exceptions.BadPackage(newPackage.name, errmsg)
                 packages[packageName] = newPackage
             except Exceptions.BadPackage, e:
-                errmsg = "Skipping bad package: %s" % `e`
+                errmsg = "Skipping bad package %s: %s" % (e.packageName, e.errmsg)
                 Logger.warning(errmsg)
                 self.filesystem.warningLog(errmsg, self.server)
         return packages

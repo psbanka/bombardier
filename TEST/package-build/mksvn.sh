@@ -2,6 +2,7 @@
 
 tar -xzvf svn.tar.gz
 mkdir scripts
-BASE_DIR=$PWD
+svn co file://$PWD/svn/scripts
 cd scripts
-svn co file://$BASE_DIR/svn/scripts
+svn cleanup
+cd -

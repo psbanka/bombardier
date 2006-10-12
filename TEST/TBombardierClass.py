@@ -69,6 +69,31 @@ class BombardierTest(unittest.TestCase):
             assert packageName in packages, packageName
         assert len(wcalls) == 0
 
+    def testCheckConfiguration(self):
+        pkg1 = MockObjects.MockPackage()
+        pkg1.dependencies = ["pkg2"]
+        pkg1.priority = 200
+        metaData = MockObjects.MockMetaData({})
+        pkg1.metaData = metaData
+        status = self.bombardier.checkConfiguration(pkg1)
+        assert status == OK, "System does not have proper configuration"
+
+        data = {"configuration":
+                {"section1": {"item1":"spam","item2":"eggs"},
+                 "section2": {"item1":"foo"}}
+                }
+        metaData = MockObjects.MockMetaData(data)
+        pkg1.metaData = metaData
+        status = self.bombardier.checkConfiguration(pkg1)
+        assert status == FAIL, "System does not know its configuration is wrong"
+
+        self.config.data = {"section1": {"item1": "foo", "item2": "bar", "item3": "baz"},
+                            "section2": {"item1": 3},
+                            "section3": {"item1": "cheeze"}}
+        status = self.bombardier.checkConfiguration(pkg1)
+        assert status == OK, "System does not know its configuration is correct"
+
+
     def testBogusDependency(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
                          "dependencies": {"dep0":"pkg2"}},
@@ -216,6 +241,24 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.repository = repository
         packages = self.bombardier.getPackagesToAdd(["pkg9", "pkg1", "pkg2", "pkg5"])
         assert packages.keys() == ["pkg5"], packages.keys()
+
+    def testGetPackagesToAdd3(self):
+        data = {"pkg1": {"configuration": {"section1": {"item1": "foo"},
+                                           "section2": {"item1": 3},
+                                           "section3": {"item1": "cheeze"}},
+                         "install": {"fullName": "pkg1-1"}}}
+        repository = MockObjects.MockRepository(data)
+        self.bombardier.repository = repository
+        packages = self.bombardier.getPackagesToAdd(["pkg1"])
+        assert packages.keys() == [], packages.keys()
+
+
+        self.bombardier.config.data = {"section1": {"item1": "foo", "item2": "bar", "item3": "baz"},
+                                       "section2": {"item1": 3},
+                                       "section3": {"item1": "cheeze"}}
+        packages = self.bombardier.getPackagesToAdd(["pkg1"])
+        assert packages.keys() == ["pkg1"], packages.keys()
+        
 
     def testGetPackagesToRemove1(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
@@ -1028,7 +1071,8 @@ if __name__ == "__main__":
     #suite.addTest(BombardierTest("testReconcileSystemWithDependencies"))
     #suite.addTest(BombardierTest("testGetPackagesToRemove1"))
     #suite.addTest(BombardierTest("testVerifySystem1"))
-    #suite.addTest(BombardierTest("testCheckInstallationStatus"))
-    suite.addTest(unittest.makeSuite(BombardierTest))
+    #suite.addTest(BombardierTest("testCheckConfiguration"))
+    suite.addTest(BombardierTest("testGetPackagesToAdd3"))
+    #suite.addTest(unittest.makeSuite(BombardierTest))
     unittest.TextTestRunner(verbosity=2).run(suite)
     tcommon.unsetForTest()

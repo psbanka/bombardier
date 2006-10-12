@@ -28,6 +28,19 @@ class MockMetaData(mock.Mock):
     def alive(self):
         mock.Mock.__getattr__(self, 'alive')()
         return "YES"
+    def has_key(self, section):
+        mock.Mock.__getattr__(self, 'has_key')(section)
+        if self.data.has_key(section):
+            return True
+        return False
+    def __getitem__(self, key):
+        mock.Mock.__getattr__(self, '__getitem__')(key)
+        return self.data[key]
+
+    def __setitem__(self, key, value):
+        mock.Mock.__getattr__(self, '__setitem__')(key)
+        self.data[key] = value
+
     def get(self, section, option, default=None):
         mock.Mock.__getattr__(self, 'get')(section, option, default)
         try:
@@ -361,6 +374,8 @@ class MockConfig:
         return False
     def freshen(self):
         return OK
+    def keys(self):
+        return self.data.keys()
     def get(self, section, option, default=""):
         try:
             return self.data[section][option]

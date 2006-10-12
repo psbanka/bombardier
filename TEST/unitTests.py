@@ -15,6 +15,7 @@ def clientTesting():
     import TBombardierClass
     import TReconcileThread
     import TCommSocket
+    import TminiUtility
     import TFilesystem
     tcommon = Tcommon.Tcommon()
     tcommon.setForTest()
@@ -25,6 +26,7 @@ def clientTesting():
     suite.addTest(unittest.makeSuite(TConfig.ConfigTest))
     suite.addTest(unittest.makeSuite(TReconcileThread.ReconcileThreadTest))
     suite.addTest(unittest.makeSuite(TCommSocket.CommSocketTest))
+    suite.addTest(unittest.makeSuite(TminiUtility.miniUtilityTest))
     suite.addTest(unittest.makeSuite(TFilesystem.FilesystemTest))
     if sys.platform != "linux2":
         import TBombardierAgent

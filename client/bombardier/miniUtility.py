@@ -27,6 +27,52 @@ INSTALLED        = 1
 BROKEN_UNINSTALL = 2
 UNINSTALLED      = 3
 
+
+def compareLists(sub, super, checkValues=False):
+    #print "compareLists: (%s/%s)" % (sub, super)
+    if len(sub) != len(super):
+        return False
+    for index in range(0, len(sub)):
+        subValue = sub[index]
+        superValue = super[index]
+        if type(subValue) != type(superValue):
+            return False
+        if type(subValue) == type({}):
+            return compareDicts(subValue, superValue, checkValues)
+        elif type(subValue) == type([]):
+            return compareLists(subValue, superValue, checkValues)
+        elif type(subValue) == type('string') or type(subValue) == type(1):
+            if checkValues and subValue != superValue:
+                return False
+        else:
+            return False
+    return True
+
+def compareDicts(sub, super, checkValues=False):
+    #print "compareDicts: (%s/%s)" % (sub, super)
+    for subKey in sub.keys():
+        if subKey not in super.keys():
+            return False
+        subValue = sub[subKey]
+        superValue = super[subKey]
+        if type(subValue) == type('string') or type(subValue) == type(1):
+            if type(superValue) != type('string') and type(superValue) != type(1):
+                return False
+            if not checkValues:
+                continue
+            if subValue != superValue:
+                return False
+            return True
+        elif type(subValue) != type(superValue):
+            return False
+        elif type(subValue) == type({}):
+            return compareDicts(subValue, superValue, checkValues)
+        elif type(subValue) == type([]):
+            return compareLists(subValue, superValue, checkValues)
+        else:
+            return False
+    return True
+
 def datesort(x, y):
     if type(x) == type(["list"]):
         if type(y) == type(["list"]):
@@ -395,4 +441,3 @@ def consoleSync(status):
     else: # assume a zero exit code
         f.write('0')
     f.close()
-

@@ -1,7 +1,7 @@
 ---
 server:
-#    address: "file:///d:/mydocuments/dev/bombardier-svn/trunk/TEST/server-directory"
-    address: "http://172.17.50.56"
+    address: "file:///d:/mydocuments/dev/bombardier-svn/trunk/TEST/server-directory"
+#    address: "http://172.17.50.56"
     header: "Expect:"
 site:
     tmpPath: c:/temp
