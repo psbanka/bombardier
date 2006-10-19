@@ -25,15 +25,16 @@ WRITABLE_DIRECTORY_MODE = 16895
 
 import os, sys, shutil
 
-import pywintypes, win32netcon, win32net
-from win32com.client import GetObject, Dispatch
-import _winreg as winreg
-from time import sleep
-import win32api, win32file
+if sys.platform=="win32":
+    import pywintypes, win32netcon, win32net
+    from win32com.client import GetObject, Dispatch
+    import _winreg as winreg
+    from time import sleep
+    import win32api, win32file
+    from bombardier.Windows import Windows
 
 from bombardier.miniUtility import consoleSync
 from bombardier.utility import removeDirectory
-from bombardier.Windows import Windows
 import bombardier.Logger as Logger
 import bombardier.Filesystem as Filesystem
 from bombardier.staticData import *
