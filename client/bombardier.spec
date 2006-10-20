@@ -34,6 +34,7 @@ cd ..
 cd spkgDir
 mkdir $RPM_BUILD_ROOT/opt || true
 mkdir $RPM_BUILD_ROOT/opt/spkg || true
+mkdir $RPM_BUILD_ROOT/opt/spkg/packages || true
 /usr/local/bin/python setup.py install $RPM_BUILD_ROOT/opt/spkg
 
 %files
