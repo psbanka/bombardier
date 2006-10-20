@@ -26,7 +26,7 @@ echo Update client...
 do_or_die "svn update -r$RPM_PACKAGE_VERSION client" "Could not update client"
 
 echo Grab a copy of repositoryDirectory.yml and put it in the build...
-do_or_die "cp ~/repositoryDirectory.yml client/spkgDir"
+do_or_die "cp /tmp/repositoryDirectory.yml client/spkgDir"
 
 cat client/bombardier.spec | sed "s/\(Version\:.*\)/\1${RPM_PACKAGE_VERSION}/g" > $REDHAT_TRUNK/SPECS/bombardier.spec
 mv client bombardier-$RPM_PACKAGE_VERSION
