@@ -19,7 +19,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, Filesystem, re, time, random, yaml
+import os, Filesystem, re, time, random, yaml, md5
 from staticData import *
 
 BROKEN_INSTALL   = 0
@@ -27,51 +27,106 @@ INSTALLED        = 1
 BROKEN_UNINSTALL = 2
 UNINSTALLED      = 3
 
+def hashList(l):
+    r = []
+    for value in l:
+        if type(value) == type({}):
+            r.append(hashDictionary(value))
+        elif type(value) == type([]):
+            r.append(hashList(value))
+        elif type(value) == type('string'):
+            r.append(md5.new(value).hexdigest())
+        elif  type(value) == type(1):
+            r.append(md5.new(`value`).hexdigest())
+    return r
 
-def compareLists(sub, super, checkValues=False):
+def hashDictionary(d):
+    r = {}
+    for key in d.keys():
+        value = d[key]
+        if type(value) == type({}):
+            r[key] = hashDictionary(value)
+        elif type(value) == type([]):
+            r[key] = hashList(value)
+        elif type(value) == type('string'):
+            r[key] = md5.new(value).hexdigest()
+        elif type(value) == type(1):
+            r[key] = md5.new(`value`).hexdigest()
+    return r
+
+
+def diffLists(sub, super, checkValues=False):
+    differences = []
     #print "compareLists: (%s/%s)" % (sub, super)
     if len(sub) != len(super):
-        return False
+        differences = list(set(sub) - set(super))
     for index in range(0, len(sub)):
         subValue = sub[index]
         superValue = super[index]
         if type(subValue) != type(superValue):
-            return False
+            differences.append(subValue)
+            continue
         if type(subValue) == type({}):
-            return compareDicts(subValue, superValue, checkValues)
+            differences.append(diffDicts(subValue, superValue, checkValues))
+            continue
         elif type(subValue) == type([]):
-            return compareLists(subValue, superValue, checkValues)
+            differences.append(diffLists(subValue, superValue, checkValues))
+            continue
         elif type(subValue) == type('string') or type(subValue) == type(1):
             if checkValues and subValue != superValue:
-                return False
+                differences.append(subValue)
+                continue
         else:
-            return False
-    return True
+            differences.append(subValue)
+            continue
+    return differences
 
-def compareDicts(sub, super, checkValues=False):
-    #print "compareDicts: (%s/%s)" % (sub, super)
+def diffDicts(sub, super, checkValues=False):
+    #print "diffDicts: (%s/%s)" % (sub, super)
+    differences = {}
     for subKey in sub.keys():
         if subKey not in super.keys():
-            return False
+            differences[subKey] = sub[subKey]
+            continue
         subValue = sub[subKey]
         superValue = super[subKey]
         if type(subValue) == type('string') or type(subValue) == type(1):
             if type(superValue) != type('string') and type(superValue) != type(1):
-                return False
+                differences[subKey] = subValue
+                continue
             if not checkValues:
                 continue
             if subValue != superValue:
-                return False
-            return True
+                differences[subKey] = subValue
+                continue
+            continue
         elif type(subValue) != type(superValue):
-            return False
+            differences[subKey] = subValue
+            continue
         elif type(subValue) == type({}):
-            return compareDicts(subValue, superValue, checkValues)
+            diff = diffDicts(subValue, superValue, checkValues)
+            if diff != {}:
+                differences[subKey] = diff
+            continue
         elif type(subValue) == type([]):
-            return compareLists(subValue, superValue, checkValues)
+            diff = diffLists(subValue, superValue, checkValues)
+            if diff != []:
+                differences[subKey] = diff
+            continue
         else:
-            return False
-    return True
+            differences[subKey] = subValue
+            continue
+    return differences
+
+def compareLists(sub, super, checkValues=False):
+    if diffLists(sub, super, checkValues) == []:
+        return True
+    return False
+
+def compareDicts(sub, super, checkValues=False):
+    if diffDicts(sub, super, checkValues) == {}:
+        return True
+    return False
 
 def datesort(x, y):
     if type(x) == type(["list"]):

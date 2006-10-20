@@ -33,7 +33,6 @@ class Linux(OperatingSystem.OperatingSystem):
         raise Exceptions.AbstractClassException, "runProcess"
 
     def runPython( self, file, workingDirectory=os.getcwd() ):
-        Logger.info("LINUX")
         cwd = os.getcwd()
         os.chdir(workingDirectory)
         status = os.system("/usr/local/bin/python2.4 %s" % file) #^^ FIXME

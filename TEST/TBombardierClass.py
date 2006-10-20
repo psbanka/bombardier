@@ -1,6 +1,6 @@
 #!/c/Python24/python.exe
 
-import unittest, sets, StringIO, time, sys, os
+import unittest, sets, StringIO, time, sys, os, yaml
 import Tcommon
 
 sys.path = [os.path.join("..", "client")] + sys.path
@@ -996,6 +996,68 @@ class BombardierTest(unittest.TestCase):
         status = self.bombardier.reconcileSystem(cs.testStop)
         assert status == OK
 
+    def testCheckSystem(self):
+        #^ get the system to believe that it has some package installed
+        now = time.ctime()
+        installProgress = {"install-progress":
+                           {"reconfig-1": {"INSTALLED": now,
+                                           "UNINSTALLED": 'NA',
+                                           "VERIFIED": now},
+                           "stable-1": {"INSTALLED": now,
+                                        "UNINSTALLED": 'NA',
+                                        "VERIFIED": now}}}
+        self.filesystem.status = installProgress
+        #^ Let the system know that the packages care about config data
+        packages = {"reconfig": {"install": {"fullName":"reconfig-1"},
+                                 "configuration": {"section1":"option1"}},
+                    "stable": {"install": {"fullName":"stable-1"},
+                               "configuration": {"section2":"option2"}}}
+        repository = MockObjects.MockRepository(packages)
+
+        #^ get the system to believe it has a configuration fingerprint saved
+        oldConfigData = {"section1": {"option1": "spam"}, "section2": {"option2": "eggs"}}
+        self.config.savedYamlData["reconfig"] = oldConfigData
+        self.config.savedYamlData["stable"] = oldConfigData
+
+        #^ set the current fingerprint to something different
+        self.config.data = {"section1": {"option1": "foo"}, "section2": {"option2": "eggs"}}
+        self.config.data["packages"] = ["reconfig", "stable"]
+
+        #^ have the system report that the package with different config data needs attention
+        self.config.repository = repository
+        self.bombardier.repository = repository
+        cs = bombardier.CommSocket.CommSocket()
+        packageData = self.bombardier.checkSystem(cs.testStop)
+        assert packageData["reconfigure"] == ["reconfig"], packageData
+        assert packageData["ok"] == ["stable"], packageData
+
+    def testCheckSystem2(self):
+        now = time.ctime()
+        installProgress = {"install-progress":
+                           {"reconfig-1": {"INSTALLED": now,
+                                           "UNINSTALLED": 'NA',
+                                           "VERIFIED": now},
+                           "stable-1": {"INSTALLED": now,
+                                        "UNINSTALLED": 'NA',
+                                        "VERIFIED": now}}}
+        self.filesystem.status = installProgress
+        packages = {"reconfig": {"install": {"fullName":"reconfig-1"},
+                                 "configuration": {}},
+                    "stable": {"install": {"fullName":"stable-1"},
+                               "configuration": {"section2":"option2"}}}
+        repository = MockObjects.MockRepository(packages)
+        oldConfigData = {"section1": {"option1": "spam"}, "section2": {"option2": "eggs"}}
+        self.config.savedYamlData["reconfig"] = oldConfigData
+        self.config.savedYamlData["stable"] = oldConfigData
+        self.config.data = {"section1": {"option1": "foo"}, "section2": {"option2": "eggs"}}
+        self.config.data["packages"] = ["reconfig", "stable"]
+        self.config.repository = repository
+        self.bombardier.repository = repository
+        cs = bombardier.CommSocket.CommSocket()
+        packageData = self.bombardier.checkSystem(cs.testStop)
+        assert packageData["reconfigure"] == [], packageData
+        assert "reconfig" in packageData["ok"], packageData
+        
     def testGetDetailedTodolistSimple(self):
         # basic test case, no surprises
         self.config.data = {"packageGroups": ["base"]}
@@ -1071,8 +1133,8 @@ if __name__ == "__main__":
     #suite.addTest(BombardierTest("testReconcileSystemWithDependencies"))
     #suite.addTest(BombardierTest("testGetPackagesToRemove1"))
     #suite.addTest(BombardierTest("testVerifySystem1"))
-    #suite.addTest(BombardierTest("testCheckConfiguration"))
-    suite.addTest(BombardierTest("testGetPackagesToAdd3"))
-    #suite.addTest(unittest.makeSuite(BombardierTest))
+    #suite.addTest(BombardierTest("testCheckConfig uration"))
+    #suite.addTest(BombardierTest("testCheckSystem2"))
+    suite.addTest(unittest.makeSuite(BombardierTest))
     unittest.TextTestRunner(verbosity=2).run(suite)
     tcommon.unsetForTest()

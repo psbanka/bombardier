@@ -3,6 +3,15 @@ import Filesystem
 import Logger
 from staticData import *
 
+def doubleEscape(oldString):
+    outString = ''
+    for i in oldString:
+        if i == '\\':
+            outString += "\\\\"
+        else:
+            outString += i
+    return outString
+
 class Spkg:
 
     def __init__(self, config, logger = Logger.Logger(), filesystem = Filesystem.Filesystem()):

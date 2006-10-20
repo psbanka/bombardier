@@ -92,6 +92,27 @@ class Config(dict):
             Logger.debug("PACKAGES: %s" % packages)
         return groups, packages
 
+    def saveHash(self, path):
+        f = self.filesystem.open(path, 'w')
+        hashDictionary = miniUtility.hashDictionary(self.data)
+        hashYaml = yaml.dump(hashDictionary)
+        f.write(hashYaml)
+        f.close()
+        return OK
+
+    def checkHash(self, path):
+        oldConfig = {}
+        try:
+            yamlString = self.filesystem.open(path, 'r').read()
+            oldConfig = yaml.load(yamlString).next()
+        except IOError:
+            Logger.warning("Could not load saved configuration data in %s" % path)
+        except:
+            Logger.warning("Bad yaml in file %s" % path)
+        newConfig = miniUtility.hashDictionary(self.data)
+        oldConfig = miniUtility.hashDictionary(oldConfig)
+        return miniUtility.diffDicts(oldConfig, newConfig, checkValues=True)
+
     ### TESTED
     def downloadConfig(self, configName, include=False):
         #Logger.debug("Downloading configuration data...")

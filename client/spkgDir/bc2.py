@@ -20,87 +20,64 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import threading, sys, traceback, StringIO, random, time
+import sys, getopt
 
 from bombardier.staticData import *
 from bombardier.Logger import logger, addStdErrLogging
 import bombardier.Filesystem, bombardier.Exceptions
+import bombardier.Config, bombardier.OperatingSystem
+import bombardier.Server, bombardier.CommSocket
+import bombardier.Repository, bombardier.BombardierClass
 
-try:
-    import yaml
-    import pycurl
-except ImportError:
-    print "Error: python libraries are not installed. Need yaml and pycurl"
+
+def displayHelp():
+    usage = """
+%s: the bombardier package installation and check utility
+
+USAGE:
+%s [command] [-h|-?|--help]
+
+    [command]   Provide a command to the bc system, which can be one of:
+      check     check and report on the overall status of the system packages
+      update    (default) download, install, and verify all packages required
+                for this system.
+
+    -h          this screen
+    
+    """ % (sys.argv[0], sys.argv[0])
+    print usage
     sys.exit(1)
 
-# ======================== Worker thread
 
-class ReconcileThread(threading.Thread):
-    
-    def __init__(self, command, commSocketFromService, commSocketToService,
-                 config, server, operatingSystem, filesystem, bombardier):
-        threading.Thread.__init__(self)
-        self.command    = command
-        self.config     = config
-        self.server     = server
-        self.operatingSystem    = operatingSystem
-        self.filesystem = filesystem
-        self.bombardier = bombardier
-        self.id      = random.randint(0,10000)
-        self.commSocketToService   = commSocketToService
-        self.commSocketFromService = commSocketFromService
-        logger.info("========== Starting thread ID %s..." % self.id)
-        self.config.automated = False
-        
-    def run(self):
-        status = OK
-        try: 
-            if self.command == CHECK or self.command == AUTOMATED:
-                #logger.info("In Check Thread, calling reconcileSystem")
-                status = self.bombardier.reconcileSystem(self.commSocketFromService.testStop)
-            elif self.command == VERIFY:
-                #logger.info("In Verify Thread, calling verifySystem")
-                results = self.bombardier.verifySystem(self.commSocketFromService.testStop)
-                status  = OK
-                if type(results) != type({}):
-                    status = FAIL
-                    results = {"OVERALL": "Error in package system"}
-                else:
-                    if FAIL in results.values():
-                        status = FAIL
-                self.server.nagiosLog(status, results)
+if __name__ == "__main__":
+    try:
+        options,args = getopt.getopt(sys.argv[1:], "ch?",
+                                     ["check", "help"])
+    except getopt.GetoptError:
+        print "ERROR: Unable to parse options."
+        displayHelp()
 
-            if status == OK:
-                logger.info("========== ENDING thread ID %s:OK " % (self.id))
-                self.filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", self.server)
-            else:
-                ermsg = "========== ENDING thread ID %s:FAIL " % (self.id)
-                self.filesystem.updateCurrentStatus(ERROR, "Error installing", self.server)
-                logger.info(ermsg)
-                self.filesystem.warningLog("Error installing", self.server)
-        except bombardier.Exceptions.ServerUnavailable, e:
-            self.commSocketToService.sendStop()
-            self.filesystem.clearLock()
-            self.filesystem.updateCurrentStatus(ERROR, "Cannot communicate with server", self.server)
-            return
-        except:
-            self.commSocketToService.sendStop()
-            ermsg = 'Exception in thread %s: %s' % (self.id, sys.exc_type) 
-            e = StringIO.StringIO()
-            traceback.print_exc(file=e)
-            e.seek(0)
-            data = e.read()
-            for line in data.split('\n'):
-                ermsg += "\n||>>>%s" % line
-            logger.critical(ermsg)
-            self.filesystem.updateCurrentStatus(ERROR, "Unhandled exception encountered", self.server)
-            return
-        logger.info("stopped thread")
-        self.commSocketToService.sendStop()
+    check = False
+    update = False
+    for opt,arg in options:
+        if opt in ['-h','-?','--help']: 
+            displayHelp()
+        elif opt in ['check']:
+            if update:
+                print "Check and update are mutually exclusive options"
+                displayHelp()
+            check = True
+        elif opt in ['update']:
+            if check:
+                print "Check and update are mutually exclusive options"
+                displayHelp()
+            update = True
+        else:
+            print "Unknown Option",opt
+            displayHelp()
 
-def runWithoutService():
-    import bombardier.Config, bombardier.OperatingSystem, bombardier.Server, bombardier.CommSocket
-    import bombardier.Repository, bombardier.BombardierClass
+    if not check:
+        update = True # default
 
     addStdErrLogging()
     filesystem = bombardier.Filesystem.Filesystem()
@@ -119,13 +96,21 @@ def runWithoutService():
         import bombardier.Windows
         operatingSystem = bombardier.Windows.Windows()
     cs1 = bombardier.CommSocket.CommSocket()
-    cs2 = bombardier.CommSocket.CommSocket()
 
     repository = bombardier.Repository.Repository(config, filesystem, server)
     repository.getPackageData()
-    bombardier = bombardier.BombardierClass.Bombardier(repository, config, filesystem, server, operatingSystem)
-    reconcileThread = ReconcileThread(CHECK, cs1, cs2, config, server, operatingSystem, filesystem, bombardier)
-    reconcileThread.run()
-        
-if __name__ == "__main__":
-    runWithoutService()
+    bc = bombardier.BombardierClass.Bombardier(repository, config,
+                                                       filesystem, server,
+                                                       operatingSystem)
+    if update:
+        status = bc.reconcileSystem(cs1.testStop)
+        if status == OK:
+            filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", server)
+        else:
+            filesystem.updateCurrentStatus(ERROR, "Error installing", server)
+            filesystem.warningLog("Error installing", server)
+    elif check:
+        status = bc.checkSystem(cs1.testStop)
+        filesystem.updateCurrentStatus(IDLE, "Check complete", server)
+    filesystem.clearLock()
+

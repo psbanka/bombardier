@@ -13,6 +13,7 @@ class MockPackage(mock.Mock):
         self.console = False
         self.preboot = False
         self.processResults = OK
+        self.fullName = ''
     def process(self, abortIfTold, installList):
         mock.Mock.__getattr__(self, 'process')(abortIfTold, installList)
         return self.processResults
@@ -143,6 +144,14 @@ class MockFilesystem(mock.Mock):
         self.packagesFromFile = {}
         self.status = {}
         self.hostname = "testsystem"
+    def reset(self):
+        mock.Mock.__getattr__(self, 'reset')()
+        self.getAllIndex = -1
+        self.packageGroupsIndex = -1
+        self.packagesFromFileIndex = 1
+        self.writeFileIndex = 0
+        self.readFileIndex = 0
+        self.writeFiles = [StringIO.StringIO()]
     def getHostname(self):
         mock.Mock.__getattr__(self, 'getHostname')()
         return self.hostname
@@ -264,6 +273,15 @@ class MockWindows(mock.Mock):
         self.testConsoleValue = OK
         self.readPipeIndex = -1
         self.readPipe = []
+    def reset(self):
+        mock.Mock.__getattr__(self, 'reset')()
+        self.queryIndex = -1
+        self.credentialIndex = -1
+        self.makeUserIndex = -1
+        self.multipleObjectsIndex = -1
+        self.serviceStatusIndex = -1
+        self.readFileIndex = -1
+        self.readPipeIndex = -1
     def testConsole(self):
         mock.Mock.__getattr__(self, "testConsole")()
         return self.testConsoleValue
@@ -328,6 +346,10 @@ class MockServer(mock.Mock):
         self.output = {}
         self.serviceRequestIndex = -1
         self.serviceRequests = []
+    def reset(self):
+        mock.Mock.__getattr__(self, 'reset')()
+        self.yamlIndex = -1
+        self.serviceRequestIndex = -1
     def serverLog(self, level, message, section="GENERAL"):
         mock.Mock.__getattr__(self, 'serverLog')(level, message, section)
         return OK
@@ -366,6 +388,9 @@ class MockConfig:
         self.console = False
         self.automated = False
         self.data = {}
+        self.savedYamlData = {}
+    def reset(self):
+        pass
     def __repr__(self):
         return "MOCK-CONFIG"
     def has_section(self, sectionName):
@@ -383,6 +408,22 @@ class MockConfig:
             if default:
                 return default
             raise ConfigParser.NoOptionError
+
+    def saveHash(self, path):
+        return OK
+
+    def checkHash(self, path):
+        # Same as real object, except we load from a saved
+        # dictionary instead of a yaml file
+        oldConfig = {}
+        for key in self.savedYamlData.keys():
+            if key in path:
+                oldConfig = self.savedYamlData[key]
+                break
+        newConfig = miniUtility.hashDictionary(self.data)
+        oldConfig = miniUtility.hashDictionary(oldConfig)
+        return miniUtility.diffDicts(oldConfig, newConfig, checkValues=True)
+
     def getPackageGroups(self): # same as real class
         groups   = []
         packages = []

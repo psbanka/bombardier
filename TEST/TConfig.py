@@ -69,6 +69,35 @@ class ConfigTest(unittest.TestCase):
         self.config.makeConfigObject()
         assert self.config.get("foo", "spam") == 'eggs', self.config.get("foo", "spam")
         
+    def testSaveHash(self):
+        self.config.set("section", "option", 12)
+        status = self.config.saveHash("foo")
+        assert status == OK, "Failed to save hash values"
+        rawdata = '\n'.join(self.filesystem.writeFiles[0].buflist)
+        data = yaml.load(rawdata).next()
+        assert data.has_key("section"), "data missing 'section'"
+        assert data["section"].has_key("option"), "data missing 'option"
+        assert data["section"]["option"] == "c20ad4d76fe97759aa27a0c99bff6710", \
+               "Hash value is incorrect"
+
+    def testCheckHash(self):
+        savedConfig = {}
+        savedConfig["section1"] = {}
+        savedConfig["section1"]["option1"] = "c20ad4d76fe97759aa27a0c99bff6710"
+        savedConfig["section1"]["option2"] = "c20ad4d76fe97759aa27a0c99bff6710"
+        savedConfig["section2"] = {}
+        savedConfig["section2"]["option"] = "c20ad4d76fe97759aa27a0c99bff6710"
+        self.filesystem.readFiles = [StringIO.StringIO(yaml.dump(savedConfig))]
+        #self.config.filesystem = self.filesystem
+        self.config.set("section1", "option1", 13)
+        self.config.set("section1", "option2", 12)
+        difference = self.config.checkHash("foo")
+        #print self.filesystem.getAllCalls()
+        assert difference.has_key("section1"), difference
+        assert difference.has_key("section2"), difference
+        assert difference["section1"].has_key("option1"), difference
+        assert difference["section2"].has_key("option")
+
     def testSet(self):
         status = self.config.set("spam", "eggs", "no")
         assert status == OK, "Unable to write a configuration value"
@@ -89,7 +118,7 @@ if __name__ == "__main__":
     #suite.addTest(ConfigTest("testIpConfig"))
     #suite.addTest(ConfigTest("testGetIpAddress"))
     #suite.addTest(ConfigTest("testGetNetworkList"))
-    #suite.addTest(ConfigTest("testFreshen"))
+    #suite.addTest(ConfigTest("testCheckHash"))
     suite.addTest(unittest.makeSuite(ConfigTest))
     unittest.TextTestRunner(verbosity=2).run(suite)
     tcommon.unsetForTest()

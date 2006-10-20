@@ -22,7 +22,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, string, time, gc, datetime, ConfigParser
+import os, string, time, datetime, ConfigParser
 
 import miniUtility, MetaData, Exceptions, Logger
 from staticData import *
@@ -66,6 +66,9 @@ class Package:
         self.filesystem.warningLog(erstr, self.server)
         self.status = FAIL
         
+    def getConfiguration(self):
+        return self.metaData.data.get("configuration")
+
     def gatherDependencies(self):
         dependencies = 0
         while 1 == 1:
@@ -265,8 +268,7 @@ class Package:
 
     def download(self, abortIfTold):
         if not self.downloaded:
-            self.filesystem.updateCurrentAction("Downloading package...", 10,
-                                                self.server, fastUpdate=True)
+            self.filesystem.updateCurrentAction("Downloading package...", 10, self.server)
             abortIfTold()
             status = self.repository.getPackage(self.name, abortIfTold, checksum=self.checksum)
             if status == FAIL:
@@ -331,8 +333,7 @@ class Package:
     # TESTED
     def install(self, packageList, abortIfTold): 
         self.download(abortIfTold)
-        self.filesystem.updateCurrentAction("Installing...", 50, self.server,
-                                            fastUpdate=True)
+        self.filesystem.updateCurrentAction("Installing...", 50, self.server)
         message = "Beginning installation of (%s)" % self.fullName
         Logger.info(message)
         self.preload()
@@ -343,8 +344,7 @@ class Package:
     # TESTED
     def verify(self, abortIfTold): 
         self.download(abortIfTold)
-        self.filesystem.updateCurrentAction("Verifying...", 90, self.server,
-                                            fastUpdate=True)
+        self.filesystem.updateCurrentAction("Verifying...", 90, self.server)
         message = "Verifying package %s" % self.fullName
         Logger.info(message)
         abortIfTold()

@@ -25,7 +25,7 @@ WRITABLE_DIRECTORY_MODE = 16895
 
 import os, sys, shutil
 
-if sys.platform=="win32":
+if sys.platform == "win32":
     import pywintypes, win32netcon, win32net
     from win32com.client import GetObject, Dispatch
     import _winreg as winreg

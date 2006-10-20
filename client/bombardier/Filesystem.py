@@ -21,8 +21,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import shutil, os, sys, tarfile, gzip, yaml, re, time, sys
-import gc
+import shutil, os, sys, tarfile, gzip, yaml, re, time
 import Exceptions, miniUtility, Logger
 from staticData import *
 
@@ -189,36 +188,28 @@ class Filesystem:
         statusPath = os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)
         try:
             data = yaml.loadFile(statusPath).next()
-        except Exception, e:
+        except Exception:
             raise Exceptions.StatusException(statusPath)
         return data
 
     def warningLog(self, message, server):
-        self.updateProgress({"warnings": {time.time(): message}}, server,
-                            fastUpdate=True)
+        self.updateProgress({"warnings": {time.time(): message}}, server)
         
-    def updateCurrentStatus(self, overall, message, server, fastUpdate=False):
-        self.updateProgress({"status": {"overall": overall, "main":message}}, server,
-                            fastUpdate=fastUpdate)
+    def updateCurrentStatus(self, overall, message, server):
+        self.updateProgress({"status": {"overall": overall, "main":message}}, server)
 
-    def updateCurrentAction(self, message, percent, server, fastUpdate=False):
-        self.updateProgress({"status": {"action": message, "percentage": percent}},
-                            server, fastUpdate=fastUpdate)
+    def updateCurrentAction(self, message, percent, server):
+        self.updateProgress({"status": {"action": message, "percentage": percent}}, server)
 
     def updateTimestampOnly(self, server):
         self.updateProgress({}, server)
 
-    def updateProgress(self, dictionary, server, overwrite=False, fastUpdate=False):
+    def updateProgress(self, dictionary, server, overwrite=False):
         statusPath = os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)
         tmpPath    = miniUtility.getTmpPath()
         data = self.loadCurrent()
         try:
             intData = miniUtility.integrate(data, dictionary, overwrite)
-            # This code is for debugging. It's dangerous.
-##             newTimestamp = intData["timestamp"]
-##             timestamp = data.get("timestamp")
-##             if ( not fastUpdate ) and ( (newTimestamp - timestamp) < 0.05 ):
-##                 raise "out of control error (%s)" % (newTimestamp - timestamp)
             yamlString = yaml.dump(intData)
             fh = open(tmpPath, 'w')
             fh.write(yamlString)
@@ -229,9 +220,6 @@ class Filesystem:
         except IOError, e:
             Logger.warning("Cannot update progress data: %s" % e)
             return
-##         except Exception, e:
-##             Logger.warning("Cannot update progress data: %s" % e)
-##             return
         if not "main" in dictionary.keys():
             if not "install-progress" in dictionary.keys():
                 if not "overall" in dictionary.keys():

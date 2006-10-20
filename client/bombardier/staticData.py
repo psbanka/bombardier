@@ -101,6 +101,7 @@ QFECHECK      = "qfecheck.exe"
 ACTION_FILE   = "action"
 LOG_FILE      = "bombardier.log"
 CONFIG_FILE   = "config.yml"
+HASH_FILE     = "configHash.yml"
 LOGS_TO_KEEP  = 5
 LOG_MAX_SIZE  = 1000000
 LOG_INTERVAL  = 10
