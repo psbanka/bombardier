@@ -9,8 +9,14 @@ import yaml
 import tarfile
 import time
 import ConfigParser
+import commands
+sys.path.append("../../client")
+sys.path.append("../../client/site-root")
+
 import bombardier.Server as Server
 import bombardier.Filesystem as Filesystem
+import bombardier.Spkg as Spkg
+import installUtils
 
 PACKAGES_FILE = "packages.yml"
 PACKAGES_PATH = "deploy/packages/"
@@ -26,7 +32,7 @@ def getChecksum( fullPath ):
 
 def findClassName():
     ignoredList = ["installer.py", "uninstaller.py", "configure.py", "verify.py"]
-    for filename in os.listdir('.'):
+    for filename in os.listdir('../scripts'):
         if filename.endswith(".py"):
             if filename not in ignoredList:
                 print "Class file: %s" % filename[:-3]
@@ -82,7 +88,6 @@ class PackageCreationThread:
 
     def updateMetaData(self):
         iniPath = os.path.join(self.destDir,'scripts','package.ini')
-        checksum = getChecksum(self.spkg)
         metadata = {}
         if os.path.isfile(iniPath):
             print "processing metadata for a type 1 package..."
@@ -95,11 +100,12 @@ class PackageCreationThread:
             metadata['package-version'] = 1
         else:
             print "processing metadata for a type 2 or greater package"
-            os.chdir(self.fullname+'/'+'scripts')
+            injectorDir = os.path.join( self.config["site"]["tmpPath"], self.fullname, 'injector' )
+            scriptsDir  = os.path.join( self.config["site"]["tmpPath"], self.fullname, 'scripts' )
+            os.chdir(injectorDir)
             className = findClassName()
-            sys.path.append('.')
+            sys.path.append(scriptsDir)
             exec("import %s as Pkg" % className )
-            os.chdir(self.config["site"]["tmpPath"])
             if not hasattr(Pkg, "metadata"):
                 self.warnings.append("Package does not contain any metadata")
             else:
@@ -107,7 +113,8 @@ class PackageCreationThread:
             config = MockConfig()
             exec ('object = Pkg.%s(config)' % className)
             metadata['configuration'] = config.requests
-
+        self.createTarball()
+        checksum = getChecksum(self.spkg)
         metadata['install']['fullName'] = self.fullname
         metadata['install']['md5sum'] = checksum
         packageData = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE)
@@ -117,8 +124,8 @@ class PackageCreationThread:
         except Exception, e:
             self.errors.append("unable to modify metadata database: %s" % e)
             return FAIL
-        print ">>>>>>>",yaml.dump(packageData)
-        status = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE, putData=packageData)
+        #print ">>>>>>>",yaml.dump(packageData)
+        status = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE, putData=packageData, debug=True)
         if status == OK:
             status = self.verifyYamlData(packageData)
         return status
@@ -179,8 +186,8 @@ class PackageCreationThread:
             cmd += "--password %s " % self.config["svn"]["password"]
         cmd += "%s/%s " % (self.config["svn"]["root"], self.scriptName)
         cmd += "%s/scripts > output.txt 2>&1" % self.destDir
-        #print "executing %s" % cmd
-        print "pulling data from SVN"
+        print "executing %s" % cmd
+        #print "pulling data from SVN"
         if sys.platform == "win32":
             status = os.system(cmd)
         else:
@@ -225,9 +232,6 @@ class PackageCreationThread:
         if self.populateInjector() == FAIL:
             self.errors.append("Failed in populating the injectors: check tarball")
             return self.sendWrapup(FAIL)
-        if self.createTarball() == FAIL:
-            self.errors.append("Failed in taring up the .spkg: check the server")
-            return self.sendWrapup(FAIL)
         if self.updateMetaData() == FAIL:
             self.errors.append("Failed in creating the metadata: check the server")
             return self.sendWrapup(FAIL)
@@ -252,7 +256,7 @@ def displayHelp():
 %s: Create a bombardier package from a tarball
 
 USAGE:
-%s <-f tar filename> <-n package name> [-s script name] [-r package-rev] [-c config file]
+%s <-f tar filename> <-n package name> [-s script name] [-v package version] [-c config file]
 
     <-f tar filename> the name of the tarfile which contains the injector data
     <-n package name> the name that the package should be called (minus package version)
