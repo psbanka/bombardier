@@ -26,7 +26,7 @@ class Spkg:
                 instance = self.instance.strip()
                 dataSource += "\\"+instance
                 if hasattr(self, "port"):
-                    port=port.self.strip()
+                    port=self.port.strip()
                     dataSource += ","+port
         return dataSource
     
