@@ -52,14 +52,11 @@ class ConfigTest(unittest.TestCase):
                                     indexData, bombardierProjectData, testhw]
         self.config.freshen()
         scalls = self.server.getAllCalls()
-        assert len(scalls) == 7, `scalls`
+        assert len(scalls) == 4, len(scalls)
         assert `scalls[0]` == "serviceYamlRequest('deploy/client/testsystem.yml', {}, None, False, False)"
         assert `scalls[1]` == "serviceYamlRequest('deploy/include/margaret.yml', {}, None, False, False)"
         assert `scalls[2]` == "serviceYamlRequest('deploy/include/bill.yml', {}, None, False, False)"
         assert `scalls[3]` == "serviceYamlRequest('deploy/include/frank.yml', {}, None, False, False)"
-        assert `scalls[4]` == "serviceYamlRequest('deploy/client/index.yml', {}, None, True, False)", scalls[4]
-        assert `scalls[5]` == "serviceYamlRequest('deploy/project/bombardier.yml', {}, None, True, False)"
-        assert `scalls[6]` == "serviceYamlRequest('deploy/hardware/testhw.yml', {}, None, True, False)"
         assert self.config.username == "drillbit", self.config.username
         assert self.config.password == "foomanchoo", self.config.password
         assert self.config.domain   == ".", self.config.domain

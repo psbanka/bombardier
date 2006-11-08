@@ -42,7 +42,6 @@ getAllFromFile = filesystem.getAllFromFile
 catToLog = filesystem.catToLog
 getProgressData = filesystem.getProgressData
 stripVersion = miniUtility.stripVersion
-system = filesystem.execute
     
 if sys.platform != "linux2":
     import bombardier.Windows
@@ -77,6 +76,7 @@ else:
 
 import bombardier.Logger as Logger
 logger = Logger.Logger()
+system = operatingSystem.execute
 
 import bombardier.Server
 server = bombardier.Server.Server(filesystem)

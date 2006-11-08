@@ -98,9 +98,11 @@ def copyDirectory( _src, _dest ):
     try:
         if os.path.isdir(_dest):
             removeDirectory( _dest )
+        if os.path.islink(_dest):
+            os.unlink(_dest)
         shutil.copytree(_src, _dest)
     except Exception, e:
-        errString = "Error creating %s directory:\n%s" %(_dest, e) 
+        errString = "Error creating %s directory:\n%s" %(_dest, e)
         if Logger != None:
             consoleFail(errString)
         else:

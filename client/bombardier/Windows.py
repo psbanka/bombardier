@@ -77,7 +77,6 @@ class Windows(OperatingSystem.OperatingSystem):
     def ShellExecuteSimple(self, runCmd):
         return win32api.ShellExecute(0, "open", runCmd, None, '', 1)
 
-
     def spawnReturnId( self, cmd ):
         procTuple = CreateProcess( None, cmd, None, None, 0, 
                                    NORMAL_PRIORITY_CLASS, os.environ, None, STARTUPINFO() )
@@ -87,15 +86,63 @@ class Windows(OperatingSystem.OperatingSystem):
         fullCommand = 'cmd /c %s: && cd "%s" && %s' %( workingDirectory[0], workingDirectory, cmd )
         return self.spawnReturnId( fullCommand )
 
-    def runPython( self, file, workingDirectory=os.getcwd() ):
-        pythonCmd = os.path.join(sys.prefix, "python.exe")
-        fullCmd = '%s "%s"' % (pythonCmd, file)
-        return self.runProcess(workingDirectory, fullCmd)
+    def beginConsole(self): 
+        Logger.info("Beginning monitored console-based installation")
+        consoleFile = os.path.join(miniUtility.getSpkgPath(),CONSOLE_MONITOR)
+        f = open(consoleFile, 'w')
+        f.close()
 
-    def runCmd( self, file, workingDirectory=os.getcwd() ):
-        Logger.debug("WINDOWS")
-        fullCmd = '"%s"' % file
-        return self.runProcess(workingDirectory, fullCmd)
+    def watchForTermination(self, sleepTime = 10.0, timeout = 600, abortIfTold=None):
+        start = time.time()
+        consoleFile = os.path.join(miniUtility.getSpkgPath(),CONSOLE_MONITOR)
+        logTime = 0
+        while True:
+            if abortIfTold != None:
+                abortIfTold()
+            elapsedTime = time.time() - start
+            if elapsedTime > timeout:
+                Logger.debug("%d seconds have elapsed (max "\
+                             "of %d). Giving up." % (elapsedTime, timeout))
+                return FAIL
+            if not os.path.isfile(consoleFile):
+                return FAIL
+            data = open(consoleFile, 'r').read().strip()
+            if data:
+                if int(data) == OK:
+                    return OK
+                elif int(data) == FAIL:
+                    return FAIL
+                elif int(data) == REBOOT:
+                    return REBOOT
+                Logger.error("Invalid status received from log file: %d" % int(data))
+                return FAIL
+            left = timeout - elapsedTime
+            if time.time() > logTime:
+                Logger.debug("Watching status of console installation (%3.1f)" % left)
+                logTime = time.time( ) + LOG_INTERVAL
+            time.sleep(sleepTime)
+        return FAIL
+
+    def run(self, fullCmd, abortIfTold, workingDirectory, console = False):
+        status = OK
+        abortIfTold()
+        if console:
+            self.beginConsole()
+        if fullCmd.split(' ')[0].endswith(".py"):
+            pythonCmd = os.path.join(sys.prefix, "python.exe")
+            fullCmd   = "%s %s" % (pythonCmd, fullCmd)
+        elif fullCmd.split(' ')[0].endswith(".sh"):
+            fullCmd   = "bash %s" % fullCmd
+        else:
+            Logger.error("unknown command type %s" % `fullCmd`)
+            return FAIL
+        if console:
+            if self.runProcess(workingDirectory, fullCmd) == FAIL:
+                return FAIL
+            return self.watchForTermination(sleepTime=1, abortIfTold=abortIfTold)
+        status = self.execute(fullCmd, errorString="Unable to execute %s" % fullCmd,
+                              workingDirectory = workingDirectory, captureOutput = True)
+        return status
 
     def OpenSCManager(self):
         hscm = None

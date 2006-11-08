@@ -90,12 +90,6 @@ class FilesystemTest(unittest.TestCase):
     def testmkdir(self):
         self.filesystem.mkdir('x')
         assert os.path.isdir('x')
-    def testexecute(self):
-        status = self.filesystem.execute('hostname', 'messed up',
-                                         dieOnExit=False,
-                                         captureOutput=True)
-        testStr = "output:%s" % socket.gethostname().lower()
-        assert status == OK
     def testcopyfile(self):
         open(TF, 'w').write('x')
         self.filesystem.copyfile(TF, TF2)
@@ -190,12 +184,6 @@ install-progress:
             exceptionCaught = True
             assert `e` == "Invalid progress: ---- cscript-5.6**8@", "(%s)" % `e`
         assert exceptionCaught
-    def testwatchForTermination(self):
-        consolePath = os.path.join(miniUtility.getSpkgPath(), CONSOLE_MONITOR)
-        if os.path.isfile(consolePath):
-            os.unlink(consolePath)
-        status = self.filesystem.watchForTermination(sleepTime = 1.0, timeout = 1)
-        assert status == FAIL
 
 if __name__ == "__main__":
     tcommon = Tcommon.Tcommon()

@@ -114,19 +114,19 @@ class PackageChain:
         return newPackage
 
 class VirtualPackages:
-    def __init__( self, packages ):
-        self.packages = packages
+    def __init__( self, packageDict ):
+        self.packageDict = packageDict
         self.virtualPackagesDict = {}
         self.virtualNameLookupDict = {}
         self.initVPkgDictionaries()
 
     def initVPkgDictionaries( self ):
-        for packageName in self.packages:
-            package = self.packages[packageName]
-            if package.get( 'dependencies' ) and package['dependencies'].get( 'virtualpackage' ):
-                virtualPackage = package['dependencies']['virtualpackage'] 
-                self.virtualNameLookupDict.setdefault( packageName, virtualPackage )
-                self.virtualPackagesDict.setdefault( virtualPackage,[] ).append( packageName )
+        for packageName in self.packageDict:
+            packageData = self.packageDict[packageName]
+            if packageData.get( 'virtualpackage' ):
+                virtualPackageName = packageData['virtualpackage'] 
+                self.virtualNameLookupDict.setdefault( packageName, virtualPackageName )
+                self.virtualPackagesDict.setdefault( virtualPackageName,[] ).append( packageName )
 
     def getPkgNameListFromVPkgName( self, virtualPackageName ):
         return( self.virtualPackagesDict.get( virtualPackageName, [] ) )
@@ -514,19 +514,12 @@ class Bombardier:
                 self.filesystem.warningLog(errmsg, self.server)
         return packages
 
-    ### TESTED
-    def getPackagesToRemove(self, delPackageNames):
-        vPackages = VirtualPackages(self.repository.packages)
-        packages = {}
-        progressData = self.filesystem.getProgressData(stripVersionFromName = True)
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
-        # create package objects for all the packages
-        # in the list that we want to remove
-        for packageName in delPackageNames:
-            # FIXME: Can't remove packages that were installed
-            # as a result of being a dependency of another package
-            Logger.info("Scheduling package %s for removal because it is "\
-                        "not on the bill of materials." % packageName)
+    def createPackageDict(self, packageList, action):
+        packageDict = {}
+        for packageName in packageList:
+            if action == UNINSTALL:
+                Logger.info("Scheduling package %s for removal because it is "\
+                            "not on the bill of materials." % packageName)
             try:
                 newPackage = Package.Package(packageName, self.repository,
                                              self.config, self.filesystem,
@@ -536,39 +529,53 @@ class Bombardier:
                 errmsg = "Skipping Bad package: %s" % `e`
                 Logger.warning(errmsg)
                 self.filesystem.warningLog(errmsg, self.server)
-            newPackage.action = UNINSTALL
-            packages[packageName] = newPackage
-        if sets.Set(installedPackageNames) == sets.Set(packages.keys()):
-            Logger.info("all packages are being removed.")
-            return packages
+            newPackage.action = action
+            packageDict[packageName] = newPackage
+        return packageDict
+
+    def getUninstallPackageDependencies(self, packageDict, delPackageNames, installedPackageNames):
         # add any packages that are installed already
         # which are dependent upon those to the list as well
+        vPackages = VirtualPackages(self.repository.packages)
         while delPackageNames:
             newDependencyNames = []
             delPackageNames = []
             for packageName in installedPackageNames:
                 Logger.info("checking dependencies of %s" % packageName)
-                if packageName in packages.keys():
+                if packageName in packageDict.keys():
                     Logger.debug("Package %s will already be deleted -- "\
                                  "ignoring" % packageName)
-                    continue # already know that one will be deleted
+                    continue
                 package = Package.Package(packageName, self.repository, self.config, 
                                           self.filesystem, self.server, self.operatingSystem)
                 package.initialize()
                 package.action = UNINSTALL
-                for tombstonedPackageName in packages.keys():
-                    if vPackages.getVPkgNameFromPkgName( tombstonedPackageName )in package.dependencies:
+                for tombstonedPackageName in packageDict.keys():
+                    if vPackages.getVPkgNameFromPkgName( tombstonedPackageName ) in package.dependencies:
                         erstr = "Scheduling package %s for removal "\
                                 "because it depends on %s" % \
                                 (packageName, tombstonedPackageName)
                         Logger.info(erstr)
-                        packages[tombstonedPackageName].dependsOnMe.append(packageName)
-                        if packageName not in packages.keys():
+                        packageDict[tombstonedPackageName].dependsOnMe.append(packageName)
+                        if packageName not in packageDict.keys():
                             if packageName not in newDependencyNames:
-                                packages[packageName] = package
+                                packageDict[packageName] = package
                                 newDependencyNames.append(packageName)
                 delPackageNames = newDependencyNames
-        return packages
+        return packageDict
+
+    ### TESTED
+    def getPackagesToRemove(self, delPackageNames):
+        progressData = self.filesystem.getProgressData(stripVersionFromName = True)
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
+        packageDict = self.createPackageDict(delPackageNames, UNINSTALL)
+        if sets.Set(installedPackageNames) == sets.Set(packageDict.keys()):
+            Logger.info("all packages are being removed.")
+            return packageDict
+        packageDict = self.getUninstallPackageDependencies(packageDict,
+                                                           delPackageNames,
+                                                           installedPackageNames)
+        return packageDict
 
     def writeSystemType(self, pkgGroups):
         spkgPath = miniUtility.getSpkgPath()

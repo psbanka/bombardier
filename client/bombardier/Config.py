@@ -126,33 +126,6 @@ class Config(dict):
         self.loadIncludes(newIncludes)
         return OK
 
-    def downloadExtraData(self):
-        index = self.server.serviceYamlRequest("deploy/client/index.yml",
-                                               debug=True, legacyPathFix=False)
-        hostname = self.filesystem.getHostname()
-        projects = getKey(index, [hostname, "project", "clients"])
-        if projects:
-            for project in projects:
-                newData = self.server.serviceYamlRequest("deploy/project/%s.yml" % project,
-                                                         debug=True, legacyPathFix=False)
-                if newData.get("data"):
-                    self.data = miniUtility.addDictionaries(self.data, newData["data"])
-                    self.makeConfigObject()
-        serverNameList = getKey(index, [hostname, "hardware", "client"])
-        if serverNameList:
-            if len(serverNameList) == 1:
-                serverName = serverNameList[0]
-                serverData = self.server.serviceYamlRequest("deploy/hardware/%s.yml" % serverName, 
-                                                            debug=True, legacyPathFix=False)
-                location = serverData.get("location")
-                if location:
-                    newData = self.server.serviceYamlRequest("deploy/location/%s.yml" % location, 
-                                                             debug=True, legacyPathFix=False)
-                    if newData.get("data"):
-                        self.data = miniUtility.addDictionaries(self.data, newData["data"])
-                        self.makeConfigObject()
-        return OK
-
     def loadIncludes(self, newIncludes):
         for includeName in newIncludes:
             if includeName not in self.includes:
@@ -177,8 +150,7 @@ class Config(dict):
         status = self.readLocalConfig()
         if status == FAIL:
             status1 = self.downloadConfig(self.filesystem.getHostname(), False)
-            status2 = self.downloadExtraData()
-            if status1 == FAIL or status2 == FAIL:
+            if status1 == FAIL:
                 self.data = savedData
                 return FAIL
         self.username = DEFAULT_USER

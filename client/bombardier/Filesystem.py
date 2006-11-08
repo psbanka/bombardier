@@ -21,7 +21,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import shutil, os, sys, tarfile, gzip, yaml, re, time
+import shutil, os, sys, tarfile, gzip, yaml, re, time, random
 import Exceptions, miniUtility, Logger
 from staticData import *
 
@@ -76,48 +76,6 @@ class Filesystem:
         return os.listdir(path)
     def mkdir(self, path):
         os.makedirs(path)
-    def execute(self, cmd, errorString="", debug=0, dieOnExit=False,
-                workingDirectory = '.', captureOutput=False):
-        if cmd.rfind(".py") != -1 and sys.platform == "linux2":
-            cmd = "python %s" % cmd
-        capture = ''
-        if captureOutput:
-            capture = " 2> result1.txt > result2.txt"
-        curDir = os.getcwd()
-        if workingDirectory != ".":
-            os.chdir(workingDirectory)
-        if debug: 
-            Logger.debug("EXECUTING: %s" % cmd)
-        status = os.system(cmd+capture)
-        if captureOutput:
-            self.catToLog("result1.txt")
-            self.catToLog("result2.txt")
-        os.chdir(curDir)
-        if status != OK:
-            ermsg = "Nonzero exit code %s (executing command %s)." % (errorString, cmd)
-            Logger.error(ermsg)
-            if dieOnExit == 1:
-                sys.exit(1)
-        return status
-    def catToLog(self, file):
-        if not os.path.isfile(file):
-            Logger.warning("--------------------------------")
-            Logger.warning("Output file was not created.")
-            Logger.warning("--------------------------------")
-            return
-        lines = open(file, 'r').readlines()
-        if len(lines) == 0:
-            return
-        Logger.info("---------------------------------------")
-        for line in lines:
-            Logger.info("output:"+line.strip())
-        Logger.info("---------------------------------------")
-    def copyfile(self, source, dest):
-        shutil.copyfile(source, dest)
-    def rmtree(self, path):
-        shutil.rmtree(path)
-    def chdir(self, path):
-        os.chdir(path)
 
     def getAllFromFile(self, regex, filename):
         if not os.path.isfile(filename):
@@ -193,7 +151,8 @@ class Filesystem:
         return data
 
     def warningLog(self, message, server):
-        self.updateProgress({"warnings": {time.time(): message}}, server)
+        self.updateProgress({"warnings": {"%s-%s" % (time.time(), random.randint(1,500)):
+                                          message}}, server)
         
     def updateCurrentStatus(self, overall, message, server):
         self.updateProgress({"status": {"overall": overall, "main":message}}, server)
@@ -271,43 +230,6 @@ class Filesystem:
             hostname = self.environ["COMPUTERNAME"].lower()
         return hostname
 
-    def watchForTermination(self, sleepTime = 10.0, timeout = 600, abortIfTold=None):
-        start = time.time()
-        consoleFile = os.path.join(miniUtility.getSpkgPath(),CONSOLE_MONITOR)
-        logTime = 0
-        while True:
-            if abortIfTold != None:
-                abortIfTold()
-            elapsedTime = time.time() - start
-            if elapsedTime > timeout:
-                Logger.debug("%d seconds have elapsed (max "\
-                             "of %d). Giving up." % (elapsedTime, timeout))
-                return FAIL
-            if not os.path.isfile(consoleFile):
-                return FAIL
-            data = open(consoleFile, 'r').read().strip()
-            if data:
-                if int(data) == OK:
-                    return OK
-                elif int(data) == FAIL:
-                    return FAIL
-                elif int(data) == REBOOT:
-                    return REBOOT
-                Logger.error("Invalid status received from log file: %d" % int(data))
-                return FAIL
-            left = timeout - elapsedTime
-            if time.time() > logTime:
-                Logger.debug("Watching status of console installation (%3.1f)" % left)
-                logTime = time.time( ) + LOG_INTERVAL
-            time.sleep(sleepTime)
-        return FAIL
-
-    def beginConsole(self): 
-        Logger.info("Beginning monitored console-based installation")
-        consoleFile = os.path.join(miniUtility.getSpkgPath(),CONSOLE_MONITOR)
-        f = open(consoleFile, 'w')
-        f.close()
-
     def tryPatiently(self, action, verify, errorMessage=None, retries = 100):
         succeeded = True
         while retries:
@@ -332,6 +254,13 @@ class Filesystem:
                 break
         if succeeded: return OK
         return FAIL
+
+    def copyfile(self, source, dest):
+        shutil.copyfile(source, dest)
+    def rmtree(self, path):
+        shutil.rmtree(path)
+    def chdir(self, path):
+        os.chdir(path)
 
     def moveToDestination(self, destDir, filename):
         #gc.collect() # File this under the category

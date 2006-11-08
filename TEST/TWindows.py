@@ -19,6 +19,13 @@
         assert `wcalls[4]`.startswith(r"setKey('SOFTWARE\\Microsoft\\Windows NT\\Current"), `wcalls[4]`
         assert `wcalls[5]`.startswith(r"setKey('SOFTWARE\\Microsoft\\Windows NT\\Current"), `wcalls[5]`
 
+    def testexecute(self):
+        status = self.windows.execute('hostname', 'messed up',
+                                      dieOnExit=False,
+                                      captureOutput=True)
+        testStr = "output:%s" % socket.gethostname().lower()
+        assert status == OK
+
     def testCheckAutoLogin(self):
         bombardier.Config.noAutoLogin(self.windows)
         wcalls = self.windows.getAllCalls()
@@ -28,4 +35,9 @@
         assert `wcalls[2]`.startswith(r"setKey('SOFTWARE\\Microsoft\\Windows NT\\Current"), `wcalls[2]`
         assert `wcalls[3]`.startswith(r"setKey('SOFTWARE\\Microsoft\\Windows NT\\Current"), `wcalls[3]`
         
-
+    def testwatchForTermination(self):
+        consolePath = os.path.join(miniUtility.getSpkgPath(), CONSOLE_MONITOR)
+        if os.path.isfile(consolePath):
+            os.unlink(consolePath)
+        status = self.filesystem.watchForTermination(sleepTime = 1.0, timeout = 1)
+        assert status == FAIL

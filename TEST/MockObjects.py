@@ -155,8 +155,8 @@ class MockFilesystem(mock.Mock):
     def getHostname(self):
         mock.Mock.__getattr__(self, 'getHostname')()
         return self.hostname
-    def updateProgress(self, dictionary, server, overwrite=False, fastUpdate=False):
-        mock.Mock.__getattr__(self, 'updateProgress')(dictionary, server, overwrite, fastUpdate)
+    def updateProgress(self, dictionary, server, overwrite=False):
+        mock.Mock.__getattr__(self, 'updateProgress')(dictionary, server, overwrite)
         self.status = miniUtility.integrate(self.status, dictionary, overwrite)
         return
     def watchForTermination(self, sleepTime, abortIfTold):
@@ -273,6 +273,9 @@ class MockWindows(mock.Mock):
         self.testConsoleValue = OK
         self.readPipeIndex = -1
         self.readPipe = []
+        self.installablePackages = []
+        self.uninstallablePackages = []
+        self.verifiablePackages = []
     def reset(self):
         mock.Mock.__getattr__(self, 'reset')()
         self.queryIndex = -1
@@ -288,6 +291,27 @@ class MockWindows(mock.Mock):
     def connectPipe(self, pipeName, event):
         mock.Mock.__getattr__(self, "connectPipe")(pipeName, event)
         return 'a', 'b'
+    def run(self, fullCmd, abortIfTold, workingDirectory, console = False):
+        mock.Mock.__getattr__(self, "run")(fullCmd, abortIfTold, workingDirectory, console)
+        packageName = fullCmd.split(' ')[0].split(os.sep)[-3]
+        script = fullCmd.split(' ')[0].split(os.sep)[-1]
+        action = None
+        if script == "installer.py":
+            if packageName in self.installablePackages:
+                return OK
+            else:
+                return FAIL
+        if script == "uninstaller.py":
+            if packageName in self.uninstallablePackages:
+                return OK
+            else:
+                return FAIL
+        if script == "verify.py":
+            if packageName in self.verifiablePackages:
+                return OK
+            else:
+                return FAIL
+        return FAIL
 
     def ReadPipe(self, pipeName, timeout, waitHandles, overlappedHe):
         mock.Mock.__getattr__(self, "ReadPipe")(pipeName, timeout, waitHandles, overlappedHe)
@@ -427,8 +451,8 @@ class MockConfig:
     def getPackageGroups(self): # same as real class
         groups   = []
         packages = []
-        if self.data.has_key("packageGroups"):
-            groups = self.data["packageGroups"]
+        if self.data.has_key("bom"):
+            groups = self.data["bom"]
         if self.data.has_key("packages"):
             packages = self.data["packages"]
         return groups, packages

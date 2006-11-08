@@ -19,103 +19,36 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import Exceptions, OperatingSystem, os
+import OperatingSystem, os
+import Logger
 from staticData import *
 
 class Linux(OperatingSystem.OperatingSystem):
 
-    """Provides capabilities of operating system-level functions."""
+    """Provides capabilities of operating system-level functions for Linux machines"""
 
     def __init__(self):
         OperatingSystem.OperatingSystem.__init__(self)
 
-    def runProcess( self, workingDirectory, cmd ):
-        raise Exceptions.AbstractClassException, "runProcess"
-
-    def runPython( self, file, workingDirectory=os.getcwd() ):
-        cwd = os.getcwd()
-        os.chdir(workingDirectory)
-        status = os.system("/usr/local/bin/python2.4 %s" % file) #^^ FIXME
-        os.chdir(cwd)
+    def run(self, fullCmd, abortIfTold, workingDirectory, console = False):
+        status = OK
+        abortIfTold()
+        if fullCmd.split(' ')[0].endswith(".py"):
+            fullCmd = "%s %s" % ("/usr/local/bin/python2.4", fullCmd)
+        elif fullCmd.split(' ')[0].endswith(".sh"):
+            fullCmd = "%s %s" % ("bin/bash %s" % fullCmd)
+        else:
+            Logger.error("unknown command type %s" % `fullCmd`)
+            return FAIL
+        status = self.execute(fullCmd, errorString="Unable to execute %s" % fullCmd,
+                              workingDirectory = workingDirectory, captureOutput = True),
         return status
-
-    def runCmd( self, file, workingDirectory=os.getcwd() ):
-        cwd = os.getcwd()
-        os.chdir(workingDirectory)
-        status = os.system(file)
-        os.chdir(cwd)
-        return status
-
-    def serviceStatus(self, serviceName):
-        raise Exceptions.AbstractClassException, "serviceStatus"
-
-    def evalStatus(self, serviceInfo):
-        raise Exceptions.AbstractClassException, "evalStatus"
-
-    def restartService(self, serviceName):
-        raise Exceptions.AbstractClassException, "restartService"
-
-    def stopService(self, serviceName):
-        raise Exceptions.AbstractClassException, "stopService"
-
-    def startService(self, serviceName):
-        raise Exceptions.AbstractClassException, "startService"
-
-    def removeScriptUser(self, username):
-        raise Exceptions.AbstractClassException, "removeScriptUser"
-
-    def createScriptUser(self, username, password):
-        raise Exceptions.AbstractClassException, "createScriptUser"
-
-    def LogMsg(self, type, event, info):
-        raise Exceptions.AbstractClassException, "LogMsg"
-
-    def ReadPipe(self, pipeName, timeout, waitHandles, overlappedHe):
-        raise Exceptions.AbstractClassException, "ReadPipe"
-
-    def sendNpMessage(self, pipe, message, logFunction, timeout=None):
-        raise Exceptions.AbstractClassException, "sendNpMessage"
-
-    def findUser(self, username):
-        raise Exceptions.AbstractClassException, "findUser"
-
-    def mkServiceUser(self, username, password, domain='', local=False, comment=''):
-        raise Exceptions.AbstractClassException, "mkServiceUser"
-
-    def rmServiceUser(self, username, domain='', local=False):
-        raise Exceptions.AbstractClassException, "rmServiceUser"
-
-    def AdjustPrivilege(self, priv, enable = 1):
-        raise Exceptions.AbstractClassException, "AdjustPrivilege"
-
-    def testCredentials(self, username, domain, password):
-        raise Exceptions.AbstractClassException, "testCredentials"
-
-    def restartOnLogon(self):
-        raise Exceptions.AbstractClassException, "restartOnLogon"
-
+    
     def noRestartOnLogon(self): 
         pass
 
-    def adjustPrivilege(self, priv, enable = 1):
-        raise Exceptions.AbstractClassException, "adjustPrivilege"
-
-    def rebootSystem(self, message="Server Rebooting", timeout=5, bForce=1, bReboot=1):
-
-        raise Exceptions.AbstractClassException, "rebootSystem"
-
-    def CoInitialize(self):
-        raise Exceptions.AbstractClassException, "CoInitialize"
-
     def testConsole(self):
         return OK
-        #raise Exceptions.AbstractClassException, "testConsole"
-    
-    def checkAutoLogin(self): 
-        raise Exceptions.AbstractClassException, "checkAutoLogin"
 
     def noAutoLogin(self): 
-        pass # ^^ FIXME
-
-    def autoLogin(self, config):
-        raise Exceptions.AbstractClassException, "autoLogin"
+        pass

@@ -42,14 +42,10 @@ configData = {"info": {"itContact": "Scott Freeman",
                        "owner": "Peter Banka",
                        "project": "bombardier-testing",
                        "system": "laptop-CJSXH31"},
-              "packageGroups": ["base"]}
+              "bom": ["base"]}
 hostname = filesystem.getHostname()
 server.serviceYamlRequest("deploy/client/"+hostname+".yml",
                           putData=configData)
-indexData = {hostname: {"contact": {"ownedclients": []},
-                        "hardware": {"client": []},
-                        "project": {"clients": []}}}
-server.serviceYamlRequest("deploy/client/index.yml", putData=indexData)
 config.freshen()
 
 class CommandThread(threading.Thread):
@@ -122,7 +118,7 @@ testokpackage1-1:
 """
 
 configData2 = """
-packageGroups:
+bom:
   - base
   - test
   - cheeze
@@ -193,10 +189,9 @@ class BombardierTest(unittest.TestCase):
                "would result in no further packages to be removed. However, this was listed: %s"\
                % packages.keys()
         packages = self.bombardier.getPackagesToRemove(["testokpackage1"])
-        test = ["testokpackage1", "testdependencies1"]
-        for item in test:
-            assert item in packages.keys(), "Dependency %s was expected in "\
-                   "calculated dependency list %s" % (item, `packages.keys()`)
+        test = set(["testokpackage1", "testdependencies1"])
+        assert test.issubset(set(packages.keys())), "Did not find right dependencies to remove. "\
+               "%s not a subset of %s" % (`test`, `packages.keys()`)
         status = FAIL
         packages = self.bombardier.getPackagesToRemove(["fugazi"])
         assert packages["fugazi"].status == FAIL
@@ -206,7 +201,7 @@ class BombardierTest(unittest.TestCase):
         vp = BombardierClass.VirtualPackages(repo.packages)
         vPkgName = vp.getVPkgNameFromPkgName("testdb-structure-1")
         assert vPkgName == "testdb-structure",\
-               "Got back a weird virtual name for testdb-structure-1: %s" % vPkgName
+               "Got back a weird virtual name for testdb-structure-1: (%s)" % vPkgName
         vPkgName2 = vp.getVPkgNameFromPkgName("testokpackage1")
         assert vPkgName2 == "testokpackage1",\
                "Got back a weird virtual name for testokpackage1: %s" % vPkgName2
@@ -214,8 +209,8 @@ class BombardierTest(unittest.TestCase):
         assert vPkgName3 == "shrubbery", \
                "Got back a weird virtual name for nonsense package: %s" % vPkgName3
         pkgNameSet = set(vp.getPkgNameListFromVPkgName("testdb-structure"))
-        assert pkgNameSet == set(["testdb-structure-1", "testdb-structure-2"]), \
-               "Got back some weird set of real package names: %s" % pkgNameSet
+        checkSet = set(["testdb-structure-1", "testdb-structure-2"])
+        assert pkgNameSet.issuperset(checkSet), "Got back some weird set of real package names: %s" % pkgNameSet
         pkgNameSet = set(vp.resolveVPkgList(["testdb-structure-1",
                                                   "testdb-data-initial"]))
         assert pkgNameSet == set(["testdb-structure", "testdb-data-initial"]), \
@@ -302,7 +297,7 @@ class BombardierTest(unittest.TestCase):
         assert package2.status == OK, package2.status
         assert package5.status == OK, package5.status
         assert package1.priority == 150, "package1.priority (%d) != %d" %(`package1.priority`, 150)
-        assert package5.priority == 50, package5.priority
+        assert package5.priority == 150, package5.priority
         packages = {"testconfigpkg1":package5, "testdependencies1":package1, "testokpackage1":package0}
         chains = self.bombardier.createPackageChains(packages)
         assert len(chains) == 3, chains
@@ -346,7 +341,8 @@ class BombardierTest(unittest.TestCase):
         assert package.status == OK, package.status
         packages = {"testokpackage1":package}
         setInstallProgress(["testanotherpackage1-1"], [])
-        status = self.bombardier.installPackages(packages)
+        self.bombardier.addPackages = packages
+        status = self.bombardier.installPackages()
         assert status == OK, "Perfectly good package failed to install"
         installProgress = yaml.loadFile(progressPath).next().get("install-progress")
         matches = installProgress.get("testokpackage1-1")
@@ -362,7 +358,8 @@ class BombardierTest(unittest.TestCase):
         outOfMaintenance()
         assert package2.status == OK, "Package status "\
                "indicated failure to process"
-        status = self.bombardier.installPackages(packages)
+        self.bombardier.addPackages = packages
+        status = self.bombardier.installPackages()
         installProgress = yaml.loadFile(progressPath).next().get("install-progress")
         matches = installProgress.get("testconsolepackage1-13")
         assert matches["INSTALLED"] != "NA", "Console package installed "\
@@ -418,7 +415,7 @@ class BombardierTest(unittest.TestCase):
         assert FAIL in messages.values(), "testbadverifypackage1 should have failed"
         assert messages.has_key("testokpackage1")
         assert messages['testokpackage1'] == OK, \
-               'messages dict is corrupt for testokpackage1'
+               'messages dict is corrupt for testokpackage1 (%s)' % `messages`
         assert messages['testbadverifypackage1'] == FAIL, \
                'messages dict is corrupt for testbadverifypackage1'
         assert len(messages.keys()) == 2, "Returned more then 2 results."
@@ -465,9 +462,12 @@ class BombardierTest(unittest.TestCase):
         setInstallProgress(["testokpackage1-1"])
         Logger.critical("===ROUND 2===")
         setBom([])
-        status = self.bombardier.reconcileSystem(commSocket.testStop, packageNames = [])
-        assert status == OK, "Simple package un-installation failed"
-        checkInstallProgress([])
+        caught = False
+        try:
+            status = self.bombardier.reconcileSystem(commSocket.testStop, packageNames = [])
+        except Exceptions.BadBillOfMaterials:
+            caught = True
+        assert caught == True, "Simple package un-installation failed"
         packageNames = ["testokpackage1", "testokpackage1"]
         setInstallProgress([])
         status = self.bombardier.reconcileSystem(commSocket.testStop, packageNames = packageNames)
@@ -506,7 +506,9 @@ class BombardierTest(unittest.TestCase):
         killThread.start()
         throwCheck = False
         try:
-            status = self.bombardier.installPackages(packages)
+            self.bombardier.addPackages = packages
+            import time
+            status = self.bombardier.installPackages()
         except Exceptions.StoppedExecution:
             throwCheck = True
         assert throwCheck == True
@@ -569,30 +571,10 @@ class BombardierTest(unittest.TestCase):
         assert status == FAIL, "Verification of a package that returns an error succeeded"
         logger.info("=======================testInstallUninstallVerify")
 
-    def testBackupUninstall(self):
-        if sys.platform == "linux2":
-            return
-        Logger.critical("=======================TESTBACKUPUNINSTALL")
-        packageNames = ["testdb-structure-1", "testdb-data-initial"]
-        commSocket = CommSocket.CommSocket()
-        currentBom = setBom(packageNames)
-        setInstallProgress([])
-        status = self.bombardier.reconcileSystem(commSocket.testStop, packageNames)
-        assert status == OK, "Installation of databases failed" 
-
-        setInstallProgress(["testdb-structure-1-1", "testdb-data-initial-1"])
-        Logger.critical("=============Remove structure out from under")
-        packageNames = ["testdb-structure-2", "testdb-data-initial"]
-        setBom(packageNames)
-        status = self.bombardier.reconcileSystem(commSocket.testStop, packageNames)
-        assert status == OK, "Upgrading the structure package failed." 
-        checkInstallProgress(["testdb-structure-2", "testdb-data-initial"])
-        setBom(currentBom)
-
     def testGetDetailedTodolist(self):
         # basic test case, no surprises
         conf = MockObjects.MockConfig()
-        conf.data = {"packageGroups": ["base"]}
+        conf.data = {"bom": ["base"]}
         installList = ["ipsettings", "system-setup"]
         self.bombardier.config = conf
         setBom(["ipsettings", "system-setup"])
@@ -608,7 +590,7 @@ class BombardierTest(unittest.TestCase):
         assert statusData["todo"] == ["ipsettings,base","system-setup,base"], statusData["todo"]
 
         # coming from more than one source
-        conf.data = {"packageGroups": ["base", "test"]}
+        conf.data = {"bom": ["base", "test"]}
         todolist = self.bombardier.getDetailedTodolist(installList)
         assert todolist[1] == "system-setup,base/test", todolist
         filesystem.updateProgress({"todo": todolist}, server, True)
@@ -620,15 +602,6 @@ class BombardierTest(unittest.TestCase):
         filesystem.updateProgress({"todo": todolist}, server, True)
         
     
-def checkServerTarball(fileName):
-    status = server.wget("deploy", fileName, config)
-    assert status == OK, "Unable to download the new uploaded backup package %s" % fileName
-    tar = tarfile.open( fileName, "r:gz" )
-    tarMembers = tar.getmembers()
-    assert len(tarMembers) > 1, "Empty tarfile (%s)" % tarMembers
-    tar.close()
-    os.unlink(fileName)
-
 def checkInstallProgress(checkList):
     progressData  = filesystem.getProgressData(True)
     installedList, brokenList = miniUtility.getInstalled(progressData)
@@ -659,12 +632,12 @@ def setInstallProgress(installList, uninstallList=[]):
     fh.close()
 
 def setBom(bomList):
-    currentBom = server.serviceYamlRequest("deploy/bom/base.yml", legacyPathFix=False)
-    status = server.serviceYamlRequest("deploy/bom/base.yml", putData=bomList, legacyPathFix=False)
+    currentBom = server.serviceYamlRequest("deploy/bom/base.yml")
+    status = server.serviceYamlRequest("deploy/bom/base.yml", putData=bomList)
     del server.cache["deploy/bom/base.yml"]
     newBom = "error"
     if status == "OK":
-        newBom = server.serviceYamlRequest("deploy/bom/base.yml", legacyPathFix=False)
+        newBom = server.serviceYamlRequest("deploy/bom/base.yml")
     if newBom != bomList:
         print "UNABLE TO SET BOM"
         print "currentBom:",currentBom
@@ -676,7 +649,6 @@ def setBom(bomList):
 if __name__ == "__main__":
     operatingSystem.DEBUG = True
     suite = unittest.TestSuite()
-    #suite.addTest(BombardierTest("testBackupUninstall"))
     #suite.addTest(BombardierTest("testAbort"))
     #suite.addTest(BombardierTest("testRemoveVirtualPackage"))
     #suite.addTest(BombardierTest("testAddToDependencyErrors"))
@@ -686,7 +658,6 @@ if __name__ == "__main__":
     #suite.addTest(BombardierTest("testInstallList"))
     #suite.addTest(BombardierTest("testGetPackagesToRemove"))
     #suite.addTest(BombardierTest("testPackageIntegration"))
-    #suite.addTest(BombardierTest("testBackupUninstall"))
     #suite.addTest(BombardierTest("testVerifySystem1"))
     #suite.addTest(BombardierTest("testCheckBom"))
     #suite.addTest(BombardierTest("testGetPackageGroups"))

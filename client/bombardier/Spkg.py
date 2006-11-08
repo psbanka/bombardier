@@ -1,4 +1,4 @@
-import re, string
+import re, os
 import Filesystem
 import Logger
 from staticData import *
@@ -14,9 +14,28 @@ def doubleEscape(oldString):
 
 class Spkg:
 
-    def __init__(self, config, logger = Logger.Logger(), filesystem = Filesystem.Filesystem()):
-        self.filesystem   = filesystem
-        self.logger       = logger
+    def __init__(self, config, filesystem = Filesystem.Filesystem()):
+        Logger.addStdErrLogging()
+        self.name = self._getname()
+        self.filesystem = filesystem
+        
+    def debug(self, string):
+        Logger.debug("[%s]|%s" % (self.name, string))
+    def info(self, string):
+        Logger.info("[%s]|%s" % (self.name, string))
+    def warning(self, string):
+        Logger.warning("[%s]|%s" % (self.name, string))
+    def error(self, string):
+        Logger.error("[%s]|%s" % (self.name, string))
+    def critical(self, string):
+        Logger.critical("[%s]|%s" % (self.name, string))
+
+    def _getname(self):
+        cwd = os.getcwd()
+        path = os.sep.split(cwd)
+        if path[-1] == "injector" or path[-1] == "scripts":
+            return path[-2]
+        return path[-1]
 
     def makeConnectionString(self):
         dataSource = ''
@@ -24,10 +43,12 @@ class Spkg:
             dataSource = self.server.strip()
             if hasattr(self, "instance"):
                 instance = self.instance.strip()
-                dataSource += "\\"+instance
+                if instance != '':
+                    dataSource += "\\"+instance
                 if hasattr(self, "port"):
-                    port=self.port.strip()
-                    dataSource += ","+port
+                    port = self.port.strip()
+                    if port != '':
+                        dataSource += ","+port
         return dataSource
     
     def modifyTemplate(self, inputFile, outputFile, encoding=None, processEscape = False):
@@ -54,19 +75,19 @@ class Spkg:
                     else:
                         configDict[variable] = configValue
                 else:
-                    self.logger.error('A variable was found in template "%s" for which there'\
-                                      " is no configuration value (variable: %s)" % (outputFile, variable))
+                    self.error('A variable was found in template "%s" for which there'\
+                               " is no configuration value (variable: %s)" % (outputFile, variable))
                     configDict[variable] = 'UNKNOWN_TEMPLATE_VALUE'
                     status = FAIL
             if configDict == {}:
                 output.append(line)
             else:
                 output.append(line % configDict)
-        outputData = string.join(output, '\n')
+        outputData = '\n'.join(output)
 
         if encoding == None:
             self.filesystem.open(outputFile, 'w').write(outputData)
         else:
             self.filesystem.open(outputFile, 'wb').write(outputData.encode( encoding ))
-        self.logger.info( "\nCreated: " + outputFile + "\nTemplate: " + inputFile + "\n" )
+        self.info( "\nCreated: " + outputFile + "\nTemplate: " + inputFile + "\n" )
         return status

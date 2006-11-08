@@ -31,14 +31,14 @@ class FeatureRemovedException(Exception):
         return "Feature %s is obsolete" % (self.featureName)
 
 class AbstractClassException(Exception):
-    def __init__(self, className):
+    def __init__(self, methodName):
         e = Exception()
         Exception.__init__(e)
-        self.className  = className
+        self.className  = methodName
     def __repr__(self):
-        return "Class %s was attempted in an abstract class" % (self.className)
+        return "Method %s was attempted in an abstract class" % (self.className)
     def __str__(self):
-        return "Class %s was attempted in an abstract class" % (self.className)
+        return "Method %s was attempted in an abstract class" % (self.className)
 
 class StatusException(Exception):
     def __init__(self, yamlFile):

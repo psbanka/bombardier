@@ -21,7 +21,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import Exceptions, os
+import Exceptions, os, Logger
+from staticData import *
 
 class OperatingSystem:
 
@@ -34,84 +35,39 @@ class OperatingSystem:
         self.password = ''
         self.testConsoleValue = False
 
-    def runProcess( self, workingDirectory, cmd ):
-        raise Exceptions.AbstractClassException, "runProcess"
-
-    def runPython( self, file, workingDirectory=os.getcwd() ):
-        raise Exceptions.AbstractClassException, "runPython"
-
-    def runCmd( self, file, workingDirectory=os.getcwd() ):
-        raise Exceptions.AbstractClassException, "runCmd"
-
-    def serviceStatus(self, serviceName):
-        raise Exceptions.AbstractClassException, "serviceStatus"
-
-    def evalStatus(self, serviceInfo):
-        raise Exceptions.AbstractClassException, "evalStatus"
-
-    def restartService(self, serviceName):
-        raise Exceptions.AbstractClassException, "restartService"
-
-    def stopService(self, serviceName):
-        raise Exceptions.AbstractClassException, "stopService"
-
-    def startService(self, serviceName):
-        raise Exceptions.AbstractClassException, "startService"
-
-    def removeScriptUser(self, username):
-        raise Exceptions.AbstractClassException, "removeScriptUser"
-
-    def createScriptUser(self, username, password):
-        raise Exceptions.AbstractClassException, "createScriptUser"
-
-    def LogMsg(self, type, event, info):
-        raise Exceptions.AbstractClassException, "LogMsg"
-
-    def ReadPipe(self, pipeName, timeout, waitHandles, overlappedHe):
-        raise Exceptions.AbstractClassException, "ReadPipe"
-
-    def sendNpMessage(self, pipe, message, logFunction, timeout=None):
-        raise Exceptions.AbstractClassException, "sendNpMessage"
-
-    def findUser(self, username):
-        raise Exceptions.AbstractClassException, "findUser"
-
-    def mkServiceUser(self, username, password, domain='', local=False, comment=''):
-        raise Exceptions.AbstractClassException, "mkServiceUser"
-
-    def rmServiceUser(self, username, domain='', local=False):
-        raise Exceptions.AbstractClassException, "rmServiceUser"
-
-    def AdjustPrivilege(self, priv, enable = 1):
-        raise Exceptions.AbstractClassException, "AdjustPrivilege"
-
-    def testCredentials(self, username, domain, password):
-        raise Exceptions.AbstractClassException, "testCredentials"
-
-    def restartOnLogon(self):
-        raise Exceptions.AbstractClassException, "restartOnLogon"
-
-    def noRestartOnLogon(self): 
-        raise Exceptions.AbstractClassException, "noRestartOnLogon"
-
-    def adjustPrivilege(self, priv, enable = 1):
-        raise Exceptions.AbstractClassException, "adjustPrivilege"
-
-    def rebootSystem(self, message="Server Rebooting", timeout=5, bForce=1, bReboot=1):
-
-        raise Exceptions.AbstractClassException, "rebootSystem"
-
-    def CoInitialize(self):
-        raise Exceptions.AbstractClassException, "CoInitialize"
-
-    def testConsole(self):
-        raise Exceptions.AbstractClassException, "testConsole"
+    def execute(self, cmd, errorString="", debug=0, dieOnExit=False,
+                workingDirectory = '.', captureOutput=False):
+        capture = ''
+        if captureOutput:
+            capture = " 2> result1.txt > result2.txt"
+        curDir = os.getcwd()
+        if workingDirectory != ".":
+            os.chdir(workingDirectory)
+        if debug: 
+            Logger.debug("EXECUTING: %s" % cmd)
+        status = os.system(cmd+capture)
+        if captureOutput:
+            self.catToLog("result1.txt")
+            self.catToLog("result2.txt")
+        os.chdir(curDir)
+        if status != OK:
+            ermsg = "Nonzero exit code %s (executing command %s)." % (errorString, cmd)
+            Logger.error(ermsg)
+            if dieOnExit == 1:
+                sys.exit(1)
+        return status
     
-    def checkAutoLogin(self): 
-        raise Exceptions.AbstractClassException, "checkAutoLogin"
+    def catToLog(self, file):
+        if not os.path.isfile(file):
+            Logger.warning("--------------------------------")
+            Logger.warning("Output file was not created.")
+            Logger.warning("--------------------------------")
+            return
+        lines = open(file, 'r').readlines()
+        if len(lines) == 0:
+            return
+        Logger.info("---------------------------------------")
+        for line in lines:
+            Logger.info("output:"+line.strip())
+        Logger.info("---------------------------------------")
 
-    def noAutoLogin(self): 
-        raise Exceptions.AbstractClassException, "noAutoLogin"
-
-    def autoLogin(self, config):
-        raise Exceptions.AbstractClassException, "autoLogin"

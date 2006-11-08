@@ -1,5 +1,0 @@
-import bombardier.Server as S
-import bombardier.Filesystem as FS
-s = S.Server(FS.Filesystem())
-s.serverData = {"address":"file:///d:/mydocuments/dev/bombardier-dev/trunk/TEST/mock.py"}
-s.serviceRequest('/')

@@ -96,7 +96,7 @@ class BombardierTest(unittest.TestCase):
 
     def testBogusDependency(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "dependencies": {"dep0":"pkg2"}},
+                         "dependencies": ["pkg2"]},
                 "pkg5": {"install": {"fullName":"pkg5-1"}}}
         self.filesystem.status = {}
         repository = MockObjects.MockRepository(data)
@@ -262,7 +262,7 @@ class BombardierTest(unittest.TestCase):
 
     def testGetPackagesToRemove1(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "dependencies": {"dep0":"pkg2"}},
+                         "dependencies": ["pkg2"]},
                 "pkg2": {"install": {"fullName":"pkg2-1"}}}
         installProgress1 = {"install-progress":
                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
@@ -302,7 +302,7 @@ class BombardierTest(unittest.TestCase):
 
     def testGetVPkgNameFromPkgName(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "dependencies": {"virtualpackage":"anypackage"}},
+                         "virtualpackage":"anypackage"},
                 "pkg2": {"install": {"fullName":"pkg2-1"}}}
         repository = MockObjects.MockRepository(data)
         vp = bombardier.BombardierClass.VirtualPackages(repository.packages)
@@ -317,9 +317,9 @@ class BombardierTest(unittest.TestCase):
 
     def testGetPkgNameListFromVPkgName(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "dependencies": {"virtualpackage":"anypackage"}},
+                         "virtualpackage":"anypackage"},
                 "pkg2": {"install": {"fullName":"pkg2-1"},
-                         "dependencies": {"virtualpackage":"anypackage"}}}
+                         "virtualpackage":"anypackage"}}
         repository = MockObjects.MockRepository(data)
         vp = bombardier.BombardierClass.VirtualPackages(repository.packages)
         pkgNameSet = sets.Set(vp.getPkgNameListFromVPkgName("anypackage"))
@@ -328,7 +328,7 @@ class BombardierTest(unittest.TestCase):
 
     def testResolveVpkgList(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "dependencies": {"virtualpackage":"anypackage"}},
+                         "virtualpackage":"anypackage"},
                 "pkg2": {"install": {"fullName":"pkg2-1"}}}
         repository = MockObjects.MockRepository(data)
         vp = bombardier.BombardierClass.VirtualPackages(repository.packages)
@@ -338,7 +338,7 @@ class BombardierTest(unittest.TestCase):
 
     def testGetActualPkgName(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "dependencies": {"virtualpackage":"anypackage"}},
+                         "virtualpackage":"anypackage"},
                 "pkg2": {"install": {"fullName":"pkg2-1"}}}
         repository = MockObjects.MockRepository(data)
         vp = bombardier.BombardierClass.VirtualPackages(repository.packages)
@@ -348,9 +348,9 @@ class BombardierTest(unittest.TestCase):
         
     def testRemoveVirtualPackage(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "dependencies": {"dep0":"anypackage"}},
+                         "dependencies": ["anypackage"]},
                 "pkg2": {"install": {"fullName":"pkg2-1"},
-                         "dependencies": {"virtualpackage":"anypackage"}}}
+                         "virtualpackage":"anypackage"}}
         installProgress1 = {"install-progress":
                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
@@ -362,21 +362,27 @@ class BombardierTest(unittest.TestCase):
         self.filesystem.status = installProgress1
         self.config.repository = repository
         self.bombardier.repository = repository
+        shouldBeRemoved = sets.Set(["pkg1", "pkg2"])
+
         packages = self.bombardier.getPackagesToRemove(["pkg2"])
+
+        flaggedForRemoval = sets.Set(packages.keys())
+        assert shouldBeRemoved == flaggedForRemoval, "Uninstalling a virtual package has "\
+               "failed. %s != %s" % (shouldBeRemoved, flaggedForRemoval)
+
         scalls = self.server.getAllCalls()
+        assert len(scalls) == 0, `scalls`
 
         fcalls = self.filesystem.getAllCalls()
-        wcalls = self.windows.getAllCalls()
-        rcalls = repository.getAllCalls()
         assert len(fcalls) == 1, `fcalls`
         assert `fcalls[0]` == "getProgressData(True)", `fcalls[0]`
+
+        wcalls = self.windows.getAllCalls()
         assert len(wcalls) == 0
-        assert len(scalls) == 0, `scalls`
+
+        rcalls = repository.getAllCalls()
         assert len(rcalls) == 2, len(rcalls)
-        testSet = sets.Set(["pkg1", "pkg2"])
-        packageSet = sets.Set(packages.keys())
-        assert testSet == packageSet, "Uninstalling a virtual package has "\
-               "failed. %s != %s" % (testSet, packageSet)
+
 
     def testCheckBom(self):
         installProgress2 = {"install-progress":
@@ -428,7 +434,7 @@ class BombardierTest(unittest.TestCase):
 
     def testPackageDep(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "dependencies": {"dep0":"pkg5"}},
+                         "dependencies": ["pkg5"]},
                 "pkg5": {"install": {"fullName":"pkg5-1"}}}
 
         repository = MockObjects.MockRepository(data)
@@ -443,9 +449,9 @@ class BombardierTest(unittest.TestCase):
 
     def testPackageChain(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "dependencies": {"dep0":"pkg5"}},
+                         "dependencies": ["pkg5"]},
                 "pkg5": {"install": {"fullName":"pkg5-1"},
-                         "dependencies": {"dep0":"pkg6"}},
+                         "dependencies": ["pkg6"]},
                 "pkg6": {"install": {"fullName":"pkg6-1"}}}
 
         repository = MockObjects.MockRepository(data)
@@ -469,20 +475,20 @@ class BombardierTest(unittest.TestCase):
 
     def testPackageChainWithBroken(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1",
-                                     "priority": '20'}},
-                         "dependencies": {"dep0":"pkg2"},
+                                     "priority": '20'},
+                         "dependencies": ["pkg2"]},
                 "pkg2": {"install": {"fullName":"pkg2-1",
-                                     "priority": '70'}},
-                         "dependencies": {"dep0":"pkg3"},
+                                     "priority": '70'},
+                         "dependencies": ["pkg3"]},
                 "pkg3": {"install": {"fullName":"pkg3-1",
-                                     "priority": '20'}},
-                         "dependencies": {"dep0":"pkg4"},
+                                     "priority": '20'},
+                         "dependencies": ["pkg4"]},
                 "pkg4": {"install": {"fullName":"pkg4-1",
-                                     "priority": '20'}},
-                         "dependencies": {"dep0":"pkg5"},
+                                     "priority": '20'},
+                         "dependencies": ["pkg5"]},
                 "pkg5": {"install": {"fullName":"pkg5-1",
-                                     "priority": '30'}},
-                         "dependencies": {"dep0":"pkg6"},
+                                     "priority": '30'},
+                         "dependencies": ["pkg6"]},
                 "pkg6": {"install": {"fullName":"pkg6-1",
                                      "priority": '20'}}}
 
@@ -515,9 +521,9 @@ class BombardierTest(unittest.TestCase):
 
     def testCreatePackageChains(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "dependencies": {"dep0":"pkg5"}},
+                         "dependencies": ["pkg5"]},
                 "pkg5": {"install": {"fullName":"pkg5-1"},
-                         "dependencies": {"dep0":"pkg6"}}}
+                         "dependencies": ["pkg6"]}}
         installProgress2 = {"install-progress":
                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
@@ -552,9 +558,9 @@ class BombardierTest(unittest.TestCase):
 
     def testInstallList(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "dependencies": {"dep0":"pkg5"}},
+                         "dependencies": ["pkg5"]},
                 "pkg5": {"install": {"fullName":"pkg5-1"},
-                         "dependencies": {"dep0":"pkg6"}}}
+                         "dependencies": ["pkg6"]}}
         installProgress2 = {"install-progress":
                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
@@ -729,9 +735,9 @@ class BombardierTest(unittest.TestCase):
 
     def testVerifySystem1(self):
         packagesData = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                                "dependencies": {"dep0":"pkg5"}},
+                                "dependencies": ["pkg5"]},
                        "pkg2": {"install": {"fullName":"pkg2-1"},
-                                "dependencies": {"dep0":"pkg6"}}}
+                                "dependencies": ["pkg6"]}}
         installProgress1 = {"install-progress":
                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
@@ -749,6 +755,7 @@ class BombardierTest(unittest.TestCase):
         self.filesystem.files = [os.path.join(base, "scripts", "verify.py")]
         self.bombardier.repository = repository
         cs = bombardier.CommSocket.CommSocket()
+        self.windows.verifiablePackages = ["pkg1-1"]
         testResults = self.bombardier.verifySystem(cs.testStop)
         assert testResults.has_key("pkg1"), testResults
         assert testResults['pkg1'] == OK, testResults
@@ -757,15 +764,14 @@ class BombardierTest(unittest.TestCase):
         scalls = self.server.getAllCalls()
         assert len(scalls) == 1, `scalls`
         fcalls = self.filesystem.getAllCalls()
-        assert len(fcalls) == 24, len(fcalls)
+        assert len(fcalls) == 22, len(fcalls)
         #for i in range(0,len(fcalls)):
         #    print i, fcalls[i]
         assert `fcalls[0]` == "getProgressData(False)", `fcalls[0]`
         assert `fcalls[2]`.startswith("isdir")
         assert `fcalls[5]`.startswith("isfile")
-        assert `fcalls[19]`.startswith("execute"), `fcalls[10]`
-        assert `fcalls[22]`.startswith("updateProgress({'install-progress': {'pkg2-1': {'UNINSTALLED': 'NA', 'VERIFIED'")
-        assert `fcalls[23]`.startswith("open")
+        assert `fcalls[20]`.startswith("updateProgress({'install-progress': {'pkg2-1': {'UNINSTALLED': 'NA', 'VERIFIED'")
+        assert `fcalls[21]`.startswith("open")
 
     def testVerifySystem2(self):
         installProgress = {"install-progress":
@@ -776,9 +782,9 @@ class BombardierTest(unittest.TestCase):
                                         "UNINSTALLED": 'NA',
                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
         packagesDat = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                                "dependencies": {"dep0":"pkg5"}},
+                                "dependencies": ["pkg5"]},
                        "pkg2": {"install": {"fullName":"pkg2-1"},
-                                "dependencies": {"dep0":"pkg6"}}}
+                                "dependencies": ["pkg6"]}}
         repository = MockObjects.MockRepository(packagesDat)
         self.config.repository = repository
         self.filesystem.status = installProgress # don't want this getting clobbered
@@ -791,12 +797,13 @@ class BombardierTest(unittest.TestCase):
                                  os.path.join(base2, "scripts", "verify.py")]
         self.bombardier.repository = repository
         cs = bombardier.CommSocket.CommSocket()
+        self.windows.verifiablePackages = ["pkg1-1", "pkg2-1"]
         testResults = self.bombardier.verifySystem(cs.testStop)
         assert testResults == {"pkg1": OK, "pkg2":OK}, testResults
 
     def testVerifySystem3(self): # it's not time for this package to be verified
         packagesDat = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                                "dependencies": {"dep0":"pkg5"}}}
+                                "dependencies": ["pkg5"]}}
         installProgress3 = {"install-progress":
                            {"pkg1-1": {"INSTALLED": time.ctime(),
                                        "UNINSTALLED": 'NA',
@@ -812,7 +819,7 @@ class BombardierTest(unittest.TestCase):
 
     def testVerifySystem4(self): # No packages installed, error in verify.
         packagesDat = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                                "dependencies": {"dep0":"pkg5"}}}
+                                "dependencies": ["pkg5"]}}
         installProgress3 = {"install-progress":
                            {"pkg1-1": {"INSTALLED": time.ctime(),
                                        "UNINSTALLED": 'NA',
@@ -829,11 +836,11 @@ class BombardierTest(unittest.TestCase):
         assert testResults == {}, `testResults`
 
     def testCheckInstallationStatus(self):
-        self.config.data = {"packageGroups": ["base"], "packages": ["pkg3"]}
+        self.config.data = {"bom": ["base"], "packages": ["pkg3"]}
         self.server.yamlResponseDict = {"deploy/bom/base.yml":["pkg1", "pkg2"]}
         packagesDat = {"pkg1": {"install": {"fullName":"pkg1-1", "priority":"100"}},
                        "pkg2": {"install": {"fullName":"pkg2-1", "priority":"50"},
-                                "dependencies": {"dep0": "pkg1"}},
+                                "dependencies": ["pkg1"]},
                        "pkg3": {"install": {"fullName":"pkg3-1", "priority":"3"}}}
         repository = MockObjects.MockRepository(packagesDat)
         self.filesystem.status = {"install-progress":
@@ -854,11 +861,11 @@ class BombardierTest(unittest.TestCase):
 
 
     def testReconcileSystem1(self):
-        self.config.data = {"packageGroups": ["base"], "packages": ["pkg3"]}
+        self.config.data = {"bom": ["base"], "packages": ["pkg3"]}
         self.server.yamlResponseDict = {"deploy/bom/base.yml":["pkg1", "pkg2"]}
         packagesDat = {"pkg1": {"install": {"fullName":"pkg1-1", "priority":"100"}},
                        "pkg2": {"install": {"fullName":"pkg2-1", "priority":"50"},
-                                "dependencies": {"dep0": "pkg1"}},
+                                "dependencies": [ "pkg1"]},
                        "pkg3": {"install": {"fullName":"pkg3-1", "priority":"3"}}}
         repository = MockObjects.MockRepository(packagesDat)
         self.config.repository = repository
@@ -878,62 +885,35 @@ class BombardierTest(unittest.TestCase):
                                  os.path.join(base3, "scripts", "verify.py")]
 
         self.bombardier.repository = repository
-        
+        self.windows.installablePackages = ["pkg1-1", "pkg2-1", "pkg3-1"]
+        self.windows.verifiablePackages = ["pkg1-1", "pkg2-1", "pkg3-1"]
         cs = bombardier.CommSocket.CommSocket()
+        
         status = self.bombardier.reconcileSystem(cs.testStop)
         assert status == OK, "Simple package installation failed"
+        
         scalls = self.server.getAllCalls()
         assert len(scalls) == 8, len(scalls)
         assert `scalls[0]` == "clearCache()", `scalls[0]`
         fcalls = self.filesystem.getAllCalls()
-        assert len(fcalls) == 60, len(fcalls)
+        assert len(fcalls) == 51, len(fcalls)
         assert `fcalls[0]` == "setLock()"
-        assert `fcalls[11]` == "updateProgress({'todo': ['pkg2,base', 'pkg3,Individually-selected', 'pkg1,base']}, <UNPRINTABLE>, True, False)"
-        assert `fcalls[12]` == "updateProgress({'status': {'package': 'pkg3'}}, <UNPRINTABLE>, False, True)"
-        assert `fcalls[59]` == "clearLock()"
+        assert `fcalls[11]` == "updateProgress({'todo': ['pkg2,base', 'pkg3,Individually-selected', 'pkg1,base']}, <UNPRINTABLE>, True)"
+        assert `fcalls[12]` == "updateProgress({'status': {'package': 'pkg3'}}, <UNPRINTABLE>, False)"
+        assert `fcalls[50]` == "clearLock()"
         wcalls = self.windows.getAllCalls()
-        assert len(wcalls) == 2, `wcalls`
-        assert `wcalls[0]` == "noRestartOnLogon()", `wcalls[0]`
-        assert `wcalls[1]` == "noAutoLogin()"
-
-    def testReconcileSystemUninstallWithBackup(self):
-        self.config.data = {"packageGroups": ["base"]}
-        self.server.yamlRequests = [["pkg2"]]
-        packagesDat = {"pkg1": {"install": {"fullName":"pkg1-1"}},
-                       "pkg2": {"install": {"fullName":"pkg2-1"}}}
-        installProgress1 = {"install-progress":
-                            {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
-                                        "UNINSTALLED": 'NA',
-                                        "VERIFIED": 'Mon Apr 18 01:01:01 2005'},
-                             "pkg2-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
-                                        "UNINSTALLED": 'NA',
-                                        "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
-        repository = MockObjects.MockRepository(packagesDat)
-        self.config.repository = repository
-        inMaintenance(self.config)
-        self.filesystem.status = installProgress1
-        base1 = os.path.join(os.getcwd(), "packages", "pkg1-1")
-        self.filesystem.directories = [os.path.join(base1, "scripts"),os.path.join(base1, "injector")]
-        self.filesystem.files = [os.path.join(base1, "scripts", "uninstaller.py"),
-                                 os.path.join(base1, "scripts", "backup.py")]
-        self.bombardier.repository = repository
-        cs = bombardier.CommSocket.CommSocket()
-        status = self.bombardier.reconcileSystem(cs.testStop)
-        fcalls = self.filesystem.getAllCalls()
-##         for i in range(0, len(fcalls)):
-##            print "%d: %s" % (i, `fcalls[i]`)
-        assert len(fcalls) == 41, len(fcalls)
-        assert `fcalls[18]`.rfind('backup') != -1
-        assert `fcalls[20]`.startswith('execute') != -1
-        assert `fcalls[20]`.rfind('backup.py') != -1
-        assert `fcalls[25]`.startswith("createTar('pkg1.tar.gz'")
-        assert `fcalls[27]`.startswith("getBinaryDataFromFilePath(")
-        assert `fcalls[31]`.startswith("execute")
-        assert `fcalls[31]`.rfind("uninstaller.py'") != -1
-        Logger.critical( "==========================================END" )
+        assert len(wcalls) == 8, len(wcalls)
+        assert `wcalls[0]`.startswith('run'), `wcalls[0]`
+        assert `wcalls[1]`.startswith('run'), `wcalls[0]`
+        assert `wcalls[2]`.startswith('run'), `wcalls[0]`
+        assert `wcalls[3]`.startswith('run'), `wcalls[0]`
+        assert `wcalls[4]`.startswith('run'), `wcalls[0]`
+        assert `wcalls[5]`.startswith('run'), `wcalls[0]`
+        assert `wcalls[6]` == "noRestartOnLogon()", `wcalls[0]`
+        assert `wcalls[7]` == "noAutoLogin()"
 
     def testReconcileSystemWithDependencies(self):
-        self.config.data = {"packageGroups": ["base"]}
+        self.config.data = {"bom": ["base"]}
         self.server.yamlRequests = [["pkg2"]]
         packagesDat = {"pkg1": {"install": {"fullName":"pkg1-1"}},
                        "pkg2": {"install": {"fullName":"pkg2-1"}}}
@@ -944,16 +924,15 @@ class BombardierTest(unittest.TestCase):
         self.filesystem.getProgressData()
         base1 = os.path.join(os.getcwd(), "packages", "pkg1-1")
         self.filesystem.directories = [os.path.join(base1, "scripts"),os.path.join(base1, "injector")]
-        self.filesystem.files = [os.path.join(base1, "scripts", "uninstaller.py"),
-                                 os.path.join(base1, "scripts", "backup.py")]
+        self.filesystem.files = [os.path.join(base1, "scripts", "uninstaller.py")]
         self.bombardier.repository = repository
 
 
-        self.config.data = {"packageGroups": ["base"]}
+        self.config.data = {"bom": ["base"]}
         self.server.yamlResponseDict = {"deploy/bom/base.yml":["pkg2"]}
         packagesDat = {"pkg1": {"install": {"fullName":"pkg1-1"}},
                        "pkg2": {"install": {"fullName":"pkg2-1"},
-                                "dependencies": {"dep0": "pkg1"}}}
+                                "dependencies": [ "pkg1"]}}
         repository = MockObjects.MockRepository(packagesDat)
         self.config.repository = repository
         inMaintenance(self.config)
@@ -970,13 +949,18 @@ class BombardierTest(unittest.TestCase):
 
         cs = bombardier.CommSocket.CommSocket()
         status = self.bombardier.reconcileSystem(cs.testStop)
+        wcalls = self.windows.getAllCalls()
+        assert len(wcalls) == 4, len(wcalls)
+        assert `wcalls[0]`.startswith('run'), `wcalls[0]`
+        assert `wcalls[1]`.startswith('run'), `wcalls[1]`
+        assert `wcalls[2]`.startswith('noRestartOnLogon'), `wcalls[2]`
+        assert `wcalls[3]`.startswith('noAutoLogin'), `wcalls[3]`
         fcalls = self.filesystem.getAllCalls()
-
-        assert len(fcalls) == 45, len(fcalls)
+        assert len(fcalls) == 37, len(fcalls)
         assert status == OK
 
     def testReconcileSystemBogus(self):
-        self.config.data = {"packageGroups": ["base"]}
+        self.config.data = {"bom": ["base"]}
         installProgress3 = {"install-progress":
                            {"pkg1-1": {"INSTALLED": time.ctime(),
                                        "UNINSTALLED": 'NA',
@@ -989,8 +973,7 @@ class BombardierTest(unittest.TestCase):
         self.filesystem.status = installProgress3
         base1 = os.path.join(os.getcwd(), "packages", "pkg1-1")
         self.filesystem.directories = [os.path.join(base1, "scripts"),os.path.join(base1, "injector")]
-        self.filesystem.files = [os.path.join(base1, "scripts", "uninstaller.py"),
-                                 os.path.join(base1, "scripts", "backup.py")]
+        self.filesystem.files = [os.path.join(base1, "scripts", "uninstaller.py")]
         self.bombardier.repository = repository
         cs = bombardier.CommSocket.CommSocket()
         status = self.bombardier.reconcileSystem(cs.testStop)
@@ -1060,7 +1043,7 @@ class BombardierTest(unittest.TestCase):
         
     def testGetDetailedTodolistSimple(self):
         # basic test case, no surprises
-        self.config.data = {"packageGroups": ["base"]}
+        self.config.data = {"bom": ["base"]}
         installList = ["package1", "package2"]
         self.server.yamlRequests = [["package1", "package2"]]
         todolist = self.bombardier.getDetailedTodolist(installList)
@@ -1069,7 +1052,7 @@ class BombardierTest(unittest.TestCase):
 
     def testGetDetailedTodolistMultiple(self):
         # coming from more than one source
-        self.config.data = {"packageGroups": ["base", "foo"]}
+        self.config.data = {"bom": ["base", "foo"]}
         installList = ["package1", "package2"]
         self.server.yamlRequests = [["package1", "package2"], ["package1", "package2"],
                                     ["package1", "package2"]]
@@ -1129,10 +1112,9 @@ if __name__ == "__main__":
 ##     suite.addTest(BombardierTest("testRebootForMoreInstallation"))
 ##     suite.addTest(BombardierTest("testReconcileSystem1"))
 ##     suite.addTest(BombardierTest("testReconcileSystemBogus"))
-    #suite.addTest(BombardierTest("testReconcileSystemUninstallWithBackup"))
     #suite.addTest(BombardierTest("testReconcileSystemWithDependencies"))
     #suite.addTest(BombardierTest("testGetPackagesToRemove1"))
-    #suite.addTest(BombardierTest("testVerifySystem1"))
+    #suite.addTest(BombardierTest("testVerifySystem2"))
     #suite.addTest(BombardierTest("testCheckConfig uration"))
     #suite.addTest(BombardierTest("testCheckSystem2"))
     suite.addTest(unittest.makeSuite(BombardierTest))

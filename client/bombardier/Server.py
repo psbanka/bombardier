@@ -193,10 +193,10 @@ class Server:
             Logger.info("Using server %s because was chosen before" % preferred)
             self.serverData = serverDataDirectory[preferred]
             return
-        for serverDataName in serverDataDirectory.keys():
+        for serverDataName in serverDataDirectory.keys(): 
             self.serverData = serverDataDirectory[serverDataName]
             try:
-                data = self.serviceRequest("pkggroups", timeout=2)
+                data = self.serviceRequest("pkggroups", timeout=2) #^^^ FIXME!!
             except Exceptions.ServerUnavailable:
                 ermsg = "server %s is not a good choice" % self.serverData["address"]
                 Logger.debug(ermsg)

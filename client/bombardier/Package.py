@@ -22,7 +22,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, string, time, datetime, ConfigParser
+import os, time, datetime, ConfigParser
 
 import miniUtility, MetaData, Exceptions, Logger
 from staticData import *
@@ -30,7 +30,7 @@ from staticData import *
 class Package:
 
     """This class provides an abstraction for a downloadable,
-    installable, verifiable, backupable, and uninstallable thing. Each
+    installable, verifiable, and uninstallable thing. Each
     package is held in a database on the server and downloaded from
     the server."""
 
@@ -70,17 +70,18 @@ class Package:
         return self.metaData.data.get("configuration")
 
     def gatherDependencies(self):
-        dependencies = 0
-        while 1 == 1:
-            try:
-                depstr = "dep"+`dependencies`
-                dep = self.metaData.get("dependencies", depstr)
-                self.dependencies.append(dep)
-                dependencies += 1
-            except ConfigParser.NoSectionError:
-                break
-            except ConfigParser.NoOptionError:
-                break
+        self.dependencies = self.metaData.data.get("dependencies")
+        if type(self.dependencies) == type(None):
+            self.dependencies = []
+        elif type(self.dependencies) == type('string'):
+            self.dependencies = [self.dependencies]
+        elif type(self.dependencies) == type([]):
+            pass
+        else:
+            errmsg = "Unsupported dependencies data for %s. "\
+                     "Must be a list. [%s] instead." % (self.name, self.dependencies)
+            Logger.warning(errmsg)
+            self.dependencies = []
     
     def evalPriority(self):
         self.priority = self.metaData.data["install"].get('priority')
@@ -160,17 +161,12 @@ class Package:
             Logger.error("Scripts directory does not exist")
             self.status = FAIL
             return FAIL
-        backupDir = os.path.join(newDir, "backup")
         injectorDir = os.path.join(newDir, "injector")
-        if self.filesystem.isdir(backupDir):
-            self.workingDir = backupDir
-            return OK
-        elif self.filesystem.isdir(injectorDir):
+        if self.filesystem.isdir(injectorDir):
             self.workingDir = injectorDir
             return OK
         else:
-            Logger.error("Neither the injector nor the "\
-                              "backup directory exists for [%s]" % self.fullName)
+            Logger.error("The injector directory does not exist for [%s]" % self.fullName)
             self.filesystem.updateCurrentAction("Package is corrupt or missing.", 0, self.server)
             self.status = FAIL
             return FAIL
@@ -220,7 +216,7 @@ class Package:
     def findCmd(self, action, abortIfTold, packageList=[]):
         fullCmd = ''
         extensions = [".py", ".bat", ".pl", ".sh"]
-        cmds = {INSTALL: "installer", UNINSTALL: "uninstaller", VERIFY: "verify", BACKUP: "backup"}
+        cmds = {INSTALL: "installer", UNINSTALL: "uninstaller", VERIFY: "verify" }
         cmd = cmds.get(action)
         if not cmd:
             Logger.error("Unknown action: [%s]" % action)
@@ -235,27 +231,12 @@ class Package:
             Logger.error("Could not find an appropriate script.")
             return FAIL
         erstr = "Unable to run script script: %s" % fullCmd
-        if sys.platform != "linux2" and self.console and action== INSTALL:
-            abortIfTold()
-            self.filesystem.beginConsole()
-            if fullCmd.endswith(".py"):
-                self.operatingSystem.runPython( fullCmd, self.workingDir )
-            elif fullCmd.endswith(".sh"):
-                self.operatingSystem.runCmd( "bash %s" % fullCmd, self.workingDir)
-            elif fullCmd.endswith(".bat"):
-                self.operatingSystem.runCmd( fullCmd, self.workingDir )
-            else: # crutch for running perl until we decide on a permanent location
-                if sys.platform != "linux2":
-                    import win32api
-                    win32api.ShellExecute(0, "open", "perl.exe", fullCmd, self.workingDir, 1)
-            status = self.filesystem.watchForTermination(sleepTime=1, abortIfTold=abortIfTold)
-        else:
-            if fullCmd.endswith(".sh"):
-                fullCmd = "bash %s" % fullCmd
-            if packageList: # don't know how to do this with shellExecute
-                fullCmd += " %s" %string.join(packageList,',')
-            status = self.filesystem.execute(fullCmd, erstr, dieOnExit=0, captureOutput=True,
-                                             workingDirectory=self.workingDir)
+        status = OK
+        if packageList:
+            fullCmd += " %s" % ','.join(packageList)
+
+        status = self.operatingSystem.run(fullCmd, abortIfTold, self.workingDir, self.console)
+
         if status == REBOOT:
             erstr = "%s %s: indicated reboot action is necessary." % (self.fullName, status)
             Logger.warning(erstr)
@@ -356,16 +337,9 @@ class Package:
     # TESTED
     def uninstall(self, abortIfTold):
         self.download(abortIfTold)
-        abortIfTold()
-        status = self.backup(abortIfTold) #^ CHECK
-        if status != OK:
-            ermsg = "Aborting uninstall: Unable to back up "\
-                    "%s before uninstalling." % self.fullName
-            Logger.error(ermsg)
-            return FAIL
         if self.status == FAIL:
-            Logger.info("Not attempting to uninstall malformed package.")
             return FAIL
+        abortIfTold()
         Logger.info("Uninstalling package %s" % self.name)
         self.filesystem.updateCurrentAction("Uninstalling...", 70, self.server)
         abortIfTold()
@@ -379,129 +353,6 @@ class Package:
         dateString = "%d-%d-%d-%d-%d-%d" %(d.year, d.month, d.day, d.hour, d.minute, d.second ) 
         return( dateString )
 
-    #^ UNTESTED
-    def cleanBackupPath(self):
-        if os.path.isdir(self.backupPath):
-            Logger.info("Removing current backup directory")
-            try:
-                self.filesystem.rmtree(self.backupPath)
-            except OSError, e:
-                Logger.error("Unable to remove old backup directory (%s)" % self.backupPath)
-                Logger.error("Error message: %s" % e)
-                return FAIL
-        self.filesystem.mkdir(self.backupPath)
-        return OK
-
-    ## TESTED
-    def backup(self, abortIfTold):
-        def returnNice(startDir, status, filesystem):
-            filesystem.chdir(startDir)
-            return status
-        startDir = self.filesystem.getcwd()
-        Logger.info("---------------------------Backing up %s" %self.fullName)
-        # FIXME: cheap hack -- should use something like findcmd. -pbanka
-        filePath = os.path.join(miniUtility.getPackagePath(), self.fullName, "scripts", "backup.py")
-        if not self.filesystem.isfile(filePath):
-            Logger.info("No backup executable -- not backing up")
-            return OK
-        # / cheap hack
-
-        try:
-            self.rootName = self.metaData.get("backup", "rootname")
-        except ConfigParser.NoOptionError:
-            ermsg = "Using package %s name for root name because no rootname is defined" % self.name
-            Logger.warning(ermsg)
-            self.rootName = self.name
-        except ConfigParser.NoSectionError:
-            ermsg = "Using package %s name for root name because no rootname is defined" % self.name
-            Logger.warning(ermsg)
-            self.rootName = self.name
-        self.tarFileName = self.rootName + ".tar.gz"
-        self.dateString = self.getDateString()
-        self.filesystem.updateCurrentAction("Backing up...", 40, self.server)
-        Logger.info("Backing up package %s" % self.fullName)
-        self.chdir()
-        self.backupPath = os.path.join(miniUtility.getPackagePath(), self.fullName, 'backup')
-        Logger.debug("Backing up to %s" % self.backupPath)
-        abortIfTold()
-        status = self.cleanBackupPath()
-        if status == FAIL:
-            return returnNice(startDir, FAIL, self.filesystem)
-        status = self.injector()
-        if status == FAIL:
-            return returnNice(startDir, FAIL, self.filesystem)
-        if self.workingDir.split(os.path.sep)[-1] != "backup":
-            Logger.error("could not create a backup directory: %s" % os.getcwd())
-            return returnNice(startDir, FAIL, self.filesystem)
-        abortIfTold()
-        status = self.findCmd(BACKUP, abortIfTold)
-        if status != OK:
-            Logger.info("No backup script was found. Not backing up.")
-            return returnNice(startDir, OK, self.filesystem)
-        Logger.info("Backup succeeded. Creating compressed package")
-        self.filesystem.chdir( self.backupPath )
-        abortIfTold()
-        status = self.buildTarFile()
-        if status == FAIL:
-            return returnNice(startDir, FAIL, self.filesystem)
-        abortIfTold()
-        status = self.sendTarFileToWebService()
-        return returnNice(startDir, status, self.filesystem)
-
-    #^ UNTESTED
-    def buildTarFile(self):
-        self.filesystem.updateCurrentAction("Packing and compressing backup...", 50, self.server)
-        errmsg = "Creating tarfile %s in backupPath %s..." %( self.tarFileName, self.backupPath )
-        Logger.info(errmsg)
-        if not self.filesystem.isdir( self.backupPath ):
-            Logger.error("Directory does not exist: " + self.backupPath)
-            return FAIL
-        self.filesystem.chdir( self.backupPath )
-        self.tarfileName = self.rootName + ".tar.gz"
-        self.filesystem.createTar( self.tarfileName, self.backupPath )
-        Logger.debug( "%s successfully created" %(self.tarFileName) )
-        return OK
-
-    #^ UNTESTED
-    def sendTarFileToWebService( self ):
-        self.filesystem.updateCurrentAction("Uploading backup to web service...", 60, self.server)
-        self.newPackageName = "%s-%s" %(self.rootName, self.dateString)
-        Logger.debug( "newPackageName : %s" %(self.newPackageName) )
-        Logger.debug( "Creating spkg %s from %s using the webservice..."
-                           %(self.newPackageName, self.tarFileName) )
-
-        args = {'packagename':self.newPackageName, 'installscript':self.rootName}
-        filePath = os.path.join( self.backupPath, self.tarFileName )
-        putData = self.filesystem.getBinaryDataFromFilePath( filePath )
-        if putData == None:
-            Logger.error("No data in backup file %s" % filePath)
-            return FAIL
-        try:
-            output = self.server.serviceYamlRequest( "website/service/package/", args, putData,
-                                                     debug=True, legacyPathFix=False )
-        except Exceptions.ServerUnavailable, e:
-            Logger.error("Unable to send backup data to server %s" % e)
-            return FAIL
-        status = output.get("status")
-        warnings = output.get("warnings")
-        if not warnings:
-            warnings = []
-        errors   = output.get("errors")
-        if not errors:
-            errors = []
-        for warning in warnings:
-            Logger.warning("Warning returned from webservice: %s" %warning)
-        for error in errors:
-            Logger.error("Error returned from webservice: %s" %error)
-        if status != OK:
-            Logger.error("Uploading tarball to the webserver failed.")
-            if not status:
-                Logger.error("No return from server")
-            return FAIL
-        Logger.debug( "output from request: \n%s" %(output.get("logdata")) )
-        return OK
-
-    ### TESTED
     def pickMostRecentPackage(self):
         self.filesystem.updateCurrentAction("Determining most recent version...", 5, self.server)
         installablePackages = self.repository.getFullPackageNames()
