@@ -41,7 +41,7 @@ class Linux(OperatingSystem.OperatingSystem):
             Logger.error("unknown command type %s" % `fullCmd`)
             return FAIL
         status = self.execute(fullCmd, errorString="Unable to execute %s" % fullCmd,
-                              workingDirectory = workingDirectory, captureOutput = True),
+                              workingDirectory = workingDirectory, captureOutput = True)
         return status
     
     def noRestartOnLogon(self): 

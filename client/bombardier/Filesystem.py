@@ -132,7 +132,6 @@ class Filesystem:
         return OK
 
     def clearLock(self):
-        Logger.info("Clearing installation lock.")
         lockPath = os.path.join(miniUtility.getSpkgPath(), INSTALL_LOCK)
         if os.path.isfile(lockPath):
             try:

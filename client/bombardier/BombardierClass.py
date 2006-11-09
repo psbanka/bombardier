@@ -248,8 +248,6 @@ class Bombardier:
         # Window format : DayOfWeek-Abbrev HH:MM MM
         windowTime = self.config.get("system", "maintenanceWindow",default="NONE")
         if windowTime == "NONE":
-            Logger.warning("Maintenance window is not set. "\
-                           "All maintenance is allowed.")
             return True
         validDays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
         if len(windowTime.split()) != 3:
@@ -570,7 +568,6 @@ class Bombardier:
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         packageDict = self.createPackageDict(delPackageNames, UNINSTALL)
         if sets.Set(installedPackageNames) == sets.Set(packageDict.keys()):
-            Logger.info("all packages are being removed.")
             return packageDict
         packageDict = self.getUninstallPackageDependencies(packageDict,
                                                            delPackageNames,
@@ -732,7 +729,7 @@ class Bombardier:
         addPackageNames, delPackageNames = self.checkBom(self.packageNames)
         self.abortIfTold()
         self.getPackagesToAdd(addPackageNames)
-        status = self.installPackages() # I think the DRWatson exists in here...
+        status = self.installPackages()
         return self.cleanup(status, logmessage="Finished installing.")
 
     def checkSystem(self, testStop, packageNames = None):
@@ -761,6 +758,12 @@ class Bombardier:
                         packageInfo["reconfigure"].append(packageName)
                         packageInfo["ok"].remove(packageName)
         return packageInfo
+
+    def installPackage(self, packageName):
+        self.getPackagesToAdd([packageName])
+        status = self.installPackages()
+        self.cleanup(status, logmessage="Finished installing.")
+        return status
 
 if __name__ == "__main__":
     message =  """NOTE: This program is no longer

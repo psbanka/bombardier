@@ -196,7 +196,7 @@ class Server:
         for serverDataName in serverDataDirectory.keys(): 
             self.serverData = serverDataDirectory[serverDataName]
             try:
-                data = self.serviceRequest("pkggroups", timeout=2) #^^^ FIXME!!
+                data = self.serviceYamlRequest("deploy/packages/packages.yml", timeout=2) #^^^ FIXME!!
             except Exceptions.ServerUnavailable:
                 ermsg = "server %s is not a good choice" % self.serverData["address"]
                 Logger.debug(ermsg)

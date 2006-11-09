@@ -29,21 +29,23 @@ import bombardier.Config, bombardier.OperatingSystem
 import bombardier.Server, bombardier.CommSocket
 import bombardier.Repository, bombardier.BombardierClass
 
+UPDATE  = 0
+CHECK   = 1
+INSTALL = 2
 
 def displayHelp():
     usage = """
 %s: the bombardier package installation and check utility
 
 USAGE:
-%s [command] [-h|-?|--help]
+%s [-c|-u|-i package|-h|-?|--help]
 
-    [command]   Provide a command to the bc system, which can be one of:
-      check     check and report on the overall status of the system packages
-      update    (default) download, install, and verify all packages required
-                for this system.
+ -c           check and report on the overall status of the system packages
+ -u           (default) download, install, and verify all packages required
+              for this system.
+ -i [package] install package
+ -h           this screen
 
-    -h          this screen
-    
     """ % (sys.argv[0], sys.argv[0])
     print usage
     sys.exit(1)
@@ -51,33 +53,33 @@ USAGE:
 
 if __name__ == "__main__":
     try:
-        options,args = getopt.getopt(sys.argv[1:], "ch?",
-                                     ["check", "help"])
+        options,args = getopt.getopt(sys.argv[1:], "cui:h?",
+                                     ["install", "update", "check", "help"])
     except getopt.GetoptError:
         print "ERROR: Unable to parse options."
         displayHelp()
 
-    check = False
-    update = False
+    action = UPDATE
+    packageName = None
     for opt,arg in options:
-        if opt in ['-h','-?','--help']: 
+        if opt in ['-h','-?','--help']:
             displayHelp()
-        elif opt in ['check']:
-            if update:
+        elif opt in ['-c', '--check']:
+            if action == UPDATE:
                 print "Check and update are mutually exclusive options"
                 displayHelp()
-            check = True
-        elif opt in ['update']:
-            if check:
+            action = CHECK
+        elif opt in ['-u', '--update']:
+            if action == CHECK:
                 print "Check and update are mutually exclusive options"
                 displayHelp()
-            update = True
+            action = UPDATE
+        elif opt in ['-i', '--install']:
+            action = INSTALL
+            packageName = arg
         else:
             print "Unknown Option",opt
             displayHelp()
-
-    if not check:
-        update = True # default
 
     addStdErrLogging()
     filesystem = bombardier.Filesystem.Filesystem()
@@ -102,15 +104,21 @@ if __name__ == "__main__":
     bc = bombardier.BombardierClass.Bombardier(repository, config,
                                                        filesystem, server,
                                                        operatingSystem)
-    if update:
+    if action == UPDATE
         status = bc.reconcileSystem(cs1.testStop)
         if status == OK:
             filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", server)
         else:
             filesystem.updateCurrentStatus(ERROR, "Error installing", server)
             filesystem.warningLog("Error installing", server)
-    elif check:
+    elif action == CHECK:
         status = bc.checkSystem(cs1.testStop)
         filesystem.updateCurrentStatus(IDLE, "Check complete", server)
+    elif action == INSTALL:
+        status = bc.installPackage(packageName)
+        if status == OK:
+            print "COMPLETED SUCCESSFULLY"
+        else:
+            print "ERROR IN INSTALLATION"
     filesystem.clearLock()
 

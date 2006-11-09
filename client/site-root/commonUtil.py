@@ -30,7 +30,6 @@ getBinaryDataFromFilePath = filesystem.getBinaryDataFromFilePath
 getStringDataFromFilepath = filesystem.getStringDataFromFilePath
 getDataFromFilePath = filesystem.getDataFromFilePath
 getDataFromFilePointer = filesystem.getDataFromFilePointer
-beginConsole = filesystem.beginConsole
 clearLock = filesystem.clearLock
 setLock = filesystem.setLock
 loadCurrent = filesystem.loadCurrent
@@ -39,13 +38,13 @@ updateCurrentAction = filesystem.updateCurrentAction
 getCurrentAction = filesystem.getCurrentAction
 updateDict = miniUtility.updateDict
 getAllFromFile = filesystem.getAllFromFile
-catToLog = filesystem.catToLog
 getProgressData = filesystem.getProgressData
 stripVersion = miniUtility.stripVersion
     
 if sys.platform != "linux2":
     import bombardier.Windows
     windows = bombardier.Windows.Windows()
+    beginConsole = windows.beginConsole
     operatingSystem = windows
     getWindowsType = windows.getWindowsType
     testCredentials = windows.testCredentials
@@ -74,6 +73,7 @@ else:
     linux = bombardier.Linux.Linux()
     operatingSystem = linux
 
+catToLog = operatingSystem.catToLog
 import bombardier.Logger as Logger
 logger = Logger.Logger()
 system = operatingSystem.execute
