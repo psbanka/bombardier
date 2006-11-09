@@ -58,7 +58,6 @@ class PackageCreator:
         self.warnings    = []
         self.errors      = []
         self.startDir    = os.getcwd()
-        self.svnConfig   = config.get("svn")
         
     def cleanup(self, deleteSpkg = True):
         print "cleaning up..."
@@ -131,7 +130,7 @@ class PackageCreator:
 
     def createTarball(self):
         print "creating spkg (%s)..." % self.fullname
-        os.chdir(self.destDir)
+        os.chdir(self.tempDir)
         tar = tarfile.open(self.spkg, "w:gz")
         tar.add(self.fullname)
         tar.close()
@@ -214,6 +213,7 @@ class TarCreator(PackageCreator):
         self.packageName = packageName
         self.fullname    = self.packageName+'-'+self.version
         self.spkg        = self.packageName+"-"+self.version+".spkg"
+        self.svnConfig   = config.get("svn")
         if self.svnConfig == None:
             print "No svn configuration in configuration file"
             sys.exit(1)

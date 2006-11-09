@@ -1,3 +1,16 @@
-A    c:/temp/testPackage-4/scripts
-A    c:/temp/testPackage-4/scripts/TestPackage.py
-Exported revision 8.
+A    /tmp/CgTomcat-11/scripts
+A    /tmp/CgTomcat-11/scripts/installer.py
+A    /tmp/CgTomcat-11/scripts/uninstaller.py
+A    /tmp/CgTomcat-11/scripts/CgTomcat.py
+A    /tmp/CgTomcat-11/scripts/configure.py
+A    /tmp/CgTomcat-11/scripts/verify.py
+A    /tmp/CgTomcat-11/scripts/templates
+A    /tmp/CgTomcat-11/scripts/templates/server.xml.template
+A    /tmp/CgTomcat-11/scripts/templates/tomcat-users.xml.template
+A    /tmp/CgTomcat-11/scripts/templates/tomcat.template
+A    /tmp/CgTomcat-11/scripts/templates/start.bash.template
+A    /tmp/CgTomcat-11/scripts/templates/index.html.template
+A    /tmp/CgTomcat-11/scripts/templates/web.xml.template
+A    /tmp/CgTomcat-11/scripts/templates/killer.bash.template
+A    /tmp/CgTomcat-11/scripts/templates/restart.bash.template
+Exported revision 30.

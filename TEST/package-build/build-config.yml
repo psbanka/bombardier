@@ -1,9 +1,9 @@
 ---
 server:
-    address: "file:///d:/mydocuments/dev/bombardier-svn/trunk/TEST/server-directory"
-#    address: "http://172.17.50.56"
-    header: "Expect:"
+    address: "http://172.22.10.56"
 site:
-    tmpPath: c:/temp
+    tmpPath: /tmp
 svn:
-    root: file:///d:/mydocuments/dev/bombardier-svn/trunk/TEST/package-build/svn/scripts
+    root: http://172.22.10.56/repository/dev/packages/
+    username: robot
+    password: 1qaz2wsx
