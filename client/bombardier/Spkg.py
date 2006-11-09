@@ -12,6 +12,16 @@ def doubleEscape(oldString):
             outString += i
     return outString
 
+class SpkgException( Exception ):
+    def __init__(self, errorMessage=""):
+        self.errorMessage = errorMessage
+        e = Exception()
+        Exception.__init__(e)
+    def __str__(self):
+        print self.errorMessage
+    def __repr__(self):
+        print self.errorMessage
+
 class Spkg:
 
     def __init__(self, config, filesystem = Filesystem.Filesystem()):
@@ -19,6 +29,13 @@ class Spkg:
         self.thisPackagesName = self._getname()
         self.filesystem = filesystem
         
+    def checkStatus(self, status, errMsg="FAILED"):
+        if status != OK:
+            raise SpkgException(errMsg)
+    def system(self, command, errMsg=""):
+        errMsg = command
+        self.checkStatus( os.system( command ), errMsg )
+
     def debug(self, string):
         Logger.debug("[%s]|%s" % (self.thisPackagesName, string))
     def info(self, string):
