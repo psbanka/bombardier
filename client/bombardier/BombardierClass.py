@@ -750,7 +750,8 @@ class Bombardier:
                                          self.filesystem, self.server, self.operatingSystem) 
             newPackage.initialize()
             packageConfig = newPackage.getConfiguration()
-            configHashPath = os.path.join(miniUtility.getSpkgPath(), newPackage.fullName, HASH_FILE)
+            configHashPath = os.path.join(miniUtility.getSpkgPath(), "packages",
+                                          newPackage.fullName, HASH_FILE)
             configDiff     = self.config.checkHash(configHashPath)
             for key in packageConfig.keys():
                 if key in configDiff.keys():
