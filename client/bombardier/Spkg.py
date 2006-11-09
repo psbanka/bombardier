@@ -16,23 +16,23 @@ class Spkg:
 
     def __init__(self, config, filesystem = Filesystem.Filesystem()):
         Logger.addStdErrLogging()
-        self.name = self._getname()
+        self.thisPackagesName = self._getname()
         self.filesystem = filesystem
         
     def debug(self, string):
-        Logger.debug("[%s]|%s" % (self.name, string))
+        Logger.debug("[%s]|%s" % (self.thisPackagesName, string))
     def info(self, string):
-        Logger.info("[%s]|%s" % (self.name, string))
+        Logger.info("[%s]|%s" % (self.thisPackagesName, string))
     def warning(self, string):
-        Logger.warning("[%s]|%s" % (self.name, string))
+        Logger.warning("[%s]|%s" % (self.thisPackagesName, string))
     def error(self, string):
-        Logger.error("[%s]|%s" % (self.name, string))
+        Logger.error("[%s]|%s" % (self.thisPackagesName, string))
     def critical(self, string):
-        Logger.critical("[%s]|%s" % (self.name, string))
+        Logger.critical("[%s]|%s" % (self.thisPackagesName, string))
 
     def _getname(self):
         cwd = os.getcwd()
-        path = os.sep.split(cwd)
+        path = cwd.split(os.sep)
         if path[-1] == "injector" or path[-1] == "scripts":
             return path[-2]
         return path[-1]

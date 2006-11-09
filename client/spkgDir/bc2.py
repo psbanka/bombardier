@@ -65,14 +65,8 @@ if __name__ == "__main__":
         if opt in ['-h','-?','--help']:
             displayHelp()
         elif opt in ['-c', '--check']:
-            if action == UPDATE:
-                print "Check and update are mutually exclusive options"
-                displayHelp()
             action = CHECK
         elif opt in ['-u', '--update']:
-            if action == CHECK:
-                print "Check and update are mutually exclusive options"
-                displayHelp()
             action = UPDATE
         elif opt in ['-i', '--install']:
             action = INSTALL
@@ -104,7 +98,7 @@ if __name__ == "__main__":
     bc = bombardier.BombardierClass.Bombardier(repository, config,
                                                        filesystem, server,
                                                        operatingSystem)
-    if action == UPDATE
+    if action == UPDATE:
         status = bc.reconcileSystem(cs1.testStop)
         if status == OK:
             filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", server)
@@ -112,7 +106,9 @@ if __name__ == "__main__":
             filesystem.updateCurrentStatus(ERROR, "Error installing", server)
             filesystem.warningLog("Error installing", server)
     elif action == CHECK:
+        import yaml
         status = bc.checkSystem(cs1.testStop)
+        print "======================\n\n%s\n" % yaml.dump(status)
         filesystem.updateCurrentStatus(IDLE, "Check complete", server)
     elif action == INSTALL:
         status = bc.installPackage(packageName)

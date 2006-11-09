@@ -760,10 +760,18 @@ class Bombardier:
         return packageInfo
 
     def installPackage(self, packageName):
-        self.getPackagesToAdd([packageName])
+        self.addPackages = self.getPackagesToAdd([packageName])
+        package = self.addPackages[packageName]
+        progressData = self.filesystem.getProgressData()
+        if progressData.has_key(package.fullName):
+            progressData[package.fullName] = {"INSTALLED": "NA", "UNINSTALLED": "NA", "VERIFIED": "NA"}
+        self.filesystem.updateProgress({"install-progress":progressData},
+                                       self.server, overwrite=True)
         status = self.installPackages()
         self.cleanup(status, logmessage="Finished installing.")
         return status
+
+
 
 if __name__ == "__main__":
     message =  """NOTE: This program is no longer
