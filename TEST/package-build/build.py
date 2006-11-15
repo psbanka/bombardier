@@ -211,8 +211,9 @@ class TarCreator(PackageCreator):
             self.findVersion()
             
         self.packageName = packageName
-        self.fullname    = self.packageName+'-'+self.version
-        self.spkg        = self.packageName+"-"+self.version+".spkg"
+        self.fullname    = "%s-%s" % (self.packageName,self.version)
+        self.spkg        = "%s-%s.spkg" % (self.packageName, self.version)
+        print ">>>>>>>>>>>>  SPKG: ", self.spkg
         self.svnConfig   = config.get("svn")
         if self.svnConfig == None:
             print "No svn configuration in configuration file"
@@ -381,6 +382,9 @@ if __name__ == "__main__":
         if not os.path.isfile(tarFilename):
             print '\nERROR: File "%s" does not exist' % tarFilename
             displayHelp()
+        if packageName == None:
+            packageName = tarFilename.split('.tar')[0]
+            packageName = packageName.split('/')[-1]
         if scriptName == None:
             scriptName = packageName
         packageCreator = TarCreator(tarFilename, packageName, scriptName, version, config)

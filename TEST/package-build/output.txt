@@ -1,16 +1,7 @@
-A    /tmp/CgTomcat-11/scripts
-A    /tmp/CgTomcat-11/scripts/installer.py
-A    /tmp/CgTomcat-11/scripts/uninstaller.py
-A    /tmp/CgTomcat-11/scripts/CgTomcat.py
-A    /tmp/CgTomcat-11/scripts/configure.py
-A    /tmp/CgTomcat-11/scripts/verify.py
-A    /tmp/CgTomcat-11/scripts/templates
-A    /tmp/CgTomcat-11/scripts/templates/server.xml.template
-A    /tmp/CgTomcat-11/scripts/templates/tomcat-users.xml.template
-A    /tmp/CgTomcat-11/scripts/templates/tomcat.template
-A    /tmp/CgTomcat-11/scripts/templates/start.bash.template
-A    /tmp/CgTomcat-11/scripts/templates/index.html.template
-A    /tmp/CgTomcat-11/scripts/templates/web.xml.template
-A    /tmp/CgTomcat-11/scripts/templates/killer.bash.template
-A    /tmp/CgTomcat-11/scripts/templates/restart.bash.template
-Exported revision 30.
+A    /tmp/uhrDb-install-5/scripts
+A    /tmp/uhrDb-install-5/scripts/installer.py
+A    /tmp/uhrDb-install-5/scripts/uninstaller.py
+A    /tmp/uhrDb-install-5/scripts/configure.py
+A    /tmp/uhrDb-install-5/scripts/verify.py
+A    /tmp/uhrDb-install-5/scripts/DbPatch.py
+Exported revision 47.
