@@ -137,7 +137,7 @@ class PackageCreator:
                 metadata = Pkg.metadata
             config = MockConfig()
             exec ('object = Pkg.%s(config)' % className)
-            metadata['configuration'] = config.requests
+            metadata['configuration'] = config.getRequests()
             os.chdir(self.startDir)
         if createTarball:
             self.createTarball()
