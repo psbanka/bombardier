@@ -52,7 +52,7 @@ class MockDict:
         print "MD: ",self.dicts
         for subdict in self.dicts:
             key = subdict.name
-            print "MD: (name:%s) key: %s" % (name, key)
+            print "MD: (name:%s) key: %s" % (self.name, key)
             if subdict.dicts:
                 value = subdict.getRequests()
             else:
