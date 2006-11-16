@@ -39,14 +39,43 @@ def findClassName():
                 return filename[:-3]
     return ''
 
+class MockDict:
+    def __init__(self, name):
+        self.name = name
+        self.dicts = []
+    def get(self, key):
+        md = MockDict(key)
+        self.dicts.append(md)
+        return md
+    def getRequests(self):
+        output = {}
+        for subdict in self.dicts:
+            key = subdict.name
+            if subdict.dicts:
+                value = subdict.getRequests()
+            else:
+                value = ""
+            output[key] = value
+        return output
+
 class MockConfig:
     def __init__(self):
         self.requests = {}
+        self.data = MockDict("/")
+
     def get(self, section, option, default=""):
         if not self.requests.has_key(section):
             self.requests[section] = {}
         self.requests[section][option] = default
         return default
+
+    def getRequests(self):
+        requests = self.requests
+        for dict in self.data.dicts:
+            dataRequests = self.data.getRequests()
+        for key in dataRequests.keys():
+            requests[key] = dataRequests[key]
+        return requests
 
 class PackageCreator:
 
