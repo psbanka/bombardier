@@ -49,8 +49,10 @@ class MockDict:
         return md
     def getRequests(self):
         output = {}
+        print "MD: ",self.dicts
         for subdict in self.dicts:
             key = subdict.name
+            print "MD: (name:%s) key: %s" % (name, key)
             if subdict.dicts:
                 value = subdict.getRequests()
             else:
@@ -71,8 +73,9 @@ class MockConfig:
 
     def getRequests(self):
         requests = self.requests
-        for dict in self.data.dicts:
-            dataRequests = self.data.getRequests()
+        print requests
+        dataRequests = self.data.getRequests()
+        print "dataRequests:",dataRequests
         for key in dataRequests.keys():
             requests[key] = dataRequests[key]
         return requests
