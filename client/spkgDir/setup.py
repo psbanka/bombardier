@@ -30,11 +30,14 @@ Prequisites:
 """
 
 def install(spkgPath):
+    configFiles = [ 'repositoryDirectory.yml', 'status.yml' ]
     noFileWarningTemplate = "Warning! %s/%s does not exist. Not copying." 
     for inode in os.listdir("."):
         if os.path.isfile(inode):
-            sys.stdout.write( "copying %s -> %s\n" % (inode, spkgPath) )
-            shutil.copy(inode, os.path.join(spkgPath, inode))
+            spkgFile = os.path.join(spkgPath, inode)
+            if not inode in configFiles or not os.path.isfile(spkgFile):
+                sys.stdout.write( "copying %s -> %s\n" % (inode, spkgPath) )
+                shutil.copy(inode, spkgFile)
         else:
             print noFileWarningTemplate % (os.getcwd(), inode)
 
