@@ -33,7 +33,7 @@ def updatePython():
     if sys.platform == "win32":
         pythonPath = os.path.join(sys.prefix, "python.exe")
     else:
-        pythonPath = os.path.join(sys.prefix, "bin", "python")
+        pythonPath = os.path.join(sys.prefix, "bin", "python2.4")
 
     spkgPath = getSpkgPath()
     todos = ["dmoweasel", "site-root"]
