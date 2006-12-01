@@ -26,6 +26,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import sys, os, shutil
+from bombardier.miniUtility import getSpkgPath
 
 def updatePython():
     print "Updating python libraries."
@@ -35,13 +36,18 @@ def updatePython():
         # It may take more than this to get this working on Linux.
         pythonPath = os.path.join(sys.prefix, "bin", "python")
 
-    installCmd = "%s setup.py install" % pythonPath 
-    todos = ["dmoweasel", "spkgDir", "site-root"]
+    spkgPath = getSpkgPath()
+    todos = ["dmoweasel", "site-root"]
     startDir = os.getcwd()
     for todo in todos:
         os.chdir( todo )
-        os.system( installCmd )
+        os.system( "%s setup.py install" % pythonPath )
         os.chdir( startDir )
+
+    os.chdir( "spkgDir" )
+    os.system( "%s setup.py install %s" %(pythonPath, spkgPath) )
+    os.chdir( startDir )
+    
     os.system( "%s bombardier/setup.py install" %pythonPath )
 
 if __name__ == '__main__':
