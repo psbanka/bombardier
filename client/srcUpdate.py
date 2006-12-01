@@ -33,7 +33,6 @@ def updatePython():
     if sys.platform == "win32":
         pythonPath = os.path.join(sys.prefix, "python.exe")
     else:
-        # It may take more than this to get this working on Linux.
         pythonPath = os.path.join(sys.prefix, "bin", "python")
 
     spkgPath = getSpkgPath()
