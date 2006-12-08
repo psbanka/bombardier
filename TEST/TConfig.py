@@ -66,6 +66,16 @@ class ConfigTest(unittest.TestCase):
         self.config.makeConfigObject()
         assert self.config.get("foo", "spam") == 'eggs', self.config.get("foo", "spam")
         
+    def testGetDict(self):
+        self.config.data["foo"] = {"spam": {"eggs":"sausage", "spam":"eggs"}, "eggs": "spam" }
+        self.config.makeConfigObject()
+        assert self.config.get_dict("foo", "spam") == {"eggs":"sausage", "spam":"eggs"}
+        try:
+            self.config.get_dict("foo", "eggs") != "eggs"
+            assert False
+        except TypeError:
+            assert True
+
     def testSaveHash(self):
         self.config.set("section", "option", 12)
         status = self.config.saveHash("foo")

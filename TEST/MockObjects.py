@@ -427,7 +427,17 @@ class MockConfig:
         return self.data.keys()
     def get(self, section, option, default=""):
         try:
-            return self.data[section][option]
+            return str(self.data[section][option])
+        except KeyError:
+            if default:
+                return default
+            raise ConfigParser.NoOptionError
+    def get_dict(self, section, option, default={}):
+        try:
+            result = self.data[section][option]
+            if not result.__class__ == {}.__class__:
+                raise TypeError
+            return result
         except KeyError:
             if default:
                 return default

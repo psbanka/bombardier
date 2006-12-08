@@ -218,15 +218,25 @@ class Config(dict):
 
     ### TESTED
     def get(self, section, option, default=''):
+        return str(self.get_raw(section, option, default))
+
+    def get_dict(self, section, option, default={}):
+        result = self.get_raw(section, option, default)
+        if result.__class__ == {}.__class__:
+            return result
+        else:
+            raise TypeError
+
+    def get_raw(self, section, option, default=''):
         if self.data.has_key(section):
             if self.data[section].has_key(option):
-                return str(self.data[section][option])
+                return self.data[section][option]
         for key in self.data.keys():
             if key.lower() == section.lower():
                 if type(self.data[key] == type({})):
                     for subkey in self.data[key].keys():
                         if subkey.lower() == option.lower():
-                            return str(self.data[key][subkey])
+                            return self.data[key][subkey]
         if default:
             if not self.data.has_key(section):
                 self.data[section] = {}

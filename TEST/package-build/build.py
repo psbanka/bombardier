@@ -71,6 +71,12 @@ class MockConfig:
         self.requests[section][option] = default
         return default
 
+    def get_dict(self, section, option, default={}):
+        if not self.requests.has_key(section):
+            self.requests[section] = {}
+        self.requests[section][option] = default
+        return default
+
     def getRequests(self):
         requests = self.requests
         print requests
