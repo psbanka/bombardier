@@ -39,6 +39,35 @@ def findClassName():
                 return filename[:-3]
     return ''
 
+def extractTar(tarPath, extractPath):
+    errors   = []
+    startDir = os.getcwd()
+    if os.path.isdir(extractPath):
+        print "removing directory %s..." % extractPath
+        shutil.rmtree(extractPath)
+    os.mkdir(extractPath)
+    os.chdir(extractPath)
+    entries = []
+    try:
+        tar = tarfile.open(tarPath, mode="r:gz")
+        for tarinfo in tar:
+            entries.append(tarinfo)
+            try:
+                tar.extract(tarinfo)
+            except tarfile.ExtractError, e:
+                errors.append("Error with package %s -- %s" % (tarinfo.name, e))
+        tar.close()
+    except tarfile.ReadError, e:
+        errors.append( "Cannot unzip uploaded file -- %s" % e )
+        os.chdir(startDir)
+        return FAIL, entries, errors
+    except Exception, e: # tarfile's exceptions are lame, like "error" -pbanka
+        errors.append( "Cannot untar uploaded file -- %s" % e )
+        os.chdir(startDir)
+        return FAIL, entries, errors
+    os.chdir(startDir)
+    return OK, entries, errors
+
 class MockDict:
     def __init__(self, name):
         self.name = name
@@ -251,7 +280,6 @@ class TarCreator(PackageCreator):
         self.packageName = packageName
         self.fullname    = "%s-%s" % (self.packageName,self.version)
         self.spkg        = "%s-%s.spkg" % (self.packageName, self.version)
-        print ">>>>>>>>>>>>  SPKG: ", self.spkg
         self.svnConfig   = config.get("svn")
         if self.svnConfig == None:
             print "No svn configuration in configuration file"
@@ -261,35 +289,13 @@ class TarCreator(PackageCreator):
     def _populateInjector(self):
         print  "copying injectors..."
         injectorDir = os.path.join(self.destDir, "injector")
-        startDir = os.getcwd()
-        os.mkdir(injectorDir)
-        os.chdir(injectorDir)
-        try:
-            tar = tarfile.open(os.path.join(startDir, self.tarFilename), mode="r:gz")
-            entries = []
-            for tarinfo in tar:
-                entries.append(tarinfo)
-                try:
-                    tar.extract(tarinfo)
-                except tarfile.ExtractError, e:
-                    self.errors.append("Error with package %s,%s "\
-                                       "%s" % (self.fullname, tarinfo.name, e))
-            tar.close()
-        except tarfile.ReadError, e:
-            self.errors.append( "Cannot unzip uploaded file -- %s" % e )
-            os.chdir(startDir)
-            return FAIL
-        except Exception, e: # tarfile's exceptions are lame, like "error" -pbanka
-            self.errors.append( "Cannot untar uploaded file -- %s" % e )
-            os.chdir(startDir)
-            return FAIL
+        status, entries, errors = extractTar(self.tarFilename, injectorDir)
         if len(entries) == 0:
             errmsg = "There were no valid entries in the uploaded tarfile."
             self.warnings.append(errmsg)
         else:
             print "number of files in the tarball: %s" % len(entries)
-        os.chdir(startDir)
-        return OK
+        return status
 
     def makePackage(self):
         if self.prepare() == FAIL:
@@ -358,9 +364,74 @@ class SpkgCreator(PackageCreator):
             return self.sendWrapup(FAIL)
         self.cleanup(False)
         return self.sendWrapup(OK)
-        
 
-def displayHelp():
+def cleanScripts(scripts, adminFiles):
+    for script in scripts:
+        if not script:
+            continue
+        os.unlink(script)
+    for file in adminFiles:
+        os.unlink(file)
+        
+def makeTarFromSvnPath(svnPath, packageName, tarFileName, config):
+    import getpass, re
+    tempDir     = config["site"]["tmpPath"]
+    os.chdir(tempDir)
+    if not os.path.isdir(packageName):
+        os.mkdir(packageName)
+    os.chdir(packageName)
+    if tarFileName:
+        status, entries, errors = extractTar(tarFileName, os.getcwd())
+        if status == FAIL:
+            print "unable to extract %s" % tarFileName
+            return FAIL 
+    status = OK
+    adminFiles = ["SCRIPTS", "database", "old-version", "new-version", "supportFiles"]
+    user     = raw_input("SVN User: ")
+    password = getpass.getpass()
+    server   = '/'.join(svnPath.split('/')[0:3])
+    path     = '/'.join(svnPath.split('/')[3:])
+    config   = {"address": server, "username": user, "password":password}
+    svnServer = Server.Server(Filesystem.Filesystem(), config)
+    if not packageName:
+        displayHelp("package name must be specified with -d option")
+    directory = svnServer.serviceRequest(path)
+    scripts = re.compile('href\=\"(\S+\.sql)\"').findall(directory)
+    order   = svnServer.serviceRequest(path+"/SCRIPTS")
+    if order:
+        scripts = [ filename.strip() for filename in order.split('\n') ]
+
+    for script in scripts:
+        if not script:
+            continue
+        try:
+            data = svnServer.serviceRequest("%s/%s" % (path, script))
+            open(script, 'w').write(data)
+        except:
+            print "ERROR: could not download %s" % script
+            status = FAIL
+    for adminFile in adminFiles:
+        try:
+            data = svnServer.serviceRequest("%s/%s" % (path, adminFile))
+        except:
+            print "Could not download file '%s'" % adminFile
+            data = raw_input("Enter data for [%s]: " % adminFile)
+        open(adminFile, 'w').write(data)
+
+    cmd = "tar -czvf %s.tar.gz *" % (packageName)
+    status2 = os.system( cmd )
+    cleanScripts(scripts, adminFiles)
+    if status2 != OK:
+        return FAIL
+    return status
+
+def displayHelp(errmsg = None):
+    if errmsg:
+        print "\n\n============================================"
+        print "ERROR: %s" % errmsg
+        print "============================================"
+
+    base = sys.argv[0]
     usage = """
 %s: Prepare the bombardier server to deploy a package
 
@@ -371,6 +442,9 @@ USAGE:
  To import an existing .spkg:
  %s <-i spkg filename> [-c config file]
 
+ To import a database script from an svn tag:
+ %s <-d url> <-n package name> [-c config file] [-s script name]
+
     <-f tar filename>  the name of the tarfile which contains the injector data
     <-n package name>  the name that the package should be called (minus package version)
     [-s script name]   the name of the scripts to check out of svn
@@ -380,23 +454,24 @@ USAGE:
 
     <-i spkg filename> the name of the spkg which contains the complete spkg file
 
-    """ % (sys.argv[0], sys.argv[0], sys.argv[0])
+    <-d url>           the svn path to the scripts directory
+    """ % (base, base, base, base)
     print usage
     sys.exit(1)
 
 if __name__ == "__main__":
     try:
-        options,args = getopt.getopt(sys.argv[1:], "i:f:n:s:v:h?",
-                                     ["import", "filename" "name", "script", "version", "help"])
+        options,args = getopt.getopt(sys.argv[1:], "i:f:n:s:v:h?d:",
+                                     ["import", "filename" "name", "script", "version", "help", "db"])
     except getopt.GetoptError:
-        print "\nERROR: Unable to parse options."
-        displayHelp()
+        displayHelp("Unable to parse options.")
 
     spkgFilename = None
     scriptName   = None
     tarFilename  = None
     packageName  = None
     version      = None
+    svnPatchUrl  = None
     for opt,arg in options:
         if opt in ['-h','-?','--help']: 
             displayHelp()
@@ -410,16 +485,16 @@ if __name__ == "__main__":
             packageName = arg
         elif opt in ['-v', '--version']:
             version = arg
+        elif opt in ['-d', '--db']:
+            svnPatchUrl = arg
         else:
-            print "Unknown Option",opt
-            displayHelp()
+            displayHelp("Unknown Option %s" % opt)
 
     config = yaml.loadFile("build-config.yml").next()
 
-    if tarFilename:
+    if tarFilename and not svnPatchUrl:
         if not os.path.isfile(tarFilename):
-            print '\nERROR: File "%s" does not exist' % tarFilename
-            displayHelp()
+            displayHelp('File "%s" does not exist' % tarFilename)
         if packageName == None:
             packageName = tarFilename.split('.tar')[0]
             packageName = packageName.split('/')[-1]
@@ -428,12 +503,23 @@ if __name__ == "__main__":
         packageCreator = TarCreator(tarFilename, packageName, scriptName, version, config)
     elif spkgFilename:
         if not os.path.isfile(spkgFilename):
-            print '\nERROR: File "%s" does not exist' % spkgFilename
-            displayHelp()
+            displayHelp('File "%s" does not exist' % spkgFilename)
         packageCreator = SpkgCreator(spkgFilename, config)
+    elif svnPatchUrl:
+        if not packageName:
+            displayHelp("When downloading from SVN, you must include the package name")
+        if makeTarFromSvnPath(svnPatchUrl, packageName, tarFilename, config) == OK:
+            tarFilename = "%s.tar.gz" % packageName
+            tmp = config["site"]["tmpPath"]
+            os.system("mv %s %s" % ( tarFilename, tmp) )
+            os.chdir(tmp)
+            tarPath = os.path.join(tmp, tarFilename)
+            packageCreator = TarCreator(tarPath, packageName, scriptName, version, config)
+        else:
+            print "Improper files for patch. Exiting."
+            sys.exit(FAIL)
     else:
-        print "\nERROR: Must specify either the -f flag or the -i flag\n\n"
-        displayHelp()
+        displayHelp("Must specify either the -f flag or the -i flag\n\n")
         
     wrapup = packageCreator.makePackage()
     print "\n\n\n",wrapup
