@@ -1,7 +1,8 @@
-A    /tmp/uhrDb-install-5/scripts
-A    /tmp/uhrDb-install-5/scripts/installer.py
-A    /tmp/uhrDb-install-5/scripts/uninstaller.py
-A    /tmp/uhrDb-install-5/scripts/configure.py
-A    /tmp/uhrDb-install-5/scripts/verify.py
-A    /tmp/uhrDb-install-5/scripts/DbPatch.py
-Exported revision 47.
+A    /tmp/sqlBackup-2/scripts
+A    /tmp/sqlBackup-2/scripts/crontab-example
+A    /tmp/sqlBackup-2/scripts/SqlBackupInstall.py
+A    /tmp/sqlBackup-2/scripts/installer.py
+A    /tmp/sqlBackup-2/scripts/uninstaller.py
+A    /tmp/sqlBackup-2/scripts/configure.py
+A    /tmp/sqlBackup-2/scripts/verify.py
+Exported revision 111.
