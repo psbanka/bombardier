@@ -58,6 +58,12 @@ def hashDictionary(d):
 def diffLists(sub, super, checkValues=False):
     differences = []
     #print "compareLists: (%s/%s)" % (sub, super)
+    if len(sub) == 0:
+        return []
+    if type(sub[0]) == type(super[0]):
+        if type(sub[0]) == type(1) or type(sub[0]) == type('string'):
+            # comparing a list of literals, length doesn't matter.
+            return []
     if len(sub) != len(super):
         differences = list(set(sub) - set(super))
     for index in range(0, len(sub)):
@@ -82,39 +88,47 @@ def diffLists(sub, super, checkValues=False):
     return differences
 
 def diffDicts(sub, super, checkValues=False):
-    #print "diffDicts: (%s/%s)" % (sub, super)
+    #print "diffDicts: (\nsub\n%s\nsuper\n%s)" % (sub, super)
     differences = {}
     for subKey in sub.keys():
+        #print "SUBKEY:", subKey
         if subKey not in super.keys():
             differences[subKey] = sub[subKey]
+            #print "Found 0"
             continue
         subValue = sub[subKey]
         superValue = super[subKey]
         if type(subValue) == type('string') or type(subValue) == type(1):
             if type(superValue) != type('string') and type(superValue) != type(1):
                 differences[subKey] = subValue
+                #print "Found 1"
                 continue
             if not checkValues:
                 continue
             if subValue != superValue:
                 differences[subKey] = subValue
+                #print "Found 2"
                 continue
             continue
         elif type(subValue) != type(superValue):
             differences[subKey] = subValue
+            #print "Found 3"
             continue
         elif type(subValue) == type({}):
             diff = diffDicts(subValue, superValue, checkValues)
             if diff != {}:
                 differences[subKey] = diff
+                #print "Found 4", checkValues, diff
             continue
         elif type(subValue) == type([]):
             diff = diffLists(subValue, superValue, checkValues)
             if diff != []:
                 differences[subKey] = diff
+                #print "Found 5"
             continue
         else:
             differences[subKey] = subValue
+            #print "Found 6"
             continue
     return differences
 
