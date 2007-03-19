@@ -387,7 +387,6 @@ class Bombardier:
         while makingProgress and packagesLeft:
             makingProgress = False
             installList = self.installList(self.addPackages)
-            print "INSTALL LIST:", installList
             packagesLeft = []
             [ packagesLeft.append(x) for x in installList ]
             for packageName in installList:
