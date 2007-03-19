@@ -387,6 +387,7 @@ class Bombardier:
         while makingProgress and packagesLeft:
             makingProgress = False
             installList = self.installList(self.addPackages)
+            print "INSTALL LIST:", installList
             packagesLeft = []
             [ packagesLeft.append(x) for x in installList ]
             for packageName in installList:
@@ -431,7 +432,7 @@ class Bombardier:
                     self.filesystem.updateCurrentStatus(ERROR, "Bad package %s" % package.name,
                                                         self.server)
                     Logger.error(erstr)
-                    continue
+                    break
                 else:
                     makingProgress = True
                 self.checkReboot(package)
@@ -490,8 +491,7 @@ class Bombardier:
             diff = miniUtility.diffDicts(requiredConfigs, self.config.data)
             if diff != {}:
                 errmsg = "This machine does not have sufficient "\
-                         "configuration data to install this "\
-                         "package."
+                         "configuration data to install %s " % package.name
                 diffTxt = ''
                 for key in diff:
                     diffTxt += "key: %s; value: %s" % (key, diff[key])
