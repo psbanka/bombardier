@@ -487,7 +487,16 @@ class Bombardier:
     def checkConfiguration(self, package):
         if package.metaData.has_key("configuration"):
             requiredConfigs = package.metaData["configuration"]
-            if not miniUtility.compareDicts(requiredConfigs, self.config.data):
+            diff = miniUtility.diffDicts(requiredConfigs, self.config.data)
+            if diff != {}:
+                errmsg = "This machine does not have sufficient "\
+                         "configuration data to install this "\
+                         "package."
+                diffTxt = ''
+                for key in diff:
+                    diffTxt += "key: %s; value: %s" % (key, diff[key])
+                Logger.warning(errmsg)
+                Logger.warning(diffTxt)
                 return FAIL
         return OK
 
@@ -501,10 +510,7 @@ class Bombardier:
                                              self.server, self.operatingSystem)
                 newPackage.initialize()
                 if self.checkConfiguration(newPackage) == FAIL:
-                    errmsg = "This machine does not have sufficient "\
-                             "configuration data to install this "\
-                             "package."
-                    raise Exceptions.BadPackage(newPackage.name, errmsg)
+                    raise Exceptions.BadPackage(newPackage.name, "Bad Config")
                 packages[packageName] = newPackage
             except Exceptions.BadPackage, e:
                 errmsg = "Skipping bad package %s: %s" % (e.packageName, e.errmsg)
