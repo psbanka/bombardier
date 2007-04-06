@@ -471,7 +471,7 @@ class Windows(OperatingSystem.OperatingSystem):
                 return OK
         return FAIL
 
-    def mkServiceUser(self, username, password, domain='', local=False, comment=''):
+    def mkServiceUser(self, username, password, domain='', local=False, comment='', admin=True):
         if not local:
             if domain == '' or domain =='.':
                 Logger.info("Making service user %s on the default domain" % username)
@@ -500,13 +500,14 @@ class Windows(OperatingSystem.OperatingSystem):
             if e[2] != "The account already exists.":
                 Logger.error("Unable to create user '%s'. [%s]" % (username, e[2]))
                 return FAIL
-        try:
-            win32net.NetLocalGroupAddMembers(None, 'administrators',
-                                             3, [{"domainandname":username}])
-        except pywintypes.error, e:
-            if e[2] != 'The specified account name is already a member of the local group.':
-                Logger.error("Unable to assign proper permissions to user %s [%s]" % (username, e[2]))
-                return FAIL
+        if admin == True:
+            try:
+                win32net.NetLocalGroupAddMembers(None, 'administrators',
+                                                 3, [{"domainandname":username}])
+            except pywintypes.error, e:
+                if e[2] != 'The specified account name is already a member of the local group.':
+                    Logger.error("Unable to assign proper permissions to user %s [%s]" % (username, e[2]))
+                    return FAIL
         return OK
 
     def rmServiceUser(self, username, domain='', local=False):
