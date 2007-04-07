@@ -145,6 +145,20 @@ class VirtualPackages:
 def nop():
     return False
 
+def findDifferences(packageConfig, configDiff, packageName, chain=[]):
+    for key in packageConfig.keys():
+        if type(packageConfig[key]) == type({}):
+            chain.append(key)
+            if findDifferences(packageConfig[key], configDiff[key], packageName, chain) == True:
+                return True
+            else:
+                continue
+        if key in configDiff.keys():
+            msg = "Config change detected for %s:  (%s:%s)"
+           Logger.warning(msg % (packageName, ":".join(chain), key))
+            return True
+    return False
+
 class Bombardier:
 
     def __init__(self, repository, config, 
@@ -758,11 +772,10 @@ class Bombardier:
             configHashPath = os.path.join(miniUtility.getSpkgPath(), "packages",
                                           newPackage.fullName, HASH_FILE)
             configDiff     = self.config.checkHash(configHashPath)
-            for key in packageConfig.keys():
-                if key in configDiff.keys():
-                    if packageName in packageInfo["ok"]:
-                        packageInfo["reconfigure"].append(packageName)
-                        packageInfo["ok"].remove(packageName)
+            if findDifferences(packageConfig, configDiff, packageName):
+                if packageName in packageInfo["ok"]:
+                    packageInfo["reconfigure"].append(packageName)
+                    packageInfo["ok"].remove(packageName)
         return packageInfo
 
     def installPackage(self, packageName):
