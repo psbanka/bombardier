@@ -145,19 +145,18 @@ class VirtualPackages:
 def nop():
     return False
 
-def findDifferences(packageConfig, configDiff, packageName, chain=[]):
+def findDifferences(packageConfig, configDiff, differences=[], chain=[]):
     for key in packageConfig.keys():
         if type(packageConfig[key]) == type({}):
-            chain.append(key)
-            if findDifferences(packageConfig[key], configDiff[key], packageName, chain) == True:
-                return True
-            else:
+            if key not in configDiff:
                 continue
+            newdif = findDifferences(packageConfig[key], configDiff[key],
+                                     differences, chain + [key])
+            continue
         if key in configDiff.keys():
-            msg = "Config change detected for %s:  (%s:%s)"
-           Logger.warning(msg % (packageName, ":".join(chain), key))
-            return True
-    return False
+            differences.append("%s/%s" % ('/'.join(chain), key))
+            continue
+    return differences
 
 class Bombardier:
 
@@ -758,7 +757,7 @@ class Bombardier:
         shouldBeInstalled, shouldntBeInstalled = self.checkBom(self.packageNames)
         # check the configuration for each installed package
         packageInfo = {"ok":installedPackageNames,
-                       "reconfigure": [],
+                       "reconfigure": {},
                        "not-installed": shouldBeInstalled,
                        "remove": shouldntBeInstalled,
                        "broken": brokenPackageNames}
@@ -771,10 +770,11 @@ class Bombardier:
             packageConfig = newPackage.getConfiguration()
             configHashPath = os.path.join(miniUtility.getSpkgPath(), "packages",
                                           newPackage.fullName, HASH_FILE)
-            configDiff     = self.config.checkHash(configHashPath)
-            if findDifferences(packageConfig, configDiff, packageName):
+            configDiff = self.config.checkHash(configHashPath)
+            differences = findDifferences(packageConfig, configDiff, [])
+            if differences:
                 if packageName in packageInfo["ok"]:
-                    packageInfo["reconfigure"].append(packageName)
+                    packageInfo["reconfigure"][packageName] = differences
                     packageInfo["ok"].remove(packageName)
         return packageInfo
 
@@ -790,6 +790,26 @@ class Bombardier:
         self.cleanup(status, logmessage="Finished installing.")
         return status
 
+    def configurePackage(self, packageName):
+        try:
+            package = Package.Package(packageName, self.repository,
+                                      self.config, self.filesystem,
+                                      self.server, self.operatingSystem)
+            package.initialize()
+            if self.checkConfiguration(package) == FAIL:
+                msg = "Package history shows that this package is already configured properly"
+                Logger.warning(msg)
+            else:
+                status = package.configure(self.abortIfTold)
+                hashPath = os.path.join(miniUtility.getPackagePath(), package.fullName, HASH_FILE)
+                Logger.info("writing configuration fingerprint to %s" % hashPath)
+                self.config.saveHash(hashPath)
+                self.cleanup(status, logmessage="Finished configuring.")
+                return status
+        except Exceptions.BadPackage, e:
+            errmsg = "Cannot configure bad package %s: %s" % (e.packageName, e.errmsg)
+            Logger.warning(errmsg)
+            self.filesystem.warningLog(errmsg, self.server)
 
 
 if __name__ == "__main__":

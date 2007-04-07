@@ -173,12 +173,7 @@ class Package:
 
     def preload(self): ### TESTED
 
-        """Expects there to be a .ini file that belongs to the package
-        under evaluation in the spkg packages directory. Will determine if
-        there are any files to be downloaded to be placed into the
-        injector directory.
-
-        Note that self.fullName is expected to be a 'dash-version' name.
+        """Note that self.fullName is expected to be a 'dash-version' name.
 
         This will download all directives into the current directory.
         """
@@ -213,10 +208,18 @@ class Package:
                 break
         return OK
 
+    def configure(self, abortIfTold):
+        status = self.download(abortIfTold)
+        if status == OK:
+            return self.findCmd(CONFIGURE, abortIfTold)
+        else:
+            return FAIL
+
     def findCmd(self, action, abortIfTold, packageList=[]):
         fullCmd = ''
         extensions = [".py", ".bat", ".pl", ".sh"]
-        cmds = {INSTALL: "installer", UNINSTALL: "uninstaller", VERIFY: "verify" }
+        cmds = {INSTALL: "installer", UNINSTALL: "uninstaller",
+                VERIFY: "verify", CONFIGURE: "configure" }
         cmd = cmds.get(action)
         if not cmd:
             Logger.error("Unknown action: [%s]" % action)
@@ -228,9 +231,9 @@ class Package:
                 fullCmd = testCmd
                 break
         if not fullCmd:
-            Logger.error("Could not find an appropriate script.")
+            Logger.error("Could not find an appropriate script in %s." % self.scriptsDir)
             return FAIL
-        erstr = "Unable to run script script: %s" % fullCmd
+        erstr = "Unable to run script: %s" % fullCmd
         status = OK
         if packageList:
             fullCmd += " %s" % ','.join(packageList)

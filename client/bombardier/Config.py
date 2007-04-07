@@ -110,8 +110,9 @@ class Config(dict):
         except:
             Logger.warning("Bad yaml in file %s" % path)
         newConfig = miniUtility.hashDictionary(self.data)
-        oldConfig = miniUtility.hashDictionary(oldConfig)
-        return miniUtility.diffDicts(oldConfig, newConfig, checkValues=True)
+        #oldConfig = miniUtility.hashDictionary(oldConfig)
+        difference =  miniUtility.diffDicts(oldConfig, newConfig, checkValues=True)
+        return difference
 
     ### TESTED
     def downloadConfig(self, configName, include=False):
