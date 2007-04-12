@@ -30,8 +30,10 @@ def getChecksum( fullPath ):
     fp.close()
     return( checkSum )
 
-def findClassName():
+def findClassName(scriptName):
     ignoredList = ["installer.py", "uninstaller.py", "configure.py", "verify.py", "backup.py"]
+    if os.path.isfile( '../scripts/%s.py' ):
+        return scriptName
     for filename in os.listdir('../scripts'):
         if filename.endswith(".py"):
             if filename not in ignoredList:
@@ -166,18 +168,19 @@ class PackageCreator:
             injectorDir = os.path.join( self.destDir, 'injector' )
             scriptsDir  = os.path.join( self.destDir, 'scripts' )
             os.chdir(injectorDir)
-            className = findClassName()
-            if className == '':
+            if self.className == '':
+                self.className = findClassName(self.scriptName)
+            if self.className == '':
                 self.errors.append("cannot find suitable class file.")
                 return FAIL
             sys.path.append(scriptsDir)
-            exec("import %s as Pkg" % className )
+            exec("import %s as Pkg" % self.className )
             if not hasattr(Pkg, "metadata"):
                 self.warnings.append("Package does not contain any metadata")
             else:
                 metadata = Pkg.metadata
             config = MockConfig()
-            exec ('object = Pkg.%s(config)' % className)
+            exec ('object = Pkg.%s(config)' % self.className)
             metadata['configuration'] = config.getRequests()
             os.chdir(self.startDir)
         if createTarball:
@@ -212,19 +215,62 @@ class PackageCreator:
         self.server.serviceRequest(PACKAGES_PATH + self.spkg, putData=data)
         return OK
 
+    def processIncludes(self):
+        try:
+            startDir = os.getcwd()
+            print "exporting include files..."
+            scriptsDir = os.path.join( self.destDir, "scripts" )
+            if not os.path.isdir(scriptsDir):
+                print "making directory %s" % scriptsDir
+                os.makedirs(scriptsDir)
+            os.chdir( scriptsDir )
+            credStr = ""
+            displayCredStr = credStr
+            if self.svnConfig.has_key("username"):
+                credStr        += "--username %s " % self.svnConfig["username"]
+                displayCredStr += "--username USER_NAME "
+            if self.svnConfig.has_key("password"):
+                credStr        += "--password %s " % self.svnConfig["password"]
+                displayCredStr += "--password PASSWORD "
+            svnPackagesUrl = self.svnConfig["root"]
+            for includeDir in self.includes:
+                svnIncludeUrl = "%s%s" % (svnPackagesUrl, includeDir)
+                cmdTemplate = "for i in $(svn %s ls %s); do svn export %s %s/$i; done > %s/includeOutput.txt 2>&1"
+                cmd        = cmdTemplate %(credStr,        svnIncludeUrl, credStr,        svnIncludeUrl, startDir) 
+                displayCmd = cmdTemplate %(displayCredStr, svnIncludeUrl, displayCredStr, svnIncludeUrl, startDir) 
+                print "executing %s" % displayCmd
+                if sys.platform == "win32":
+                    status = os.system(cmd)
+                else:
+                    status, output = commands.getstatusoutput(cmd)
+                if status != OK:
+                    self.errors.append("error exporting include scripts from %s" % includeDir)
+                    if os.path.isfile("output.txt"):
+                        for line in open("output.txt").readlines():
+                            self.errors.append("debug: %s" % line.strip())
+                    return FAIL
+            return OK
+        finally:
+            os.chdir(startDir)
+
     def createScripts(self):
         print "exporting install scripts..."
         if not os.path.isdir(self.destDir):
             print "making directory %s" % self.destDir
             os.makedirs(self.destDir)
         cmd = "svn export "
+        displayCmd = cmd
         if self.svnConfig.has_key("username"):
-            cmd += "--username %s " % self.svnConfig["username"]
+            cmd        += "--username %s " % self.svnConfig["username"]
+            displayCmd += "--username USER_NAME "
         if self.svnConfig.has_key("password"):
-            cmd += "--password %s " % self.svnConfig["password"]
-        cmd += "%s/%s " % (self.svnConfig["root"], self.scriptName)
-        cmd += "%s/scripts > output.txt 2>&1" % self.destDir
-        print "executing %s" % cmd
+            cmd        += "--password %s " % self.svnConfig["password"]
+            displayCmd += "--password PASSWORD "
+        cmd        += "%s/%s " % (self.svnConfig["root"], self.scriptName)
+        displayCmd += "%s/%s " % (self.svnConfig["root"], self.scriptName)
+        cmd        += "%s/scripts > output.txt 2>&1" % self.destDir
+        displayCmd += "%s/scripts > output.txt 2>&1" % self.destDir
+        print "executing %s" % displayCmd
         #print "pulling data from SVN"
         if sys.platform == "win32":
             status = os.system(cmd)
@@ -274,11 +320,13 @@ class PackageCreator:
 
 
 class TarCreator(PackageCreator):
-    def __init__(self, tarFilename, packageName, scriptName, version, config):
+    def __init__(self, tarFilename, packageName, scriptName, version, config, includes=[], className=''):
         self.tarFilename = tarFilename
         self.packageName = packageName
         self.scriptName  = scriptName
         self.version     = version
+        self.includes    = includes
+        self.className   = className
         
         if self.version == None:
             self.findVersion()
@@ -310,6 +358,10 @@ class TarCreator(PackageCreator):
         if self.createScripts() == FAIL:
             self.errors.append("Failed in preparing the management scripts: check SVN")
             return self.sendWrapup(FAIL)
+        if len( self.includes ) > 0:
+            if self.processIncludes() == FAIL:
+                self.errors.append("Failed in processing include files: check SVN")
+                return self.sendWrapup(FAIL)
         if self._populateInjector() == FAIL:
             self.errors.append("Failed in populating the injectors: check tarball")
             return self.sendWrapup(FAIL)
@@ -468,7 +520,7 @@ USAGE:
 if __name__ == "__main__":
     try:
         options,args = getopt.getopt(sys.argv[1:], "i:f:n:s:v:h?d:",
-                                     ["import", "filename" "name", "script", "version", "help", "db"])
+                                     ["import=", "filename=" "name=", "script=", "version=", "help", "db=", "classname=", "include="])
     except getopt.GetoptError:
         displayHelp("Unable to parse options.")
 
@@ -478,6 +530,8 @@ if __name__ == "__main__":
     packageName  = None
     version      = None
     svnPatchUrl  = None
+    className    = ''
+    includes     = []
     for opt,arg in options:
         if opt in ['-h','-?','--help']: 
             displayHelp()
@@ -493,6 +547,10 @@ if __name__ == "__main__":
             version = arg
         elif opt in ['-d', '--db']:
             svnPatchUrl = arg
+        elif opt in ['--classname']:
+            className = arg
+        elif opt in ['--include']:
+            includes.append( arg )
         else:
             displayHelp("Unknown Option %s" % opt)
 
@@ -506,7 +564,7 @@ if __name__ == "__main__":
             packageName = packageName.split('/')[-1]
         if scriptName == None:
             scriptName = packageName
-        packageCreator = TarCreator(tarFilename, packageName, scriptName, version, config)
+        packageCreator = TarCreator(tarFilename, packageName, scriptName, version, config, includes, className)
     elif spkgFilename:
         if not os.path.isfile(spkgFilename):
             displayHelp('File "%s" does not exist' % spkgFilename)
@@ -520,7 +578,7 @@ if __name__ == "__main__":
             os.system("mv %s %s" % ( tarFilename, tmp) )
             os.chdir(tmp)
             tarPath = os.path.join(tmp, tarFilename)
-            packageCreator = TarCreator(tarPath, packageName, scriptName, version, config)
+            packageCreator = TarCreator(tarPath, packageName, scriptName, version, config, includes, className)
         else:
             print "Improper files for patch. Exiting."
             sys.exit(FAIL)
