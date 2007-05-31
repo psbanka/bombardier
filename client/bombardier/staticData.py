@@ -52,6 +52,7 @@ BACKUP        = '4'
 CHECK         = '5'
 AUTOMATED     = '6'
 KILL          = '7'
+CONFIGURE     = '8'
 
 BLOCK_SIZE    = 10000
 
