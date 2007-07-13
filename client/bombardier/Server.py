@@ -296,14 +296,17 @@ class Server:
             if type(putData) == type(["list"]) or type(putData) == type({}):
                 putData = yaml.dump(putData)
         ymlData = self.serviceRequest(path, args, putData,
-                                      debug=debug, timeout=timeout,
+                                      debug=True, timeout=timeout,
                                       legacyPathFix=legacyPathFix, verbose=verbose)
+        open("c:\yd.yml",'w').write(ymlData)
         if ymlData == '':
             return "OK"
-        try:
+        if 1 == 1:
+        #try:
             config = yaml.load(ymlData)
-            return config.next()
-        except:
+            return config
+        else:
+        #except:
             ermsg = "Received bad YAML: %s" % (repr(ymlData))
             raise Exceptions.ServerUnavailable, (path, ermsg)
 

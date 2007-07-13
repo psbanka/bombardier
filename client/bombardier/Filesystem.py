@@ -214,7 +214,7 @@ class Filesystem:
             return {}
         data = open(filename, 'r').read()
         try:
-            retVal = yaml.load(data).next()
+            retVal = yaml.load(data)
         except:
             raise Exceptions.InvalidProgress(data)
         if retVal.has_key("install-progress"):

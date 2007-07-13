@@ -104,7 +104,7 @@ class Config(dict):
         oldConfig = {}
         try:
             yamlString = self.filesystem.open(path, 'r').read()
-            oldConfig = yaml.load(yamlString).next()
+            oldConfig = yaml.load(yamlString)
         except IOError:
             Logger.warning("Could not load saved configuration data in %s" % path)
         except:
@@ -140,7 +140,7 @@ class Config(dict):
         fh = open(configPath, 'r')
         try:
             configData = fh.read()
-            self.data = yaml.load(configData).next()
+            self.data = yaml.load(configData)
         except:
             return FAIL
         return OK

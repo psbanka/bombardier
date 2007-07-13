@@ -422,7 +422,7 @@ class Logger:
 
 def getLinuxConfig():
     data = open("/etc/bombardier.yml", 'r').read()
-    config = yaml.load(data).next()
+    config = yaml.load(data)
     return config
 
 def putLinuxConfig(config):
