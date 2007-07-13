@@ -59,7 +59,8 @@ class Filesystem:
             if not os.path.isfile(filename):
                 raise Exceptions.NoYamlData, filename
         try:
-            return yaml.loadFile(filename).next()
+            data = open(filename, 'r').read()
+            return yaml.load(data)
         except:
             raise Exceptions.NoYamlData, filename
     def gzipOpen(self, path):
@@ -144,7 +145,8 @@ class Filesystem:
     def loadCurrent(self):
         statusPath = os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)
         try:
-            data = yaml.loadFile(statusPath).next()
+            rawData = open(statusPath, 'r').read()
+            data = yaml.load(rawData)
         except Exception:
             raise Exceptions.StatusException(statusPath)
         return data
