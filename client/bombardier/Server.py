@@ -190,7 +190,7 @@ class Server:
             Logger.error("The %s file is not a dictionary" % serverDataPath)
             return
         if preferred:
-            Logger.info("Using server %s because was chosen before" % preferred)
+            #Logger.debug("Using server %s because was chosen before" % preferred)
             self.serverData = serverDataDirectory[preferred]
             return
         for serverDataName in serverDataDirectory.keys(): 

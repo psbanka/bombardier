@@ -37,12 +37,15 @@ DATA          = 2
 
 TEST_TITLE = "TEST"
 
-OK            = 0
-FAIL          = 1
-DEBUG         = 0
-REBOOT        = 2
-NO_BACKUP     = 3
-UPDATED       = 4
+DEBUG            = 0
+
+OK               = 0
+FAIL             = 1
+REBOOT           = 2
+NO_BACKUP        = 3
+UPDATED          = 4
+REBOOT_AND_TRY_AGAIN = 5
+PREBOOT          = 6
 
 DEFAULT       = '0'
 INSTALL       = '1'

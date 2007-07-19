@@ -51,6 +51,7 @@ class Package:
         self.reboot       = False
         self.preboot      = False
         self.autoReboot   = False
+        self.packageVersion = 0
         self.checksum     = ''
         self.config       = config
         self.status       = OK
@@ -143,6 +144,9 @@ class Package:
         self.autoReboot = miniUtility.evalBoolean(chk)
         chk = self.metaData.data["install"].get('preboot')
         self.preboot = miniUtility.evalBoolean(chk)
+        chk = self.metaData.get("package-version")
+        if type(chk) == type(1):
+            self.packageVersion = chk
         self.evalPriority()
         self.gatherDependencies()
 
@@ -216,6 +220,12 @@ class Package:
             return FAIL
 
     def findCmd(self, action, abortIfTold, packageList=[]):
+        if self.packageVersion == 2:
+            return findCmd2(action, abortIfTold, packageList=[]):
+        else:
+            return findCmd1(action, abortIfTold, packageList=[]):
+
+    def findCmd1(self, action, abortIfTold, packageList=[]):
         fullCmd = ''
         extensions = [".py", ".bat", ".pl", ".sh"]
         cmds = {INSTALL: "installer", UNINSTALL: "uninstaller",
@@ -239,13 +249,68 @@ class Package:
             fullCmd += " %s" % ','.join(packageList)
 
         status = self.operatingSystem.run(fullCmd, abortIfTold, self.workingDir, self.console)
+        return status
 
+    def findCmd2(self, action, abortIfTold, packageList=[]):
+        import glob
+        cwd = self.filesystem.getcwd() # FIXME
+        sys.path.append(self.scriptsDir)
+        self.filesystem.chdir(self.scriptsDir)
+        files = glob.glob("*.py")
+        files = [x.split('.py')[0] for x in files]
+        status = FAIL
+        fileFound = False
+        for file in files:  # FIXME this is stupid
+            try:
+                self.filesystem.chdir(self.workingDir)
+                exec("import %s as module" % file) # FIXME
+                if action == INSTALL:
+                    Logger.debug( "INSTALL" )
+                    status = module.installer()
+                elif action == VERIFY:
+                    Logger.debug( "VERIFY" )
+                    status = module.verify()
+                elif action == UNINSTALL:
+                    Logger.debug( "UNINSTALL" )
+                    status = module.uninstall()
+                elif action == CONFIGURE:
+                    Logger.debug( "CONFIGURE" )
+                    status = module.configure()
+                    fileFound = True
+                else:
+                    Logger.error("Invalid action specified: %s" % action)
+                break
+            except ImportError:
+                continue
+            except SystemExit, e:
+                if e.code:
+                    status = e.code
+                else:
+                    status = 0
+                fileFound = True
+                break
+            except KeyboardInterrupt:
+                Logger.error("Keyboard interrupt detected. Exiting...")
+                sys.exit(10)
+            except StandardError, e:
+                Logger.error("Error detected in %s (%s)." % (file, e))
+                fileFound = True
+                status = FAIL
+                break
+        self.filesystem.chdir(cwd)
+        if not fileFound:
+            Logger.error("Unable to find a suitable script to install.")
+            return FAIL
         if status == REBOOT:
             erstr = "%s %s: indicated reboot action is necessary." % (self.fullName, status)
             Logger.warning(erstr)
             return REBOOT
+        if status == REBOOT_AND_TRY_AGAIN:
+            erstr = "%s %s: indicated reboot action is necessary before installing." % (self.fullName, status)
+            Logger.warning(erstr)
+            return PREBOOT
         if status != OK:
-            erstr = "%s %s: failed with status %s" % (cmd, self.fullName, status)
+            erstr = "%s: failed with status %s" % (self.fullName, status)
             Logger.error(erstr)
             return FAIL
         return OK
@@ -283,6 +348,8 @@ class Package:
                 self.writeProgress()
             self.install(packageList, abortIfTold)
             Logger.info("Install result: %s" % self.status)
+            if self.status == PREBOOT:
+                return PREBOOT
             if self.status != FAIL:
                 abortIfTold()
                 self.verify(abortIfTold)

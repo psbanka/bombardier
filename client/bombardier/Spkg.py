@@ -25,7 +25,7 @@ class SpkgException( Exception ):
 class Spkg:
 
     def __init__(self, config, filesystem = Filesystem.Filesystem()):
-        Logger.addStdErrLogging()
+        #Logger.addStdErrLogging() #FIXME probably want a flag for this?
         self.thisPackagesName = self._getname()
         self.filesystem = filesystem
         
