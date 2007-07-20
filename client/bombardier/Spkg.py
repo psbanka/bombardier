@@ -24,11 +24,15 @@ class SpkgException( Exception ):
 
 class Spkg:
 
-    def __init__(self, config, filesystem = Filesystem.Filesystem()):
+    def __init__(self, config, filesystem = Filesystem.Filesystem(), futurePackages = []):
         #Logger.addStdErrLogging() #FIXME probably want a flag for this?
         self.thisPackagesName = self._getname()
         self.filesystem = filesystem
+        self.futurePackages = futurePackages
         
+    def setFuturePackages(self, packageList):
+        self.futurePackages = packageList
+
     def checkStatus(self, status, errMsg="FAILED"):
         if status != OK:
             raise SpkgException(errMsg)

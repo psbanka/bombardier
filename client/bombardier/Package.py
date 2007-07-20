@@ -22,7 +22,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, time, datetime, ConfigParser
+import os, time, datetime, ConfigParser, glob, random
 
 import miniUtility, MetaData, Exceptions, Logger
 from staticData import *
@@ -144,7 +144,7 @@ class Package:
         self.autoReboot = miniUtility.evalBoolean(chk)
         chk = self.metaData.data["install"].get('preboot')
         self.preboot = miniUtility.evalBoolean(chk)
-        chk = self.metaData.get("package-version")
+        chk = self.metaData.data.get("package-version")
         if type(chk) == type(1):
             self.packageVersion = chk
         self.evalPriority()
@@ -221,9 +221,9 @@ class Package:
 
     def findCmd(self, action, abortIfTold, packageList=[]):
         if self.packageVersion == 2:
-            return findCmd2(action, abortIfTold, packageList=[]):
+            return self.findCmd2(action, abortIfTold, packageList=[])
         else:
-            return findCmd1(action, abortIfTold, packageList=[]):
+            return self.findCmd1(action, abortIfTold, packageList=[])
 
     def findCmd1(self, action, abortIfTold, packageList=[]):
         fullCmd = ''
@@ -252,7 +252,6 @@ class Package:
         return status
 
     def findCmd2(self, action, abortIfTold, packageList=[]):
-        import glob
         cwd = self.filesystem.getcwd() # FIXME
         sys.path.append(self.scriptsDir)
         self.filesystem.chdir(self.scriptsDir)
@@ -261,26 +260,29 @@ class Package:
         status = FAIL
         fileFound = False
         for file in files:  # FIXME this is stupid
+            if file.split('.')[0] in ["installer", "verify", "uninstaller", "configure"]:
+                continue
             try:
                 self.filesystem.chdir(self.workingDir)
-                exec("import %s as module" % file) # FIXME
+                letters = [ chr( x ) for x in range(65, 91) ]
+                random.shuffle(letters)
+                randString = ''.join(letters)
+                exec("import %s as %s" % (file, randString)) # FIXME
+                exec("obj = %s.%s(self.config, futurePackages = packageList)" % (randString, file))
+                fileFound = True
                 if action == INSTALL:
-                    Logger.debug( "INSTALL" )
-                    status = module.installer()
+                    status = obj.installer()
                 elif action == VERIFY:
-                    Logger.debug( "VERIFY" )
-                    status = module.verify()
+                    status = obj.verify()
                 elif action == UNINSTALL:
-                    Logger.debug( "UNINSTALL" )
-                    status = module.uninstall()
+                    status = obj.uninstall()
                 elif action == CONFIGURE:
-                    Logger.debug( "CONFIGURE" )
-                    status = module.configure()
-                    fileFound = True
+                    status = obj.configure()
                 else:
                     Logger.error("Invalid action specified: %s" % action)
                 break
             except ImportError:
+                Logger.debug("File %s is not runnable. Looking for others" % file)
                 continue
             except SystemExit, e:
                 if e.code:
@@ -350,7 +352,7 @@ class Package:
             Logger.info("Install result: %s" % self.status)
             if self.status == PREBOOT:
                 return PREBOOT
-            if self.status != FAIL:
+            if self.status == OK:
                 abortIfTold()
                 self.verify(abortIfTold)
                 Logger.info("Verify result: %s" % self.status)

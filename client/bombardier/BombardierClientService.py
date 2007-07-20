@@ -199,6 +199,15 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                                             self.windows)
         self.initialized = True
     
+    def getValue(self):
+        command = ''
+        while command == '':
+            input = self.windows.ReadPipe(BC_PIPE_NAME, PIPE_READ_TIMEOUT,
+                                          self.waitHandles, self.overlapped.hEvent)
+
+            time.sleep(0.1)
+        return input
+
     ## TESTED
     def SvcDoRun(self):
         Logger.info("Bombardier Client starting...")
@@ -224,6 +233,9 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 Logger.debug("COMMAND: (%s)" % command)
                 if command == KILL:
                     self.stopBombardier()
+                elif command == SETPASS:
+                    self.server.serverData["username"] = self.getValue()
+                    self.server.serverData["password"] = self.getValue()
                 else:
                     self.initialize()
                     self.runBombardier(command)
