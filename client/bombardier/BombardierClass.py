@@ -210,7 +210,9 @@ class Bombardier:
                 return FAIL
             self.operatingSystem.restartOnLogon()
             if not self.interactive:
-                self.operatingSystem.rebootSystem(message="Rebooting to gain console access")
+                Logger.critical("REBOOT 5")
+                sys.exit(1)
+                #self.operatingSystem.rebootSystem(message="Rebooting to gain console access")
             else:
                 msg = "System requires a console to install this package and one does not exist. " \
                       "Please log in to continue the installation."
@@ -247,7 +249,9 @@ class Bombardier:
             self.filesystem.updateCurrentStatus(IDLE, "Rebooting to continue install",
                                                 self.server)
             if not self.interactive:
-                self.operatingSystem.rebootSystem(message="Rebooting after installing %s" % package.fullName)
+                Logger.critical("REBOOT 6")
+                sys.exit(1)
+                #self.operatingSystem.rebootSystem(message="Rebooting after installing %s" % package.fullName)
             else:
                 msg = "The last package installed indicated that a reboot is necessary before continuing. " \
                       "Please reboot the system before performing more installation activity."
@@ -408,14 +412,16 @@ class Bombardier:
 
     def preboot(self, packageName):
         Logger.warning("Package %s wants the system to "\
-                       "reboot before installing..." % packageName)
+                       "reboot before installing..." % packageName) # FIXME
         errmsg = "Rebooting prior to installing package %s" % packageName
         self.filesystem.updateCurrentStatus(WARNING, errmsg, self.server)
         self.filesystem.clearLock()
         status = self.operatingSystem.autoLogin(self.config)
         self.operatingSystem.restartOnLogon()
         if not self.interactive:
-            self.operatingSystem.rebootSystem(message="Rebooting for a fresh start")
+            Logger.critical("REBOOT 2")
+            sys.exit(1)
+            #self.operatingSystem.rebootSystem(message="Rebooting for a fresh start")
         else:
             msg = "The current package requires a reboot before it can install. " \
                   "Please reboot the system before installing it."
@@ -431,6 +437,7 @@ class Bombardier:
             installList = self.installList(self.addPackages)
             packagesLeft = []
             [ packagesLeft.append(x) for x in installList ]
+            packageNamesLeft = installList
             for packageName in installList:
                 Logger.info("Packages remaining to install: %s" % packagesLeft)
                 detailedTodos = self.getDetailedTodolist(packagesLeft)
@@ -450,7 +457,8 @@ class Bombardier:
                     return FAIL
                 if package.preboot and not self.config.freshStart:
                     self.preboot(package.name)
-                status = package.process(self.abortIfTold, installList)
+                status = package.process(self.abortIfTold, packageNamesLeft)
+                packageNamesLeft.remove(package.name)
                 hashPath = os.path.join(miniUtility.getPackagePath(), package.fullName, HASH_FILE)
                 Logger.info("writing configuration fingerprint to %s" % hashPath)
                 self.config.saveHash(hashPath)
@@ -459,7 +467,7 @@ class Bombardier:
                     self.preboot(package.name)
                 if status == REBOOT:
                     Logger.warning("Package %s wants the system to "\
-                                   "reboot after installing..." % package)
+                                   "reboot after installing..." % package.name)
                     self.filesystem.updateCurrentStatus(WARNING, "Rebooting after package %s" % package.name,
                                                         self.server)
                     self.rebootForMoreInstallation(package)
@@ -519,7 +527,9 @@ class Bombardier:
             Logger.info(errmsg)
             self.abortIfTold()
             if not self.interactive:
-                self.operatingSystem.rebootSystem(message = errmsg)
+                Logger.critical("REBOOT 3")
+                sys.exit(1)
+                #self.operatingSystem.rebootSystem(message = errmsg)
             else:
                 msg = "Installation activities have completed."
                 Logger.info(msg)

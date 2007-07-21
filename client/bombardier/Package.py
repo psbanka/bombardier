@@ -221,9 +221,9 @@ class Package:
 
     def findCmd(self, action, abortIfTold, packageList=[]):
         if self.packageVersion == 2:
-            return self.findCmd2(action, abortIfTold, packageList=[])
+            return self.findCmd2(action, abortIfTold, packageList)
         else:
-            return self.findCmd1(action, abortIfTold, packageList=[])
+            return self.findCmd1(action, abortIfTold, packageList)
 
     def findCmd1(self, action, abortIfTold, packageList=[]):
         fullCmd = ''
