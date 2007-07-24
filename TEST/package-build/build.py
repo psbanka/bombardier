@@ -191,6 +191,7 @@ class PackageCreator:
         checksum = getChecksum(self.spkg)
         metadata['install']['fullName'] = self.fullname
         metadata['install']['md5sum'] = checksum
+        metadata['install']['className'] = self.className
         packageData = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE)
         print "amending %s for %s" % (PACKAGES_FILE, self.packageName)
         try:
