@@ -32,7 +32,7 @@ def getChecksum( fullPath ):
 
 def findClassName(scriptName):
     ignoredList = ["installer.py", "uninstaller.py", "configure.py", "verify.py", "backup.py"]
-    if os.path.isfile( '../scripts/%s.py' ):
+    if os.path.isfile( '../scripts/%s.py' %scriptName ):
         return scriptName
     for filename in os.listdir('../scripts'):
         if filename.endswith(".py"):
