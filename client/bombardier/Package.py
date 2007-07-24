@@ -280,6 +280,7 @@ class Package:
                     status = obj.configure()
                 else:
                     Logger.error("Invalid action specified: %s" % action)
+                del randString
                 break
             except ImportError:
                 Logger.debug("File %s is not runnable. Looking for others" % file)
@@ -290,6 +291,7 @@ class Package:
                 else:
                     status = 0
                 fileFound = True
+                del randString
                 break
             except KeyboardInterrupt:
                 Logger.error("Keyboard interrupt detected. Exiting...")
@@ -298,6 +300,7 @@ class Package:
                 Logger.error("Error detected in %s (%s)." % (file, e))
                 fileFound = True
                 status = FAIL
+                del randString
                 break
         self.filesystem.chdir(cwd)
         if not fileFound:
@@ -459,7 +462,10 @@ class Package:
         progressPath = miniUtility.getProgressPath2()
 
         fh = self.filesystem.open(progressPath, 'wb')
-        fh.write('\n'.join(output))
+        try:
+            fh.write('\n'.join(output))
+        except UnicodeEncodeError:
+            Logger.error("Could not encode data: %s" % output)
         fh.flush()
         fh.close()
         del fh

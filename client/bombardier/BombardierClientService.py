@@ -233,7 +233,7 @@ class BombardierClientService(win32serviceutil.ServiceFramework):
                 Logger.debug("COMMAND: (%s)" % command)
                 if command == KILL:
                     self.stopBombardier()
-                elif command == SETPASS:
+                elif command == SET_PASS:
                     self.server.serverData["username"] = self.getValue()
                     self.server.serverData["password"] = self.getValue()
                 else:

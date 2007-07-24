@@ -56,6 +56,7 @@ CHECK         = '5'
 AUTOMATED     = '6'
 KILL          = '7'
 CONFIGURE     = '8'
+SET_PASS      = '9'
 
 BLOCK_SIZE    = 10000
 
@@ -153,10 +154,6 @@ DEFAULT_DOMAIN         = "."
 
 ## User interface constants
 
-GREENLIGHT  = "greenbar.png"
-OFFLIGHT    = "graybar.png"
-YELLOWLIGHT = "yellowbar.png"
-REDLIGHT    = "redbar.png"
 STATUS_FILE = "status.yml"
 
 IDLE       = "idle"
