@@ -1,4 +1,4 @@
-#!/c/Python24/python.exe
+#!/cygdrive/c/Python25/python.exe
 
 import sys, os
 sys.path = [os.path.join("..", "client"), os.path.join('..', 'spkgDir')] + sys.path

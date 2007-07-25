@@ -1,4 +1,4 @@
-#!c:\Python24\python.exe
+#!/cygdrive/c/Python25/python.exe
 
 import unittest, win32event
 import sys, Tcommon, time

@@ -112,13 +112,13 @@ finish: '2005-10-30'
 start: '2005-07-22'
 data:
     configItem: ["foo", "bar"]
-""").next()
+""")
 
 testhw = yaml.load("""---
 description: secure net for stuff
 data:
     configItem2: ["spam", "eggs"]
-""").next()
+""")
 
 repodata1 = {"localhost": {"address": "http://127.0.0.1",
                            "networks": ["0.0.0.0/0"],

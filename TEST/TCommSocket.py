@@ -1,4 +1,4 @@
-#!/cygdrive/c/Python24/python.exe
+#!/cygdrive/c/Python25/python.exe
 
 import os, sys, unittest, threading, time
 import Tcommon

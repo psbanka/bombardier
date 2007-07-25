@@ -1,4 +1,4 @@
-#!/cygdrive/c/Python23/python.exe
+#!/cygdrive/c/Python25/python.exe
 
 import os, gc, sys
 
@@ -17,7 +17,7 @@ def setIniConfig(configData):
 
 def getLinuxConfig():
     data = open("/etc/bombardier.yml", 'r').read()
-    config = yaml.load(data).next()
+    config = yaml.load(data)
     return config
 
 def putLinuxConfig(config):

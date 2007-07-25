@@ -1,3 +1,5 @@
+#!/cygdrive/c/Python25/python.exe
+
     ################################
     ## Credentials stuff
 

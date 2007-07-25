@@ -158,7 +158,7 @@ class BombardierTest(unittest.TestCase):
         assert not os.path.isfile("localConfig.ini"), "that damn file showed up again"
 
     def testGetPackageGroups(self):
-        config.data = yaml.load(configData2).next()
+        config.data = yaml.load(configData2)
         packageGroups, packages = config.getPackageGroups()
         assert ["base", "test", "cheeze"] == packageGroups, "Invalid packages "\
                "In current package group: %s" % packageGroups
@@ -344,7 +344,7 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.addPackages = packages
         status = self.bombardier.installPackages()
         assert status == OK, "Perfectly good package failed to install"
-        installProgress = yaml.loadFile(progressPath).next().get("install-progress")
+        installProgress = yaml.load(open(progressPath).read()).get("install-progress")
         matches = installProgress.get("testokpackage1-1")
         assert matches["INSTALLED"], "didn't find what we wanted in %s. "\
                "We wanted ['testokpackage1-1: INSTALLED'], "\
@@ -360,7 +360,7 @@ class BombardierTest(unittest.TestCase):
                "indicated failure to process"
         self.bombardier.addPackages = packages
         status = self.bombardier.installPackages()
-        installProgress = yaml.loadFile(progressPath).next().get("install-progress")
+        installProgress = yaml.load(open(progressPath).read()).get("install-progress")
         matches = installProgress.get("testconsolepackage1-13")
         assert matches["INSTALLED"] != "NA", "Console package installed "\
                "outside of a maintenance window. (%s)" % matches
@@ -586,7 +586,7 @@ class BombardierTest(unittest.TestCase):
         assert len(todolist) ==2
         assert todolist[0] == "ipsettings,base", todolist
         filesystem.updateProgress({"todo": todolist}, server, True)
-        statusData = yaml.loadFile(os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)).next()
+        statusData = yaml.load(open(os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)).read())
         assert statusData["todo"] == ["ipsettings,base","system-setup,base"], statusData["todo"]
 
         # coming from more than one source

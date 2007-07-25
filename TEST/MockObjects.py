@@ -1,6 +1,5 @@
 import mock
 import ConfigParser, StringIO
-
 from bombardier.staticData import *
 import bombardier.Exceptions as Exceptions
 import bombardier.miniUtility as miniUtility

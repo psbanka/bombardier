@@ -1,4 +1,4 @@
-#!c:\Python24\python.exe
+#!/cygdrive/c/Python25/python.exe
 
 import sys, os
 sys.path = [os.path.join("..", "client"), os.path.join('..', 'client', 'spkgDir')] + sys.path
@@ -257,7 +257,7 @@ class PackageTest(unittest.TestCase):
 
     def testWriteProgressBasic(self):
         self.repository.packages = {"pkg1": {"install": {"fullName": "testokpackage1-1"}}}
-        self.filesystem.status = yaml.load(testdata.basicProgress).next()
+        self.filesystem.status = yaml.load(testdata.basicProgress)
         package = Package.Package("pkg1", self.repository, self.config,
                                   self.filesystem, self.server, self.windows)
         package.initialize()

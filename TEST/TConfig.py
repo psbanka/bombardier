@@ -1,4 +1,4 @@
-#!c:\Python24\python.exe
+#!/cygdrive/c/Python25/python.exe
 
 import unittest, StringIO, sets, yaml, sys, os
 import Tcommon
@@ -81,7 +81,7 @@ class ConfigTest(unittest.TestCase):
         status = self.config.saveHash("foo")
         assert status == OK, "Failed to save hash values"
         rawdata = '\n'.join(self.filesystem.writeFiles[0].buflist)
-        data = yaml.load(rawdata).next()
+        data = yaml.load(rawdata)
         assert data.has_key("section"), "data missing 'section'"
         assert data["section"].has_key("option"), "data missing 'option"
         assert data["section"]["option"] == "c20ad4d76fe97759aa27a0c99bff6710", \

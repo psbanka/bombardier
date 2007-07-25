@@ -1,4 +1,4 @@
-#!/cygdrive/c/Python24/python.exe
+#!/cygdrive/c/Python25/python.exe
 import os, unittest, StringIO, sys
 import Tcommon
 sys.path = ["..\\client"] + sys.path

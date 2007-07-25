@@ -1,4 +1,4 @@
-#!c:\Python24\python.exe
+#!/cygdrive/c/Python25/python.exe
 
 import os, sys, unittest, shutil, Tcommon
 sys.path = ["../client"] + sys.path
@@ -31,7 +31,7 @@ class FilesystemTest(unittest.TestCase):
         os.makedirs(self.scratchDir)
         os.chdir(self.scratchDir)
         self.filesystem = Filesystem.Filesystem()
-        open(miniUtility.getProgressPath(), 'w').write('---\n\rstatus: []')
+        open(miniUtility.getProgressPath(), 'w').write('---\n\rstatus: {}')
     def tearDown(self):
         os.chdir(self.startDir)
         shutil.rmtree(self.scratchDir)
@@ -189,6 +189,7 @@ if __name__ == "__main__":
     tcommon = Tcommon.Tcommon()
     tcommon.setForTest()
     suite = unittest.TestSuite()
+    #suite.addTest(FilesystemTest("testGetProgressData"))
     #suite.addTest(FilesystemTest("testupdateCurrentStatus"))
     suite.addTest(unittest.makeSuite(FilesystemTest))
     unittest.TextTestRunner(verbosity=2).run(suite)

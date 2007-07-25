@@ -1,4 +1,4 @@
-#!/cygdrive/c/Python23/python.exe
+#!/cygdrive/c/Python25/python.exe
 
 import unittest, sys, os, yaml, sets
 

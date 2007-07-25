@@ -1,4 +1,4 @@
-#!/c/Python24/python.exe
+#!/cygdrive/c/Python25/python.exe
 
 import unittest, sets, StringIO, time, sys, os, yaml
 import Tcommon
@@ -584,8 +584,10 @@ class BombardierTest(unittest.TestCase):
     def testHandleConsole1(self):
         package = MockObjects.MockPackage()
         self.windows.testConsoleValue = FAIL
-        status = self.bombardier.handleConsole(package)
-        assert status == OK
+        try:
+            self.bombardier.handleConsole(package)
+        except SystemExit, e:
+            assert e.code == REBOOT
         scalls = self.server.getAllCalls()
         assert len(scalls) == 0, `scalls`
         fcalls = self.filesystem.getAllCalls()
@@ -593,11 +595,10 @@ class BombardierTest(unittest.TestCase):
         assert len(fcalls) == 2, len(fcalls)
         assert `fcalls[0]` == "updateCurrentStatus('idle', 'Rebooting for console', <UNPRINTABLE>)", `fcalls[0]`
         assert `fcalls[1]` == "clearLock()", `fcalls[1]`
-        assert len(wcalls) == 4, wcalls
+        assert len(wcalls) == 3, wcalls
         assert `wcalls[0]` == "testConsole()"
         assert `wcalls[1]` == "autoLogin(MOCK-CONFIG)"
         assert `wcalls[2]` == "restartOnLogon()"
-        assert `wcalls[3]` == "rebootSystem(message='Rebooting to gain console access')"
         
     def testHandleConsole2(self):
         package = MockObjects.MockPackage()
@@ -607,21 +608,6 @@ class BombardierTest(unittest.TestCase):
         wcalls = self.windows.getAllCalls()
         assert len(wcalls) == 1, wcalls
         assert `wcalls[0]` == "testConsole()", `wcalls[0]`
-        assert status == OK
-
-    def testRebootForMoreInstallation(self):
-        package = MockObjects.MockPackage()
-        self.bombardier.addPackages = {"pkg1": package}
-        status = self.bombardier.rebootForMoreInstallation(package)
-        fcalls = self.filesystem.getAllCalls()
-        scalls = self.server.getAllCalls()
-        wcalls = self.windows.getAllCalls()
-        assert len(fcalls) == 2
-        assert `fcalls[0]` == "clearLock()"
-        assert `fcalls[1]` == "updateCurrentStatus('idle', 'Waiting for reboot', <UNPRINTABLE>)", `fcalls[1]`
-        assert len(wcalls) == 2, `wcalls`
-        assert `wcalls[0]` == "autoLogin(MOCK-CONFIG)", `wcalls[0]`
-        assert `wcalls[1]` == "restartOnLogon()"
         assert status == OK
 
     def testInstallPackages(self):
@@ -655,8 +641,10 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.addPackages = {"pkg1": pkg1}
         self.windows.testConsoleValue = FAIL
         self.filesystem.status = {}
-        status = self.bombardier.installPackages()
-        assert status == OK, "Console package failed to install"
+        try:
+            self.bombardier.installPackages()
+        except SystemExit, e:
+            assert e.code == REBOOT
         assert self.repository.getAllCalls() == []
         assert self.server.getAllCalls() == []
         fcalls = self.filesystem.getAllCalls()
@@ -664,14 +652,12 @@ class BombardierTest(unittest.TestCase):
         assert `fcalls[4]` == "updateCurrentStatus('idle', 'Rebooting for console', <UNPRINTABLE>)", `fcalls[4]`
         assert `fcalls[5]` == "clearLock()"
         pcalls = pkg1.getAllCalls()
-        assert len(pcalls) == 1
-        assert `pcalls[0]`.startswith("process(<bound method Bombardier.abortIfTold")
+        assert len(pcalls) == 0, `pcalls`
         wcalls = self.windows.getAllCalls()
-        assert len(wcalls) == 4, wcalls
+        assert len(wcalls) == 3, wcalls
         assert `wcalls[0]` == "testConsole()"
         assert `wcalls[1]` == "autoLogin(MOCK-CONFIG)"
         assert `wcalls[2]` == "restartOnLogon()"
-        assert `wcalls[3]` == "rebootSystem(message='Rebooting to gain console access')"
 
     def testInstallPackagesNeedingPreboot(self):
         pkg1 = MockObjects.MockPackage()
@@ -680,21 +666,21 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.addPackages = {"pkg1": pkg1}
         self.config.freshStart = False
         self.filesystem.status = {}
-        status = self.bombardier.installPackages()
-        assert status == OK, "Console package failed to install %s" % status
+        try:
+            self.bombardier.installPackages()
+        except SystemExit, e:
+            assert e.code == REBOOT
         assert self.repository.getAllCalls() == []
         assert self.server.getAllCalls() == []
         fcalls = self.filesystem.getAllCalls()
         assert len(fcalls) == 6, fcalls
         assert `fcalls[5]` == "clearLock()"
         pcalls = pkg1.getAllCalls()
-        assert len(pcalls) == 1
-        assert `pcalls[0]`.startswith("process(<bound method Bombardier.abortIfTold")
+        assert len(pcalls) == 0, len(pcalls)
         wcalls = self.windows.getAllCalls()
-        assert len(wcalls) == 3, wcalls
+        assert len(wcalls) == 2, wcalls
         assert `wcalls[0]` == "autoLogin(MOCK-CONFIG)"
         assert `wcalls[1]` == "restartOnLogon()"
-        assert `wcalls[2]` == "rebootSystem(message='Rebooting for a fresh start')"
 
 
     # WORKING
@@ -857,8 +843,10 @@ class BombardierTest(unittest.TestCase):
         bombardierClass = bombardier.BombardierClass.Bombardier(repository, self.config,
                                                            self.filesystem, self.server,
                                                            self.windows)
-        status = self.bombardier.checkInstallationStatus(cs.testStop)
-
+        try:
+            self.bombardier.checkInstallationStatus(cs.testStop)
+        except SystemExit, e:
+            assert e.code == OK
 
     def testReconcileSystem1(self):
         self.config.data = {"bom": ["base"], "packages": ["pkg3"]}
@@ -889,13 +877,17 @@ class BombardierTest(unittest.TestCase):
         self.windows.verifiablePackages = ["pkg1-1", "pkg2-1", "pkg3-1"]
         cs = bombardier.CommSocket.CommSocket()
         
-        status = self.bombardier.reconcileSystem(cs.testStop)
-        assert status == OK, "Simple package installation failed"
+        try:
+            self.bombardier.reconcileSystem(cs.testStop)
+        except SystemExit, e:
+            assert e.code == OK
         
         scalls = self.server.getAllCalls()
         assert len(scalls) == 8, len(scalls)
         assert `scalls[0]` == "clearCache()", `scalls[0]`
         fcalls = self.filesystem.getAllCalls()
+#        for i in range(0,len(fcalls)):
+#            print i, fcalls[i]
         assert len(fcalls) == 51, len(fcalls)
         assert `fcalls[0]` == "setLock()"
         assert `fcalls[11]` == "updateProgress({'todo': ['pkg2,base', 'pkg3,Individually-selected', 'pkg1,base']}, <UNPRINTABLE>, True)"
@@ -948,16 +940,26 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.repository = repository
 
         cs = bombardier.CommSocket.CommSocket()
-        status = self.bombardier.reconcileSystem(cs.testStop)
+        self.windows.installablePackages = ["pkg1-1", "pkg2-1"]
+        self.windows.verifiablePackages = ["pkg1-1", "pkg2-1"]
+        try:
+            self.bombardier.reconcileSystem(cs.testStop)
+        except SystemExit, e:
+            assert e.code == OK
         wcalls = self.windows.getAllCalls()
-        assert len(wcalls) == 4, len(wcalls)
+        assert len(wcalls) == 6, len(wcalls)
         assert `wcalls[0]`.startswith('run'), `wcalls[0]`
+        assert `wcalls[0]`.find('installer')>0, `wcalls[0]`
         assert `wcalls[1]`.startswith('run'), `wcalls[1]`
-        assert `wcalls[2]`.startswith('noRestartOnLogon'), `wcalls[2]`
-        assert `wcalls[3]`.startswith('noAutoLogin'), `wcalls[3]`
+        assert `wcalls[1]`.find('verify')>0, `wcalls[1]`
+        assert `wcalls[2]`.startswith('run'), `wcalls[2]`
+        assert `wcalls[2]`.find('installer')>0, `wcalls[2]`
+        assert `wcalls[3]`.startswith('run'), `wcalls[3]`
+        assert `wcalls[3]`.find('verify')>0, `wcalls[3]`
+        assert `wcalls[4]`.startswith('noRestartOnLogon'), `wcalls[4]`
+        assert `wcalls[5]`.startswith('noAutoLogin'), `wcalls[5]`
         fcalls = self.filesystem.getAllCalls()
-        assert len(fcalls) == 37, len(fcalls)
-        assert status == OK
+        assert len(fcalls) == 39, len(fcalls)
 
     def testReconcileSystemBogus(self):
         self.config.data = {"bom": ["base"]}
@@ -976,8 +978,10 @@ class BombardierTest(unittest.TestCase):
         self.filesystem.files = [os.path.join(base1, "scripts", "uninstaller.py")]
         self.bombardier.repository = repository
         cs = bombardier.CommSocket.CommSocket()
-        status = self.bombardier.reconcileSystem(cs.testStop)
-        assert status == OK
+        try:
+            self.bombardier.reconcileSystem(cs.testStop)
+        except SystemExit, e:
+            assert e.code == OK
 
     def testCheckSystem(self):
         #^ get the system to believe that it has some package installed
@@ -1011,7 +1015,7 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.repository = repository
         cs = bombardier.CommSocket.CommSocket()
         packageData = self.bombardier.checkSystem(cs.testStop)
-        assert packageData["reconfigure"] == ["reconfig"], packageData
+        assert packageData["reconfigure"] == {'reconfig': ['/section1']}, packageData
         assert packageData["ok"] == ["stable"], packageData
 
     def testCheckSystem2(self):
@@ -1038,7 +1042,7 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.repository = repository
         cs = bombardier.CommSocket.CommSocket()
         packageData = self.bombardier.checkSystem(cs.testStop)
-        assert packageData["reconfigure"] == [], packageData
+        assert packageData["reconfigure"] == {}, packageData
         assert "reconfig" in packageData["ok"], packageData
         
     def testGetDetailedTodolistSimple(self):
@@ -1105,12 +1109,11 @@ if __name__ == "__main__":
 ##     suite.addTest(BombardierTest("testHandleConsole2"))
 ##     suite.addTest(BombardierTest("testInMaintenanceWindow"))
 ##     suite.addTest(BombardierTest("testInstallList"))
-##     suite.addTest(BombardierTest("testInstallPackagesNeedingConsole"))
-##     suite.addTest(BombardierTest("testInstallPackagesNeedingPreboot"))
+    ## suite.addTest(BombardierTest("testInstallPackagesNeedingConsole"))
+    ## suite.addTest(BombardierTest("testInstallPackagesNeedingPreboot"))
 ##     suite.addTest(BombardierTest("testPackageChainWithBroken"))
 ##     suite.addTest(BombardierTest("testPackageDep"))
-##     suite.addTest(BombardierTest("testRebootForMoreInstallation"))
-##     suite.addTest(BombardierTest("testReconcileSystem1"))
+    ## suite.addTest(BombardierTest("testReconcileSystem1"))
 ##     suite.addTest(BombardierTest("testReconcileSystemBogus"))
     #suite.addTest(BombardierTest("testReconcileSystemWithDependencies"))
     #suite.addTest(BombardierTest("testGetPackagesToRemove1"))
