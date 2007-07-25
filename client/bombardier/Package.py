@@ -236,7 +236,7 @@ class Package:
             return FAIL
         for extension in extensions:
             testCmd = os.path.join(self.scriptsDir, cmd+extension)
-            Logger.debug( testCmd )
+            #Logger.debug( testCmd )
             if self.filesystem.isfile(testCmd):
                 fullCmd = testCmd
                 break
@@ -366,7 +366,7 @@ class Package:
 
     def chdir(self):
         self.cwd = os.getcwd()
-        Logger.debug(" Changing directory to %s" % os.path.join(miniUtility.getSpkgPath(), PACKAGES))
+        #Logger.debug(" Changing directory to %s" % os.path.join(miniUtility.getSpkgPath(), PACKAGES))
         self.filesystem.chdir(os.path.join(miniUtility.getSpkgPath(), PACKAGES))
         if self.fullName:
             try:
