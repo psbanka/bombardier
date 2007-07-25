@@ -215,6 +215,7 @@ class Filesystem:
         data = open(filename, 'r').read()
         try:
             retVal = yaml.load(data)
+            assert type(retVal) == type({})
         except:
             raise Exceptions.InvalidProgress(data)
         if retVal.has_key("install-progress"):
