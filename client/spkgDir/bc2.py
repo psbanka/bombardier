@@ -99,7 +99,7 @@ if __name__ == "__main__":
                                                        filesystem, server,
                                                        operatingSystem)
     if action == UPDATE:
-        status = bc.reconcileSystem(cs1.testStop, interactive=True)
+        status = bc.reconcileSystem(cs1.testStop)
         if status == OK:
             filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", server)
         else:
