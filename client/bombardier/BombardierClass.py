@@ -31,7 +31,6 @@ class PackageChain:
     def __init__(self, priority, startPackageName, packages,
                  installedPackageNames, brokenPackageNames, repository,
                  config, filesystem, server, operatingSystem):
-        self.interactive = False
         self.priority    = priority
         self.packages    = packages
         self.filesystem  = filesystem
@@ -209,68 +208,37 @@ class Bombardier:
                 self.filesystem.warningLog(ermsg, self.server)
                 return FAIL
             self.operatingSystem.restartOnLogon()
-            if not self.interactive:
-                Logger.critical("REBOOT 5")
-                sys.exit(1)
-                #self.operatingSystem.rebootSystem(message="Rebooting to gain console access")
-            else:
-                msg = "System requires a console to install this package and one does not exist. " \
-                      "Please log in to continue the installation."
-                Logger.warning(msg)
-                sys.exit(1)
+            msg = "System requires a console to install this package and one does not exist. " \
+                  "Please log in to continue the installation."
+            Logger.warning(msg)
+            sys.exit(REBOOT)
         return OK
 
     ### WON'T BE TESTED
-    def rebootForMoreInstallation(self, package):
-        self.filesystem.clearLock()
-        if self.addPackages:
-            erstr = "Setting system to auto-login "\
-                    "to process the following %s" % `self.addPackages.keys()`
-            Logger.info(erstr)
-            status = self.operatingSystem.autoLogin(self.config)
-            if status == FAIL:
-                self.filesystem.updateCurrentStatus(ERROR,"ERROR: Cannot reboot system",
+    def checkReboot(self, package, returnCode):
+        self.abortIfTold()
+        if package.action == INSTALL:
+            if package.autoReboot:
+                self.filesystem.updateCurrentStatus(IDLE, "Waiting for reboot", self.server)
+                erstr = "Waiting for package %s to reboot "\
+                        "the system..." % (package.fullName)
+                Logger.info(erstr)
+                while True:
+                    time.sleep(1)
+            if package.reboot or returnCode == REBOOT:
+                self.filesystem.clearLock()
+                self.filesystem.updateCurrentStatus(IDLE, "System needs to reboot to continue install",
                                                     self.server)
-                ermsg = "Cannot continue installation because this "\
-                        "system does not have valid login credentials."
-                Logger.error(ermsg)
-                self.filesystem.warningLog(ermsg, self.server)
-                return FAIL
-            self.operatingSystem.restartOnLogon()
-        else:
-            self.operatingSystem.noAutoLogin()
-            self.operatingSystem.noRestartOnLogon()
-        if package.autoReboot:
-            self.filesystem.updateCurrentStatus(IDLE, "Waiting for reboot", self.server)
-            erstr = "Waiting for package %s to reboot "\
-                    "the system..." % (package.fullName)
-            Logger.info(erstr)
-        else:
-            self.filesystem.updateCurrentStatus(IDLE, "Rebooting to continue install",
-                                                self.server)
-            if not self.interactive:
-                Logger.critical("REBOOT 6")
-                sys.exit(1)
-                #self.operatingSystem.rebootSystem(message="Rebooting after installing %s" % package.fullName)
-            else:
                 msg = "The last package installed indicated that a reboot is necessary before continuing. " \
                       "Please reboot the system before performing more installation activity."
                 Logger.warning(msg)
-                sys.exit(1)
-        return OK
+                sys.exit(REBOOT)
 
-
-    ### WON'T BE TESTED
-    def checkReboot(self, package):
-        self.abortIfTold()
-        if package.action == INSTALL and (package.reboot or package.autoReboot):
-            if not self.addPackages:
-                erstr = "Setting system NOT to auto-login "\
-                        "because all packages are processed."
-                Logger.info(erstr)
-                self.filesystem.updateCurrentStatus(IDLE, "Idle", self.server)
-                self.cleanup(OK, logmessage="Rebooting system to continue installation")
-            self.rebootForMoreInstallation(package)
+        if not self.addPackages:
+            erstr = "System has been reconciled."
+            Logger.info(erstr)
+            self.filesystem.updateCurrentStatus(IDLE, "Idle", self.server)
+            self.cleanup(OK, logmessage="Exiting gracefully.")
 
     ### TESTED
     def inMaintenanceWindow(self):
@@ -315,6 +283,14 @@ class Bombardier:
                     return True
         return False
 
+    def printChains(self, chainTuples):
+        ordinal = 0
+        for chainTuple in chainTuples:
+            priority, chain = chainTuple
+            print "CHAIN %s; priority: %s; items: %s" % (ordinal, priority, chain)
+            Logger.info( "CHAIN %s; priority: %s; items: %s" % (ordinal, priority, chain))
+            ordinal += 1
+
     # TESTED
     def createPackageChains(self, packageDict):
         chains = []
@@ -341,6 +317,7 @@ class Bombardier:
                 Logger.warning(`e`)
                 continue
             chains.append([newChain.priority, newChain.chain])
+        #self.printChains(chains)
         return chains
 
     # TESTED
@@ -418,30 +395,24 @@ class Bombardier:
         self.filesystem.clearLock()
         status = self.operatingSystem.autoLogin(self.config)
         self.operatingSystem.restartOnLogon()
-        if not self.interactive:
-            Logger.critical("REBOOT 2")
-            sys.exit(1)
-            #self.operatingSystem.rebootSystem(message="Rebooting for a fresh start")
-        else:
-            msg = "The current package requires a reboot before it can install. " \
-                  "Please reboot the system before installing it."
-            Logger.warning(msg)
-            sys.exit(1)
+        msg = "The current package requires a reboot before it can install. " \
+              "Please reboot the system before installing it."
+        Logger.warning(msg)
+        sys.exit(REBOOT)
 
     # TESTED
     def installPackages(self):
         makingProgress = True
-        packagesLeft = ['initialize']
-        while makingProgress and packagesLeft:
+        packageNamesLeft = ['initialize']
+        while makingProgress and packageNamesLeft:
             makingProgress = False
             installList = self.installList(self.addPackages)
-            packagesLeft = []
-            [ packagesLeft.append(x) for x in installList ]
-            packageNamesLeft = installList
+            packageNamesLeft = []
+            [ packageNamesLeft.append(x) for x in installList ]
             for packageName in installList:
-                Logger.info("Packages remaining to install: %s" % packagesLeft)
-                detailedTodos = self.getDetailedTodolist(packagesLeft)
-                packagesLeft.remove(packageName)
+                Logger.info("Packages remaining to install (in order): %s" % packageNamesLeft)
+                detailedTodos = self.getDetailedTodolist(packageNamesLeft)
+                packageNamesLeft.remove(packageName)
                 self.abortIfTold()
                 package = self.addPackages[packageName]
                 self.filesystem.updateProgress({"todo": detailedTodos}, self.server, True)
@@ -458,19 +429,13 @@ class Bombardier:
                 if package.preboot and not self.config.freshStart:
                     self.preboot(package.name)
                 status = package.process(self.abortIfTold, packageNamesLeft)
-                packageNamesLeft.remove(package.name)
                 hashPath = os.path.join(miniUtility.getPackagePath(), package.fullName, HASH_FILE)
-                Logger.info("writing configuration fingerprint to %s" % hashPath)
+                #Logger.info("writing configuration fingerprint to %s" % hashPath)
                 self.config.saveHash(hashPath)
                 self.config.freshStart = False
                 if status == PREBOOT:
                     self.preboot(package.name)
-                if status == REBOOT:
-                    Logger.warning("Package %s wants the system to "\
-                                   "reboot after installing..." % package.name)
-                    self.filesystem.updateCurrentStatus(WARNING, "Rebooting after package %s" % package.name,
-                                                        self.server)
-                    self.rebootForMoreInstallation(package)
+                self.checkReboot(package, status)
                 if status == FAIL:
                     erstr = "Package installation failure -- re-calculating package installation order"
                     self.filesystem.updateCurrentStatus(ERROR, "Bad package %s" % package.name,
@@ -479,8 +444,7 @@ class Bombardier:
                     break
                 else:
                     makingProgress = True
-                self.checkReboot(package)
-        if packagesLeft:
+        if packageNamesLeft:
             Logger.error("There are packages that are broken, and we have done all we can do.")
             return FAIL
         return OK
@@ -496,45 +460,29 @@ class Bombardier:
             if package.console:
                 if self.handleConsole(package) == FAIL:
                     return FAIL
-            package.uninstall(self.abortIfTold)
-            if package.status == REBOOT:
-                self.abortIfTold()
-                Logger.warning("Package %s wants the system to "\
-                               "reboot after uninstalling..." % package)
-                self.rebootForMoreInstallation(package)
-            if package.status == FAIL:
+            status = package.uninstall(self.abortIfTold)
+            self.checkReboot(package, status)
+            if status == FAIL:
                 erstr = "B11 Aborting due to package "\
                         "uninstallation failure"
                 Logger.error(erstr)
                 return FAIL
-            self.checkReboot(package)
         return OK
 
     ### WON'T BE TESTED
     def cleanup(self, status, logmessage=''):
         self.operatingSystem.noRestartOnLogon()
         self.operatingSystem.noAutoLogin()
+        self.filesystem.clearLock()
         if status == FAIL:
             self.filesystem.updateCurrentStatus(ERROR, logmessage, self.server)
             if logmessage:
                 Logger.error(logmessage)
                 self.filesystem.warningLog(logmessage, self.server)
-            return FAIL
-        else:
-            self.filesystem.clearLock()
-        if self.config.automated:
-            errmsg = "Rebooting after auto-logon..."
-            Logger.info(errmsg)
-            self.abortIfTold()
-            if not self.interactive:
-                Logger.critical("REBOOT 3")
-                sys.exit(1)
-                #self.operatingSystem.rebootSystem(message = errmsg)
-            else:
-                msg = "Installation activities have completed."
-                Logger.info(msg)
-                sys.exit(1)
-        return OK
+            sys.exit(FAIL)
+        msg = "logmessage."
+        Logger.info(msg)
+        sys.exit(OK)
 
     def checkConfiguration(self, package):
         if package.metaData.has_key("configuration"):
@@ -771,8 +719,7 @@ class Bombardier:
         return OK
 
     ### TESTED
-    def reconcileSystem(self, testStop, packageNames = None, interactive=False):
-        self.interactive = True
+    def reconcileSystem(self, testStop, packageNames = None):
         status = self.checkInstallationStatus(testStop, packageNames)
         if status != OK:
             return self.cleanup(status)
