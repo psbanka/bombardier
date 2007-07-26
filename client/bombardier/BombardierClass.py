@@ -480,8 +480,7 @@ class Bombardier:
                 Logger.error(logmessage)
                 self.filesystem.warningLog(logmessage, self.server)
             sys.exit(FAIL)
-        msg = "logmessage."
-        Logger.info(msg)
+        Logger.info(logmessage)
         sys.exit(OK)
 
     def checkConfiguration(self, package):

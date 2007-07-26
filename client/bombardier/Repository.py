@@ -38,7 +38,6 @@ class Repository:
         self.server     = server
         self.filesystem = filesystem
         self.packages   = {}
-        Logger.debug("=======GETTING PACKAGE DATA")
 
     # TESTED
     def getPackageData(self):

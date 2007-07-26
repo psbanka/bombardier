@@ -220,7 +220,7 @@ class Package:
             return FAIL
 
     def findCmd(self, action, abortIfTold, packageList=[]):
-        if self.packageVersion == 2:
+        if self.packageVersion > 1:
             return self.findCmd2(action, abortIfTold, packageList)
         else:
             return self.findCmd1(action, abortIfTold, packageList)
@@ -268,7 +268,10 @@ class Package:
                 random.shuffle(letters)
                 randString = ''.join(letters)
                 exec("import %s as %s" % (file, randString)) # FIXME
-                exec("obj = %s.%s(self.config, futurePackages = packageList)" % (randString, file))
+                if self.packageVersion == 2:
+                    exec("obj = %s.%s(self.config)" % (randString, file))
+                else:
+                    exec("obj = %s.%s(self.config, futurePackages = packageList)" % (randString, file))
                 fileFound = True
                 if action == INSTALL:
                     status = obj.installer()
@@ -476,9 +479,6 @@ class Package:
 
         timeString = time.ctime()
         progressData = self.filesystem.getProgressData()
-        if progressData == {}:
-            Logger.warning("Empty status data")
-        # gc.collect() # does windows suck? here's proof. -pbanka
         if not progressData.has_key(self.fullName):
             progressData[self.fullName] = {"INSTALLED": "NA", "UNINSTALLED": "NA", "VERIFIED": "NA"}
         if self.action == INSTALL:
