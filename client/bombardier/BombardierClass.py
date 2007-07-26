@@ -697,7 +697,7 @@ class Bombardier:
         self.abortIfTold()
         self.filesystem.chdir(spkgPath)
         if self.packageNames == None:
-            Logger.debug("Downloading BOM")
+            Logger.info("Downloading Bill of Materials")
             self.packageNames = self.downloadBom(pkgGroups)
             self.packageNames += individualPackageNames
         self.abortIfTold()
