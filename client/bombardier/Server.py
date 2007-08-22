@@ -22,7 +22,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, StringIO, md5, urlparse, time, yaml, socket
+import os, StringIO, md5, urlparse, time, yaml, socket, getpass
 import pycurl
 
 import Exceptions, miniUtility, Logger
@@ -161,10 +161,12 @@ class Server:
     Probably the whole webops module aught to be refactored into this
     class."""
 
-    def __init__(self, filesystem=None, serverData = None):
+    def __init__(self, filesystem=None, serverData = None, password = None):
         self.filesystem = filesystem
         self.serverData = serverData
         self.cache      = {}
+        self.username   = getpass.getuser()
+        self.password   = password
 
     def clearCache(self):
         self.cache = {}
@@ -262,12 +264,9 @@ class Server:
         c.setopt(pycurl.FOLLOWLOCATION, 1)
         c.setopt(pycurl.MAXREDIRS, 4)
         c.setopt(pycurl.HEADERFUNCTION, header.write)
-        if self.serverData.has_key("user"):
-            username = self.serverData["user"]
-            password = self.serverData.get("password")
-            if password:
-                c.setopt(pycurl.USERPWD, "%s:%s" % (username, password))
-                c.setopt(pycurl.HTTPAUTH, pycurl.HTTPAUTH_ANY)
+        if self.serverData.get("authentication") == True:
+            c.setopt(pycurl.USERPWD, "%s:%s" % (self.username, self.password))
+            c.setopt(pycurl.HTTPAUTH, pycurl.HTTPAUTH_ANY)
         if verbose:
             c.setopt(pycurl.VERBOSE, 1)
         if method == POST:

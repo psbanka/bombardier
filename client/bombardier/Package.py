@@ -268,10 +268,15 @@ class Package:
                 random.shuffle(letters)
                 randString = ''.join(letters)
                 exec("import %s as %s" % (file, randString)) # FIXME
+                Logger.debug("This is package version %s" % self.packageVersion)
                 if self.packageVersion == 2:
                     exec("obj = %s.%s(self.config)" % (randString, file))
+                elif self.packageVersion == 3:
+                    cmdString = "obj = %s.%s(self.config, futurePackages = packageList, logger=Logger.logger)"
+                    exec(cmdString % (randString, file))
+                    return FAIL
                 else:
-                    exec("obj = %s.%s(self.config, futurePackages = packageList)" % (randString, file))
+                    Logger.error("Unknown package version %s" % self.packageVersion)
                 fileFound = True
                 if action == INSTALL:
                     status = obj.installer()

@@ -53,19 +53,26 @@ USAGE:
 
 if __name__ == "__main__":
     try:
-        options,args = getopt.getopt(sys.argv[1:], "cui:h?",
-                                     ["install", "update", "check", "help"])
+        options,args = getopt.getopt(sys.argv[1:], "cupi:h?",
+                                     ["install", "update", "check", "help", "password"])
     except getopt.GetoptError:
         print "ERROR: Unable to parse options."
         displayHelp()
 
     action = UPDATE
     packageName = None
+    password = ''
+    addStdErrLogging()
     for opt,arg in options:
         if opt in ['-h','-?','--help']:
             displayHelp()
         elif opt in ['-c', '--check']:
             action = CHECK
+        elif opt in ['-p', '--password']:
+            character = ''
+            while character != '\n':
+                password += character
+                character = sys.stdin.read(1)
         elif opt in ['-u', '--update']:
             action = UPDATE
         elif opt in ['-i', '--install']:
@@ -74,11 +81,9 @@ if __name__ == "__main__":
         else:
             print "Unknown Option",opt
             displayHelp()
-
-    addStdErrLogging()
     filesystem = bombardier.Filesystem.Filesystem()
     filesystem.clearLock()
-    server = bombardier.Server.Server(filesystem)
+    server = bombardier.Server.Server(filesystem, password=password)
     config = bombardier.Config.Config(filesystem, server, bombardier.OperatingSystem.OperatingSystem())
     try:
         config.freshen()

@@ -1,6 +1,5 @@
 import re, os
 import Filesystem
-import Logger
 from staticData import *
 
 def doubleEscape(oldString):
@@ -24,13 +23,21 @@ class SpkgException( Exception ):
 
 class Spkg:
 
-    def __init__(self, config, filesystem = Filesystem.Filesystem(), futurePackages = []):
+    def __init__(self, config, filesystem = Filesystem.Filesystem(), futurePackages = [], logger = None):
         self.thisPackagesName = self._getname()
         self.filesystem = filesystem
         self.futurePackages = futurePackages
+        self.stderr = True
+        if logger == None:
+            import Logger
+            self.logger = Logger.logger
+        else:
+            self.logger = logger
+            self.stderr = False
         
     def setLogging(self):
-        Logger.addStdErrLogging() #FIXME probably want a flag for this?
+        if self.stderr == False:
+            self.logger.addStdErrLogging() #FIXME probably want a flag for this?
 
     def setFuturePackages(self, packageList):
         self.futurePackages = packageList
@@ -43,15 +50,15 @@ class Spkg:
         self.checkStatus( os.system( command ), errMsg )
 
     def debug(self, string):
-        Logger.debug("[%s]|%s" % (self.thisPackagesName, string))
+        self.logger.debug("[%s]|%s" % (self.thisPackagesName, string))
     def info(self, string):
-        Logger.info("[%s]|%s" % (self.thisPackagesName, string))
+        self.logger.info("[%s]|%s" % (self.thisPackagesName, string))
     def warning(self, string):
-        Logger.warning("[%s]|%s" % (self.thisPackagesName, string))
+        self.logger.warning("[%s]|%s" % (self.thisPackagesName, string))
     def error(self, string):
-        Logger.error("[%s]|%s" % (self.thisPackagesName, string))
+        self.logger.error("[%s]|%s" % (self.thisPackagesName, string))
     def critical(self, string):
-        Logger.critical("[%s]|%s" % (self.thisPackagesName, string))
+        self.logger.critical("[%s]|%s" % (self.thisPackagesName, string))
 
     def _getname(self):
         cwd = os.getcwd()
