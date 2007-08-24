@@ -7,10 +7,10 @@ cat inno-setup2.iss | sed "s/bombardierSetup-0\.4/bombardierSetup-0\.4-$BOMBARDI
 cat bombardier/staticData.py | sed "s/\(^VERSION.*\)0\.41\(.*\)/\10\.41-$BOMBARDIER_VERSION\2/" > versionedStaticData.py
 mv versionedStaticData.py bombardier/staticData.py
 
-/cygdrive/c/Python24/python.exe versioner.py
+/cygdrive/c/Python25/python.exe versioner.py
 
 cd ../TEST || exit 1
-/cygdrive/c/Python24/python.exe unitTests.py || exit 1
+/cygdrive/c/Python25/python.exe unitTests.py || exit 1
 
 cd ../client || exit 1
 
