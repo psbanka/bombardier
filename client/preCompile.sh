@@ -1,10 +1,9 @@
 #!/bin/bash
 DOWNLOADS="http://www.bombardierinstaller.com/downloads"
-PYTHON_24=python-2.4.1
-PY_CURL=pycurl-ssl-zlib-7.14.0.win32-py2.4
-PY_YAML=pyyaml-46
-PY_WIN32=pywin32-204.win32-py2.4
-WX_PYTHON=wxPython2.6-win32-unicode-2.6.0.0-py24
+PYTHON=python-2.5.1
+PY_CURL=pycurl-7.16.2.1-ssl-zlib.win32.py2.5
+PY_YAML=PyYAML-3.05
+PY_WIN32=pywin32-210.win32-py2.5
 
 if [ -e http_proxy.txt ]; then
     echo "using http_proxy.txt to set proxy"
@@ -12,15 +11,15 @@ if [ -e http_proxy.txt ]; then
 fi
 echo "http_proxy=$http_proxy"
 
-rm -rf release/bombardier-0.4 || cd .
-mkdir release/bombardier-0.4
-cd release/bombardier-0.4
+rm -rf release/bombardier-$BOMBARDIER_VERSION_STRING || cd .
+mkdir release/bombardier-$BOMBARDIER_VERSION_STRING
+cd release/bombardier-$BOMBARDIER_VERSION_STRING
 
-if [ -e ../$PYTHON_24.msi ]; then
-    echo "$PYTHON_24 has already been downloaded (skipping download)"
+if [ -e ../$PYTHON.msi ]; then
+    echo "$PYTHON has already been downloaded (skipping download)"
 else
-    echo "downloading $PYTHON_24..." 
-    curl $DOWNLOADS/$PYTHON_24.msi > ../$PYTHON_24.msi
+    echo "downloading $PYTHON..." 
+    curl $DOWNLOADS/$PYTHON.msi > ../$PYTHON.msi
 fi
 
 mkdir $PY_CURL
@@ -54,15 +53,6 @@ fi
 unzip ../../$PY_WIN32.exe > unzip.txt  2>&1
 cd ..
 
-#FIX
-if [ -e ../$WX_PYTHON.exe ]; then
-    echo "WX Windows has already been downloaded (skipping download)"
-else
-    echo "downloading WX Windows..."
-    curl $DOWNLOADS/$WX_PYTHON.exe > ../$WX_PYTHON.exe
-fi
-cp ../$WX_PYTHON.exe .
-
 echo "bombardierClient"
 mkdir bombardierClient
 cp -r ../../bombardier bombardierClient
@@ -84,5 +74,5 @@ chmod 777 *.exe *.msi
 
 echo "making release tarball"
 
-tar -cz --exclude=".svn" -f bombardier-0.4.tar.gz bombardier-0.4
-rm -rf bombardier-0.4
+tar -cz --exclude=".svn" -f bombardier-$BOMBARDIER_VERSION_STRING.tar.gz bombardier-$BOMBARDIER_VERSION_STRING
+rm -rf bombardier-$BOMBARDIER_VERSION_STRING

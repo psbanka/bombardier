@@ -1,6 +1,6 @@
 #!/bin/bash
 set +x
 
-cp Output/bombardierSetup-0.4*.exe release
-scp release/bombardier-0.4.tar.gz release/bombardierSetup-0.4*.exe `cat release/server.txt`
+cp Output/bombardierSetup-$BOMBARDIER_VERSION*.exe release
+scp release/bombardier-$BOMBARDIER_VERSION.tar.gz release/bombardierSetup-$BOMBARDIER_VERSION*.exe `cat release/server.txt`
 
