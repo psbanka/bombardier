@@ -40,11 +40,9 @@ Name: {group}\Uninstall Bombardier; Filename: {uninstallexe}
 Root: HKLM; Subkey: Software\GE-IT; Flags: uninsdeletekeyifempty
 Root: HKLM; Subkey: Software\GE-IT\Bombardier; Flags: uninsdeletekey
 Root: HKLM; Subkey: Software\GE-IT\Bombardier; ValueType: string; ValueName: InstallPath; ValueData: {app}
-Root: HKLM; Subkey: SYSTEM\CurrentControlSet\Services\BombardierClient; Flags: deletekey
 
 [InstallDelete]
 Name: {app}\config.yml; Type: files
-Name: {app}\bc.py; Type: files
 Name: {app}\bc2.py; Type: files
 
 [Run]
