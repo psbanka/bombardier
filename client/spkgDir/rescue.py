@@ -28,7 +28,7 @@ PENDING       = 3
 STOPPED       = 4
 spkgPath      = r"c:\spkg"
 tmpPath       = r"c:\spkgtmp"
-BASE_FILE     = "bombardier-0.4"
+BASE_FILE     = "bombardier-0.5"
 
 try:
     import bombardier.Config
@@ -58,13 +58,6 @@ DWIZ  = 1
 SETUP = 2
 INNO  = 3
 
-def setPath():
-    # FIXME: this is bad
-    src = os.path.join(sys.prefix,"python24.dll")
-    dst = os.path.join(os.environ['WINDIR'], "system32", "python24.dll")
-    if not os.path.isfile(dst):
-        shutil.copyfile(src, dst)
-
 class Rescue:
 
     """ This is intended to be an indestructible tool to get the
@@ -80,11 +73,7 @@ class Rescue:
             self.getTarball()
         self.unzip()
         self.unTar()
-        os.system("net stop bombardieragent")
-        if not self.conf['servicesOnly']:
-            self.runSetup()
-        if self.conf['installServices']:
-            self.startService()
+        self.runSetup()
 
     def unzip(self):
         infile = BASE_FILE + ".tar.gz"
@@ -238,26 +227,19 @@ class Rescue:
         #except IOError:
         #scripts = []
         # READ THIS FROM A FILE
-        todos = {"pycurl-ssl-zlib-7.14.0.win32-py2.4":DWIZ,
-                 "wxPython2.6-win32-unicode-2.6.0.0-py24.exe":INNO,
-                 "pyyaml-46":SETUP, "dmoweasel":SETUP, "bombardierClient":SETUP,
+        todos = {"pycurl-7.16.2.1-ssl-zlib.win32.py2.5":DWIZ,
+                 "PyYAML-3.05":SETUP, "bombardierClient":SETUP,
                  "spkg":SETUP, "site-root":SETUP}
-        #todos = {"bombardierClient":SETUP, "spkg":SETUP, "site-root":SETUP} # ^^DEBUGGING ONLY
         try:
             import win32com.client
         except ImportError:
-            todos["pywin32-204.win32-py2.4"] = DWIZ
+            todos["pywin32-210.win32-py2.5"] = DWIZ
         baseDir = os.getcwd()
-        os.chdir("bombardier-0.4")
+        os.chdir("bombardier-0.5")
         for todo in todos.keys():
             self.logger.info("Installing %s" % todo)
             if todos[todo] == DWIZ:
                 self.installDwiz(todo)
-            if todos[todo] == INNO:
-                if todo == 'wxPython2.6-win32-unicode-2.6.0.0-py24.exe':
-                    if wxExists():
-                        continue
-                os.system('%s /VERYSILENT /NORESTART /LOG' % todo)
             if todos[todo] == SETUP:
                 startDir = os.getcwd()
                 os.chdir(todo)
@@ -266,44 +248,18 @@ class Rescue:
                 os.chdir(startDir)
         os.chdir(baseDir)
         
-    def startService(self):
-        self.logger.info( "5: STARTING" )
-        sys.stdout.flush()
-        pythonExe = os.path.join(sys.prefix, "python.exe")
-        bombardierDir = os.path.join(sys.prefix, "Lib", "site-packages", "bombardier")
-        os.chdir(bombardierDir)
-        setPath()
-        os.system("%s BombardierAgent.py install" % pythonExe)
-        os.system("%s BombardierAgent.py --startup auto update" % pythonExe)
-        os.system("%s BombardierAgent.py --interactive update" % pythonExe)
-        os.system("%s BombardierAgent.py start" % pythonExe)
-
 def usage():
     print "%s: the resourceful bombardier system rescuer" % sys.argv[0]
     print "usage: %s [-h] [-r repository]" % sys.argv[0]
-    print "-g go ahead and run bc.py while you're at it"
     print "-r to specify a repository" 
     sys.exit(1)
 
-def wxExists():
-    wxPath = os.path.join( sys.prefix, 'Lib', 
-                           'site-packages', 
-                           'wx-2.6-msw-unicode' )
-    return( os.path.isdir( wxPath ) )
-
 def getConf():
-    conf = {"repository":'', "go":False, 
-            "installServices":True, "servicesOnly":False}
+    conf = {"repository":''}
     for i in range(1,len(sys.argv)):
         option = sys.argv[i]
-        if option == "-g":
-            conf["go"] = True
-        elif option == "-n":
-            conf["installServices"] = False
-        elif option == "-r":
+        if option == "-r":
             conf["repository"] = sys.argv[i+1]
-        elif option == "-s":
-            conf["servicesOnly"] = True
         elif option.startswith('-'):
             usage()
     return conf
@@ -314,22 +270,11 @@ if __name__ == "__main__":
          2. Install dependencies, checking each first
 
             a. Install windows extensions, if they're not installed
-            b. Install wxpython
-            c. Install pycurl
-            d. Install yaml
+            b. Install pycurl
+            c. Install yaml
 
          3. Install bombardier, (site-packages and spkg directory)
-         4. See if bombardier Agent is running,
-            a. if not, start it
-            b. if it is, leave it alone
-         5. If we were run from bombardierClient,
-            a. signal BombardierAgent to restart BombardierClient
-            b. otherwise quit
-
     """  
     conf = getConf()
     rescue = Rescue(conf)
     rescue.performRescue()
-    if conf["go"]:
-        os.chdir(spkgPath)
-        os.system("bc.py -a")
