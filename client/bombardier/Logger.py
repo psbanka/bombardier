@@ -36,6 +36,8 @@ def getSpkgPath():
     spkgPath = ''
     if sys.platform == "linux2":
         config = getLinuxConfig()
+        if type(config) != type({}):
+            config = config.next()
         spkgPath = config.get("spkgPath")
     else:
         import _winreg as winreg
