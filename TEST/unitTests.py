@@ -33,8 +33,6 @@ def clientTesting():
         suite.addTest(unittest.makeSuite(TBombardierAgent.BombardierAgentTest))
         import TBombardierClient
         suite.addTest(unittest.makeSuite(TBombardierClient.BombardierClientTest))
-        import Tbc
-        suite.addTest(unittest.makeSuite(Tbc.TestBc))
 #        Temporarily Disabled
 #        import TStatusThread
 #        suite.addTest(unittest.makeSuite(TStatusThread.TestStatusThread))
