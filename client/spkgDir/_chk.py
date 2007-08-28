@@ -1,4 +1,5 @@
 #!/usr/local/bin/python2.4
+# Version 0.5-261
 
 # bc2.py: This module is essentially a hacked version of 
 # ReconcileThread.py, and is meant to be run on a linux machine.
@@ -31,6 +32,19 @@ import bombardier.Repository, bombardier.BombardierClass
 import yaml
 
 if __name__ == "__main__":
+    try:
+        options,args = getopt.getopt(sys.argv[1:], "p",
+                                     ["password"])
+    except getopt.GetoptError:
+        print "ERROR: Unable to parse options."
+        sys.exit(1)
+    password = ''
+    for opt,arg in options:
+        if opt in ['-p', '--password']:
+            character = ''
+            while character != '\n':
+                password += character
+                character = sys.stdin.read(1)
     addStdErrLogging()
     filesystem = bombardier.Filesystem.Filesystem()
     server = bombardier.Server.Server(filesystem, password=password)
@@ -38,5 +52,7 @@ if __name__ == "__main__":
     repository = bombardier.Repository.Repository(config, filesystem, server)
     repository.getPackageData()
     bc = bombardier.BombardierClass.Bombardier(repository, config,
-    status = bc.checkSystem(lamda:False)
+                                                       filesystem, server,
+                                                       operatingSystem)
+    status = bc.checkSystem(lambda:False)
     print "======================\n\n%s\n" % yaml.dump(status)

@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
+# Version 0.5-261
 
 # rescue.py: Tool for installing or rescuing an existing bombardier installation
 
@@ -18,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import sys, os, shutil
+import sys, os, shutil, glob
 
 OK   = 0
 FAIL = 1
@@ -67,17 +68,18 @@ class Rescue:
     def __init__(self, conf):
         self.logger = Logger()
         self.conf   = conf
+        self.baseFile = glob.glob(BASE_FILE + "*")[0].split( '.tar.gz' )[0]
 
     def performRescue(self):
-        if not os.path.isfile(BASE_FILE + ".tar.gz"):
+        if not os.path.isfile(self.baseFile + ".tar.gz"):
             self.getTarball()
         self.unzip()
         self.unTar()
         self.runSetup()
 
     def unzip(self):
-        infile = BASE_FILE + ".tar.gz"
-        outfile = BASE_FILE + ".tar"
+        infile = self.baseFile + ".tar.gz"
+        outfile = self.baseFile + ".tar"
         import gzip
         gzipFile = gzip.open(infile)
         outputFile = open(outfile, 'wb')
@@ -99,7 +101,7 @@ class Rescue:
 
     def unTar(self):
         import tarfile
-        fileName = BASE_FILE + ".tar"
+        fileName = self.baseFile + ".tar"
         tar = tarfile.open(fileName, "r")
         tar.errorlevel = 2
         self.logger.info( "3: UNTARRING" )
@@ -186,7 +188,7 @@ class Rescue:
         repository = self.getRepository()
         self.logger.info( "1: DOWNLOADING" )
         sys.stdout.flush()
-        status = self.wget(repository, BASE_FILE + ".tar.gz")
+        status = self.wget(repository, self.baseFile + ".tar.gz")
         if status == 1:
             sys.exit(1)
 
@@ -231,11 +233,15 @@ class Rescue:
                  "PyYAML-3.05":SETUP, "bombardierClient":SETUP,
                  "spkg":SETUP, "site-root":SETUP}
         try:
+            print "Importing win32com.client"
             import win32com.client
+            print "ImportED win32com.client"
         except ImportError:
             todos["pywin32-210.win32-py2.5"] = DWIZ
         baseDir = os.getcwd()
-        os.chdir("bombardier-0.5")
+        os.chdir(self.baseFile)
+        print os.listdir('.')
+        print todos.keys()
         for todo in todos.keys():
             self.logger.info("Installing %s" % todo)
             if todos[todo] == DWIZ:
@@ -260,6 +266,8 @@ def getConf():
         option = sys.argv[i]
         if option == "-r":
             conf["repository"] = sys.argv[i+1]
+        elif option == "-n":
+            print "That's nice...."
         elif option.startswith('-'):
             usage()
     return conf

@@ -75,4 +75,4 @@ chmod 777 *.exe *.msi
 echo "making release tarball"
 
 tar -cz --exclude=".svn" -f bombardier-$BOMBARDIER_VERSION_STRING.tar.gz bombardier-$BOMBARDIER_VERSION_STRING
-rm -rf bombardier-$BOMBARDIER_VERSION_STRING
+#rm -rf bombardier-$BOMBARDIER_VERSION_STRING
