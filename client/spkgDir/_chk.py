@@ -1,5 +1,4 @@
 #!/usr/local/bin/python2.4
-# Version 0.5-261
 
 # bc2.py: This module is essentially a hacked version of 
 # ReconcileThread.py, and is meant to be run on a linux machine.

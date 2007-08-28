@@ -1,5 +1,4 @@
 #!/cygdrive/c/Python24/python.exe
-# Version 0.5-261
 
 # rescue.py: Tool for installing or rescuing an existing bombardier installation
 
