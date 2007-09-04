@@ -1,3 +1,0 @@
-
-Configuration for interface "Local Area Connection"
-    WINS servers configured through DHCP

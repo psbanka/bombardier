@@ -1,4 +1,0 @@
-
-Configuration for interface "Local Area Connection"
-    DHCP enabled:                         Yes
-    InterfaceMetric:                      1
