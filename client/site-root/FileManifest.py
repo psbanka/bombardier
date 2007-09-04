@@ -115,39 +115,4 @@ class FileManifest:
                     errString = "invalid checksum: Actual: %s Expected %s" % (computed, md5sum)
                     errorList.append((filepath, errString))
         return errorList
-    
-def test(): # probably doesn't work - pbanka
-    f = FileManifest('.', os.path.join( os.getcwd(), ".." ), '.' )
-    f.createManifest()
-    return f 
-
-def timeTester( func ):
-    import time
-    start = time.time()
-    result = func()
-    end = time.time()
-    et = end - start
-    print "ET: ", et
-    return result
-
-if __name__ == "__main__":
-    BUILD_DIR = "/var/_build"
-    STR_SUPRANET_1861 = "supranet-1.0-1.1.1861"
-    SUPRANET_1861_SRC = os.path.join( BUILD_DIR, "code", "supranetBuilds", STR_SUPRANET_1861 )
-    SUPRANET_SUBDIRS = ['KwmCMALeniSync', 'KwmImportSvc', 'KwmProgSvc', 'Site']
-    OMSDIRS = [ 'LoginDB', 'OMSMaint', 'OMSTestClient', 'OMSUtils', 'OMS', 'OMSTcp2HTTPS', 'OMSTestSite', 'ReaderDB' ]
-    supranetStagingDir = os.path.join( os.getcwd(), "staging", "supranet" ) 
-    os.chdir( supranetStagingDir )
-    yamlFile = os.path.join( os.getcwd(), "manifest.yml" )
-    f = FileManifest( os.getcwd(), SUPRANET_SUBDIRS, yamlFile )
-    f.createManifest()
-    mappingDict = {}
-    for inode in SUPRANET_SUBDIRS:
-        mappingDict[inode] = os.path.join( supranetStagingDir, inode )
-    mappingDict['KwmCMALeniSync']= os.path.join( SUPRANET_1861_SRC, 'KwmCMALeniSync' )
-    mappingDict['KwmImportSvc']= os.path.join( SUPRANET_1861_SRC, 'KwmImportSvc' )
-   
-    print mappingDict
-    f.checksumTest( mappingDict )
-
 
