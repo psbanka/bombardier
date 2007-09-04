@@ -28,7 +28,7 @@ PY_CURL  = "pycurl-7.16.2.1-ssl-zlib.win32.py2.5"
 PY_YAML  = "PyYAML-3.05"
 PY_WIN32 = "pywin32-210.win32-py2.5"
 
-BASE_FILE     = "prereqs-0.5"
+BASE_FILE     = "bombardierPrereqs-0.5"
 
 class Logger:
     def info(self, string):

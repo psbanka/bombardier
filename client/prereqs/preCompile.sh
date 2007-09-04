@@ -11,9 +11,9 @@ if [ -e http_proxy.txt ]; then
 fi
 echo "http_proxy=$http_proxy"
 
-rm -rf release/prereq-$PREREQ_VERSION_STRING || cd .
-mkdir -p release/prereq-$PREREQ_VERSION_STRING
-cd release/prereq-$PREREQ_VERSION_STRING
+rm -rf release/$BASE_NAME || cd .
+mkdir -p release/$BASE_NAME
+cd release/$BASE_NAME
 
 if [ -e ../$PYTHON.msi ]; then
     echo "$PYTHON has already been downloaded (skipping download)"
@@ -58,5 +58,5 @@ chmod 777 *.exe *.msi
 
 echo "making release tarball"
 
-tar -cz --exclude=".svn" -f prereq-$PREREQ_VERSION_STRING.tar.gz prereq-$PREREQ_VERSION_STRING
-#rm -rf prereq-$PREREQ_VERSION_STRING
+tar -cz --exclude=".svn" -f $BASE_NAME.tar.gz $BASE_NAME
+#rm -rf $BASE_NAME
