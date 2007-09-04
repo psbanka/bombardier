@@ -12,7 +12,7 @@ fi
 echo "http_proxy=$http_proxy"
 
 rm -rf release/prereq-$PREREQ_VERSION_STRING || cd .
-mkdir release/prereq-$PREREQ_VERSION_STRING
+mkdir -p release/prereq-$PREREQ_VERSION_STRING
 cd release/prereq-$PREREQ_VERSION_STRING
 
 if [ -e ../$PYTHON.msi ]; then
