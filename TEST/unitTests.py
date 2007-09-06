@@ -17,6 +17,7 @@ def clientTesting():
     import TCommSocket
     import TminiUtility
     import TFilesystem
+    import TFileManifest
     tcommon = Tcommon.Tcommon()
     tcommon.setForTest()
     suite = unittest.TestSuite()
@@ -28,6 +29,7 @@ def clientTesting():
     suite.addTest(unittest.makeSuite(TCommSocket.CommSocketTest))
     suite.addTest(unittest.makeSuite(TminiUtility.miniUtilityTest))
     suite.addTest(unittest.makeSuite(TFilesystem.FilesystemTest))
+    suite.addTest(unittest.makeSuite(TFileManifest.FileManifestTest))
     if sys.platform != "linux2":
         import TBombardierAgent
         suite.addTest(unittest.makeSuite(TBombardierAgent.BombardierAgentTest))
