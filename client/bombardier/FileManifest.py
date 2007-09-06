@@ -75,17 +75,9 @@ class FileManifest:
         pathFromSubdir = fullPath.split( self.rootDir + os.sep )[-1] 
         return( os.sep.join( pathFromSubdir.split( os.sep )[1:] ) )
 
-    def buildPathFromList( self, list ):
-        if list[0][-1] == ':':
-            list[0] += os.sep
-        tPath = ''
-        for p in list:
-            tPath = os.path.join( tPath, p )
-        return tPath
-
     def loadManifest( self ):
-        yamlParser = yaml.loadFile( self.manifestPath )
-        self.manifestDictionary = yamlParser.next()
+        yamlString = open( self.manifestPath, 'r' ).read()
+        self.manifestDictionary = yaml.load(yamlString)
 
     def verifyManifest( self, mappingDict ):
         tupleCheckList = []
