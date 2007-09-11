@@ -21,8 +21,8 @@ function setupProxy()
 
 function cleanTargetDir()
 {
-    rm -rf $RELEASE_DIR || exit 1
-    mkdir -p $RELEASE_DIR/$BASE_NAME
+    rm -rf $TARGET_DIR || exit 1
+    mkdir -p $TARGET_DIR/$BASE_NAME
 }
 
 function downloadPython()
