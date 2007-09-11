@@ -27,12 +27,12 @@ function cleanTargetDir()
 
 function downloadPython()
 {
-    cd $TARGET_DIR
-    if [ -e $TARGET_DIR/$PYTHON.msi ]; then
+    cd $RELEASE_DIR
+    if [ -e $RELEASE_DIR/$PYTHON.msi ]; then
         echo "$PYTHON has already been downloaded (skipping download)"
     else
         echo "downloading $PYTHON..." 
-        curl $DOWNLOADS/$PYTHON.msi > $TARGET_DIR/$PYTHON.msi
+        curl $DOWNLOADS/$PYTHON.msi > $RELEASE_DIR/$PYTHON.msi
     fi
 }
 
@@ -92,7 +92,7 @@ function downloadPyWin32()
 
 function openPermissions()
 {
-    cd $TARGET_DIR
+    cd $RELEASE_DIR
     chmod -R 777 .
 }
 
