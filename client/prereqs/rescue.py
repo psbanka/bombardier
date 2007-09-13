@@ -24,9 +24,10 @@ DWIZ  = 1
 SETUP = 2
 INNO  = 3
 
-PY_CURL  = "pycurl-7.16.2.1-ssl-zlib.win32.py2.5"
-PY_YAML  = "PyYAML-3.05"
-PY_WIN32 = "pywin32-210.win32-py2.5"
+PY_CURL   = "pycurl-7.16.2.1-ssl-zlib.win32.py2.5"
+PY_YAML   = "PyYAML-3.05"
+PY_WIN32  = "pywin32-210.win32-py2.5"
+PY_CRYPTO = "pycrypto-2.0.1.win32-py2.5"
 
 BASE_FILE     = "bombardierPrereqs-0.5"
 
@@ -137,7 +138,7 @@ class Rescue:
         # READ THIS FROM A FILE
         baseDir = os.getcwd()
         os.chdir(self.baseFile)
-        todos = {PY_CURL:DWIZ, PY_WIN32:DWIZ, PY_YAML:SETUP}
+        todos = {PY_CURL:DWIZ, PY_WIN32:DWIZ, PY_YAML:SETUP, PY_CRYPTO:DWIZ}
         print os.listdir('.')
         print todos.keys()
         for todo in todos.keys():
