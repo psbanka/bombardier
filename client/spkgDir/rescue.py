@@ -135,5 +135,5 @@ def usage():
 if __name__ == "__main__":
     rescue = Rescue()
     rescue.unzip()
-    rescue.untar()
+    rescue.unTar()
     rescue.runSetup()
