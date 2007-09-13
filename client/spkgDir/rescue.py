@@ -64,17 +64,9 @@ class Rescue:
     system installed. It'll do whatever mercenary thing it has to do
     to get a working bombardier installation."""
 
-    def __init__(self, conf):
+    def __init__(self):
         self.logger = Logger()
-        self.conf   = conf
         self.baseFile = glob.glob(BASE_FILE + "*")[0].split( '.tar.gz' )[0]
-
-    def performRescue(self):
-        if not os.path.isfile(self.baseFile + ".tar.gz"):
-            self.getTarball()
-        self.unzip()
-        self.unTar()
-        self.runSetup()
 
     def unzip(self):
         infile = self.baseFile + ".tar.gz"
@@ -114,129 +106,10 @@ class Rescue:
                 pass
         tar.close()
 
-
-    ### TESTED, but lacking.
-    def wget(self, source, filename):
-        import urllib2, socket
-        if not source.endswith('/'):
-            source += '/'
-        try:
-            urlHandle = urllib2.urlopen(source+filename)
-            data = 1
-            try:
-                fileHandle = open(filename, 'wb')
-            except:
-                self.logger.warning("Unable to open file %s" % filename)
-                sys.exit(1)
-            while data:
-                try:
-                    data = urlHandle.read(10000)
-                except:
-                    fileHandle.write(data)
-                    break
-                fileHandle.write(data)
-            urlHandle.close()
-            fileHandle.flush()
-            fileHandle.close()
-        except socket.error, e:
-            erstr = "Connection problem downloading from %s" % source
-            self.logger.warning(erstr)
-            self.logger.debug("details: %s " % `e`)
-            sys.exit(1)
-        except urllib2.URLError, e:
-            erstr = "Connection error to %s" % source
-            self.logger.warning(erstr)
-            if hasattr(e, "msg") and hasattr(e, "code"):
-                self.logger.debug("details: %s/%s" % (e.code, e.msg))
-            sys.exit(1)
-        except urllib2.HTTPError, e:
-            if e.code == 401:
-                self.logger.error("Repository requires authorization")
-                sys.exit(1)
-            erstr = "File %s does not exist "\
-                    "on repository %s." % (filename, source)
-            self.logger.warning(erstr)
-            self.logger.debug("Error: %s (%s)" % (`e.code`, e.msg))
-            sys.exit(1)
-
-    def getRepository(self):
-        config = None
-        repository = self.conf.get("repository")
-        if not repository:
-            try:
-                import bombardier.Config
-                config = bombardier.Config.Config()
-                try:
-                    import bombardier.Filesystem
-                    filesystem = bombardier.Filesystem.Filesystem()
-                    repository = config.getRepository(filesystem)["address"]
-                except:
-                    ermsg = "No repository found. Please specify"\
-                            "the address on the command line."
-                    self.logger.error(ermsg)
-            except:
-                self.logger.info( "error importing Config..." )
-                repository = self.conf.get("repository")
-        if not repository.endswith("deploy/"):
-            repository += "/deploy/"
-        self.logger.info( "using repository %s" % repository )
-        sys.stdout.flush()
-        return repository
-
-    def getTarball(self):
-        repository = self.getRepository()
-        self.logger.info( "1: DOWNLOADING" )
-        sys.stdout.flush()
-        status = self.wget(repository, self.baseFile + ".tar.gz")
-        if status == 1:
-            sys.exit(1)
-
-    def installDwiz(self, name):
-        curDir    = os.getcwd()
-        libDir    = os.path.join(sys.prefix, "Lib", "site-packages")
-        pythonExe = os.path.join(sys.prefix, "python.exe")
-        os.chdir(name)
-        if os.path.isdir("PLATLIB"):
-            os.chdir("PLATLIB")
-            for inode in os.listdir('.'):
-                fullpath = os.path.join(libDir, inode)
-                try:
-                    if os.path.isfile(inode):
-                        self.logger.info("copying file %s -> %s" % (inode, fullpath))
-                        shutil.copyfile(inode, fullpath)
-                    else:
-                        self.logger.info("copying directory %s -> %s" % (inode, fullpath))
-                        shutil.copytree(inode, fullpath)
-                except OSError, e:
-                    self.logger.warning("Copying error: %s" % e)
-                except IOError, e:
-                    self.logger.warning("Copying error: %s" % e)
-            os.chdir("..")
-        if os.path.isdir("SCRIPTS"):
-            os.chdir("SCRIPTS")
-            for inode in os.listdir('.'):
-                if os.path.isfile(inode):
-                    if inode.endswith('.py'):
-                        os.system("%s %s -install -silent" % (pythonExe, inode))
-            os.chdir("..")
-        os.chdir(curDir)
-
-
     def runSetup(self):
         self.logger.info( "4: INSTALLING" )
-        #scripts = map(string.strip, open('scriptfiles.dat', 'r').readlines())
-        #except IOError:
-        #scripts = []
-        # READ THIS FROM A FILE
-        todos = {"pycurl-7.16.2.1-ssl-zlib.win32.py2.5":DWIZ,
-                 "PyYAML-3.05":SETUP, "bombardierClient":SETUP,
-                 "spkg":SETUP, "site-root":SETUP}
-        try:
-            print "Importing win32com.client"
-            import win32com.client
-            print "ImportED win32com.client"
-        except ImportError:
-            todos["pywin32-210.win32-py2.5"] = DWIZ
+        todos = { "bombardierClient":SETUP,
+                 "spkg":SETUP}
         baseDir = os.getcwd()
         os.chdir(self.baseFile)
         print os.listdir('.')
@@ -259,29 +132,8 @@ def usage():
     print "-r to specify a repository" 
     sys.exit(1)
 
-def getConf():
-    conf = {"repository":''}
-    for i in range(1,len(sys.argv)):
-        option = sys.argv[i]
-        if option == "-r":
-            conf["repository"] = sys.argv[i+1]
-        elif option == "-n":
-            print "That's nice...."
-        elif option.startswith('-'):
-            usage()
-    return conf
-
 if __name__ == "__main__":
-    """
-         1. unpack bombardier
-         2. Install dependencies, checking each first
-
-            a. Install windows extensions, if they're not installed
-            b. Install pycurl
-            c. Install yaml
-
-         3. Install bombardier, (site-packages and spkg directory)
-    """  
-    conf = getConf()
-    rescue = Rescue(conf)
-    rescue.performRescue()
+    rescue = Rescue()
+    rescue.unzip()
+    rescue.untar()
+    rescue.runSetup()

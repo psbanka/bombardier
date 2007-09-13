@@ -29,24 +29,6 @@ if sys.platform != "linux2":
 from staticData import *
 import miniUtility, Logger
 
-WRITABLE_FILE_MODE      = 33206
-WRITABLE_DIRECTORY_MODE = 16895
-
-def makeDirWritable( dir ):
-    os.chmod( dir, WRITABLE_DIRECTORY_MODE )
-
-def makeFileWritable( file ):
-    os.chmod( file, WRITABLE_FILE_MODE )
-
-def makeWritableRecursive( rootDir ):
-    for root, dirs, files in os.walk(rootDir, topdown=False):
-        for name in files:
-            makeFileWritable(os.path.join(root, name))
-        for name in dirs:
-            print "%s" %(os.path.join(root, name))
-            makeDirWritable(os.path.join(root, name))
-        makeDirWritable( root )    
-
 def makeNewDsn( dataSourceName, dbName, defaultUser, serverName, desc=None ):
     try:
         # The following two keys fix the problem caused when "Dynamically 
@@ -477,6 +459,39 @@ def createSqlDsn(server, instance, port, username, password, dbName, dsnName):
         return FAIL
     aut.Send("{ENTER}")
     return OK
+
+def makeAccessDsn( dataSourceName, dbFilePath ):
+    try:
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
+                                 "SOFTWARE\\ODBC\\ODBC.INI\\%s" % dataSourceName )
+        driverPath = os.path.join( os.environ['windir'], 'system32', 'odbcjt32.dll' )
+        winreg.SetValueEx( hKey, "Driver",           0, winreg.REG_SZ, driverPath )
+        winreg.SetValueEx( hKey, "DBQ",              0, winreg.REG_SZ, dbFilePath )
+        winreg.SetValueEx( hKey, "DriverId",         0, winreg.REG_DWORD, 19 )
+        winreg.SetValueEx( hKey, "FIL",              0, winreg.REG_SZ, "MS Access;" )
+        winreg.SetValueEx( hKey, "SafeTransactions", 0, winreg.REG_DWORD, 0 )
+        winreg.SetValueEx( hKey, "UID",              0, winreg.REG_SZ, "" )
+        winreg.CloseKey(hKey)
+
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
+                                 "SOFTWARE\\ODBC\\ODBC.INI\\%s\\Engines" %dataSourceName )
+        winreg.CloseKey(hKey)
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
+                                 "SOFTWARE\\ODBC\\ODBC.INI\\%s\\Engines\\Jet" %dataSourceName )
+        winreg.SetValueEx( hKey, "ImplicitCommitSync", 0, winreg.REG_SZ, "" )
+        winreg.SetValueEx( hKey, "MaxBufferSize",      0, winreg.REG_DWORD, 800 )
+        winreg.SetValueEx( hKey, "PageTimeout",        0, winreg.REG_DWORD, 5 )
+        winreg.SetValueEx( hKey, "Threads",            0, winreg.REG_DWORD, 3 )
+        winreg.SetValueEx( hKey, "UserCommitSync",     0, winreg.REG_SZ, "Yes" )
+        winreg.CloseKey(hKey)
+
+        hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
+                   "SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources" )
+        winreg.SetValueEx( hKey, dataSourceName, 0, winreg.REG_SZ, "Microsoft Access Driver (*.mdb)" )
+        winreg.CloseKey( hKey )
+    except Exception, e:
+        Logger.Error( "Unable to create Access DSN:\n%s" %e )
+        sys.exit( 1 )
 
 def createAccessDsn(dsnName, path):
     aut = win32com.client.Dispatch( "AutoItX3.Control.1" )

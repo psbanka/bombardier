@@ -234,6 +234,43 @@ class Windows(OperatingSystem.OperatingSystem):
         win32service.CloseServiceHandle(hscm)
         return OK
 
+    def installService( self, _svcPath, domain=None, userName=None, password=None, version="v1.1.4322" ):
+        cmd = os.path.join(os.environ['windir'], "Microsoft.Net", 
+                           "Framework", version, "Installutil.exe")
+        if( userName != None ) and ( password != None ):
+            if domain == '.' or domain == '' or domain == None:
+                domain = os.environ['hostname']
+            cmd += " /userName=%s\\%s /password=%s" %(domain, userName, password)
+        Logger.info( "cmd = %s" %(cmd) )
+        Logger.info( "_svcPath = %s" %(_svcPath)  )
+        self.filesystem.execute("%s %s" % (cmd, _svcPath), "Unable to install " + _svcPath + " as a service", debug=1)
+
+    def registerDlls(self, directory, dlls):
+        Logger.info("Registering DLLs..")
+        winDir = os.environ["windir"]
+        status = OK
+        for dll in dlls:
+            dllPath = os.path.join(directory, "dll", dll)
+            cmd = "%s %s /s" % (os.path.join(winDir, "system32", "regsvr32.exe"), dllPath)
+            status = os.system(cmd)
+            if status == FAIL:
+                status = FAIL
+                Logger.warning("Error registering %s." % dll)
+        return status
+
+    def unregisterDlls(self, directory, dlls):
+        Logger.info("Un-registering DLLs..")
+        winDir = os.environ["windir"]
+        status = OK
+        for dll in dlls:
+            dllPath = os.path.join(directory, "dll", dll)
+            cmd = "%s %s /s /u" % (os.path.join(winDir, "system32", "regsvr32.exe"), dllPath)
+            status = os.system(cmd)
+            if status == FAIL:
+                Logger.warning("Error un-registering %s." % dll)
+                status = FAIL
+        return status
+
     def removeScriptUser(self, username):
         win32net.NetUserDel(None, username)
         return OK

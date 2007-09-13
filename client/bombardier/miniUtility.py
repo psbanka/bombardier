@@ -510,3 +510,9 @@ def consoleSync(status):
     else: # assume a zero exit code
         f.write('0')
     f.close()
+
+def consoleFail( errorString="Failed, error unknown" ):
+    Logger.error( errorString )
+    consoleSync( FAIL )
+    sys.exit(FAIL)
+

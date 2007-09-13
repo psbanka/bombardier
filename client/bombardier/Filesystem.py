@@ -25,6 +25,84 @@ import shutil, os, sys, tarfile, gzip, yaml, re, time, random
 import Exceptions, miniUtility, Logger
 from staticData import *
 
+def copyDirectory( _src, _dest ):
+    try:
+        if os.path.isdir(_dest):
+            removeDirectory( _dest )
+        if os.path.islink(_dest):
+            os.unlink(_dest)
+        shutil.copytree(_src, _dest)
+    except Exception, e:
+        errString = "Error creating %s directory:\n%s" %(_dest, e)
+        miniUtility.consoleFail(errString)
+            
+def copyFile( _src, _dest ):
+    try:
+        if os.path.isfile( _dest ):
+            os.unlink( _dest )
+        shutil.copy( _src, _dest )
+    except:
+        errString = "error copying from %s to %s" %( _src,  _dest ) 
+        if Logger != None:
+            miniUtility.consoleFail(errString)
+        else:
+            print errString
+
+def makeDirWritable( dir ):
+    WRITABLE_DIRECTORY_MODE = 16895
+    os.chmod( dir, WRITABLE_DIRECTORY_MODE )
+
+def makeFileWritable( file ):
+    WRITABLE_FILE_MODE = 33206
+    os.chmod( file, WRITABLE_FILE_MODE )
+
+def makeWritableRecursive( rootDir ):
+    for root, dirs, files in os.walk(rootDir, topdown=False):
+        for name in files:
+            makeFileWritable(os.path.join(root, name))
+        for name in dirs:
+            print "%s" %(os.path.join(root, name))
+            makeDirWritable(os.path.join(root, name))
+        makeDirWritable( root )    
+
+def deleteDirectory( path ):
+    if os.path.isdir( path ):
+        makeWritableRecursive( path )
+        shutil.rmtree( path )
+
+def rmScheduledFile(filename):
+    try:
+        win32api.MoveFileEx(filename, None,
+                            win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
+    except pywintypes.error, e:
+        Logger.error("Cannot remove file: %s (%s)" % (filename, e))
+
+def rmScheduledDir(path):
+    for root, dirs, files in os.walk(path):
+        for name in files:
+            rmScheduledFile(os.path.join(root, name))
+        for name in dirs:
+            rmScheduledFile(os.path.join(root, name))
+
+def deleteDirectories( deletePaths ):
+    reboot = False
+    for path in deletePaths:
+        if path == "\\" or path.lower() == "c:\\":
+            Logger.error("Refusing to delete %s" % path)
+            return FAIL
+        if os.path.isdir(path):
+            Logger.info( "Attempting to remove %s" %(path) )
+            try:
+                deleteDirectory(path)
+            except:
+                Logger.info("%s not deletable...scheduling for deletion." % path)
+                rmScheduledDir(path)
+                reboot = True
+    if reboot:
+        return REBOOT
+    else:
+        return OK
+
 class Filesystem:
 
     """The purpose of this class is to provide an abstraction layer

@@ -19,14 +19,11 @@ DisableReadyPage=true
 ShowLanguageDialog=no
 
 [Dirs]
-Name: {app}\log
 Name: {app}\packages; Flags: uninsneveruninstall
-Name: {app}\dependencies
 Name: {app}\scratch
 
 [Files]
 ; PYTHON
-Source: release\python-2.5.1.msi; DestDir: {app}\dependencies
 Source: release\repositoryDirectory.yml; DestDir: {app}
 
 ; Support tools
@@ -46,20 +43,13 @@ Name: {app}\config.yml; Type: files
 Name: {app}\bc2.py; Type: files
 
 [Run]
-Filename: {win}\SYSTEM32\msiexec.exe; Parameters: /Ipython-2.5.1.msi ALLUSERS=1 /QN; WorkingDir: {app}\dependencies; StatusMsg: Installing Python, please wait...; Flags: postinstall; Description: Install Python
-Filename: {reg:HKLM\Software\Python\PythonCore\2.5\InstallPath,(Default)|C:\Python25}\python.exe; WorkingDir: {app}\scratch; Flags: postinstall; Description: Install Python modules; StatusMsg: Installing Bombardier Python Modules; Parameters: rescue.py -n
+Filename: {reg:HKLM\Software\Python\PythonCore\2.5\InstallPath,(Default)|C:\Python25}\python.exe; WorkingDir: {app}\scratch; Flags: postinstall; Description: Install Python modules; StatusMsg: Installing Bombardier Python Modules; Parameters: rescue.py 
 
 [UninstallDelete]
 Name: {app}\ntrights.exe; Type: files
-Name: {app}\bc.py; Type: files
 Name: {app}\bc2.py; Type: files
 Name: {app}\setup.py; Type: files
 Name: {app}\systemtype.txt; Type: files
-Name: {app}\BOM.txt; Type: files
-Name: {app}\consoleCheck.txt; Type: files
-Name: {app}\log; Type: filesandordirs
-Name: {app}\dependencies; Type: filesandordirs
-Name: {app}\bin; Type: filesandordirs
 Name: {app}\scratch; Type: filesandordirs
 
 [UninstallRun]
