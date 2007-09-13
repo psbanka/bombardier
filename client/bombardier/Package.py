@@ -274,7 +274,6 @@ class Package:
                 elif self.packageVersion == 3:
                     cmdString = "obj = %s.%s(self.config, futurePackages = packageList, logger=Logger.logger)"
                     exec(cmdString % (randString, file))
-                    return FAIL
                 else:
                     Logger.error("Unknown package version %s" % self.packageVersion)
                 fileFound = True
@@ -283,7 +282,7 @@ class Package:
                 elif action == VERIFY:
                     status = obj.verify()
                 elif action == UNINSTALL:
-                    status = obj.uninstall()
+                    status = obj.uninstaller()
                 elif action == CONFIGURE:
                     status = obj.configure()
                 else:

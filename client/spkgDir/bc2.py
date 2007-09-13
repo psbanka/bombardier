@@ -1,5 +1,4 @@
 #!/usr/local/bin/python2.4
-# Version 0.5-280
 
 # bc2.py: This module is essentially a hacked version of 
 # ReconcileThread.py, and is meant to be run on a linux machine.
@@ -42,7 +41,7 @@ if __name__ == "__main__":
 
     packageName = ""    
     
-    parser = optparse.OptionParser("usage: %prog [options]")
+    parser = optparse.OptionParser("usage: %prog [option] [package-name]")
     parser.add_option("-c", "--configure", dest="action",
                       action="store_const", const=CONFIGURE,
                       help="configure a package")
@@ -61,11 +60,14 @@ if __name__ == "__main__":
 
     (options, args) = parser.parse_args()
     if options.action != RECONCILE:
+        if len(args) != 1:
+            parser.print_help()
+            sys.exit( 1 )
         packageName = args[0]
          
     filesystem = bombardier.Filesystem.Filesystem()
     filesystem.clearLock()
-    server = bombardier.Server.Server(filesystem, password=password)
+    server = bombardier.Server.Server(filesystem)
     config = bombardier.Config.Config(filesystem, server, bombardier.OperatingSystem.OperatingSystem())
     try:
         config.freshen()

@@ -47,11 +47,12 @@ if __name__ == "__main__":
     addStdErrLogging()
     filesystem = bombardier.Filesystem.Filesystem()
     server = bombardier.Server.Server(filesystem, password=password)
-    config = bombardier.Config.Config(filesystem, server, bombardier.OperatingSystem.OperatingSystem())
+    os = bombardier.OperatingSystem.OperatingSystem()
+    config = bombardier.Config.Config(filesystem, server, os)
+    config.freshen()
     repository = bombardier.Repository.Repository(config, filesystem, server)
     repository.getPackageData()
     bc = bombardier.BombardierClass.Bombardier(repository, config,
-                                                       filesystem, server,
-                                                       operatingSystem)
+                                                       filesystem, server, os)
     status = bc.checkSystem(lambda:False)
     print "======================\n\n%s\n" % yaml.dump(status)

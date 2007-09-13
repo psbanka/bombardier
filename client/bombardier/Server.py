@@ -303,6 +303,9 @@ class Server:
         if 1 == 1:
         #try:
             config = yaml.load(ymlData)
+            if type(config) == type("string"):
+                Logger.error("Invalid Yaml on server: %s" % config)
+                raise Exceptions.ServerUnavailable, (path, ermsg)
             if type(config) != type({}): # backwards comptible yaml
                 config = config.next()
             return config
