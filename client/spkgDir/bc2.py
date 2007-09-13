@@ -1,4 +1,5 @@
 #!/usr/local/bin/python2.4
+# Version 0.5-280
 
 # bc2.py: This module is essentially a hacked version of 
 # ReconcileThread.py, and is meant to be run on a linux machine.
@@ -20,7 +21,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import sys, getopt
+import sys, optparse
 
 from bombardier.staticData import *
 from bombardier.Logger import logger, addStdErrLogging
@@ -29,58 +30,39 @@ import bombardier.Config, bombardier.OperatingSystem
 import bombardier.Server, bombardier.CommSocket
 import bombardier.Repository, bombardier.BombardierClass
 
-UPDATE  = 0
-CHECK   = 1
-INSTALL = 2
-
-def displayHelp():
-    usage = """
-%s: the bombardier package installation and check utility
-
-USAGE:
-%s [-c|-u|-i package|-h|-?|--help]
-
- -c           check and report on the overall status of the system packages
- -u           (default) download, install, and verify all packages required
-              for this system.
- -i [package] install package
- -h           this screen
-
-    """ % (sys.argv[0], sys.argv[0])
-    print usage
-    sys.exit(1)
-
+UNINSTALL = 0
+CONFIGURE = 1
+INSTALL   = 2
+VERIFY    = 3
+RECONCILE = 4
 
 if __name__ == "__main__":
-    try:
-        options,args = getopt.getopt(sys.argv[1:], "cupi:h?",
-                                     ["install", "update", "check", "help", "password"])
-    except getopt.GetoptError:
-        print "ERROR: Unable to parse options."
-        displayHelp()
-
-    action = UPDATE
-    packageName = None
-    password = ''
+    import optparse
     addStdErrLogging()
-    for opt,arg in options:
-        if opt in ['-h','-?','--help']:
-            displayHelp()
-        elif opt in ['-c', '--check']:
-            action = CHECK
-        elif opt in ['-p', '--password']:
-            character = ''
-            while character != '\n':
-                password += character
-                character = sys.stdin.read(1)
-        elif opt in ['-u', '--update']:
-            action = UPDATE
-        elif opt in ['-i', '--install']:
-            action = INSTALL
-            packageName = arg
-        else:
-            print "Unknown Option",opt
-            displayHelp()
+
+    packageName = ""    
+    
+    parser = optparse.OptionParser("usage: %prog [options]")
+    parser.add_option("-c", "--configure", dest="action",
+                      action="store_const", const=CONFIGURE,
+                      help="configure a package")
+    parser.add_option("-v", "--verify", dest="action",
+                      action="store_const", const=VERIFY,
+                      help="verify a package")
+    parser.add_option("-i", "--install", dest="action",
+                      action="store_const", const=INSTALL,
+                      help="install a package")
+    parser.add_option("-r", "--reconcile", dest="action",
+                      action="store_const", const=RECONCILE,
+                      help="reconcile the system")
+    parser.add_option("-u", "--uninstall", dest="action",
+                      action="store_const", const=UNINSTALL,
+                      help="uninstall a package")
+
+    (options, args) = parser.parse_args()
+    if options.action != RECONCILE:
+        packageName = args[0]
+         
     filesystem = bombardier.Filesystem.Filesystem()
     filesystem.clearLock()
     server = bombardier.Server.Server(filesystem, password=password)
@@ -103,23 +85,24 @@ if __name__ == "__main__":
     bc = bombardier.BombardierClass.Bombardier(repository, config,
                                                        filesystem, server,
                                                        operatingSystem)
-    if action == UPDATE:
+    if options.action == RECONCILE:
         status = bc.reconcileSystem(cs1.testStop)
         if status == OK:
             filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", server)
         else:
             filesystem.updateCurrentStatus(ERROR, "Error installing", server)
             filesystem.warningLog("Error installing", server)
-    elif action == CHECK:
-        import yaml
-        status = bc.checkSystem(cs1.testStop)
-        print "======================\n\n%s\n" % yaml.dump(status)
-        filesystem.updateCurrentStatus(IDLE, "Check complete", server)
-    elif action == INSTALL:
+    elif options.action == INSTALL:
         status = bc.installPackage(packageName)
-        if status == OK:
-            print "COMPLETED SUCCESSFULLY"
-        else:
-            print "ERROR IN INSTALLATION"
+    elif options.action == CONFIGURE:
+        status = bc.configurePackage(packageName)
+    elif options.action == VERIFY:
+        status = bc.verifyPackage(packageName)
+    elif options.action == UNINSTALL:
+        status = bc.uninstallPackage(packageName)
+    if status == OK:
+        print "COMPLETED SUCCESSFULLY"
+    else:
+        print "ERROR"
     filesystem.clearLock()
 

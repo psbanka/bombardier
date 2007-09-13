@@ -1,5 +1,4 @@
 #!/cygdrive/c/Python24/python.exe
-# Version 0.41-179
 
 # BombardierClass.py: This is the central focal point of most of the
 # activities of this software. The reconcileSystem method kicks off
@@ -776,6 +775,36 @@ class Bombardier:
         self.cleanup(status, logmessage="Finished installing.")
         return status
 
+    def uninstallPackage(self, packageName):
+        try:
+            package = Package.Package(packageName, self.repository,
+                                      self.config, self.filesystem,
+                                      self.server, self.operatingSystem)
+            package.initialize()
+            status = package.uninstall(self.abortIfTold)
+            self.cleanup(status, logmessage="Finished uninstalling.")
+            return status
+        except Exceptions.BadPackage, e:
+            errmsg = "Cannot uninstall bad package %s: %s" % (e.packageName, e.errmsg)
+            Logger.warning(errmsg)
+            self.filesystem.warningLog(errmsg, self.server)
+            return FAIL
+
+    def verifyPackage(self, packageName):
+        try:
+            package = Package.Package(packageName, self.repository,
+                                      self.config, self.filesystem,
+                                      self.server, self.operatingSystem)
+            package.initialize()
+            status = package.verify(self.abortIfTold)
+            self.cleanup(status, logmessage="Finished verifying.")
+            return status
+        except Exceptions.BadPackage, e:
+            errmsg = "Cannot verify bad package %s: %s" % (e.packageName, e.errmsg)
+            Logger.warning(errmsg)
+            self.filesystem.warningLog(errmsg, self.server)
+            return FAIL
+
     def configurePackage(self, packageName):
         try:
             package = Package.Package(packageName, self.repository,
@@ -783,8 +812,7 @@ class Bombardier:
                                       self.server, self.operatingSystem)
             package.initialize()
             if self.checkConfiguration(package) == FAIL:
-                msg = "Package history shows that this package is already configured properly"
-                Logger.warning(msg)
+                return FAIL
             else:
                 status = package.configure(self.abortIfTold)
                 hashPath = os.path.join(miniUtility.getPackagePath(), package.fullName, HASH_FILE)
