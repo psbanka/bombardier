@@ -36,12 +36,7 @@ def updatePython():
         pythonPath = os.path.join(sys.prefix, "bin", "python2.4")
 
     spkgPath = getSpkgPath()
-    todos = ["dmoweasel", "site-root"]
     startDir = os.getcwd()
-    for todo in todos:
-        os.chdir( todo )
-        os.system( "%s setup.py install" % pythonPath )
-        os.chdir( startDir )
 
     os.chdir( "spkgDir" )
     os.system( "%s setup.py install %s" %(pythonPath, spkgPath) )
