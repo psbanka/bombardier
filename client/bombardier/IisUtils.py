@@ -29,7 +29,7 @@ if sys.platform == "win32":
     from time import sleep
     import win32api, win32file
     from Windows import Windows
-    from miniUtility import consoleFail
+    from utility import consoleFail
 
 import Logger
 from Filesystem import copyDirectory, removeFile

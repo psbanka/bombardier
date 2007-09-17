@@ -73,6 +73,11 @@ def installFont(fontPath):
                              keyName, 0, winreg.KEY_SET_VALUE)
     winreg.SetValueEx(fontKey, "fontName", 0, winreg.REG_SZ, baseName)
 
+def consoleFail( errorString="Failed, error unknown" ):
+    Logger.error( errorString )
+    miniUtility.consoleSync( FAIL )
+    sys.exit(FAIL)
+
 def rmScheduledFile(filename):
     if sys.platform == "linux2":
         Logger("Removing a file in a scheduled manner is not necessary in Linux")
