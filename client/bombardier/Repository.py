@@ -1,5 +1,4 @@
 #!/cygdrive/c/Python24/python.exe
-# Version 0.41-179
 
 # Repository.py: This module is responsible for keeping track of
 # packages on the repository, downloading them, extracting them, etc.

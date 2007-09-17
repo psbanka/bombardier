@@ -20,9 +20,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-WRITABLE_FILE_MODE      = 33206
-WRITABLE_DIRECTORY_MODE = 16895
-
 import os, sys, shutil
 
 if sys.platform == "win32":
@@ -31,12 +28,12 @@ if sys.platform == "win32":
     import _winreg as winreg
     from time import sleep
     import win32api, win32file
-    from bombardier.Windows import Windows
-    from miniutility import consoleFail
+    from Windows import Windows
+    from miniUtility import consoleFail
 
-import Logger.Logger as Logger
-from Filesystem import copyDirectory
-from bombardier.staticData import *
+import Logger
+from Filesystem import copyDirectory, removeFile
+from staticData import *
 
 def removeSite( _siteIndex ):
     w3svcPath = "IIS://localhost/w3svc"
@@ -266,6 +263,11 @@ class CertInstaller(AutoWizard):
         self.signedCertPath = self.getSignedCertPath( self.commonName )
         self.certRequestPath = self.getCertRequestPath( self.commonName )
 
+    def showProgress(self, targetName):
+        Logger.info( "# ============================================" )
+        Logger.info( "Creating " + targetName )
+        Logger.info( "# ============================================" )
+
     def getCACert(self):
         credentials = ""
         if self.caUser and self.caPassword:
@@ -330,7 +332,7 @@ class CertInstaller(AutoWizard):
            consoleFail( "Could not open Certificate Wizard" )
     
     def installCACert(self):
-        showProgress( "CA Certificate" )
+        self.showProgress( "CA Certificate" )
     
         if self.getCACert() == FAIL:
             consoleFail( "Could not get CA cert from authority" )

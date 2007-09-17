@@ -243,7 +243,7 @@ class Windows(OperatingSystem.OperatingSystem):
             cmd += " /userName=%s\\%s /password=%s" %(domain, userName, password)
         Logger.info( "cmd = %s" %(cmd) )
         Logger.info( "_svcPath = %s" %(_svcPath)  )
-        self.filesystem.execute("%s %s" % (cmd, _svcPath), "Unable to install " + _svcPath + " as a service", debug=1)
+        os.system("%s %s" % (cmd, _svcPath), "Unable to install " + _svcPath + " as a service", debug=1)
 
     def registerDlls(self, directory, dlls):
         Logger.info("Registering DLLs..")
@@ -537,7 +537,7 @@ class Windows(OperatingSystem.OperatingSystem):
             if e[2] != "The account already exists.":
                 Logger.error("Unable to create user '%s'. [%s]" % (username, e[2]))
                 return FAIL
-        if admin == True:
+        if admin:
             try:
                 win32net.NetLocalGroupAddMembers(None, 'administrators',
                                                  3, [{"domainandname":username}])

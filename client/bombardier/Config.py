@@ -1,5 +1,4 @@
 #!/cygdrive/c/Python24/python.exe
-# Version 0.41-179
 
 # Config.py: This class provides the functionality of providing
 # heirarchichal configuration data through either a dictionary

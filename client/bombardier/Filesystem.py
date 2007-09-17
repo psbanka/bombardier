@@ -28,7 +28,7 @@ from staticData import *
 def copyDirectory( _src, _dest ):
     try:
         if os.path.isdir(_dest):
-            removeDirectory( _dest )
+            deleteDirectory( _dest )
         if os.path.islink(_dest):
             os.unlink(_dest)
         shutil.copytree(_src, _dest)
@@ -69,6 +69,11 @@ def deleteDirectory( path ):
     if os.path.isdir( path ):
         makeWritableRecursive( path )
         shutil.rmtree( path )
+
+def removeFile( path ):
+    if os.path.isfile( path ):
+        makeFileWritable(path)
+        os.remove( path )
 
 def rmScheduledFile(filename):
     try:
