@@ -180,7 +180,10 @@ class PackageCreator:
             else:
                 metadata = Pkg.metadata
             config = MockConfig()
-            exec ('object = Pkg.%s(config)' % self.className)
+            if metadata['package-version'] == 2:
+                exec ('object = Pkg.%s(config)' % self.className)
+            else:
+                exec ('object = Pkg.%s(config, [], lambda:False)' % self.className)
             metadata['configuration'] = config.getRequests()
             os.chdir(self.startDir)
         if createTarball:
