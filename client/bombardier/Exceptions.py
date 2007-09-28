@@ -40,6 +40,22 @@ class AbstractClassException(Exception):
     def __str__(self):
         return "Method %s was attempted in an abstract class" % (self.className)
 
+class DependencyLoopException(Exception):
+    def __init__(self, chain):
+        e = Exception()
+        Exception.__init__(e)
+        self.chain  = chain
+    def __repr__(self):
+        output  = "Package chain has a recursive loop in dependencies: "
+        for pkgName in self.chain:
+            output += pkgName + ','
+        return output[:-1]
+    def __str__(self):
+        output  = "Package chain has a recursive loop in dependencies: "
+        for pkgName in self.chain:
+            output += pkgName + ','
+        return output[:-1]
+
 class StatusException(Exception):
     def __init__(self, yamlFile):
         e = Exception()
