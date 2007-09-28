@@ -23,6 +23,7 @@
 # 02110-1301, USA.
 
 import os, time, datetime, ConfigParser, glob, random
+import sys, StringIO, traceback
 
 import miniUtility, MetaData, Exceptions, Logger
 from staticData import *
@@ -305,6 +306,14 @@ class Package:
                 sys.exit(10)
             except StandardError, e:
                 Logger.error("Error detected in %s (%s)." % (file, e))
+                e = StringIO.StringIO()
+                traceback.print_exc(file=e)
+                e.seek(0)
+                data = e.read()
+                ermsg = ''
+                for line in data.split('\n'):
+                    ermsg += "\n||>>>%s" % line
+                Logger.error(ermsg)
                 fileFound = True
                 status = FAIL
                 del randString
