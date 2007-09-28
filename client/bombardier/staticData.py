@@ -32,6 +32,7 @@ and you are welcome to redistribute it under the terms of the GNU
 General Public license version 2.""" % VERSION
 
 
+MAX_CHAIN_DEPTH = 50
 STRUCTURE     = 1
 DATA          = 2
 
