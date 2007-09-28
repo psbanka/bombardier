@@ -30,6 +30,7 @@ class PackageChain:
     def __init__(self, priority, startPackageName, packages,
                  installedPackageNames, brokenPackageNames, repository,
                  config, filesystem, server, operatingSystem):
+        self.depth       = 0
         self.priority    = priority
         self.packages    = packages
         self.filesystem  = filesystem
@@ -84,6 +85,9 @@ class PackageChain:
 
     # TESTED
     def packageChain(self, pkgName):
+        self.depth += 1
+        if self.depth > MAX_CHAIN_DEPTH:
+            raise Exceptions.DependencyLoopException(self.chain)
         for depName in self.packages[ self.getActualPkgName( pkgName ) ].dependencies:
             if depName not in self.installedPackageNames: 
                 self.chain.insert( 0, self.getActualPkgName( depName ) )
@@ -96,6 +100,7 @@ class PackageChain:
             else:
                 self.priority = max( dependency.priority, self.priority )
             self.packageChain( depName )
+        self.depth -= 1
 
     def syncDependencies( self, depName, pkgName ):
         if depName not in ( self.vPackages.resolveVPkgList( self.installedPackageNames ) + \
@@ -692,7 +697,7 @@ class Bombardier:
             Logger.warning(erstr)
             return self.cleanup(FAIL)
         if self.filesystem.setLock() == FAIL:
-            return self.cleanup(FAIL)
+            return FAIL
         self.abortIfTold()
         self.filesystem.chdir(spkgPath)
         if self.packageNames == None:
@@ -736,7 +741,8 @@ class Bombardier:
         return self.cleanup(status, logmessage="Finished installing.")
 
     def checkSystem(self, testStop, packageNames = None):
-        self.checkInstallationStatus(testStop, packageNames)
+        if self.checkInstallationStatus(testStop, packageNames) != OK:
+            return FAIL
         progressData = self.filesystem.getProgressData(stripVersionFromName = True)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         shouldBeInstalled, shouldntBeInstalled = self.checkBom(self.packageNames)
