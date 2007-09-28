@@ -36,7 +36,7 @@ setup (name = "bombardier",
        description = "Open Source Configuration management and package delivery",
        version = VERSION,
        packages = ["bombardier"],
-       author = "Peter Banka et al",
-       author_email = "peter@thebankas.com",
-       url = "http://bombardierinstaller.org/"
+       author = "Peter Banka and Shawn Sherwood",
+       author_email = "peter.banka@gmail.com",
+       url = "http://bombardierinstaller.com/"
 )
