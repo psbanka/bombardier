@@ -1,4 +1,5 @@
 #!/cygdrive/c/Python25/python.exe
+# Version 0.5-286
 
 # fixSpkg.py: This module is essentially a hacked version of 
 # ReconcileThread.py, and is meant to be run on a linux machine.
@@ -30,50 +31,41 @@ DISPLAY = 1
 FIX = 2
 REMOVE = 3
 
-def displayHelp(errMsg):
-    usage = """
-%s: the bombardier package status fixer
-
-USAGE:
-%s [-d|-f|-r] [packageName]
-
- -d           display package problems
- -f           set broken packages to "fixed"
- -r           remove broken packages
- packageName  optional. specify which package to work on (otherwise, all are chosen)
- -h           this screen
-
-    """ % (sys.argv[0], sys.argv[0])
-    print usage
-    print errMsg
-    sys.exit(1)
-
+def fixPackageName(packageName, ok, bad):
+    if packageName in ok or packageName in bad:
+        return packageName
+    for okPackageName in ok:
+        if packageName in okPackageName:
+            print "Note: using package name %s" % okPackageName
+            return okPackageName
+    for badPackageName in bad:
+        if packageName in badPackageName:
+            print "Note: using package name %s" % badPackageName
+            return badPackageName
 
 if __name__ == "__main__":
-    try:
-        options,args = getopt.getopt(sys.argv[1:], "dfrh",
-                                     ["display", "fix", "remove", "help"])
-        targetPackageNames = args
-    except getopt.GetoptError:
-        displayHelp("ERROR: Unable to parse options.")
+    import optparse
+
+    parser = optparse.OptionParser("usage: %prog [option] [package-name]")
+    parser.add_option("-d", "--display", dest="action",
+                      action="store_const", const=DISPLAY,
+                      help="display a package status")
+    parser.add_option("-f", "--fix", dest="action",
+                      action="store_const", const=FIX,
+                      help="fix a package")
+    parser.add_option("-r", "--remove", dest="action",
+                      action="store_const", const=REMOVE,
+                      help="remove a package")
+
+    (options, targetPackageNames) = parser.parse_args()
 
     errors = False
-    action = NONE
     ok     = []
     bad    = []
-    for opt,arg in options:
-        if opt in ['-h','-?','--help']:
-            displayHelp()
-        elif opt in ['-d', '--display']:
-            action = DISPLAY
-        elif opt in ['-f', '--fix']:
-            action = FIX
-        elif opt in ['-r', '--remove']:
-            action = REMOVE
-        else:
-            displayHelp("Unknown Option %s"%opt)
-    if action == NONE:
-        displayHelp("Need to specify an action")
+    if options.action == None:
+        print "Need to specify an action"
+        parser.print_help()
+        sys.exit(1)
 
     statusData = open(getProgressPath(), 'r').read()
     status = yaml.load(statusData)
@@ -89,7 +81,7 @@ if __name__ == "__main__":
             ok.append(packageName)
 
 
-    if action == DISPLAY:
+    if options.action == DISPLAY:
         if len(bad) > 0:
             print "BAD PACKAGES:"
             print '\n'.join(bad)
@@ -102,22 +94,23 @@ if __name__ == "__main__":
 
     print "processing packages: %s" % targetPackageNames
     for packageName in targetPackageNames:
+        packageName = fixPackageName(packageName, ok, bad)
         if packageName in bad:
-            if action == FIX:
+            if options.action == FIX:
                 print "fixing %s" % packageName
                 ip[packageName] = {"INSTALLED": "Today", "VERIFIED": "Today", "UNINSTALLED": "Today"}
             else:
                 print "removing %s" % packageName
                 del ip[packageName]
         elif packageName in ok:
-            if action == FIX:
+            if options.action == FIX:
                 print "%s is not broken." % packageName
                 errors = True
             else:
                 print "removing %s" % packageName
                 del ip[packageName]
         else:
-            print "%s is not a package on the system."
+            print "%s is not a package on the system." % packageName
             errors = True
 
     if errors == False:
