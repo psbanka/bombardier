@@ -13,7 +13,6 @@ def clientTesting():
     import TRepository
     import TConfig
     import TBombardierClass
-    import TReconcileThread
     import TCommSocket
     import TminiUtility
     import TFilesystem
@@ -25,19 +24,10 @@ def clientTesting():
     suite.addTest(unittest.makeSuite(TPackage.PackageTest))
     suite.addTest(unittest.makeSuite(TRepository.RepositoryTest))
     suite.addTest(unittest.makeSuite(TConfig.ConfigTest))
-    suite.addTest(unittest.makeSuite(TReconcileThread.ReconcileThreadTest))
     suite.addTest(unittest.makeSuite(TCommSocket.CommSocketTest))
     suite.addTest(unittest.makeSuite(TminiUtility.miniUtilityTest))
     suite.addTest(unittest.makeSuite(TFilesystem.FilesystemTest))
     suite.addTest(unittest.makeSuite(TFileManifest.FileManifestTest))
-    if sys.platform != "linux2":
-        import TBombardierAgent
-        suite.addTest(unittest.makeSuite(TBombardierAgent.BombardierAgentTest))
-        import TBombardierClient
-        suite.addTest(unittest.makeSuite(TBombardierClient.BombardierClientTest))
-#        Temporarily Disabled
-#        import TStatusThread
-#        suite.addTest(unittest.makeSuite(TStatusThread.TestStatusThread))
     print "Testing: client-side components"
     status = unittest.TextTestRunner(verbosity=1).run(suite)
     print "(%s)" %`status`
