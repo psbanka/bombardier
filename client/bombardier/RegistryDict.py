@@ -1,8 +1,5 @@
 #!/cygdrive/c/Python24/python.exe
 
-# RegistryDict.py: Slightly magical Win32api Registry ->
-# Dictionary-like-object wrapper
-
 # Copyright (C) 2004 Harald Armin massa, 2004/07/21
 
 # This program is free software; you can redistribute it and/or
@@ -24,12 +21,17 @@ from __future__ import generators
 import win32api, win32con, cPickle, pywintypes
 
 class RegistryDict(object):
+    """ RegistryDict.py: Slightly magical Win32api Registry ->
+        Dictionary-like-object wrapper """
+
     def __init__(self, keypath = [], keyhandle = win32con.HKEY_LOCAL_MACHINE, flags = None):
         """If flags=None, then it will create the key.. otherwise pass a win32con.KEY_* sam"""
         self.keyhandle = None
         self.open(keyhandle, keypath, flags)
 
     def massageIncomingRegistryValue((obj, objtype)):
+        if not obj:
+            return None
         if objtype == win32con.REG_BINARY and obj[:8]=='PyPickle':
             obj = obj[8:]
             return cPickle.loads(obj)
@@ -42,24 +44,28 @@ class RegistryDict(object):
                          win32con.REG_DWORD_BIG_ENDIAN, win32con.REG_MULTI_SZ):
             return obj
         raise NotImplementedError, "Registry type 0x%08X not supported" % (objtype,)
+
     massageIncomingRegistryValue = staticmethod(massageIncomingRegistryValue)
 
     def __getitem__(self, item):
         item = str(item)
-        
+
         # is it data?
-        #try:
-        if 1 == 1:
-            return self.massageIncomingRegistryValue(win32api.RegQueryValueEx(self.keyhandle, item))
-        else:
-        #except:
-            print "This is not data"
+        try:
+        #if 1 == 1:
+            (obj, objtype) = win32api.RegQueryValueEx(self.keyhandle, item)
+            value = self.massageIncomingRegistryValue((obj, objtype))
+            return value
+        #else:
+        except:
+            pass
 
         # it's probably a key then
         try:
-            return RegistryDict(self.keyhandle, item, win32con.KEY_ALL_ACCESS)
+            r = RegistryDict(item, self.keyhandle, win32con.KEY_ALL_ACCESS)
+            return r
         except:
-            print "This is not a key"
+            pass
 
         # must not be there
         raise KeyError, item
@@ -107,11 +113,13 @@ class RegistryDict(object):
 
     def iteritems_children(self, access=win32con.KEY_ALL_ACCESS):
         i = 0
+        #if 1 == 1:
         try:
             while 1:
-                s, obj, objtype = win32api.RegEnumKey(self.keyhandle, i)
-                yield s, RegistryDict(self.keyhandle, [s], access)
+                s = win32api.RegEnumKey(self.keyhandle, i)
+                yield s, RegistryDict([s], self.keyhandle, access)
                 i += 1
+        #else:
         except:
             pass
                 
@@ -193,7 +201,7 @@ class RegistryDict(object):
         item = str(item)
         pyvalue = type(value)
         if pyvalue is dict or isinstance(value, RegistryDict):
-            d = RegistryDict(self.keyhandle, item)
+            d = RegistryDict(item, self.keyhandle)
             d.clear()
             d.update(value)
             return
@@ -213,10 +221,26 @@ class RegistryDict(object):
             keypath = keypath.split('\\')
         if flags is None:
             for subkey in keypath:
-                keyhandle = win32api.RegOpenKeyEx(keyhandle, subkey, 0)
+                print "subkey", subkey
+                try:
+                    keyhandle = win32api.RegOpenKeyEx(keyhandle, subkey, 0)
+                except:
+                    try:
+                        keyhandle = win32api.RegOpenKeyEx(keyhandle, subkey.lower(), 0)
+                    except:
+                        keyhandle = win32api.RegOpenKeyEx(keyhandle, subkey.upper(), 0)
+                
+
         else:
             for subkey in keypath:
-                keyhandle = win32api.RegOpenKeyEx(keyhandle, subkey, 0, flags)
+                try:
+                    keyhandle = win32api.RegOpenKeyEx(keyhandle, subkey, 0, flags)
+                except:
+                    try:
+                        keyhandle = win32api.RegOpenKeyEx(keyhandle, subkey.lower(), 0, flags)
+                    except:
+                        keyhandle = win32api.RegOpenKeyEx(keyhandle, subkey.upper(), 0, flags)
+
         self.keyhandle = keyhandle
 
     def close(self):
