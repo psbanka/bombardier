@@ -21,11 +21,11 @@
 # 02110-1301, USA.
 
 import os, tarfile, shutil
-
+import yaml
 from staticData import *
 import miniUtility, MetaData, Logger
 
-PACKAGE_LIST = "packages.dat"
+PACKAGE_DB = "packages.yml"
 
 # PACKAGE FIELDS
 FULL_NAME    = "fullName"
@@ -41,7 +41,9 @@ class Repository:
     # TESTED
     def getPackageData(self):
         #Logger.debug("Downloading package data...")
-        self.packages = self.server.serviceYamlRequest("deploy/packages/packages.yml")
+        filename = self.server.packageRequest(PACKAGE_DB)
+        if filename != '':
+            self.packages = yaml.load(open(filename).read())
 
     # TESTED
     def getFullPackageNames(self):
@@ -63,22 +65,10 @@ class Repository:
             shutil.rmtree(pkgPath)
         except OSError:
             pass
-        erstr = "Downloading package %s from "\
-                "%s..." % (fullPackageName, self.server.serverData["address"])
-        Logger.info(erstr)
         if type(checksum) != type(["list"]):
-            status = self.server.wget("/deploy/packages/", fullPackageName+".spkg",
-                                      destDir=miniUtility.getPackagePath(),
-                                      checksum=checksum, abortIfTold=abortIfTold)
-        else:
-            status = self.server.wgetMultiple("/deploy/packages/", fullPackageName+".spkg", 
-                                              destDir=miniUtility.getPackagePath(),
-                                              checksumList=checksum, abortIfTold=abortIfTold)
-        if status == FAIL:
-            return FAIL
+            filename = self.server.packageRequest(fullPackageName+".spkg")
         return self.unpack(pkgPath, fullPackageName, abortIfTold, True)
 
-    # Fixme: .spkg file *May not* be in spkgDir/packages
     def unpack(self, pkgPath, fullPackageName, abortIfTold, removeSpkg = True):
         packagePath = miniUtility.getPackagePath()
         if not self.filesystem.isfile(pkgPath+".spkg"):

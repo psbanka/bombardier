@@ -110,17 +110,17 @@ class QuitException(Exception):
     pass
 
 class ServerUnavailable(Exception):
-    def __init__(self, url, errmsg):
+    def __init__(self, path, errmsg):
         e = Exception()
         Exception.__init__(e)
         self.errmsg = errmsg
-        self.url    = url
+        self.path   = path
     def __str__(self):
-        return "%s: %s" % (self.url, self.errmsg)
+        return "%s: %s" % (self.path, self.errmsg)
 
 class FileNotFound(ServerUnavailable):
-    def __init__(self, url, data=""):
-        ServerUnavailable.__init__(self, url, data)
+    def __init__(self, path, data=""):
+        ServerUnavailable.__init__(self, path, data)
 
 class PipeNotListenable(Exception):
     def __init__(self, pipeName):

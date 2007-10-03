@@ -215,7 +215,7 @@ class Bombardier:
             msg = "System requires a console to install this package and one does not exist. " \
                   "Please log in to continue the installation."
             Logger.warning(msg)
-            sys.exit(REBOOT)
+            return REBOOT
         return OK
 
     ### WON'T BE TESTED
@@ -236,13 +236,13 @@ class Bombardier:
                 msg = "The last package installed indicated that a reboot is necessary before continuing. " \
                       "Please reboot the system before performing more installation activity."
                 Logger.warning(msg)
-                sys.exit(REBOOT)
+                return REBOOT
 
         if not self.addPackages:
             erstr = "System has been reconciled."
             Logger.info(erstr)
             self.filesystem.updateCurrentStatus(IDLE, "Idle", self.server)
-            self.cleanup(OK, logmessage="Exiting gracefully.")
+            return self.cleanup(OK, logmessage="Exiting gracefully.")
 
     ### TESTED
     def inMaintenanceWindow(self):
@@ -366,8 +366,7 @@ class Bombardier:
         for packageName in installList:
             source[packageName] = []
             for groupName in pkgGroups:
-                groupPackages = self.server.serviceYamlRequest("deploy/bom/%s" % groupName+".yml",
-                                                               legacyPathFix=False)
+                groupPackages = self.server.bomRequest(groupName)
                 if packageName in groupPackages:
                     source[packageName].append(groupName)
         for packageName in individualPackageNames:
@@ -402,7 +401,7 @@ class Bombardier:
         msg = "The current package requires a reboot before it can install. " \
               "Please reboot the system before installing it."
         Logger.warning(msg)
-        sys.exit(REBOOT)
+        return REBOOT
 
     # TESTED
     def installPackages(self):
@@ -431,15 +430,18 @@ class Bombardier:
                     Logger.warning("Package could not download. Giving up.")
                     return FAIL
                 if package.preboot and not self.config.freshStart:
-                    self.preboot(package.name)
+                    if self.preboot(package.name) == REBOOT:
+                        return REBOOT
                 status = package.process(self.abortIfTold, packageNamesLeft)
                 hashPath = os.path.join(miniUtility.getPackagePath(), package.fullName, HASH_FILE)
                 #Logger.info("writing configuration fingerprint to %s" % hashPath)
                 self.config.saveHash(hashPath)
                 self.config.freshStart = False
                 if status == PREBOOT:
-                    self.preboot(package.name)
-                self.checkReboot(package, status)
+                    if self.preboot(package.name) == REBOOT:
+                        return REBOOT
+                if self.checkReboot(package, status) == REBOOT:
+                    return REBOOT
                 if status == FAIL:
                     erstr = "Package installation failure -- re-calculating package installation order"
                     self.filesystem.updateCurrentStatus(ERROR, "Bad package %s" % package.name,
@@ -483,9 +485,9 @@ class Bombardier:
             if logmessage:
                 Logger.error(logmessage)
                 self.filesystem.warningLog(logmessage, self.server)
-            sys.exit(FAIL)
+            return status
         Logger.info(logmessage)
-        sys.exit(OK)
+        return status
 
     def checkConfiguration(self, package):
         if package.metaData.has_key("configuration"):
@@ -603,8 +605,7 @@ class Bombardier:
         packageNames = sets.Set([])
         for pkgGroup in pkgGroups:
             try:
-                newPackageNames = self.server.serviceYamlRequest("deploy/bom/%s.yml" % pkgGroup,
-                                                                 legacyPathFix=False)
+                newPackageNames = self.server.bomRequest(pkgGroup)
             except Exceptions.FileNotFound:
                 Logger.warning("Package Group %s was not found on the server." % pkgGroup)
                 continue
@@ -696,8 +697,6 @@ class Bombardier:
             erstr = "Currently a maintenance window: no activity will take place"
             Logger.warning(erstr)
             return self.cleanup(FAIL)
-        if self.filesystem.setLock() == FAIL:
-            return FAIL
         self.abortIfTold()
         self.filesystem.chdir(spkgPath)
         if self.packageNames == None:
@@ -726,6 +725,8 @@ class Bombardier:
         status = self.checkInstallationStatus(testStop, packageNames)
         if status != OK:
             return self.cleanup(status)
+        if self.filesystem.setLock() == FAIL:
+            return FAIL
         if self.delPackages.keys():
             status = self.uninstallPackages(self.delPackages)
         if status == FAIL:
@@ -778,8 +779,7 @@ class Bombardier:
         self.filesystem.updateProgress({"install-progress":progressData},
                                        self.server, overwrite=True)
         status = self.installPackages()
-        self.cleanup(status, logmessage="Finished installing.")
-        return status
+        return self.cleanup(status, logmessage="Finished installing.")
 
     def uninstallPackage(self, packageName):
         try:
@@ -788,8 +788,7 @@ class Bombardier:
                                       self.server, self.operatingSystem)
             package.initialize()
             status = package.uninstall(self.abortIfTold)
-            self.cleanup(status, logmessage="Finished uninstalling.")
-            return status
+            return self.cleanup(status, logmessage="Finished installing.")
         except Exceptions.BadPackage, e:
             errmsg = "Cannot uninstall bad package %s: %s" % (e.packageName, e.errmsg)
             Logger.warning(errmsg)
@@ -803,8 +802,7 @@ class Bombardier:
                                       self.server, self.operatingSystem)
             package.initialize()
             status = package.verify(self.abortIfTold)
-            self.cleanup(status, logmessage="Finished verifying.")
-            return status
+            return self.cleanup(status, logmessage="Finished verifying.")
         except Exceptions.BadPackage, e:
             errmsg = "Cannot verify bad package %s: %s" % (e.packageName, e.errmsg)
             Logger.warning(errmsg)
@@ -824,8 +822,7 @@ class Bombardier:
                 hashPath = os.path.join(miniUtility.getPackagePath(), package.fullName, HASH_FILE)
                 Logger.info("writing configuration fingerprint to %s" % hashPath)
                 self.config.saveHash(hashPath)
-                self.cleanup(status, logmessage="Finished configuring.")
-                return status
+                return self.cleanup(status, logmessage="Finished installing.")
         except Exceptions.BadPackage, e:
             errmsg = "Cannot configure bad package %s: %s" % (e.packageName, e.errmsg)
             Logger.warning(errmsg)

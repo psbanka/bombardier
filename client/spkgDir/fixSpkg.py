@@ -21,7 +21,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import sys, getopt, yaml
+import sys, getopt, yaml, time
 
 from bombardier.staticData import *
 from bombardier.miniUtility import getProgressPath
@@ -30,6 +30,7 @@ NONE = 0
 DISPLAY = 1
 FIX = 2
 REMOVE = 3
+INSTALL = 4
 
 def fixPackageName(packageName, ok, bad):
     if packageName in ok or packageName in bad:
@@ -56,6 +57,9 @@ if __name__ == "__main__":
     parser.add_option("-r", "--remove", dest="action",
                       action="store_const", const=REMOVE,
                       help="remove a package")
+    parser.add_option("-i", "--install", dest="action",
+                      action="store_const", const=INSTALL,
+                      help="set a package as installed")
 
     (options, targetPackageNames) = parser.parse_args()
 
@@ -80,6 +84,7 @@ if __name__ == "__main__":
         else:
             ok.append(packageName)
 
+    now = time.asctime()
 
     if options.action == DISPLAY:
         if len(bad) > 0:
@@ -89,29 +94,35 @@ if __name__ == "__main__":
             print "No bad packages"
         sys.exit(0)
 
-    if targetPackageNames == []:
-        targetPackageNames = bad
+    elif options.action == INSTALL:
+        for packageName in targetPackageNames:
+            ip[packageName+"-1"] = {'INSTALLED': now, 'UNINSTALLED': 'NA', 'VERIFIED': now}
 
-    print "processing packages: %s" % targetPackageNames
-    for packageName in targetPackageNames:
-        packageName = fixPackageName(packageName, ok, bad)
-        if packageName in bad:
-            if options.action == FIX:
-                print "fixing %s" % packageName
-                ip[packageName] = {"INSTALLED": "Today", "VERIFIED": "Today", "UNINSTALLED": "Today"}
+    elif options.action == FIX or options.action == REMOVE:
+
+        if targetPackageNames == []:
+            targetPackageNames = bad
+
+        print "processing packages: %s" % targetPackageNames
+        for packageName in targetPackageNames:
+            packageName = fixPackageName(packageName, ok, bad)
+            if packageName in bad:
+                if options.action == FIX:
+                    print "fixing %s" % packageName
+                    ip[packageName] = {"INSTALLED": now, "VERIFIED": now, "UNINSTALLED": "NA"}
+                else:
+                    print "removing %s" % packageName
+                    del ip[packageName]
+            elif packageName in ok:
+                if options.action == FIX:
+                    print "%s is not broken." % packageName
+                    errors = True
+                else:
+                    print "removing %s" % packageName
+                    del ip[packageName]
             else:
-                print "removing %s" % packageName
-                del ip[packageName]
-        elif packageName in ok:
-            if options.action == FIX:
-                print "%s is not broken." % packageName
+                print "%s is not a package on the system." % packageName
                 errors = True
-            else:
-                print "removing %s" % packageName
-                del ip[packageName]
-        else:
-            print "%s is not a package on the system." % packageName
-            errors = True
 
     if errors == False:
         print "writing progress"

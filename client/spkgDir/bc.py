@@ -20,7 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import sys, optparse
+import sys, optparse, StringIO, traceback, yaml
 
 from bombardier.staticData import *
 from bombardier.Logger import logger, addStdErrLogging
@@ -34,6 +34,7 @@ CONFIGURE = 1
 INSTALL   = 2
 VERIFY    = 3
 RECONCILE = 4
+STATUS    = 5
 
 if __name__ == "__main__":
     import optparse
@@ -42,6 +43,10 @@ if __name__ == "__main__":
     packageName = ""    
     
     parser = optparse.OptionParser("usage: %prog [option] [package-name]")
+
+    parser.add_option("-s", "--status", dest="action",
+                      action="store_const", const=STATUS,
+                      help="display the status of the system")
     parser.add_option("-c", "--configure", dest="action",
                       action="store_const", const=CONFIGURE,
                       help="configure a package")
@@ -59,8 +64,9 @@ if __name__ == "__main__":
                       help="uninstall a package")
 
     (options, args) = parser.parse_args()
-    if options.action != RECONCILE:
+    if not (options.action == RECONCILE or options.action == STATUS):
         if len(args) != 1:
+            print "This command requires a package name as an argument."
             parser.print_help()
             sys.exit( 1 )
         packageName = args[0]
@@ -72,7 +78,7 @@ if __name__ == "__main__":
     try:
         config.freshen()
     except bombardier.Exceptions.ServerUnavailable, e:
-        print "Cannot connect to server (%s)" % e
+        logger.error( "Cannot connect to server (%s)" % e )
         sys.exit(1)
     if sys.platform == "linux2":
         import bombardier.Linux
@@ -87,24 +93,50 @@ if __name__ == "__main__":
     bc = bombardier.BombardierClass.Bombardier(repository, config,
                                                        filesystem, server,
                                                        operatingSystem)
-    if options.action == RECONCILE:
-        status = bc.reconcileSystem(cs1.testStop)
-        if status == OK:
-            filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", server)
-        else:
-            filesystem.updateCurrentStatus(ERROR, "Error installing", server)
-            filesystem.warningLog("Error installing", server)
-    elif options.action == INSTALL:
-        status = bc.installPackage(packageName)
-    elif options.action == CONFIGURE:
-        status = bc.configurePackage(packageName)
-    elif options.action == VERIFY:
-        status = bc.verifyPackage(packageName)
-    elif options.action == UNINSTALL:
-        status = bc.uninstallPackage(packageName)
-    if status == OK:
-        print "COMPLETED SUCCESSFULLY"
-    else:
-        print "ERROR"
-    filesystem.clearLock()
+    status = FAIL
+    try:
+        if options.action == STATUS:
+            statusDict = bc.checkSystem(lambda:False)
+            if type(statusDict) == type({}):
+                if statusDict["ok"]:
+                    logger.info("OK PACKAGES:")
+                    for packageName in statusDict["ok"]:
+                        logger.info("- %s" % packageName)
+                if statusDict["broken"]:
+                    logger.info("BROKEN PACKAGES:")
+                    for packageName in statusDict["broken"]:
+                        logger.info("- %s" % packageName)
+                status = OK
+            else:
+                status = FAIL
+        elif options.action == RECONCILE:
+            status = bc.reconcileSystem(cs1.testStop)
+            if status == OK:
+                filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", server)
+            else:
+                filesystem.updateCurrentStatus(ERROR, "Error installing", server)
+                filesystem.warningLog("Error installing", server)
+        elif options.action == INSTALL:
+            status = bc.installPackage(packageName)
+        elif options.action == CONFIGURE:
+            status = bc.configurePackage(packageName)
+        elif options.action == VERIFY:
+            status = bc.verifyPackage(packageName)
+        elif options.action == UNINSTALL:
+            status = bc.uninstallPackage(packageName)
 
+        if status == OK:
+            logger.info( "COMPLETED SUCCESSFULLY" )
+        else:
+            logger.error( "======================\n\n%s\n" % yaml.dump(status))
+        filesystem.clearLock()
+    except:
+        e = StringIO.StringIO()
+        traceback.print_exc(file=e)
+        e.seek(0)
+        data = e.read()
+        ermsg = ''
+        for line in data.split('\n'):
+            ermsg += "\n||>>>%s" % line
+        logger.error(ermsg)
+    sys.exit(status)

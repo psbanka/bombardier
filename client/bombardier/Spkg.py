@@ -35,10 +35,6 @@ class Spkg:
             self.logger = logger
             self.stderr = False
         
-    def setLogging(self):
-        if self.stderr == False:
-            self.logger.addStdErrLogging() #FIXME probably want a flag for this?
-
     def setFuturePackages(self, packageList):
         self.futurePackages = packageList
 

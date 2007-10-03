@@ -19,13 +19,22 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, Filesystem, re, time, random, yaml, md5
+import os, re, time, random, yaml, md5
+import sys
 from staticData import *
 
 BROKEN_INSTALL   = 0
 INSTALLED        = 1
 BROKEN_UNINSTALL = 2
 UNINSTALLED      = 3
+
+def cygpath(dospath):
+    prefix = ''
+    if ':' in dospath:
+        drive = dospath.split(':')[0]
+        prefix = '/cygdrive/%s' % drive
+        dospath = dospath.split(':')[-1]
+    return prefix + dospath.replace('\\', '/')
 
 def hashList(l):
     r = []
@@ -350,6 +359,7 @@ def ipConfig():
     return addressSet
 
 def getMatchStringList( patternStr, fileName ):
+    import Filesystem
     filesystem = Filesystem.Filesystem()
     pat    = re.compile( patternStr )
     lines  = filesystem.getAllFromFile(patternStr, fileName)

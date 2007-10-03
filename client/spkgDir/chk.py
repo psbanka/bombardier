@@ -20,7 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import sys, getopt
+import sys, getopt, StringIO, traceback
 
 from bombardier.staticData import *
 from bombardier.Logger import logger, addStdErrLogging
@@ -44,15 +44,26 @@ if __name__ == "__main__":
             while character != '\n':
                 password += character
                 character = sys.stdin.read(1)
-    addStdErrLogging()
-    filesystem = bombardier.Filesystem.Filesystem()
-    server = bombardier.Server.Server(filesystem, password=password)
-    os = bombardier.OperatingSystem.OperatingSystem()
-    config = bombardier.Config.Config(filesystem, server, os)
-    config.freshen()
-    repository = bombardier.Repository.Repository(config, filesystem, server)
-    repository.getPackageData()
-    bc = bombardier.BombardierClass.Bombardier(repository, config,
-                                                       filesystem, server, os)
-    status = bc.checkSystem(lambda:False)
-    print "======================\n\n%s\n" % yaml.dump(status)
+    try:
+        addStdErrLogging()
+        filesystem = bombardier.Filesystem.Filesystem()
+        server = bombardier.Server.Server(filesystem, password=password)
+        os = bombardier.OperatingSystem.OperatingSystem()
+        config = bombardier.Config.Config(filesystem, server, os)
+        config.freshen()
+        repository = bombardier.Repository.Repository(config, filesystem, server)
+        repository.getPackageData()
+        bc = bombardier.BombardierClass.Bombardier(repository, config,
+                                                           filesystem, server, os)
+        status = bc.checkSystem(lambda:False)
+        print "======================\n\n%s\n" % yaml.dump(status)
+    except:
+        e = StringIO.StringIO()
+        traceback.print_exc(file=e)
+        e.seek(0)
+        data = e.read()
+        ermsg = ''
+        for line in data.split('\n'):
+            ermsg += "\n||>>>%s" % line
+        logger.error(ermsg)
+

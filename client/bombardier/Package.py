@@ -36,7 +36,6 @@ class Package:
     the server."""
 
     ### TESTED
-    # FIXME: Refactor: we do not need a config *and* a repository value
     def __init__(self, name, repository, config, filesystem, server, operatingSystem):
         self.name         = name
         self.repository   = repository
@@ -244,7 +243,6 @@ class Package:
         if not fullCmd:
             Logger.error("Could not find an appropriate script in %s." % self.scriptsDir)
             return FAIL
-        erstr = "Unable to run script: %s" % fullCmd
         status = OK
         if packageList:
             fullCmd += " %s" % ','.join(packageList)

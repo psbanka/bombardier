@@ -113,25 +113,6 @@ class Config(dict):
         difference =  miniUtility.diffDicts(oldConfig, newConfig, checkValues=True)
         return difference
 
-    ### TESTED
-    def downloadConfig(self, configName, include=False):
-        #Logger.debug("Downloading configuration data...")
-        if not include:
-            newData = self.server.serviceYamlRequest("deploy/client/%s.yml" % configName)
-        else:
-            newData = self.server.serviceYamlRequest("deploy/include/%s.yml" % configName)
-        self.data = miniUtility.addDictionaries(self.data, newData)
-        self.makeConfigObject()
-        newIncludes = findIncludeList(newData)
-        self.loadIncludes(newIncludes)
-        return OK
-
-    def loadIncludes(self, newIncludes):
-        for includeName in newIncludes:
-            if includeName not in self.includes:
-                self.includes.append(includeName)
-                self.downloadConfig(includeName, True)
-
     def readLocalConfig(self):
         configPath = os.path.join(miniUtility.getSpkgPath(), CONFIG_FILE)
         if not os.path.isfile(configPath):
@@ -145,14 +126,11 @@ class Config(dict):
         return OK
             
     def freshen(self):
-        savedData = self.data
         self.data = {}
         status = self.readLocalConfig()
         if status == FAIL:
-            status1 = self.downloadConfig(self.filesystem.getHostname(), False)
-            if status1 == FAIL:
-                self.data = savedData
-                return FAIL
+            self.data = self.server.configRequest()
+            self.makeConfigObject()
         self.username = DEFAULT_USER
         self.password = generatePassword()
         self.domain   = DEFAULT_DOMAIN

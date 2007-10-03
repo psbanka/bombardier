@@ -262,17 +262,6 @@ class Filesystem:
             os.unlink(tmpPath)
         except IOError, e:
             Logger.warning("Cannot update progress data: %s" % e)
-            return
-        if not "main" in dictionary.keys():
-            if not "install-progress" in dictionary.keys():
-                if not "overall" in dictionary.keys():
-                    return
-        try:
-            path = "log/%s.yml" % self.getHostname()
-            server.serviceYamlRequest(path, putData=data, legacyPathFix=False)
-        except Exceptions.ServerUnavailable:
-            ermsg = "Unable to upload progress"
-            Logger.warning(ermsg)
             
     def getCurrentAction(self):
         data = self.loadCurrent()

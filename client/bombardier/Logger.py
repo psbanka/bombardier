@@ -39,7 +39,7 @@ def getSpkgPath():
         if type(config) != type({}):
             config = config.next()
         spkgPath = config.get("spkgPath")
-    else:
+    elif sys.platform == "win32":
         import _winreg as winreg
         keyName = r"Software\GE-IT\Bombardier"
         try:
@@ -48,6 +48,9 @@ def getSpkgPath():
             spkgPath, dummy = winreg.QueryValueEx(key, "InstallPath")
         except:
             spkgPath = r"C:\spkg"
+    #elif sys.platform == 'cygwin':
+        #path = "/proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/GE-IT/Bombardier/InstallPath"
+        #spkgPath = open(path).read()
     return spkgPath
 
 def checkLogSize():
