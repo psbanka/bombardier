@@ -1,4 +1,0 @@
-Hotfix-manager-2
-system-setup-2
-Hotfix-835732-2
-testokpackage1-1
