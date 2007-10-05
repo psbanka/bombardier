@@ -559,7 +559,7 @@ if __name__ == "__main__":
         else:
             displayHelp("Unknown Option %s" % opt)
 
-    config = yaml.load(open("build-config.yml")).next()
+    config = yaml.load(open("build-config.yml").read()).next()
 
     if tarFilename and not svnPatchUrl:
         if not os.path.isfile(tarFilename):
