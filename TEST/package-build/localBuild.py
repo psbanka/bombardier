@@ -1,10 +1,9 @@
-#!/usr/bin/python2.4
+#!/opt/python2.5/bin/python
 
 #^ CASE-sensitivity
 
 import os, shutil, sys, md5
 import getopt
-import pycurl
 import yaml
 import tarfile
 import time
@@ -16,7 +15,6 @@ sys.path.append("../../client/site-root")
 import bombardier.Server as Server
 import bombardier.Filesystem as Filesystem
 import bombardier.Spkg as Spkg
-import installUtils
 
 PACKAGES_FILE = "packages.yml"
 PACKAGES_PATH = "/var/www/deploy/packages/"
@@ -208,8 +206,7 @@ class PackageCreator:
             return FAIL
         #print ">>>>>>>",yaml.dump(packageData)
         open(PACKAGES_PATH + PACKAGES_FILE, 'w').write( yaml.dump(packageData) )
-        if status == OK:
-            status = self.verifyYamlData(packageData)
+        status = self.verifyYamlData(packageData)
         return status
 
     def createTarball(self):
@@ -562,7 +559,7 @@ if __name__ == "__main__":
         else:
             displayHelp("Unknown Option %s" % opt)
 
-    config = yaml.loadFile("build-config.yml").next()
+    config = yaml.load(open("build-config.yml"))
 
     if tarFilename and not svnPatchUrl:
         if not os.path.isfile(tarFilename):
