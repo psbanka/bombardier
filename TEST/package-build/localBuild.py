@@ -1,4 +1,4 @@
-#!/opt/python2.5/bin/python
+#!/opt/python2.4.1/bin/python
 
 #^ CASE-sensitivity
 
@@ -144,7 +144,7 @@ class PackageCreator:
         return OK
 
     def verifyYamlData(self, packageData):
-        checkData = yaml.load(open(PACKAGES_PATH + PACKAGES_FILE).read())
+        checkData = yaml.load(open(PACKAGES_PATH + PACKAGES_FILE).read()).next()
         if checkData == packageData:
             return OK
         return FAIL
@@ -196,7 +196,7 @@ class PackageCreator:
         fh = open(PACKAGES_PATH + PACKAGES_FILE)
         yamlData = fh.read()
         open(PACKAGES_PATH + PACKAGES_FILE + ".bak", 'w').write(yamlData)
-        packageData = yaml.load(yamlData)
+        packageData = yaml.load(yamlData).next()
         
         print "amending %s for %s" % (PACKAGES_FILE, self.packageName)
         try:
@@ -559,7 +559,7 @@ if __name__ == "__main__":
         else:
             displayHelp("Unknown Option %s" % opt)
 
-    config = yaml.load(open("build-config.yml"))
+    config = yaml.load(open("build-config.yml")).next()
 
     if tarFilename and not svnPatchUrl:
         if not os.path.isfile(tarFilename):
