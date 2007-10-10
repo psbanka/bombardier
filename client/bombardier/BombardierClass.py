@@ -171,7 +171,6 @@ class Bombardier:
         self.filesystem = filesystem
         self.server     = server
         self.operatingSystem    = operatingSystem
-        self.testStop   = nop
         self.addPackages = {}
         self.delPackages = {}
         
@@ -220,7 +219,6 @@ class Bombardier:
 
     ### WON'T BE TESTED
     def checkReboot(self, package, returnCode):
-        self.abortIfTold()
         if package.action == INSTALL:
             if package.autoReboot:
                 self.filesystem.updateCurrentStatus(IDLE, "Waiting for reboot", self.server)
@@ -416,7 +414,6 @@ class Bombardier:
                 Logger.info("Packages remaining to install (in order): %s" % packageNamesLeft)
                 detailedTodos = self.getDetailedTodolist(packageNamesLeft)
                 packageNamesLeft.remove(packageName)
-                self.abortIfTold()
                 package = self.addPackages[packageName]
                 self.filesystem.updateProgress({"todo": detailedTodos}, self.server, True)
                 self.filesystem.updateProgress({"status": {"package":packageName}}, self.server)
@@ -432,7 +429,7 @@ class Bombardier:
                 if package.preboot and not self.config.freshStart:
                     if self.preboot(package.name) == REBOOT:
                         return REBOOT
-                status = package.process(self.abortIfTold, packageNamesLeft)
+                status = package.process(packageNamesLeft)
                 hashPath = os.path.join(miniUtility.getPackagePath(), package.fullName, HASH_FILE)
                 #Logger.info("writing configuration fingerprint to %s" % hashPath)
                 self.config.saveHash(hashPath)
@@ -458,7 +455,6 @@ class Bombardier:
     def uninstallPackages(self, packages):
         self.filesystem.updateCurrentStatus(INSTALLING, "Un-installing packages", self.server)
         for packageName in packages.keys():
-            self.abortIfTold()
             package = packages[packageName]
             erstr = "Currently removing package "\
                     "priority %s [%s]" % (package.priority, packageName)
@@ -466,7 +462,7 @@ class Bombardier:
             if package.console:
                 if self.handleConsole(package) == FAIL:
                     return FAIL
-            status = package.uninstall(self.abortIfTold)
+            status = package.uninstall()
             self.checkReboot(package, status)
             if status == FAIL:
                 erstr = "B11 Aborting due to package "\
@@ -646,9 +642,8 @@ class Bombardier:
                 shouldBeInstalled.append(packageName)
         return shouldBeInstalled, shouldntBeInstalled
 
-    def verifySystem(self, testStop):
+    def verifySystem(self):
         self.server.clearCache()
-        self.testStop = testStop
         progressData = self.filesystem.getProgressData()
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         testResults = {}
@@ -675,17 +670,10 @@ class Bombardier:
 
             if timer + interval <= time.time():
                 package.action = VERIFY
-                package.verify(self.abortIfTold)
+                package.verify()
                 testResults[shortPackageName] = package.status
 
         return testResults
-
-    def abortIfTold(self):
-        if self.testStop():
-            ermsg = "Bombardier received a message to stop. Aborting all operations."
-            Logger.warning(ermsg)
-            self.filesystem.updateCurrentStatus(IDLE, "Aborted last action", self.server)
-            raise Exceptions.StoppedExecution
 
     def checkInstallationStatus(self, testStop, packageNames = None):
         self.testStop     = testStop
@@ -697,13 +685,11 @@ class Bombardier:
             erstr = "Currently a maintenance window: no activity will take place"
             Logger.warning(erstr)
             return self.cleanup(FAIL)
-        self.abortIfTold()
         self.filesystem.chdir(spkgPath)
         if self.packageNames == None:
             Logger.info("Downloading Bill of Materials")
             self.packageNames = self.downloadBom(pkgGroups)
             self.packageNames += individualPackageNames
-        self.abortIfTold()
         if self.packageNames == []:
             self.filesystem.clearLock()
             raise Exceptions.BadBillOfMaterials("Empty Bill of Materials")
@@ -715,14 +701,13 @@ class Bombardier:
             logmessage = "Halting: there are packages installed that cannot be removed"
             logmessage += `e`
             return self.cleanup(OK, logmessage)
-        self.abortIfTold()
         Logger.info("Packages to install: %s" % self.addPackages.keys())
         Logger.info("Packages to remove: %s" % self.delPackages.keys())
         return OK
 
     ### TESTED
-    def reconcileSystem(self, testStop, packageNames = None):
-        status = self.checkInstallationStatus(testStop, packageNames)
+    def reconcileSystem(self, packageNames = None):
+        status = self.checkInstallationStatus(packageNames)
         if status != OK:
             return self.cleanup(status)
         if self.filesystem.setLock() == FAIL:
@@ -734,15 +719,13 @@ class Bombardier:
                      "installation of %s" % self.addPackages
             Logger.error(errmsg)
             return self.cleanup(FAIL, logmessage="Finished installing (ERRORS ENCOUNTERED).")
-        self.abortIfTold()
         addPackageNames, delPackageNames = self.checkBom(self.packageNames)
-        self.abortIfTold()
         self.getPackagesToAdd(addPackageNames)
         status = self.installPackages()
         return self.cleanup(status, logmessage="Finished installing.")
 
-    def checkSystem(self, testStop, packageNames = None):
-        if self.checkInstallationStatus(testStop, packageNames) != OK:
+    def checkSystem(self, packageNames = None):
+        if self.checkInstallationStatus(packageNames) != OK:
             return FAIL
         progressData = self.filesystem.getProgressData(stripVersionFromName = True)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
@@ -787,7 +770,7 @@ class Bombardier:
                                       self.config, self.filesystem,
                                       self.server, self.operatingSystem)
             package.initialize()
-            status = package.uninstall(self.abortIfTold)
+            status = package.uninstall()
             return self.cleanup(status, logmessage="Finished installing.")
         except Exceptions.BadPackage, e:
             errmsg = "Cannot uninstall bad package %s: %s" % (e.packageName, e.errmsg)
@@ -801,7 +784,7 @@ class Bombardier:
                                       self.config, self.filesystem,
                                       self.server, self.operatingSystem)
             package.initialize()
-            status = package.verify(self.abortIfTold)
+            status = package.verify()
             return self.cleanup(status, logmessage="Finished verifying.")
         except Exceptions.BadPackage, e:
             errmsg = "Cannot verify bad package %s: %s" % (e.packageName, e.errmsg)
@@ -818,7 +801,7 @@ class Bombardier:
             if self.checkConfiguration(package) == FAIL:
                 return FAIL
             else:
-                status = package.configure(self.abortIfTold)
+                status = package.configure()
                 hashPath = os.path.join(miniUtility.getPackagePath(), package.fullName, HASH_FILE)
                 Logger.info("writing configuration fingerprint to %s" % hashPath)
                 self.config.saveHash(hashPath)

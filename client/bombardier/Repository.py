@@ -58,7 +58,7 @@ class Repository:
         return MetaData.MetaData(pkgData)
 
     # TESTED
-    def getAndUnpack(self, fullPackageName, checksum, abortIfTold):
+    def getAndUnpack(self, fullPackageName, checksum):
         packagePath = miniUtility.getPackagePath()
         pkgPath = os.path.join(packagePath, fullPackageName)
         try:
@@ -67,22 +67,21 @@ class Repository:
             pass
         if type(checksum) != type(["list"]):
             filename = self.server.packageRequest(fullPackageName+".spkg")
-        return self.unpack(pkgPath, fullPackageName, abortIfTold, True)
+        return self.unpack(pkgPath, fullPackageName, True)
 
-    def unpack(self, pkgPath, fullPackageName, abortIfTold, removeSpkg = True):
+    def unpack(self, pkgPath, fullPackageName, removeSpkg = True):
         packagePath = miniUtility.getPackagePath()
         if not self.filesystem.isfile(pkgPath+".spkg"):
             erstr = "No package file in %s." % (pkgPath+".spkg")
             Logger.error(erstr)
             return FAIL
-        if self.unzip(pkgPath, fullPackageName, abortIfTold, removeSpkg) == FAIL:
+        if self.unzip(pkgPath, fullPackageName, removeSpkg) == FAIL:
             return FAIL
         tar = self.filesystem.tarOpen(pkgPath+".tar", "r")
         tar.errorlevel = 2
         cwd = self.filesystem.getcwd()
         self.filesystem.chdir(packagePath)
         for tarinfo in tar:
-            abortIfTold()
             try:
                 tar.extract(tarinfo)
             except tarfile.ExtractError, e:
@@ -98,13 +97,12 @@ class Repository:
         return OK
 
     # TESTED
-    def unzip(self, pkgPath, fullPackageName, abortIfTold, removeSpkg = True):
+    def unzip(self, pkgPath, fullPackageName, removeSpkg = True):
         Logger.info("Unzipping %s" % fullPackageName)
         gzipFile = self.filesystem.gzipOpen(pkgPath+".spkg")
         outputFile = self.filesystem.open(pkgPath+".tar", 'wb')
         data = '1'
         while data:
-            abortIfTold()
             try:
                 data = gzipFile.read(BLOCK_SIZE)
             except IOError, e:
@@ -121,7 +119,7 @@ class Repository:
         return OK
 
     # TESTED
-    def getPackage(self, packageName, abortIfTold, tries=3, checksum=''):
+    def getPackage(self, packageName, tries=3, checksum=''):
         # FIXME: for uninstall, this should find the directory in packages
         packagePath = miniUtility.getPackagePath()
         try:
@@ -133,7 +131,7 @@ class Repository:
         if self.filesystem.isdir(os.path.join(packagePath, fullPackageName)):
             return OK
         while tries:
-            status = self.getAndUnpack(fullPackageName, checksum, abortIfTold)
+            status = self.getAndUnpack(fullPackageName, checksum)
             if status == OK:
                 return OK
             tries -= 1

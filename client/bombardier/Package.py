@@ -124,6 +124,7 @@ class Package:
                 raise Exceptions.BadPackage, (self.name, msg)
         else:
             msg = "No metadata found for this package"
+            Logger.debug("metadata packages: %s" % self.metaData.data.keys())
             raise Exceptions.BadPackage, (self.name, msg)
 
     def initialize(self):
@@ -212,20 +213,20 @@ class Package:
                 break
         return OK
 
-    def configure(self, abortIfTold):
-        status = self.download(abortIfTold)
+    def configure(self):
+        status = self.download()
         if status == OK:
-            return self.findCmd(CONFIGURE, abortIfTold)
+            return self.findCmd(CONFIGURE)
         else:
             return FAIL
 
-    def findCmd(self, action, abortIfTold, packageList=[]):
+    def findCmd(self, action, packageList=[]):
         if self.packageVersion > 1:
-            return self.findCmd2(action, abortIfTold, packageList)
+            return self.findCmd2(action, packageList)
         else:
-            return self.findCmd1(action, abortIfTold, packageList)
+            return self.findCmd1(action, packageList)
 
-    def findCmd1(self, action, abortIfTold, packageList=[]):
+    def findCmd1(self, action, packageList=[]):
         fullCmd = ''
         extensions = [".py", ".bat", ".pl", ".sh"]
         cmds = {INSTALL: "installer", UNINSTALL: "uninstaller",
@@ -247,10 +248,10 @@ class Package:
         if packageList:
             fullCmd += " %s" % ','.join(packageList)
 
-        status = self.operatingSystem.run(fullCmd, abortIfTold, self.workingDir, self.console)
+        status = self.operatingSystem.run(fullCmd, self.workingDir, self.console)
         return status
 
-    def findCmd2(self, action, abortIfTold, packageList=[]):
+    def findCmd2(self, action, packageList=[]):
         cwd = self.filesystem.getcwd() # FIXME
         sys.path.append(self.scriptsDir)
         self.filesystem.chdir(self.scriptsDir)
@@ -334,11 +335,10 @@ class Package:
             return FAIL
         return OK
 
-    def download(self, abortIfTold):
+    def download(self):
         if not self.downloaded:
             self.filesystem.updateCurrentAction("Downloading package...", 10, self.server)
-            abortIfTold()
-            status = self.repository.getPackage(self.name, abortIfTold, checksum=self.checksum)
+            status = self.repository.getPackage(self.name, checksum=self.checksum)
             if status == FAIL:
                 self.status = FAIL
                 self.filesystem.warningLog("Problems downloading package %s" % self.name,
@@ -348,8 +348,8 @@ class Package:
             self.downloaded = True
         return OK
     
-    def process(self, abortIfTold, packageList=[]):
-        self.download(abortIfTold)
+    def process(self, packageList=[]):
+        self.download()
         if self.status == FAIL:
             # FIXME: may be a good idea to re-download the package.
             erstr = "Package %s is corrupt or could not be "\
@@ -358,20 +358,18 @@ class Package:
             self.filesystem.warningLog(erstr, self.server)
             return FAIL
         if self.action == INSTALL:
-            abortIfTold()
             if self.autoReboot:
                 Logger.info("This is an auto-reboot package. "\
                                  "Assuming package installs successfully.")
                 self.operatingSystem.autoLogin(self.config)
                 self.operatingSystem.restartOnLogon()
                 self.writeProgress()
-            self.install(packageList, abortIfTold)
+            self.install(packageList)
             Logger.info("Install result: %s" % self.status)
             if self.status == PREBOOT:
                 return PREBOOT
             if self.status == OK:
-                abortIfTold()
-                self.verify(abortIfTold)
+                self.verify()
                 Logger.info("Verify result: %s" % self.status)
             self.writeProgress()
             return self.status
@@ -401,38 +399,34 @@ class Package:
         return OK
     
     # TESTED
-    def install(self, packageList, abortIfTold): 
-        self.download(abortIfTold)
+    def install(self, packageList): 
+        self.download()
         self.filesystem.updateCurrentAction("Installing...", 50, self.server)
         message = "Beginning installation of (%s)" % self.fullName
         Logger.info(message)
         self.preload()
-        abortIfTold()
-        self.status = self.findCmd(INSTALL, abortIfTold, packageList)
+        self.status = self.findCmd(INSTALL, packageList)
         return self.status
     
     # TESTED
-    def verify(self, abortIfTold): 
-        self.download(abortIfTold)
+    def verify(self): 
+        self.download()
         self.filesystem.updateCurrentAction("Verifying...", 90, self.server)
         message = "Verifying package %s" % self.fullName
         Logger.info(message)
-        abortIfTold()
-        self.status = self.findCmd(VERIFY, abortIfTold)
+        self.status = self.findCmd(VERIFY)
         if self.action != INSTALL:
             self.writeProgress()
         return self.status
 
     # TESTED
-    def uninstall(self, abortIfTold):
-        self.download(abortIfTold)
+    def uninstall(self):
+        self.download()
         if self.status == FAIL:
             return FAIL
-        abortIfTold()
         Logger.info("Uninstalling package %s" % self.name)
         self.filesystem.updateCurrentAction("Uninstalling...", 70, self.server)
-        abortIfTold()
-        self.status = self.findCmd(UNINSTALL, abortIfTold)
+        self.status = self.findCmd(UNINSTALL)
         self.writeProgress()
         return self.status
 
