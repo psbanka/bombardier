@@ -2,9 +2,8 @@
 
 #^ CASE-sensitivity
 
-import os, shutil, sys, md5
+import os, shutil, sys, md5, glob
 import getopt
-import pycurl
 import yaml
 import tarfile
 import time
@@ -14,12 +13,13 @@ sys.path.append("../../client")
 sys.path.append("../../client/site-root")
 
 import bombardier.Server as Server
+import bombardier.Linux
 import bombardier.Filesystem as Filesystem
 import bombardier.Spkg as Spkg
-import installUtils
 
 PACKAGES_FILE = "packages.yml"
-PACKAGES_PATH = "deploy/packages/"
+PACKAGES_PATH = "/var/www/deploy/packages/"
+DEPLOY_DIR    = "/var/www/deploy"
 
 OK          = 0
 FAIL        = 1
@@ -146,7 +146,8 @@ class PackageCreator:
         return OK
 
     def verifyYamlData(self, packageData):
-        checkData = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE)
+        #checkData = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE)
+        checkData = yaml.load(open(PACKAGES_PATH + PACKAGES_FILE).read())
         if checkData == packageData:
             return OK
         return FAIL
@@ -195,17 +196,18 @@ class PackageCreator:
         metadata['install']['fullName'] = self.fullname
         metadata['install']['md5sum'] = checksum
         metadata['install']['className'] = self.className
-        packageData = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE)
+        #packageData = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE)
+        packageData = yaml.load(open(PACKAGES_PATH + PACKAGES_FILE).read())
         print "amending %s for %s" % (PACKAGES_FILE, self.packageName)
-        try:
+        #try:
+        if 1 == 1:
             packageData[self.packageName] = metadata
-        except Exception, e:
+        else:
+        #except Exception, e:
             self.errors.append("unable to modify metadata database: %s" % e)
             return FAIL
-        #print ">>>>>>>",yaml.dump(packageData)
-        status = self.server.serviceYamlRequest(PACKAGES_PATH + PACKAGES_FILE, putData=packageData, debug=True)
-        if status == OK:
-            status = self.verifyYamlData(packageData)
+        open(PACKAGES_PATH + PACKAGES_FILE, 'w').write(yaml.dump(packageData, default_flow_style=False))
+        status = self.verifyYamlData(packageData)
         return status
 
     def createTarball(self):
@@ -216,7 +218,10 @@ class PackageCreator:
         tar.close()
         data = open(self.spkg, 'rb').read()
         print "uploading spkg...(bytes %s)" % len(data)
-        self.server.serviceRequest(PACKAGES_PATH + self.spkg, putData=data)
+        cmd = "cp %s %s/packages" % (self.spkg, DEPLOY_DIR)
+        print cmd
+        os.system(cmd)
+        #self.server.serviceRequest(PACKAGES_PATH + self.spkg, putData=data)
         return OK
 
     def processIncludes(self):
@@ -310,16 +315,16 @@ class PackageCreator:
         output += yaml.dump({"status":status})
         return output
                            
-    def findVersion(self): # ^^ FIXME: Broken and deprecated
-        files = os.listdir(os.path.join(DEPLOY_DIR, "packages"))
-        maxVersion = 1
+    def findVersion(self):
+        files = glob.glob(PACKAGES_PATH+'/*.spkg')
+        maxVersion = 0
 
-        for inode in files:
-            if inode.endswith(".spkg"):
-                if inode.startswith(self.packageName):
-                    version = int(inode.split('-')[-1][:-5])
-                    if version > maxVersion:
-                        maxVersion = version
+        for filename in files:
+            baseFilename = filename.split('/')[-1]
+            if baseFilename.startswith(self.packageName):
+                version = int(baseFilename.split('-')[-1][:-5])
+                if version > maxVersion:
+                    maxVersion = version
         return `maxVersion+1`
 
 
@@ -333,7 +338,7 @@ class TarCreator(PackageCreator):
         self.className   = className
         
         if self.version == None:
-            self.findVersion()
+            self.version = self.findVersion()
             
         self.packageName = packageName
         self.fullname    = "%s-%s" % (self.packageName,self.version)
@@ -558,7 +563,7 @@ if __name__ == "__main__":
         else:
             displayHelp("Unknown Option %s" % opt)
 
-    config = yaml.loadFile("build-config.yml").next()
+    config = yaml.load(open("build-config.yml", 'r').read())
 
     if tarFilename and not svnPatchUrl:
         if not os.path.isfile(tarFilename):
