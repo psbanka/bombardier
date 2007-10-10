@@ -358,35 +358,35 @@ class Bombardier:
                     chains.remove([priority, chain])
         return installOrder # returns a list of packageNames in the correct installation order
 
-    def getSources(self, installList):
-        source = {} # this is a dictionary of package name: groups it comes from
-        pkgGroups,individualPackageNames  = self.config.getPackageGroups()
-        for packageName in installList:
-            source[packageName] = []
-            for groupName in pkgGroups:
-                groupPackages = self.server.bomRequest(groupName)
-                if packageName in groupPackages:
-                    source[packageName].append(groupName)
-        for packageName in individualPackageNames:
-            source[packageName] = ["Individually-selected"]
-        return source
-
-    def getDetailedTodolist(self, installList):
-        '''This returns a list of strings, of the form
-        "package,packageGroup", or if the package comes from more than
-        one packagegroup, it will return
-        "package,packageGroup1/packageGroup2". If the package does not
-        have any packageGroups, it will return
-        "package,<<dependency>>"'''
-        
-        source = self.getSources(installList)
-        output = []
-        for packageName in source.keys():
-            if len(source[packageName]) == 0:
-                output.append("%s,<<dependency>>" % (packageName))
-            else:
-                output.append("%s,%s" % (packageName, "/".join(source[packageName])))
-        return output
+#    def getSources(self, installList):
+#        source = {} # this is a dictionary of package name: groups it comes from
+#        pkgGroups,individualPackageNames  = self.config.getPackageGroups()
+#        for packageName in installList:
+#            source[packageName] = []
+#            for groupName in pkgGroups:
+#                groupPackages = self.server.bomRequest(groupName)
+#                if packageName in groupPackages:
+#                    source[packageName].append(groupName)
+#        for packageName in individualPackageNames:
+#            source[packageName] = ["Individually-selected"]
+#        return source
+#
+#    def getDetailedTodolist(self, installList):
+#        '''This returns a list of strings, of the form
+#        "package,packageGroup", or if the package comes from more than
+#        one packagegroup, it will return
+#        "package,packageGroup1/packageGroup2". If the package does not
+#        have any packageGroups, it will return
+#        "package,<<dependency>>"'''
+#        
+#        source = self.getSources(installList)
+#        output = []
+#        for packageName in source.keys():
+#            if len(source[packageName]) == 0:
+#                output.append("%s,<<dependency>>" % (packageName))
+#            else:
+#                output.append("%s,%s" % (packageName, "/".join(source[packageName])))
+#        return output
 
     def preboot(self, packageName):
         Logger.warning("Package %s wants the system to "\
@@ -412,10 +412,8 @@ class Bombardier:
             [ packageNamesLeft.append(x) for x in installList ]
             for packageName in installList:
                 Logger.info("Packages remaining to install (in order): %s" % packageNamesLeft)
-                detailedTodos = self.getDetailedTodolist(packageNamesLeft)
                 packageNamesLeft.remove(packageName)
                 package = self.addPackages[packageName]
-                self.filesystem.updateProgress({"todo": detailedTodos}, self.server, True)
                 self.filesystem.updateProgress({"status": {"package":packageName}}, self.server)
                 erstr = "Currently installing package "\
                         "priority %s [%s]" % (package.priority, packageName)
@@ -681,6 +679,7 @@ class Bombardier:
         spkgPath          = miniUtility.getSpkgPath()
         self.server.clearCache()
         pkgGroups,individualPackageNames  = self.config.getPackageGroups()
+        Logger.info("package groups: %s, individuals: %s" % (pkgGroups, individualPackageNames)) #FIXME
         if not self.inMaintenanceWindow():
             erstr = "Currently a maintenance window: no activity will take place"
             Logger.warning(erstr)
@@ -693,7 +692,9 @@ class Bombardier:
         if self.packageNames == []:
             self.filesystem.clearLock()
             raise Exceptions.BadBillOfMaterials("Empty Bill of Materials")
+        Logger.info("Packages for this computer: %s" % self.packageNames) #FIXME
         addPackageNames, delPackageNames = self.checkBom(self.packageNames)
+        Logger.info("ADD PACKAGE NAMES: %s" % addPackageNames)
         self.addPackages = self.getPackagesToAdd(addPackageNames)
         try:
             self.delPackages = self.getPackagesToRemove(delPackageNames)

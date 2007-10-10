@@ -88,7 +88,6 @@ class Config(dict):
             groups = self.data["bom"]
         if self.data.has_key("packages"):
             packages = self.data["packages"]
-            Logger.debug("PACKAGES: %s" % packages)
         return groups, packages
 
     def saveHash(self, path):
