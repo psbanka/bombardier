@@ -40,14 +40,14 @@ class ClientUnavailableException(Exception):
 
 def scp(source, dest, hostname, username, password):
     sshNewkey = 'Are you sure you want to continue connecting'
-    s = pexpect.spawn('scp %s %s@%s:%s' % (source, username, hostname, dest))
-    i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: '])
+    s = pexpect.spawn('scp %s %s@%s:%s' % (source, username, hostname, dest), timeout=30)
+    i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: '], timeout=30)
     if i == 0:
         raise ClientUnavailableException(dest, s.before+'|'+s.after)
     if i == 1:
         s.sendline('yes')
-        s.expect('[pP]assword: ')
-        i = s.expect([pexpect.TIMEOUT, '[pP]assword: '])
+        s.expect('[pP]assword: ', timeout=30)
+        i = s.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=30)
         if i == 0:
             raise ClientUnavailableException(dest, s.before+'|'+s.after)
         s.sendline(password)
@@ -73,7 +73,7 @@ class remoteClient:
         else:
             self.password  = getpass.getpass( "Enter password for %s: "% self.username )
         self.stateMachine = []
-        self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendConfig])
+        self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendClient])
         self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)\|"), self.sendBom])
         self.stateMachine.append([re.compile("\=\=REQUEST-PACKAGE\=\=:(.+)\|(.+)\|"), self.sendPackage])
         self.logMatcher = re.compile( "\d+\-\d+\-\d+\s\d+\:\d+\:\d+\,\d+\|([A-Z]+)\|(.+)" )
@@ -87,7 +87,7 @@ class remoteClient:
         if not os.path.isfile(filename):
             print "Client requested a file that is not on this server: %s" % filename
             self.s.send(`FAIL`)
-        scp(filename, path, self.hostname, self.username, self.password)
+        scp(filename, path, self.ipAddress, self.username, self.password)
         self.s.send("OK\n")
 
     def streamData(self, filename):
@@ -99,7 +99,7 @@ class remoteClient:
         totalLines = os.stat(filename+".b64")[6] / BLOCK_SIZE
         printFrequency = totalLines / DOT_LENGTH
         if filename == "tmp.yml":
-            print "==> Sending configuration:"
+            print "==> Sending configuration:",
         else:
             print "==> Sending "+filename+": ",
         if printFrequency < 1:
@@ -120,13 +120,13 @@ class remoteClient:
             self.s.send(chunk)
         print "\n"
 
-    def sendConfig(self, data):
+    def sendClient(self, data):
         client = Client.Client(self.hostname)
-        status = config.downloadConfig()
+        status = client.downloadClient()
         if status == FAIL:
             print "==> Could not find valid configuration data for this host. Exiting."
             sys.exit()
-        open(TMP_FILE, 'w').write(yaml.dump( config.data ))
+        open(TMP_FILE, 'w').write(yaml.dump( client.data ))
         self.streamData(TMP_FILE)
         os.unlink(TMP_FILE)
 
@@ -148,7 +148,7 @@ class remoteClient:
     def reconcile(self):
         print "==> Connecting..."
         try:
-            if not self.s.login (self.ipAddress, self.username, self.password):
+            if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):
                 print "==> SSH session failed on login."
                 print str(self.s)
                 sys.exit(1)
@@ -171,6 +171,7 @@ class remoteClient:
                     continue
                 if foundIndex == 0:
                     print "==> BOMBARDIER HAS EXITED"
+                    print "==> Remaining output: %s" % self.s.before
                     self.s.setecho(False)
                     self.s.sendline("echo $?")
                     self.s.prompt()

@@ -4,7 +4,7 @@ import yaml
 
 from bombardier.staticData import OK, FAIL
 
-class Config:
+class Client:
 
     def __init__(self, systemName):
         self.data       = {}
@@ -24,10 +24,10 @@ class Config:
         for includeName in newIncludes:
             if includeName not in self.includes:
                 self.includes.append(includeName)
-                self.downloadConfig(includeName)
+                self.downloadClient(includeName)
 
     ### TESTED
-    def downloadConfig(self, configName=''):
+    def downloadClient(self, configName=''):
         if configName == '':
             ymlDirectory = "client"
             configName = self.systemName
@@ -44,12 +44,12 @@ class Config:
         for includeName in newIncludes:
             if includeName not in self.includes:
                 self.includes.append(includeName)
-                self.downloadConfig(includeName)
+                self.downloadClient(includeName)
 
 
 if __name__ == "__main__":
     import sys
     client = sys.argv[1]
-    config = Config(client)
-    status = config.downloadConfig()
+    config = Client(client)
+    status = config.downloadClient()
     print yaml.dump(config.data)
