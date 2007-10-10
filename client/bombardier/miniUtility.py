@@ -36,6 +36,23 @@ def cygpath(dospath):
         dospath = dospath.split(':')[-1]
     return prefix + dospath.replace('\\', '/')
 
+def cyghome():
+    import RegistryDict
+    dosPath = ''
+    a = RegistryDict.RegistryDict(r"SOFTWARE\Cygnus Solutions\Cygwin\mounts v2\/")
+    cygwinRoot = a["native"].replace('\\', '/')
+    return cygwinRoot
+
+def dospath(cygpath):
+    cygwinRoot = cyghome()
+    if cygpath.startswith("/cygdrive/"):
+        elements = cygpath.split('/')
+        drive    = elements[2]
+        dosPath  = drive+':/'+'/'.join(elements[3:])
+    else:
+        dosPath  = cygwinRoot+cygpath
+    return dosPath
+
 def hashList(l):
     r = []
     for value in l:
@@ -461,6 +478,10 @@ def getPythonPath():
 # NOT WORTH TESTING
 def getPackagePath():
     return os.path.join(getSpkgPath(), PACKAGES)
+
+# NOT WORTH TESTING
+def getDropPath():
+    return os.path.join(getSpkgPath(), DROP_PATH)
 
 # NOT WORTH TESTING
 def getBombardierPath():

@@ -1,4 +1,4 @@
-import re, os
+import re, os, yaml
 import Filesystem
 from staticData import *
 
@@ -35,12 +35,40 @@ class Spkg:
             self.logger = logger
             self.stderr = False
         
+    def loadLastReport(self):
+        self.info("Loading last report data...")
+        self.report = {"pending-changes": [], "executed-changes":[], "authorized": {},
+                       "unauthorized": {}, "ignoredUsers": {}}
+        self.lastReport = {"pending-changes": []}
+        if os.path.isfile(LAST_REPORT):
+            self.lastReport = yaml.load(open(LAST_REPORT, 'r').read())
+        pendingChanges = len(self.lastReport["pending-changes"])
+        if pendingChanges == 0:
+            self.info("There are no pending changes.")
+        else:
+            self.warning("There are %d pending changes." % pendingChanges)
+
+    def checkAction(self, actionString):
+        if actionString in self.lastReport["pending-changes"]:
+            self.info("PERFORMING: %s" % actionString)
+            self.report["executed-changes"].append(actionString)
+            return OK
+        else:
+            self.info("QUEUING: %s" % actionString)
+            self.report["pending-changes"].append(actionString)
+        return FAIL
+
+    def writeReport(self):
+        self.info("Writing report...")
+        open(LAST_REPORT, 'w').write(yaml.dump(self.report))
+
     def setFuturePackages(self, packageList):
         self.futurePackages = packageList
 
     def checkStatus(self, status, errMsg="FAILED"):
         if status != OK:
             raise SpkgException(errMsg)
+
     def system(self, command, errMsg=""):
         errMsg = command
         self.checkStatus( os.system( command ), errMsg )

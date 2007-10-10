@@ -221,7 +221,6 @@ class RegistryDict(object):
             keypath = keypath.split('\\')
         if flags is None:
             for subkey in keypath:
-                print "subkey", subkey
                 try:
                     keyhandle = win32api.RegOpenKeyEx(keyhandle, subkey, 0)
                 except:

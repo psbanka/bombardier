@@ -1,4 +1,4 @@
-#!/cygdrive/c/Python24/python.exe
+#as;fhaskfjh!/cygdrive/c/Python24/python.exe
 
 # Windows.py: This is used to simplify and wrap all Windows activity,
 # and, similar to Filesystem.py and Server.py enables mocking of this
@@ -25,8 +25,10 @@ import _winreg as winreg
 import win32net, win32netcon, win32con, win32security, win32service, win32file, winerror
 import pywintypes, win32api, win32serviceutil, servicemanager, win32event, ntsecuritycon
 import win32pipe, win32com.client, pythoncom
+import win32net
+import win32netcon
 
-import threading, os, time
+import threading, os, time, traceback
 
 import miniUtility, Logger, RegistryDict, Exceptions, OperatingSystem
 from win32process import CreateProcess, NORMAL_PRIORITY_CLASS, STARTUPINFO
@@ -271,9 +273,79 @@ class Windows(OperatingSystem.OperatingSystem):
                 status = FAIL
         return status
 
+    def listAllUsers(self):
+        server   = r'\\localhost'
+        res      = 1
+        users    = []
+        userDict = {}
+
+        while res:
+            (users,total,res) = win32net.NetUserEnum(server,3,
+               win32netcon.FILTER_NORMAL_ACCOUNT,res,win32netcon.MAX_PREFERRED_LENGTH)
+            for u in users:
+                add=0
+                login=str(u['name'])
+                infoDict=win32net.NetUserGetInfo(server, login, 3)
+                fullName=str(infoDict['full_name'])
+                userDict[login] = {"fullName": fullName, 
+                                   "comment": u['comment'],
+                                   "lastLogon": time.asctime(time.localtime(int(u["last_logon"]))),
+                                   "passwordExpired": u["password_expired"],
+                                   "homeDirectory": infoDict["home_dir"],
+                                   "expires": u["acct_expires"],
+                                   "primaryGroup": u['primary_group_id'],
+                                   "passwordAge": u['password_age'] }
+        return userDict
+
     def removeScriptUser(self, username):
         win32net.NetUserDel(None, username)
         return OK
+
+    def createWin32User(self, username, password, type, comment=''):
+        username = username.strip().replace(' ', '.')
+        if comment == None:
+            comment = ''
+        if type == SSH_USER:
+            combinedFlags = win32netcon.UF_DONT_EXPIRE_PASSWD | \
+                            win32netcon.UF_NORMAL_ACCOUNT
+        else:
+            combinedFlags = win32netcon.UF_NORMAL_ACCOUNT
+            
+        d = {'name': username,
+             'password': password.strip(),
+             'comment': comment.strip(),
+             'flags': combinedFlags,
+             'priv': win32netcon.USER_PRIV_USER}
+        try:
+            win32net.NetUserAdd(None, 1, d)
+        except pywintypes.error, e:
+            if e[2] != "The account already exists.":
+                Logger.error("Unable to create user '%s'. [%s]" % (username, e[2]))
+                return FAIL
+        if type == ADMIN_USER:
+            Logger.info("Setting user %s as administrator" % username)
+            try:
+                win32net.NetLocalGroupAddMembers(None, 'administrators',
+                                                 3, [{"domainandname":username}])
+            except pywintypes.error, e:
+                if e[2].startswith('The specified account name is already'):
+                    ermsg = "Unable to assign proper permissions to "\
+                            "user %s [%s]", (username, e[2])
+                    Logger.error(ermsg)
+                    return FAIL
+        if type == RDP_USER:
+            Logger.info("Setting user %s as rdp user..." % username)
+            try:
+                win32net.NetLocalGroupAddMembers(None, 'Remote Desktop Users',
+                                                 3, [{"domainandname":username}])
+            except pywintypes.error, e:
+                if e[2].startswith('The specified account name is already'):
+                    ermsg = "Unable to assign proper permissions to "\
+                            "user %s [%s]", (username, e[2])
+                    Logger.error(ermsg)
+                    return FAIL
+        return OK
+
 
     def createScriptUser(self, username, password):
         combinedFlags = win32netcon.UF_DONT_EXPIRE_PASSWD | \

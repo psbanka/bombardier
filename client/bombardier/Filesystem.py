@@ -76,6 +76,7 @@ def removeFile( path ):
         os.remove( path )
 
 def rmScheduledFile(filename):
+    import pywintypes
     try:
         win32api.MoveFileEx(filename, None,
                             win32file.MOVEFILE_DELAY_UNTIL_REBOOT)

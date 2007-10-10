@@ -23,7 +23,7 @@ import os, sys
 
 # ================================================== Statics
 
-VERSION       = "0.41"
+VERSION       = "0.60"
 TEST_RELEASE  = False
 
 HEADER_TEXT   = """Bombardier-%s, Copyright (C) 2005 Peter Banka et. al \n
@@ -31,6 +31,13 @@ Bombardier comes with ABSOLUTELY NO WARRANTY; This is free software,
 and you are welcome to redistribute it under the terms of the GNU
 General Public license version 2.""" % VERSION
 
+LAST_REPORT = "lastReport.yml"
+
+# AUTHORIZATION
+ADMIN_USER = 9
+SSH_USER   = 1
+RDP_USER   = 2
+SQL_USER   = 3
 
 MAX_CHAIN_DEPTH = 50
 STRUCTURE     = 1
@@ -124,6 +131,7 @@ SERVERDATA_FILE = "repositoryDirectory.yml"
 BOM_DEPS      = "dependency-errors.ini"
 BOMBARDIER    = "BombardierUI.py" 
 PACKAGES      = "packages"
+DROP_PATH     = "drop"
 PYTHON        = "python.exe"
 RUN_KEY_NAME  = 'Software\\Microsoft\\Windows\\CurrentVersion\\Run'
 SYSTEM_TYPE_FILE       = "systemtype.txt"
