@@ -18,9 +18,11 @@ INSTALL   = 2
 VERIFY    = 3
 RECONCILE = 4
 STATUS    = 5
+EXECUTE   = 6
 
 ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i', 
-               VERIFY: '-v', RECONCILE: '-r', STATUS: '-s'}
+               VERIFY: '-v', RECONCILE: '-r', STATUS: '-s', 
+               EXECUTE: '-x'}
 
 def getClient(serverName):
     client = Client.Client(serverName)
@@ -61,11 +63,12 @@ def scp(source, dest, hostname, username, password):
 
 class remoteClient:
 
-    def __init__(self, hostname, action, packageNames):
+    def __init__(self, hostname, action, packageNames, scriptName):
         self.hostname     = hostname
         info = getClient(self.hostname)
         self.username     = info["defaultUser"]
         self.action       = action
+        self.scriptName   = scriptName
         self.ipAddress    = info["ipAddress"]
         self.platform     = info["platform"]
         if self.platform == 'win32':
@@ -183,11 +186,10 @@ class remoteClient:
                 sys.exit(1)
             self.s.sendline ('cd %s' %self.spkgDir)
             self.s.prompt()
-            print "==> Reconciling system..."
             self.s.sendline('stty -echo')
             self.s.prompt()
             packageString = ' '.join(self.packageNames)
-            cmd = '%s bc.py %s %s' % (self.python, ACTION_DICT[self.action], packageString)
+            cmd = '%s bc.py %s %s %s' % (self.python, ACTION_DICT[self.action], packageString, self.scriptName)
             self.s.sendline(cmd)
             print "==> Ran %s on the server" % cmd
             foundIndex = 0
@@ -252,14 +254,27 @@ if __name__ == "__main__":
     parser.add_option("-u", "--uninstall", dest="action",
                       action="store_const", const=UNINSTALL,
                       help="uninstall a package")
+    parser.add_option("-x", "--execute", dest="action",
+                      action="store_const", const=EXECUTE,
+                      help="execute a maintenance script.")
 
     (options, args) = parser.parse_args()
+
+    scriptName = '' 
     if len(args) == 0:
         print "==> Need to provide a system name"
         parser.print_help()
         sys.exit(1)
 
-    if not (options.action == STATUS or options.action == RECONCILE):
+    if options.action == EXECUTE:
+        if len(args) < 3:
+            print "==> Need to provide a package name and a script name with this option."
+            parser.print_help()
+            sys.exit(1)
+        packageNames = [args[1]]
+        scriptName   = args[2]
+        
+    elif options.action not in [STATUS, RECONCILE]:
         if len(args) < 2:
             print "==> Need to provide one or more package names with this option."
             parser.print_help()
@@ -269,5 +284,5 @@ if __name__ == "__main__":
         packageNames = []
 
     serverName = args[0]
-    r = remoteClient(serverName, options.action, packageNames)
+    r = remoteClient(serverName, options.action, packageNames, scriptName)
     r.reconcile()
