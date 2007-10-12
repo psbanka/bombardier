@@ -131,11 +131,6 @@ def processAction(action, packageName, scriptName):
                 status = FAIL
         elif action == RECONCILE:
             status = bc.reconcileSystem()
-            if status == OK:
-                bc.filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", server)
-            else:
-                bc.filesystem.updateCurrentStatus(ERROR, "Error installing", server)
-                bc.filesystem.warningLog("Error installing", server)
         elif action == INSTALL:
             status = bc.installPackage(packageName)
         elif action == CONFIGURE:
