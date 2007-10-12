@@ -23,11 +23,12 @@ ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i',
                VERIFY: '-v', RECONCILE: '-r', STATUS: '-s'}
 
 def getClient(serverName):
-    clientFile = "deploy/client/%s.yml" % serverName
-    if not os.path.isfile(clientFile):
-        print "==> Client config file doesn't exist."
-    yamlString = yaml.load(open(clientFile, 'r').read())
-    return yamlString
+    client = Client.Client(serverName)
+    status = client.downloadClient()
+    if status == FAIL:
+        print "==> Could not find valid configuration data for this host. Exiting."
+        sys.exit()
+    return client.data
 
 class ClientUnavailableException(Exception):
     def __init__(self, server, errmsg):
@@ -66,6 +67,13 @@ class remoteClient:
         self.username     = info["defaultUser"]
         self.action       = action
         self.ipAddress    = info["ipAddress"]
+        self.platform     = info["platform"]
+        if self.platform == 'win32':
+            self.python  = '/cygdrive/c/Python25/python.exe'
+            self.spkgDir = '/cygdrive/c/spkg'
+        else:
+            self.python  = '/usr/local/bin/python2.4'
+            self.spkgDir = '/opt/spkg'
         self.packageNames = packageNames
         if os.path.isfile("defaultPassword.b64"):
             print "==> Using default password"
@@ -74,12 +82,12 @@ class remoteClient:
             self.password  = getpass.getpass( "Enter password for %s: "% self.username )
         self.stateMachine = []
         self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendClient])
-        self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)\|"), self.sendBom])
-        self.stateMachine.append([re.compile("\=\=REQUEST-PACKAGE\=\=:(.+)\|(.+)\|"), self.sendPackage])
+        self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)"), self.sendBom])
+        self.stateMachine.append([re.compile("\=\=REQUEST-PACKAGE\=\=:(.+):(.+)"), self.sendPackage])
         self.stateMachine.append([re.compile("Beginning installation of \((\S+)\)"), self.install])
         self.stateMachine.append([re.compile("Install result: (\d)"), self.installResult])
         self.stateMachine.append([re.compile("Verify result: (\d)"), self.verifyResult])
-        self.logMatcher = re.compile( "\d+\-\d+\-\d+\s\d+\:\d+\:\d+\,\d+\|([A-Z]+)\|(.+)" )
+        self.logMatcher = re.compile( "\d+\-\d+\-\d+\s\d+\:\d+\:\d+\,\d+\|([A-Z]+)\|(.+)\|" )
         self.traceMatcher = re.compile( "\|\|\>\>\>(.+)" )
         self.s = pxssh.pxssh()
         self.s.timeout = 6000
@@ -173,13 +181,13 @@ class remoteClient:
                 print "==> SSH session failed on login."
                 print str(self.s)
                 sys.exit(1)
-            self.s.sendline ('cd /cygdrive/c/spkg/')
+            self.s.sendline ('cd %s' %self.spkgDir)
             self.s.prompt()
             print "==> Reconciling system..."
             self.s.sendline('stty -echo')
             self.s.prompt()
             packageString = ' '.join(self.packageNames)
-            cmd = '/cygdrive/c/Python25/python.exe bc.py %s %s' % (ACTION_DICT[self.action], packageString)
+            cmd = '%s bc.py %s %s' % (self.python, ACTION_DICT[self.action], packageString)
             self.s.sendline(cmd)
             print "==> Ran %s on the server" % cmd
             foundIndex = 0
