@@ -98,7 +98,7 @@ except IOError, e:
         fileHandler = logging.FileHandler(filename)
     except IOError, e:
         fileHandler = logging.StreamHandler(sys.stderr)
-formatter = logging.Formatter('%(asctime)s|%(levelname)s|%(message)s')
+formatter = logging.Formatter('%(asctime)s|%(levelname)s|%(message)s|')
 fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(logging.DEBUG)

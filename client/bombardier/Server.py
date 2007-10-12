@@ -79,7 +79,7 @@ class Server:
     def packageRequest(self, filename):
         dosPath = miniUtility.getPackagePath()
         cygPath = miniUtility.cygpath(dosPath)
-        Logger.info("==REQUEST-PACKAGE==:%s|%s|" % (filename, cygPath))
+        Logger.info("==REQUEST-PACKAGE==:%s:%s" % (filename, cygPath))
         response = sys.stdin.read(3)
         if response.strip() != "OK":
             Logger.error("Received an invalid response from the server")
@@ -94,7 +94,7 @@ class Server:
         return config
 
     def bomRequest( self, bomName ):
-        bom = self.dataRequest("==REQUEST-BOM==:%s|" % bomName)
+        bom = self.dataRequest("==REQUEST-BOM==:%s" % bomName)
         return bom
 
     def dataRequest(self, requestString):
