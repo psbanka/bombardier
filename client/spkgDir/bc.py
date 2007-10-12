@@ -98,10 +98,6 @@ if __name__ == "__main__":
         if options.action == STATUS:
             statusDict = bc.checkSystem(lambda:False)
             if type(statusDict) == type({}):
-                if statusDict["ok"]:
-                    logger.info("OK PACKAGES:")
-                    for packageName in statusDict["ok"]:
-                        logger.info("- %s" % packageName)
                 if statusDict["broken"]:
                     logger.info("BROKEN PACKAGES:")
                     for packageName in statusDict["broken"]:
