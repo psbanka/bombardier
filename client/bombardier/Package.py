@@ -321,6 +321,8 @@ class Package:
         if not fileFound:
             Logger.error("Unable to find a suitable script to install.")
             return FAIL
+        if status == None:
+            status = OK
         if status == REBOOT:
             erstr = "%s %s: indicated reboot action is necessary." % (self.fullName, status)
             Logger.warning(erstr)
