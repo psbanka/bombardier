@@ -21,23 +21,26 @@ class SpkgException( Exception ):
     def __repr__(self):
         print self.errorMessage
 
-def main(cls):
-    import sys
+def getConfig():
     import bombardier.Config as Config
     import bombardier.Filesystem as Filesystem
     import bombardier.Server as Server
     import bombardier.OperatingSystem as OperatingSystem
-    import bombardier.Logger as Logger
-    from bombardier.staticData import OK, FAIL
 
     filesystem      = Filesystem.Filesystem()
     server          = Server.Server()
     operatingSystem = OperatingSystem.OperatingSystem()
     config          = Config.Config(filesystem, server, operatingSystem)
-
-    Logger.addStdErrLogging()
     config.freshen()
+    return config
 
+def main(cls):
+    import sys
+    import bombardier.Logger as Logger
+    from bombardier.staticData import OK, FAIL
+    Logger.addStdErrLogging()
+
+    config = getConfig()
     ha = cls(config, futurePackages = [], logger=Logger.logger)
     action = sys.argv[-1].lower()
     status = OK
