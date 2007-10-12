@@ -76,10 +76,31 @@ class remoteClient:
         self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendClient])
         self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)\|"), self.sendBom])
         self.stateMachine.append([re.compile("\=\=REQUEST-PACKAGE\=\=:(.+)\|(.+)\|"), self.sendPackage])
+        self.stateMachine.append([re.compile("Beginning installation of \((\S+)\)"), self.install])
+        self.stateMachine.append([re.compile("Install result: (\d)"), self.installResult])
+        self.stateMachine.append([re.compile("Verify result: (\d)"), self.verifyResult])
         self.logMatcher = re.compile( "\d+\-\d+\-\d+\s\d+\:\d+\:\d+\,\d+\|([A-Z]+)\|(.+)" )
         self.traceMatcher = re.compile( "\|\|\>\>\>(.+)" )
         self.s = pxssh.pxssh()
         self.s.timeout = 6000
+
+    def verifyResult(self, result):
+        print "============================================="
+        if result == '0':
+            print "VERIFY SUCCESSFUL"
+        print "============================================="
+
+    def installResult(self, result):
+        print "============================================="
+        if result == '0':
+            print "INSTALL SUCCESSFUL"
+        print "============================================="
+
+    def install(self, packageName):
+        print 
+        print "============================================="
+        print " CLIENT INSTALLING %s" % packageName
+        print "============================================="
 
     def sendPackage(self, data):
         package, path = data
@@ -186,10 +207,8 @@ class remoteClient:
                 if type == "DEBUG":
                     continue
                 message=message.strip()
-                if type == "INFO":
+                if type != "DEBUG":
                     self.processMessage(message)
-                else:
-                    print message
             if returnCode == 2:
                 print "==========REBOOT"
         except Exception, e:

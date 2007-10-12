@@ -1,3 +1,4 @@
+#!/opt/python2.5/bin/python
 import bombardier.miniUtility as miniUtility
 import os
 import yaml
