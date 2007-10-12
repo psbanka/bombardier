@@ -410,6 +410,23 @@ class Package:
         self.status = self.findCmd(INSTALL, packageList)
         return self.status
     
+    def executeMaintScript(self, scriptName):
+        self.download()
+        message = "Executing (%s) inside package (%s)" %(scriptName, self.fullName)
+        Logger.info(message)
+        scriptPath = "%s/maint/%s.py" %(self.scriptsDir, scriptName)
+        if not os.path.isfile(scriptPath):
+            msg = "%s does not exist" %scriptPath
+            raise Exceptions.BadPackage, (self.name, msg)
+        sys.path.append("%s/maint" %self.scriptsDir )
+        importString = 'import %s'%scriptName
+        exec(importString)
+        exec('status = %s.execute(self.config, Logger.logger)'%scriptName)
+        sys.path.remove("%s/maint" %self.scriptsDir )
+        if status == None:
+            status = OK
+        return status
+
     # TESTED
     def verify(self): 
         self.download()

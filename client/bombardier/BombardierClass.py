@@ -791,6 +791,20 @@ class Bombardier:
             self.filesystem.warningLog(errmsg, self.server)
             return FAIL
 
+    def executeMaintScript(self, packageName, scriptName):
+        try:
+            package = Package.Package(packageName, self.repository,
+                                      self.config, self.filesystem,
+                                      self.server, self.operatingSystem)
+            package.initialize()
+            status = package.executeMaintScript(scriptName)
+            return self.cleanup(status, logmessage="Finished running %s." %scriptName)
+        except Exceptions.BadPackage, e:
+            errmsg = "Cannot run maintenance script %s for bad package %s: %s" % (scriptName, e.packageName, e.errmsg)
+            Logger.warning(errmsg)
+            self.filesystem.warningLog(errmsg, self.server)
+            return FAIL
+
     def configurePackage(self, packageName):
         try:
             package = Package.Package(packageName, self.repository,

@@ -26,7 +26,7 @@ from bombardier.staticData import *
 from bombardier.Logger import logger, addStdErrLogging
 import bombardier.Filesystem, bombardier.Exceptions
 import bombardier.Config, bombardier.OperatingSystem
-import bombardier.Server, bombardier.CommSocket
+import bombardier.Server
 import bombardier.Repository, bombardier.BombardierClass
 
 UNINSTALL = 0
@@ -35,6 +35,27 @@ INSTALL   = 2
 VERIFY    = 3
 RECONCILE = 4
 STATUS    = 5
+EXECUTE   = 6
+
+def findLikelyPackageName(packageName):
+    statusYml = yaml.load(open('status.yml').read())
+    packageNames = []
+    statusPackages = statusYml['install-progress']
+    for name in statusPackages:
+        if statusPackages[name]['INSTALLED'] in [ 'NA', 'BROKEN' ]:
+            continue
+        if packageName.lower() in name.lower():
+            basePackageName = '-'.join(name.split('-')[:-1])
+            packageNames.append(basePackageName)
+    if len(packageNames) > 1:
+        logger.error( 'Ambiguous package name: %s could be any of %s' %(packageName, str(packageNames)))
+        sys.exit(FAIL)    
+    if len(packageNames) == 0:
+        logger.error( 'Package not found: %s' %packageName )
+        sys.exit(FAIL)    
+    else:
+        logger.info( 'Using %s' %packageNames[0])
+        return packageNames[0] 
 
 if __name__ == "__main__":
     import optparse
@@ -59,18 +80,30 @@ if __name__ == "__main__":
     parser.add_option("-r", "--reconcile", dest="action",
                       action="store_const", const=RECONCILE,
                       help="reconcile the system")
+    parser.add_option("-x", "--execute", dest="action",
+                      action="store_const", const=EXECUTE,
+                      help="Execute a maintenance script")
     parser.add_option("-u", "--uninstall", dest="action",
                       action="store_const", const=UNINSTALL,
                       help="uninstall a package")
 
     (options, args) = parser.parse_args()
-    if not (options.action == RECONCILE or options.action == STATUS):
-        if len(args) != 1:
+    if options.action not in [ RECONCILE, STATUS]:
+        if len(args) < 1:
             print "This command requires a package name as an argument."
             parser.print_help()
             sys.exit( 1 )
         packageName = args[0]
+    if options.action == EXECUTE:
+        if len(args) != 2:
+            print "This command requires a package name and a script name."
+            parser.print_help()
+            sys.exit( 1 )
+        scriptName = args[1]
          
+    if options.action in [ UNINSTALL, VERIFY, CONFIGURE, EXECUTE ]:
+        packageName = findLikelyPackageName(packageName)         
+
     filesystem = bombardier.Filesystem.Filesystem()
     filesystem.clearLock()
     server = bombardier.Server.Server(filesystem)
@@ -86,7 +119,6 @@ if __name__ == "__main__":
     else:
         import bombardier.Windows
         operatingSystem = bombardier.Windows.Windows()
-    cs1 = bombardier.CommSocket.CommSocket()
 
     repository = bombardier.Repository.Repository(config, filesystem, server)
     repository.getPackageData()
@@ -106,7 +138,7 @@ if __name__ == "__main__":
             else:
                 status = FAIL
         elif options.action == RECONCILE:
-            status = bc.reconcileSystem(cs1.testStop)
+            status = bc.reconcileSystem()
             if status == OK:
                 filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", server)
             else:
@@ -120,7 +152,9 @@ if __name__ == "__main__":
             status = bc.verifyPackage(packageName)
         elif options.action == UNINSTALL:
             status = bc.uninstallPackage(packageName)
-
+        elif options.action == EXECUTE:
+            status = bc.executeMaintScript(packageName, scriptName)
+        
         if status == OK:
             logger.info( "COMPLETED SUCCESSFULLY" )
         else:
