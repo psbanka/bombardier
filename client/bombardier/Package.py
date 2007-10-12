@@ -124,7 +124,6 @@ class Package:
                 raise Exceptions.BadPackage, (self.name, msg)
         else:
             msg = "No metadata found for this package"
-            Logger.debug("metadata packages: %s" % self.metaData.data.keys())
             raise Exceptions.BadPackage, (self.name, msg)
 
     def initialize(self):
@@ -272,7 +271,7 @@ class Package:
                 if self.packageVersion == 2:
                     exec("obj = %s.%s(self.config)" % (randString, file))
                 elif self.packageVersion == 3:
-                    cmdString = "obj = %s.%s(self.config, futurePackages = packageList, logger=Logger.logger)"
+                    cmdString = "obj = %s.%s(self.config, packageList, Logger.logger)"
                     exec(cmdString % (randString, file))
                 else:
                     Logger.error("Unknown package version %s" % self.packageVersion)
@@ -313,6 +312,7 @@ class Package:
                 for line in data.split('\n'):
                     ermsg += "\n||>>>%s" % line
                 Logger.error(ermsg)
+                Logger.error("Error ocurred in %s" % file)
                 fileFound = True
                 status = FAIL
                 del randString

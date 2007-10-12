@@ -104,7 +104,8 @@ class Config(dict):
             yamlString = self.filesystem.open(path, 'r').read()
             oldConfig = yaml.load(yamlString)
         except IOError:
-            Logger.warning("Could not load saved configuration data in %s" % path)
+            #Logger.warning("Could not load saved configuration data in %s" % path)
+            pass
         except:
             Logger.warning("Bad yaml in file %s" % path)
         newConfig = miniUtility.hashDictionary(self.data)

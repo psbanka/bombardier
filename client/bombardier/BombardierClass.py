@@ -520,7 +520,7 @@ class Bombardier:
         packageDict = {}
         for packageName in packageList:
             if action == UNINSTALL:
-                Logger.info("Scheduling package %s for removal because it is "\
+                Logger.info("Package %s is "\
                             "not on the bill of materials." % packageName)
             try:
                 newPackage = Package.Package(packageName, self.repository,
@@ -692,9 +692,7 @@ class Bombardier:
         if self.packageNames == []:
             self.filesystem.clearLock()
             raise Exceptions.BadBillOfMaterials("Empty Bill of Materials")
-        Logger.info("Packages for this computer: %s" % self.packageNames) #FIXME
         addPackageNames, delPackageNames = self.checkBom(self.packageNames)
-        Logger.info("ADD PACKAGE NAMES: %s" % addPackageNames)
         self.addPackages = self.getPackagesToAdd(addPackageNames)
         try:
             self.delPackages = self.getPackagesToRemove(delPackageNames)
