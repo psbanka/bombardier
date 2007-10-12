@@ -43,8 +43,8 @@ class ClientUnavailableException(Exception):
 
 def scp(source, dest, hostname, username, password):
     sshNewkey = 'Are you sure you want to continue connecting'
-    s = pexpect.spawn('scp %s %s@%s:%s' % (source, username, hostname, dest), timeout=30)
-    i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: '], timeout=30)
+    s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, username, hostname, dest), timeout=30)
+    i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=30)
     if i == 0:
         raise ClientUnavailableException(dest, s.before+'|'+s.after)
     if i == 1:
@@ -56,6 +56,8 @@ def scp(source, dest, hostname, username, password):
         s.sendline(password)
     if i == 2:
         s.sendline(password)
+    if i == 3:
+        print '==> Used shared key for authentication.'
     s.expect(pexpect.EOF)
     s.close()
     #print "Sent %s to %s:%s" % (source, hostname, dest)
@@ -78,11 +80,14 @@ class remoteClient:
             self.python  = '/usr/local/bin/python2.4'
             self.spkgDir = '/opt/spkg'
         self.packageNames = packageNames
-        if os.path.isfile("defaultPassword.b64"):
-            print "==> Using default password"
-            self.password = base64.decodestring(open(DEFAULT_PASSWORD).read())
+        if 'sharedKeys' not in info:
+            if os.path.isfile("defaultPassword.b64"):
+                print "==> Using default password"
+                self.password = base64.decodestring(open(DEFAULT_PASSWORD).read())
+            else:
+                self.password  = getpass.getpass( "Enter password for %s: "% self.username )
         else:
-            self.password  = getpass.getpass( "Enter password for %s: "% self.username )
+            self.password = ''
         self.stateMachine = []
         self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendClient])
         self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)"), self.sendBom])
