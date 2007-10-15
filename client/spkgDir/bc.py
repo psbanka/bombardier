@@ -20,7 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import sys, optparse, StringIO, traceback, yaml
+import sys, optparse, StringIO, traceback, yaml, time
 
 from bombardier.staticData import *
 from bombardier.Logger import logger, addStdErrLogging
@@ -28,6 +28,8 @@ import bombardier.Filesystem, bombardier.Exceptions
 import bombardier.Config, bombardier.OperatingSystem
 import bombardier.Server
 import bombardier.Repository, bombardier.BombardierClass
+from bombardier.miniUtility import getProgressPath
+
 
 UNINSTALL = 0
 CONFIGURE = 1
@@ -36,6 +38,8 @@ VERIFY    = 3
 RECONCILE = 4
 STATUS    = 5
 EXECUTE   = 6
+FIX       = 7
+PURGE     = 8
 
 def findLikelyPackageName(packageName):
     statusYml = yaml.load(open('status.yml').read())
@@ -57,11 +61,109 @@ def findLikelyPackageName(packageName):
         logger.info( 'Using %s' %packageNames[0])
         return packageNames[0] 
 
+def fixSpkg(packageName, action):
+    statusData = open(getProgressPath(), 'r').read()
+    status = yaml.load(statusData)
+    if status.get("install-progress") == None:
+        logger.error( "Status file is empty." )
+        return FAIL
+    now = time.asctime()
+    if action == FIX:
+        status["install-progress"]["%s-1" % packageName] = {"INSTALLED": now, "UNINSTALLED": "NA", "VERIFIED": now}
+        logger.info("%s has been set to INSTALLED." % packageName )
+    elif action == PURGE:
+        if status["install-progress"].get(packageName):
+            del status["install-progress"][packageName]
+            logger.info("%s has been removed from status.yml" % packageName)
+        else:
+            logger.warning("%s is not in the status.yml file" % packageName)
+            packageNames = status["install-progress"]
+            possibleNames = [x for x in packageNames if packageName in x]
+            logger.info("Maybe you want one of these: %s" % str(possibleNames))
+            return FAIL
+    open(getProgressPath(), 'w').write(yaml.dump(status))
+    return OK
+
+def getBc():
+    import bombardier.Filesystem, bombardier.Exceptions
+    filesystem = bombardier.Filesystem.Filesystem()
+    filesystem.clearLock()
+    server = bombardier.Server.Server(filesystem)
+    config = bombardier.Config.Config(filesystem, server, bombardier.OperatingSystem.OperatingSystem())
+    try:
+        config.freshen()
+    except bombardier.Exceptions.ServerUnavailable, e:
+        logger.error( "Cannot connect to server (%s)" % e )
+        sys.exit(1)
+    if sys.platform == "linux2":
+        import bombardier.Linux
+        operatingSystem = bombardier.Linux.Linux()
+    else:
+        import bombardier.Windows
+        operatingSystem = bombardier.Windows.Windows()
+
+    repository = bombardier.Repository.Repository(config, filesystem, server)
+    repository.getPackageData()
+    bc = bombardier.BombardierClass.Bombardier(repository, config,
+                                               filesystem, server,
+                                               operatingSystem)
+    return bc
+
+def processAction(action, packageName, scriptName):
+    if action in [ UNINSTALL, VERIFY, CONFIGURE, EXECUTE ]:
+        packageName = findLikelyPackageName(packageName)         
+
+    status = FAIL
+    try:
+        if action in [ FIX, PURGE ]:
+            status = fixSpkg(packageName, action)
+            return status
+        bc = getBc()
+        if action == STATUS:
+            statusDict = bc.checkSystem(lambda:False)
+            if type(statusDict) == type({}):
+                if statusDict["broken"]:
+                    logger.info("BROKEN PACKAGES:")
+                    for packageName in statusDict["broken"]:
+                        logger.info("- %s" % packageName)
+                status = OK
+            else:
+                status = FAIL
+        elif action == RECONCILE:
+            status = bc.reconcileSystem()
+        elif action == INSTALL:
+            status = bc.installPackage(packageName)
+        elif action == CONFIGURE:
+            status = bc.configurePackage(packageName)
+        elif action == VERIFY:
+            status = bc.verifyPackage(packageName)
+        elif action == UNINSTALL:
+            status = bc.uninstallPackage(packageName)
+        elif action == EXECUTE:
+            status = bc.executeMaintScript(packageName, scriptName)
+        if status == OK:
+            logger.info( "COMPLETED SUCCESSFULLY" )
+        else:
+            logger.error( "======================\n\n%s\n" % yaml.dump(status))
+        bc.filesystem.clearLock()
+    except:
+        e = StringIO.StringIO()
+        traceback.print_exc(file=e)
+        e.seek(0)
+        data = e.read()
+        ermsg = ''
+        for line in data.split('\n'):
+            ermsg += "\n||>>>%s" % line
+        logger.error(ermsg)
+        return FAIL
+    return OK
+
 if __name__ == "__main__":
     import optparse
     addStdErrLogging()
 
     packageName = ""    
+    scriptName  = ""
     
     parser = optparse.OptionParser("usage: %prog [option] [package-name]")
 
@@ -86,6 +188,12 @@ if __name__ == "__main__":
     parser.add_option("-u", "--uninstall", dest="action",
                       action="store_const", const=UNINSTALL,
                       help="uninstall a package")
+    parser.add_option("-f", "--fix", dest="action",
+                      action="store_const", const=FIX,
+                      help="set a package status to INSTALLED without doing anything")
+    parser.add_option("-p", "--purge", dest="action",
+                      action="store_const", const=PURGE,
+                      help="Remove a package from the status")
 
     (options, args) = parser.parse_args()
     if options.action not in [ RECONCILE, STATUS]:
@@ -100,73 +208,6 @@ if __name__ == "__main__":
             parser.print_help()
             sys.exit( 1 )
         scriptName = args[1]
-         
-    if options.action in [ UNINSTALL, VERIFY, CONFIGURE, EXECUTE ]:
-        packageName = findLikelyPackageName(packageName)         
 
-    filesystem = bombardier.Filesystem.Filesystem()
-    filesystem.clearLock()
-    server = bombardier.Server.Server(filesystem)
-    config = bombardier.Config.Config(filesystem, server, bombardier.OperatingSystem.OperatingSystem())
-    try:
-        config.freshen()
-    except bombardier.Exceptions.ServerUnavailable, e:
-        logger.error( "Cannot connect to server (%s)" % e )
-        sys.exit(1)
-    if sys.platform == "linux2":
-        import bombardier.Linux
-        operatingSystem = bombardier.Linux.Linux()
-    else:
-        import bombardier.Windows
-        operatingSystem = bombardier.Windows.Windows()
-
-    repository = bombardier.Repository.Repository(config, filesystem, server)
-    repository.getPackageData()
-    bc = bombardier.BombardierClass.Bombardier(repository, config,
-                                                       filesystem, server,
-                                                       operatingSystem)
-    status = FAIL
-    try:
-        if options.action == STATUS:
-            statusDict = bc.checkSystem(lambda:False)
-            if type(statusDict) == type({}):
-                if statusDict["broken"]:
-                    logger.info("BROKEN PACKAGES:")
-                    for packageName in statusDict["broken"]:
-                        logger.info("- %s" % packageName)
-                status = OK
-            else:
-                status = FAIL
-        elif options.action == RECONCILE:
-            status = bc.reconcileSystem()
-            if status == OK:
-                filesystem.updateCurrentStatus(IDLE, "Finished with installation activities", server)
-            else:
-                filesystem.updateCurrentStatus(ERROR, "Error installing", server)
-                filesystem.warningLog("Error installing", server)
-        elif options.action == INSTALL:
-            status = bc.installPackage(packageName)
-        elif options.action == CONFIGURE:
-            status = bc.configurePackage(packageName)
-        elif options.action == VERIFY:
-            status = bc.verifyPackage(packageName)
-        elif options.action == UNINSTALL:
-            status = bc.uninstallPackage(packageName)
-        elif options.action == EXECUTE:
-            status = bc.executeMaintScript(packageName, scriptName)
-        
-        if status == OK:
-            logger.info( "COMPLETED SUCCESSFULLY" )
-        else:
-            logger.error( "======================\n\n%s\n" % yaml.dump(status))
-        filesystem.clearLock()
-    except:
-        e = StringIO.StringIO()
-        traceback.print_exc(file=e)
-        e.seek(0)
-        data = e.read()
-        ermsg = ''
-        for line in data.split('\n'):
-            ermsg += "\n||>>>%s" % line
-        logger.error(ermsg)
+    status = processAction(options.action, packageName, scriptName)
     sys.exit(status)
