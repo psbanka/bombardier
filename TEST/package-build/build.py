@@ -16,6 +16,7 @@ import bombardier.Server as Server
 import bombardier.Linux
 import bombardier.Filesystem as Filesystem
 import bombardier.Spkg as Spkg
+import bombardier.utility as utility
 
 PACKAGES_FILE = "packages.yml"
 PACKAGES_PATH = "/var/www/deploy/packages/"
