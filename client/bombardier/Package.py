@@ -433,6 +433,7 @@ class Package:
 
     # TESTED
     def uninstall(self):
+        self.action = UNINSTALL
         self.download()
         if self.status == FAIL:
             return FAIL
