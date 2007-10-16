@@ -120,7 +120,7 @@ def processAction(action, packageName, scriptName):
             return status
         bc = getBc()
         if action == STATUS:
-            statusDict = bc.checkSystem(lambda:False)
+            statusDict = bc.checkSystem()
             if type(statusDict) == type({}):
                 if statusDict["broken"]:
                     logger.info("BROKEN PACKAGES:")
