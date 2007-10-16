@@ -124,19 +124,6 @@ class FilesystemTest(unittest.TestCase):
     def testloadCurrent(self):
         current = self.filesystem.loadCurrent()
         assert type(current) == type({}), current
-    def testupdateCurrentStatus(self):
-        self.filesystem.updateCurrentStatus("testing", "testing currentstatus now", self.server)
-        current = self.filesystem.loadCurrent()
-        assert current['status']['overall'] == "testing"
-        assert current['status']['main']    == "testing currentstatus now"
-    def testupdateCurrentAction(self):
-        self.filesystem.updateCurrentAction("unit testing", 10, self.server)
-        current = self.filesystem.loadCurrent()
-        assert current['status']['action']     == "unit testing"
-        assert current['status']['percentage'] == 10
-    def testgetCurrentAction(self):
-        action = self.filesystem.updateCurrentAction("unit testing", 10, self.server)
-        assert self.filesystem.getCurrentAction() == "unit testing"
     def testUpdateDict(self):
         newDict = {"a": {"b":1, "c":2}}
         oldDict = {"a": {"d":2}}

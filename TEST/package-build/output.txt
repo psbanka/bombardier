@@ -1,8 +1,11 @@
-A    /tmp/sqlBackup-2/scripts
-A    /tmp/sqlBackup-2/scripts/crontab-example
-A    /tmp/sqlBackup-2/scripts/SqlBackupInstall.py
-A    /tmp/sqlBackup-2/scripts/installer.py
-A    /tmp/sqlBackup-2/scripts/uninstaller.py
-A    /tmp/sqlBackup-2/scripts/configure.py
-A    /tmp/sqlBackup-2/scripts/verify.py
-Exported revision 111.
+A    /tmp/CgApache-8/scripts
+A    /tmp/CgApache-8/scripts/noindex.html.template
+A    /tmp/CgApache-8/scripts/CgApache.py
+A    /tmp/CgApache-8/scripts/index.html.template
+A    /tmp/CgApache-8/scripts/installer.py
+A    /tmp/CgApache-8/scripts/cg_httpd.template
+A    /tmp/CgApache-8/scripts/uninstaller.py
+A    /tmp/CgApache-8/scripts/configure.py
+A    /tmp/CgApache-8/scripts/verify.py
+A    /tmp/CgApache-8/scripts/ajp13.conf.template
+Exported revision 288.

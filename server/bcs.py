@@ -19,10 +19,12 @@ VERIFY    = 3
 RECONCILE = 4
 STATUS    = 5
 EXECUTE   = 6
+FIX       = 7
+PURGE     = 8
 
 ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i', 
                VERIFY: '-v', RECONCILE: '-r', STATUS: '-s', 
-               EXECUTE: '-x'}
+               EXECUTE: '-x', FIX: '-f', PURGE: '-p'}
 
 def getClient(serverName):
     client = Client.Client(serverName)
@@ -262,6 +264,12 @@ if __name__ == "__main__":
     parser.add_option("-x", "--execute", dest="action",
                       action="store_const", const=EXECUTE,
                       help="execute a maintenance script.")
+    parser.add_option("-f", "--fix", dest="action",
+                      action="store_const", const=FIX,
+                      help="set a package status to INSTALLED without doing anything")
+    parser.add_option("-p", "--purge", dest="action",
+                      action="store_const", const=PURGE,
+                      help="Remove a package from the client's status")
 
     (options, args) = parser.parse_args()
 
@@ -280,6 +288,7 @@ if __name__ == "__main__":
         scriptName   = args[2]
         
     elif options.action not in [STATUS, RECONCILE]:
+        print "ARGS:", args
         if len(args) < 2:
             print "==> Need to provide one or more package names with this option."
             parser.print_help()

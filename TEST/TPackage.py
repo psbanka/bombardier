@@ -19,7 +19,6 @@ class PackageTest(unittest.TestCase):
 
     def setUp(self):
         data = {"testokpackage1":{"install": {"fullName": None}}}
-        self.commSocket = MockObjects.MockCommSocket()
         self.repository = MockObjects.MockRepository(data)
         self.filesystem = MockObjects.MockFilesystem()
         self.windows    = MockObjects.MockWindows()
@@ -42,9 +41,8 @@ class PackageTest(unittest.TestCase):
         status = package.injector()
         assert status == FAIL, 'injector should not have succeeded:'+`status`
         calls = self.filesystem.getAllCalls()
-        assert len(calls) == 2, calls
+        assert len(calls) == 1, calls
         assert `calls[0]`.startswith("isdir")
-        assert `calls[1]` == "updateCurrentAction('Package is corrupt or missing.', 0, <UNPRINTABLE>)"
 
     def testInjectorOkPackage(self):
         self.repository.packages = {"foo": {"install": {"fullName": "foo-1"}}}
@@ -85,13 +83,12 @@ class PackageTest(unittest.TestCase):
         self.filesystem.files = [os.path.join(base, "scripts", "installer.py")]
         self.windows.installablePackages = ["testdb-data-initial"]
         package.initialize()
-        package.install(["pkg1"], self.commSocket.testStop)
+        package.install(["pkg1"])
         assert package.status == OK
         calls = self.filesystem.getAllCalls()
-        assert len(calls) == 5, len(calls)
-        assert `calls[2]`.startswith("isdir")
-        assert `calls[3]` == "updateCurrentAction('Installing...', 50, <UNPRINTABLE>)"
-        assert `calls[4]`.startswith("isfile"), `calls[5]`
+        assert len(calls) == 3, `calls`
+        assert `calls[0]`.startswith("isdir")
+        assert `calls[2]`.startswith("isfile"), `calls[5]`
         calls = self.windows.getAllCalls()
         assert `calls[0]`.startswith("run")
 
@@ -100,10 +97,10 @@ class PackageTest(unittest.TestCase):
         package = Package.Package("pkg1", self.repository, self.config,
                                   self.filesystem, self.server, self.windows)
         package.initialize()
-        package.uninstall(self.commSocket.testStop)
+        package.uninstall()
         assert package.status == FAIL, "uninstallation of a bogus package succeeded"
         calls = self.filesystem.getAllCalls()
-        assert len(calls) == 3, len(calls)
+        assert len(calls) == 1, len(calls)
 
     def testUninstallNoScript(self):
         self.repository.packages = {"pkg1": {"install": {"fullName": "testbaduninstallpackage1-1"}}}
@@ -114,15 +111,13 @@ class PackageTest(unittest.TestCase):
         package = Package.Package("pkg1", self.repository, self.config,
                                   self.filesystem, self.server, self.windows)
         package.initialize()
-        package.uninstall(self.commSocket.testStop)
+        package.uninstall()
         assert package.status == FAIL, "uninstallation of a bogus package succeeded"
         calls = self.filesystem.getAllCalls()
-        assert len(calls) == 12, len(calls)
-        assert `calls[3]` == "updateCurrentAction('Uninstalling...', 70, <UNPRINTABLE>)"
-        assert `calls[4]`.startswith("isfile"), `calls[6]`
-        assert `calls[5]`.startswith("isfile"), `calls[7]`
-        assert `calls[6]`.startswith("isfile"), `calls[8]`
-        assert `calls[10]`.startswith("updateProgress")
+        assert len(calls) == 9, `calls`
+        assert `calls[2]`.startswith("isfile"), `calls[6]`
+        assert `calls[3]`.startswith("isfile"), `calls[7]`
+        assert `calls[4]`.startswith("isfile"), `calls[8]`
 
     def testUninstallOkPackage(self):
         self.repository.packages = {"pkg1": {"install": {"fullName": "testokpackage1-1"}}}
@@ -133,15 +128,14 @@ class PackageTest(unittest.TestCase):
                                   self.filesystem, self.server, self.windows)
         package.initialize()
         self.windows.uninstallablePackages = ["testokpackage1-1"]
-        package.uninstall(self.commSocket.testStop)
+        package.uninstall()
         assert package.status == OK, "Legitimate package uninstallation failed"
         calls = self.server.getAllCalls()
         assert len(calls) == 0, calls
         calls = self.filesystem.getAllCalls()
-        assert len(calls) == 9, len(calls)
-        assert `calls[3]` == "updateCurrentAction('Uninstalling...', 70, <UNPRINTABLE>)"
-        assert `calls[6]` == "getProgressData(False)", `calls[9]`
-        assert `calls[8]`.startswith("open"), `calls[11]`
+        assert len(calls) == 6, `calls`
+        assert `calls[3]` == "getProgressData(False)", `calls[9]`
+        assert `calls[-1]`.startswith("open"), `calls[11]`
         calls = self.windows.getAllCalls()
         assert `calls[0]`.startswith("run"), `calls[0]`
 
@@ -154,12 +148,11 @@ class PackageTest(unittest.TestCase):
         package = Package.Package("pkg1", self.repository, self.config,
                                   self.filesystem, self.server, self.windows)
         package.initialize()
-        package.uninstall(self.commSocket.testStop)
+        package.uninstall()
         assert package.status == FAIL, "Uninstallation of a package that returns an error succeeded"
         calls = self.filesystem.getAllCalls()
 
-        assert len(calls) == 9, len(calls)
-        assert `calls[7]`.startswith("updateProgress({'install-progress': {'testbaduninstallpackage1-1': {'UNINSTALLED': 'NA', 'VERIFIED': 'NA', 'INSTALLED': 'BROKEN'}}}, <UNPRINTABLE>, True)")
+        assert len(calls) == 6, len(calls)
         calls = self.windows.getAllCalls()
         assert `calls[0]`.startswith("run")
 
@@ -171,20 +164,18 @@ class PackageTest(unittest.TestCase):
                                   self.filesystem, self.server, self.windows)
         package.initialize()
         package.action = VERIFY
-        package.verify(self.commSocket.testStop)
+        package.verify()
         assert package.status == FAIL, "verification of a bogus package succeeded"
         calls = self.filesystem.getAllCalls()
-        assert len(calls) == 12, len(calls)
-        assert `calls[3]` == "updateCurrentAction('Verifying...', 90, <UNPRINTABLE>)"
-        assert `calls[4]`.startswith("isfile"), `calls[5]`
-        assert `calls[4]`.endswith("verify.py')"), `calls[5]`
-        assert `calls[5]`.startswith("isfile"), `calls[6]`
-        assert `calls[5]`.endswith("verify.bat')"), `calls[6]`
-        assert `calls[6]`.startswith("isfile"), `calls[7]`
-        assert `calls[6]`.endswith("verify.pl')"), `calls[7]`
-        assert `calls[7]`.startswith("isfile"), `calls[7]`
-        assert `calls[7]`.endswith("verify.sh')"), `calls[7]`
-        assert `calls[10]`.startswith("updateProgress"), calls[10]
+        assert len(calls) == 9, `calls`
+        assert `calls[2]`.startswith("isfile"), `calls[5]`
+        assert `calls[2]`.endswith("verify.py')"), `calls[5]`
+        assert `calls[3]`.startswith("isfile"), `calls[6]`
+        assert `calls[3]`.endswith("verify.bat')"), `calls[6]`
+        assert `calls[4]`.startswith("isfile"), `calls[7]`
+        assert `calls[4]`.endswith("verify.pl')"), `calls[7]`
+        assert `calls[5]`.startswith("isfile"), `calls[7]`
+        assert `calls[5]`.endswith("verify.sh')"), `calls[7]`
 
     def testVerifyOkPackage(self):
         self.repository.packages = {"pkg1": {"install": {"fullName": "testokpackage-1"}}}
@@ -195,10 +186,10 @@ class PackageTest(unittest.TestCase):
                                   self.filesystem, self.server, self.windows)
         package.initialize()
         self.windows.verifiablePackages = ["testokpackage-1"]
-        package.verify(self.commSocket.testStop)
+        package.verify()
         assert package.status == OK, "Legitimate package verification failed"
         calls = self.filesystem.getAllCalls()
-        assert len(calls) == 5, len(calls)
+        assert len(calls) == 3, len(calls)
         calls = self.windows.getAllCalls()
         assert `calls[0]`.startswith("run")
 
@@ -214,7 +205,7 @@ class PackageTest(unittest.TestCase):
                                   self.filesystem, self.server, self.windows)
         package.initialize()
         self.windows.installablePackages = ["testconsolepkg-1"]
-        package.install(["pkg1"], self.commSocket.testStop)
+        package.install(["pkg1"])
         assert package.status == OK, "Console package verification failed"
         wcalls = self.windows.getAllCalls()
         fcalls = self.filesystem.getAllCalls()
@@ -231,11 +222,10 @@ class PackageTest(unittest.TestCase):
                                   self.filesystem, self.server, self.windows)
         package.initialize()
         package.action = VERIFY
-        package.verify(self.commSocket.testStop)
+        package.verify()
         assert package.status == FAIL, "Verification of a package that returns an error succeeded"
         calls = self.filesystem.getAllCalls()
-        assert len(calls) == 9, len(calls)
-        assert `calls[7]`.startswith("updateProgress")
+        assert len(calls) == 6, len(calls)
         calls = self.windows.getAllCalls()
         assert `calls[0]`.startswith("run")
 
@@ -271,10 +261,10 @@ class PackageTest(unittest.TestCase):
         calls = self.server.getAllCalls()
         assert len(calls) == 0, calls
         calls = self.filesystem.getAllCalls()
-        assert len(calls) == 4, len(calls)
-        assert `calls[1]` == "getProgressData(False)"
-        assert `calls[2]`.startswith("updateProgress({'install-progress': {'testokpackage1-1': {'UNINSTALLED': 'NA', 'VERIFIED':"), `calls[2]`
-        assert `calls[3]`.startswith("open"), `calls[3]`
+        assert len(calls) == 3, `calls`
+        assert `calls[0]` == "getProgressData(False)"
+        assert `calls[1]`.startswith("updateProgress({'install-progress': {'testokpackage1-1': {'UNINSTALLED': 'NA', 'VERIFIED':"), `calls[2]`
+        assert `calls[2]`.startswith("open"), `calls[3]`
         progress = self.filesystem.status['install-progress']['testokpackage1-1']['INSTALLED']
         assert progress != "BROKEN" and progress != 'NA'
 
@@ -303,10 +293,10 @@ class PackageTest(unittest.TestCase):
         calls = self.server.getAllCalls()
         assert len(calls) == 0, calls
         calls = self.filesystem.getAllCalls()
-        assert len(calls) == 8, len(calls)
-        assert `calls[1]` == "getProgressData(False)"
-        assert `calls[2]`.startswith("updateProgress({'install-progress': {'testokpackage1-1': {'UNINSTALLED': 'NA', 'VERIFIED'")
-        assert `calls[3]`.startswith("open"), `calls[3]`
+        assert len(calls) == 6, len(calls)
+        assert `calls[0]` == "getProgressData(False)"
+        assert `calls[1]`.startswith("updateProgress({'install-progress': {'testokpackage1-1': {'UNINSTALLED': 'NA', 'VERIFIED'")
+        assert `calls[2]`.startswith("open"), `calls[3]`
 
     def testWriteProgressEmpty(self):
         self.repository.packages = {"pkg1": {"install": {"fullName": "testokpackage1-1"}}}

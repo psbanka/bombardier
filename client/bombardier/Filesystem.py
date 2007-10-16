@@ -239,12 +239,6 @@ class Filesystem:
         self.updateProgress({"warnings": {"%s-%s" % (time.time(), random.randint(1,500)):
                                           message}}, server)
         
-    def updateCurrentStatus(self, overall, message, server):
-        self.updateProgress({"status": {"overall": overall, "main":message}}, server)
-
-    def updateCurrentAction(self, message, percent, server):
-        self.updateProgress({"status": {"action": message, "percentage": percent}}, server)
-
     def updateTimestampOnly(self, server):
         self.updateProgress({}, server)
 

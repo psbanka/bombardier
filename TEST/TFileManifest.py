@@ -15,7 +15,7 @@ class FileManifestTest(unittest.TestCase):
         self.fileManifest = FileManifest(self.testDir, ['foo', 'bar'], self.manifestFile)
         self.expectedManifestDict = {'foo': {'file.exe': 'b66b5b56809078def934c04cda9e791f'},
                                      'bar': {'file.txt': '', 
-                                             'bar2\\file.aspx': 'dbf1f2836e1b325fcfdfa6fca6aee3c1'}}
+                                             'bar2%sfile.aspx' % os.sep: 'dbf1f2836e1b325fcfdfa6fca6aee3c1'}}
         self.mappingDictionary = { 'bar': os.path.join( self.testDir, 'bar' ),
                                    'foo': os.path.join( self.testDir, 'foo' ) }
     

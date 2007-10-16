@@ -24,43 +24,6 @@ class ConfigTest(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def testDownloadConfig(self):
-        self.server.yamlRequests = [configData1]
-        self.config.downloadConfig("testsystem")
-        assert self.config.data["body"]["residence"] == "portland"
-        scalls = self.server.getAllCalls()
-        assert len(scalls) == 1, scalls
-        assert `scalls[0]` == "serviceYamlRequest('deploy/client/testsystem.yml', {}, None, False, False)", scalls[0]
-
-    def testDownloadConfigParents(self):
-        self.server.yamlRequests = [configData2, margaretData, billData, frankData]
-        status = self.config.downloadConfig("testsystem", False)
-        assert status == OK, status
-        assert self.config.data["body"]["residence"] == "portland", self.config.data["body"]
-        assert self.config.data["system"]["ipaddress"] == "22.22.22.22", self.config.data["system"]
-        assert self.config.data["system"]["serviceuser"] == "drillbit", self.config.data["system"]
-        assert self.config.data["system"]["servicepasswd"] == "foomanchoo", self.config.data["system"]
-        scalls = self.server.getAllCalls()
-        assert len(scalls) == 4, scalls
-        assert `scalls[0]` == "serviceYamlRequest('deploy/client/testsystem.yml', {}, None, False, False)", `scalls[0]`
-        assert `scalls[1]` == "serviceYamlRequest('deploy/include/margaret.yml', {}, None, False, False)", `scalls[1]`
-        assert `scalls[2]` == "serviceYamlRequest('deploy/include/bill.yml', {}, None, False, False)", `scalls[2]`
-        assert `scalls[3]` == "serviceYamlRequest('deploy/include/frank.yml', {}, None, False, False)", `scalls[3]`
-
-    def testFreshen(self):
-        self.server.yamlRequests = [configData2, margaretData, billData, frankData,
-                                    indexData, bombardierProjectData, testhw]
-        self.config.freshen()
-        scalls = self.server.getAllCalls()
-        assert len(scalls) == 4, len(scalls)
-        assert `scalls[0]` == "serviceYamlRequest('deploy/client/testsystem.yml', {}, None, False, False)"
-        assert `scalls[1]` == "serviceYamlRequest('deploy/include/margaret.yml', {}, None, False, False)"
-        assert `scalls[2]` == "serviceYamlRequest('deploy/include/bill.yml', {}, None, False, False)"
-        assert `scalls[3]` == "serviceYamlRequest('deploy/include/frank.yml', {}, None, False, False)"
-        assert self.config.username == "drillbit", self.config.username
-        assert self.config.password == "foomanchoo", self.config.password
-        assert self.config.domain   == ".", self.config.domain
-
     def testMakeConfigObject(self):
         self.config.data["foo"] = {"spam": "eggs"}
         self.config.makeConfigObject()

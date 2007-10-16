@@ -13,7 +13,6 @@ def clientTesting():
     import TRepository
     import TConfig
     import TBombardierClass
-    import TCommSocket
     import TminiUtility
     import TFilesystem
     import TFileManifest
@@ -24,7 +23,6 @@ def clientTesting():
     suite.addTest(unittest.makeSuite(TPackage.PackageTest))
     suite.addTest(unittest.makeSuite(TRepository.RepositoryTest))
     suite.addTest(unittest.makeSuite(TConfig.ConfigTest))
-    suite.addTest(unittest.makeSuite(TCommSocket.CommSocketTest))
     suite.addTest(unittest.makeSuite(TminiUtility.miniUtilityTest))
     suite.addTest(unittest.makeSuite(TFilesystem.FilesystemTest))
     suite.addTest(unittest.makeSuite(TFileManifest.FileManifestTest))

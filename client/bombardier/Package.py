@@ -161,7 +161,6 @@ class Package:
         newDir = os.path.join(packagePath, self.fullName)
         self.scriptsDir = os.path.join(newDir, "scripts")
         if not self.filesystem.isdir(self.scriptsDir):
-            self.filesystem.updateCurrentAction("Package is corrupt or missing.", 0, self.server)
             Logger.error("Scripts directory does not exist")
             self.status = FAIL
             return FAIL
@@ -171,7 +170,6 @@ class Package:
             return OK
         else:
             Logger.error("The injector directory does not exist for [%s]" % self.fullName)
-            self.filesystem.updateCurrentAction("Package is corrupt or missing.", 0, self.server)
             self.status = FAIL
             return FAIL
 
@@ -194,8 +192,6 @@ class Package:
                         "Downloading %s from %s..." % \
                         (downloadFile, downloadSource)
                 Logger.info(erstr)
-                self.filesystem.updateCurrentAction("Downloading dependency: %s" % downloadFile,
-                                                    27, self.server)
                 status = OK
                 if status == FAIL:
                     Logger.error("Unable to download (%s) from %s, aborting"\
@@ -339,7 +335,6 @@ class Package:
 
     def download(self):
         if not self.downloaded:
-            self.filesystem.updateCurrentAction("Downloading package...", 10, self.server)
             status = self.repository.getPackage(self.name, checksum=self.checksum)
             if status == FAIL:
                 self.status = FAIL
@@ -403,7 +398,6 @@ class Package:
     # TESTED
     def install(self, packageList): 
         self.download()
-        self.filesystem.updateCurrentAction("Installing...", 50, self.server)
         message = "Beginning installation of (%s)" % self.fullName
         Logger.info(message)
         self.preload()
@@ -430,7 +424,6 @@ class Package:
     # TESTED
     def verify(self): 
         self.download()
-        self.filesystem.updateCurrentAction("Verifying...", 90, self.server)
         message = "Verifying package %s" % self.fullName
         Logger.info(message)
         self.status = self.findCmd(VERIFY)
@@ -444,7 +437,6 @@ class Package:
         if self.status == FAIL:
             return FAIL
         Logger.info("Uninstalling package %s" % self.name)
-        self.filesystem.updateCurrentAction("Uninstalling...", 70, self.server)
         self.status = self.findCmd(UNINSTALL)
         self.writeProgress()
         return self.status
@@ -456,7 +448,6 @@ class Package:
         return( dateString )
 
     def pickMostRecentPackage(self):
-        self.filesystem.updateCurrentAction("Determining most recent version...", 5, self.server)
         installablePackages = self.repository.getFullPackageNames()
         targetPackages = []
         for package in installablePackages:
@@ -499,8 +490,6 @@ class Package:
 
     ### TESTED
     def writeProgress(self):
-        self.filesystem.updateCurrentAction("Finished.", 100, self.server)
-
         timeString = time.ctime()
         progressData = self.filesystem.getProgressData()
         if not progressData.has_key(self.fullName):

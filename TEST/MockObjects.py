@@ -3,6 +3,7 @@ import ConfigParser, StringIO
 from bombardier.staticData import *
 import bombardier.Exceptions as Exceptions
 import bombardier.miniUtility as miniUtility
+import yaml
 
 class MockPackage(mock.Mock):
     def __init__(self):
@@ -13,8 +14,8 @@ class MockPackage(mock.Mock):
         self.preboot = False
         self.processResults = OK
         self.fullName = ''
-    def process(self, abortIfTold, installList):
-        mock.Mock.__getattr__(self, 'process')(abortIfTold, installList)
+    def process(self, installList):
+        mock.Mock.__getattr__(self, 'process')(installList)
         return self.processResults
         
 class MockChain(mock.Mock):
@@ -50,12 +51,6 @@ class MockMetaData(mock.Mock):
                 return default
             raise ConfigParser.NoOptionError(section, option)
 
-class MockCommSocket:
-    def __init__(self):
-        self.stopValue = False
-    def testStop(self):
-        return self.stopValue
-    
 class MockRepository(mock.Mock):
     def __init__(self, packages):
         mock.Mock.__init__(self)
@@ -65,8 +60,8 @@ class MockRepository(mock.Mock):
         metaData = MockMetaData(self.packages.get(pkgName))
         assert metaData.alive() == "YES"
         return metaData
-    def getPackage(self, packageName, stopFunction, checksum=""):
-        mock.Mock.__getattr__(self, 'getPackage')(packageName, stopFunction, checksum)
+    def getPackage(self, packageName, checksum=""):
+        mock.Mock.__getattr__(self, 'getPackage')(packageName, checksum)
         return "OK"
 
 class MockBombardier(mock.Mock):
@@ -74,11 +69,11 @@ class MockBombardier(mock.Mock):
         mock.Mock.__init__(self)
         self.reconcileStatus = OK
         self.verifyStatus = {"pkg1": OK}
-    def reconcileSystem(self, stopFunction):
-        mock.Mock.__getattr__(self, 'reconcileSystem')(stopFunction)
+    def reconcileSystem(self):
+        mock.Mock.__getattr__(self, 'reconcileSystem')()
         return self.reconcileStatus
-    def verifySystem(self, stopFunction):
-        mock.Mock.__getattr__(self, 'verifySystem')(stopFunction)
+    def verifySystem(self):
+        mock.Mock.__getattr__(self, 'verifySystem')()
         return self.verifyStatus
 
 class MockTar(mock.Mock):
@@ -143,6 +138,9 @@ class MockFilesystem(mock.Mock):
         self.packagesFromFile = {}
         self.status = {}
         self.hostname = "testsystem"
+    def mkYaml(self, data):
+        mock.Mock.__getattr__(self, 'mkYaml')(data)
+        self.readFiles = [StringIO.StringIO(yaml.dump(data))]
     def reset(self):
         mock.Mock.__getattr__(self, 'reset')()
         self.getAllIndex = -1
@@ -158,8 +156,8 @@ class MockFilesystem(mock.Mock):
         mock.Mock.__getattr__(self, 'updateProgress')(dictionary, server, overwrite)
         self.status = miniUtility.integrate(self.status, dictionary, overwrite)
         return
-    def watchForTermination(self, sleepTime, abortIfTold):
-        mock.Mock.__getattr__(self, 'watchForTermination')(sleepTime, abortIfTold)
+    def watchForTermination(self, sleepTime):
+        mock.Mock.__getattr__(self, 'watchForTermination')(sleepTime)
         return OK
     def getcwd(self):
         return "C:\\"
@@ -290,8 +288,8 @@ class MockWindows(mock.Mock):
     def connectPipe(self, pipeName, event):
         mock.Mock.__getattr__(self, "connectPipe")(pipeName, event)
         return 'a', 'b'
-    def run(self, fullCmd, abortIfTold, workingDirectory, console = False):
-        mock.Mock.__getattr__(self, "run")(fullCmd, abortIfTold, workingDirectory, console)
+    def run(self, fullCmd, workingDirectory, console = False):
+        mock.Mock.__getattr__(self, "run")(fullCmd, workingDirectory, console)
         packageName = fullCmd.split(' ')[0].split(os.sep)[-3]
         script = fullCmd.split(' ')[0].split(os.sep)[-1]
         action = None
@@ -363,46 +361,23 @@ class MockWindows(mock.Mock):
 class MockServer(mock.Mock):
     def __init__(self):
         mock.Mock.__init__(self, {"serverLog": OK})
-        self.yamlIndex = -1
-        self.yamlResponseDict = {}
-        self.yamlRequests = [{"status":OK}, {"status":OK}, {"status":OK}]
+        self.bom = {}
         self.output = {}
-        self.serviceRequestIndex = -1
-        self.serviceRequests = []
+        self.packageData = {}
+        self.configData = {}
     def reset(self):
         mock.Mock.__getattr__(self, 'reset')()
         self.yamlIndex = -1
         self.serviceRequestIndex = -1
-    def serverLog(self, level, message, section="GENERAL"):
-        mock.Mock.__getattr__(self, 'serverLog')(level, message, section)
-        return OK
-    def serviceRequest(self, path, args={}, putData=None,
-                       debug=False, putFile=None, legacyPathFix=False):
-        mock.Mock.__getattr__(self, 'serviceRequest')(path, args, putData,
-                                                      debug, putFile, legacyPathFix)
-        self.serviceRequestIndex += 1
-        return self.serviceRequests[self.serviceRequestIndex]
-
-    def serviceYamlRequest(self, path, args={}, putData=None, debug=False, legacyPathFix=False):
-        mock.Mock.__getattr__(self, 'serviceYamlRequest')(path, args, putData, debug, legacyPathFix)
-        if path in self.yamlResponseDict.keys():
-            return self.yamlResponseDict[path]
-        self.yamlIndex += 1
-        if self.yamlIndex >= len(self.yamlRequests):
-            self.yamlRequests.append({"status": OK})
-        return self.yamlRequests[self.yamlIndex]
-    def wget(self, path, filename, dieOnFail=0, debug=0,
-             destDir = '', retries = 4, checksum = '', abortIfTold=None):
-        mock.Mock.__getattr__(self, 'wget')(path, filename, 
-                                            dieOnFail, debug, destDir, retries,
-                                            checksum, abortIfTold)
-        return self.output[path]
-    def wgetMultiple(self, path, filename, destDir,
-                     retries = 4, checksumList = [], checksum='', abortIfTold=None):
-        mock.Mock.__getattr__(self, 'wgetMultiple')(path, filename, destDir,
-                                                    retries, checksumList,
-                                                    checksum, abortIfTold)
-        return self.output[path]
+    def bomRequest(self, bomName):
+        mock.Mock.__getattr__(self, 'bomRequest')(bomName)
+        return self.bom[bomName]
+    def configRequest(self):
+        mock.Mock.__getattr__(self, 'configRequest')()
+        return self.configData
+    def packageRequest(self, packageName):
+        mock.Mock.__getattr__(self, 'packageRequest')(packageName)
+        return self.packageData[packageName]
 
 class MockConfig:
     def __init__(self):

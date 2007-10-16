@@ -25,7 +25,6 @@ import yaml
 from staticData import *
 import miniUtility, MetaData, Logger
 
-PACKAGE_DB = "packages.yml"
 
 # PACKAGE FIELDS
 FULL_NAME    = "fullName"
@@ -39,10 +38,9 @@ class Repository:
         self.packages   = {}
 
     def getPackageData(self):
-        #Logger.debug("Downloading package data...")
         filename = self.server.packageRequest(PACKAGE_DB)
         if filename != '':
-            self.packages = yaml.load(open(filename).read())
+            self.packages = yaml.load(self.filesystem.open(filename).read())
 
     # TESTED
     def getFullPackageNames(self):

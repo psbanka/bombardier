@@ -44,6 +44,7 @@ STRUCTURE     = 1
 DATA          = 2
 
 TEST_TITLE = "TEST"
+PACKAGE_DB = "packages.yml"
 
 DEBUG            = 0
 
