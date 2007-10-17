@@ -706,7 +706,7 @@ class Bombardier:
         package = self.addPackages[packageName]
         if self.progressData.has_key(package.fullName):
             progressData[package.fullName] = {"INSTALLED": "NA", "UNINSTALLED": "NA", "VERIFIED": "NA"}
-        self.filesystem.updateProgress({"install-progress":self.progressData},
+        self.filesystem.updateProgress({"install-progress":self.progressDataFull},
                                        self.server, overwrite=True)
         status = self.installPackages()
         return self.cleanup(status, logmessage="Finished installing.")
