@@ -59,8 +59,8 @@ class BombardierTest(unittest.TestCase):
         assert `scalls[0]` == "bomRequest('web-1')", `scalls[0]`
         fcalls = self.filesystem.getAllCalls()
         wcalls = self.windows.getAllCalls()
-        assert len(fcalls) == 3, `fcalls`
-        assert `fcalls[2]`.startswith("open")
+        assert len(fcalls) == 1, `fcalls`
+        assert `fcalls[0]`.startswith("open")
         output1 = self.filesystem.writeFiles[0].buflist[0]
         assert output1 == "web-1"
         for packageName in packageNames:
@@ -100,7 +100,6 @@ class BombardierTest(unittest.TestCase):
         repository = MockObjects.MockRepository(data)
         self.config.repository = repository
         self.bombardier.repository = repository
-        self.bombardier.refreshProgressData()
         packages = self.bombardier.getPackagesToAdd(["pkg1", "pkg5"])
         assert set(["pkg1", "pkg5"]) == set(packages.keys())
         pkg1 = MockObjects.MockPackage()
@@ -110,7 +109,6 @@ class BombardierTest(unittest.TestCase):
         pkg5.priority = 35
         packages = {"pkg1": pkg1, "pkg5": pkg5}
         self.filesystem.status = {}
-        self.bombardier.refreshProgressData()
         installOrder  = self.bombardier.installList(packages)
         assert installOrder == ["pkg5"], installOrder
 
@@ -129,9 +127,9 @@ class BombardierTest(unittest.TestCase):
         wcalls = self.windows.getAllCalls()
         assert len(scalls) == 1
         assert `scalls[0]` == "bomRequest('foo')", `scalls[0]`
-        assert len(fcalls) == 4, `fcalls`
-        assert `fcalls[2]`.startswith("open")
-        assert `fcalls[3]` == "warningLog('No packages configured for this system', <UNPRINTABLE>)"
+        assert len(fcalls) == 2, `fcalls`
+        assert `fcalls[0]`.startswith("open"), `fcalls[1]`
+        assert `fcalls[1]` == "warningLog('No packages configured for this system', <UNPRINTABLE>)"
         assert len(wcalls) == 0
 
     def testDownloadBomEmpty(self):
@@ -146,8 +144,8 @@ class BombardierTest(unittest.TestCase):
         assert len(scalls) == 0, `scalls`
         fcalls = self.filesystem.getAllCalls()
         wcalls = self.windows.getAllCalls()
-        assert len(fcalls) == 3, fcalls
-        assert `fcalls[2]`.startswith("open")
+        assert len(fcalls) == 1, fcalls
+        assert `fcalls[0]`.startswith("open")
         assert len(wcalls) == 0, `wcalls`
         
     def testDownloadBomMultiple(self):
@@ -163,8 +161,8 @@ class BombardierTest(unittest.TestCase):
         assert len(scalls) == 2
         assert `scalls[0]` == "bomRequest('web-1')", `scalls[0]`
         assert `scalls[1]` == "bomRequest('foo-1')", `scalls[1]`
-        assert len(fcalls) == 3, `fcalls`
-        assert `fcalls[2]`.startswith("open")
+        assert len(fcalls) == 1, `fcalls`
+        assert `fcalls[0]`.startswith("open")
         output1 = self.filesystem.writeFiles[0].buflist[0]
         assert output1 == "web-1|foo-1", output1
         uniquePackages = list(sets.Set(packages1 + packages2))
@@ -185,7 +183,7 @@ class BombardierTest(unittest.TestCase):
         scalls = self.server.getAllCalls()
         wcalls = self.windows.getAllCalls()
         assert len(scalls) == 1, `scalls`
-        assert len(fcalls) == 4, `fcalls`
+        assert len(fcalls) == 2, `fcalls`
         assert len(wcalls) == 0
 
     def testDownloadBomGoofy2(self):
@@ -199,7 +197,7 @@ class BombardierTest(unittest.TestCase):
         scalls = self.server.getAllCalls()
         wcalls = self.windows.getAllCalls()
         assert len(scalls) == 2, `scalls`
-        assert len(fcalls) == 3, `fcalls`
+        assert len(fcalls) == 1, `fcalls`
         assert len(wcalls) == 0
 
     def testDownloadBomPathological(self):
@@ -227,7 +225,7 @@ class BombardierTest(unittest.TestCase):
         fcalls = self.filesystem.getAllCalls()
         wcalls = self.windows.getAllCalls()
         rcalls = repository.getAllCalls()
-        assert len(fcalls) == 2, len(fcalls)
+        assert len(fcalls) == 0, len(fcalls)
         assert len(wcalls) == 0
         assert len(rcalls) == 2
         assert `rcalls[0]` == "getMetaData('pkg1')"
@@ -275,7 +273,6 @@ class BombardierTest(unittest.TestCase):
         repository = MockObjects.MockRepository(data)
         self.config.repository = repository
         self.bombardier.repository = repository
-        self.bombardier.refreshProgressData()
         packages = self.bombardier.getPackagesToRemove(["pkg2"])
         test = ["pkg1", "pkg2"]
         for item in test:
@@ -286,7 +283,7 @@ class BombardierTest(unittest.TestCase):
         fcalls = self.filesystem.getAllCalls()
         wcalls = self.windows.getAllCalls()
         rcalls = repository.getAllCalls()
-        assert len(fcalls) == 4, len(fcalls)
+        assert len(fcalls) == 1, len(fcalls)
         assert `fcalls[0]` == "getProgressData(True)", `fcalls[0]`
         assert len(wcalls) == 0
         assert len(rcalls) == 2
@@ -365,7 +362,6 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.repository = repository
         shouldBeRemoved = sets.Set(["pkg1", "pkg2"])
 
-        self.bombardier.refreshProgressData()
         packages = self.bombardier.getPackagesToRemove(["pkg2"])
 
         flaggedForRemoval = sets.Set(packages.keys())
@@ -376,7 +372,7 @@ class BombardierTest(unittest.TestCase):
         assert len(scalls) == 0, `scalls`
 
         fcalls = self.filesystem.getAllCalls()
-        assert len(fcalls) == 4, `fcalls`
+        assert len(fcalls) == 1, `fcalls`
         assert `fcalls[0]` == "getProgressData(True)", `fcalls[0]`
 
         wcalls = self.windows.getAllCalls()
@@ -395,14 +391,13 @@ class BombardierTest(unittest.TestCase):
                                         "UNINSTALLED": 'NA',
                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
         self.filesystem.status = installProgress2
-        self.bombardier.refreshProgressData()
         shouldBeInstalled, shouldntBeInstalled = self.bombardier.checkBom(["pkg1", "pkg2"])
         assert ["pkg2"] == shouldBeInstalled, shouldBeInstalled
         assert ["pkg3"] == shouldntBeInstalled, shouldntBeInstalled
         fcalls = self.filesystem.getAllCalls()
-        assert len(fcalls) == 5, `fcalls`
+        assert len(fcalls) == 2, `fcalls`
         assert `fcalls[0]` == "getProgressData(True)", `fcalls[0]`
-        assert `fcalls[4]`.startswith("open")
+        assert `fcalls[1]`.startswith("open")
         
     def testDependenciesInstalled(self):
         data = """[pkg2]\ndep0=pkg1-1\n"""
@@ -410,8 +405,8 @@ class BombardierTest(unittest.TestCase):
         installedDependencies = self.bombardier.dependenciesInstalled(["pkg2"])
         assert installedDependencies == ["pkg1-1"]
         fcalls = self.filesystem.getAllCalls()
-        assert len(fcalls) == 3, `fcalls`
-        assert `fcalls[2]`.startswith("open")
+        assert len(fcalls) == 1, `fcalls`
+        assert `fcalls[0]`.startswith("open")
         
     def testAddToDependencyErrors(self):
         self.filesystem.readFiles = [StringIO.StringIO()]
@@ -430,10 +425,10 @@ class BombardierTest(unittest.TestCase):
         depErrorData = self.filesystem.writeFiles[0].buflist
         assert depErrorData == ['[pkg1]\n', 'dep0 = pkg2\n', '\n']
         assert len(scalls) == 0
-        assert len(fcalls) == 5, `fcalls`
-        assert `fcalls[2]` == "warningLog('BOM file is incomplete: should contain pkg2', <UNPRINTABLE>)"
-        assert `fcalls[3]`.startswith("open"), `fcalls[1]`
-        assert `fcalls[4]`.startswith("open"), `fcalls[1]`
+        assert len(fcalls) == 3, `fcalls`
+        assert `fcalls[0]` == "warningLog('BOM file is incomplete: should contain pkg2', <UNPRINTABLE>)"
+        assert `fcalls[1]`.startswith("open"), `fcalls[1]`
+        assert `fcalls[2]`.startswith("open"), `fcalls[1]`
 
     def testPackageDep(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1"},
@@ -474,7 +469,7 @@ class BombardierTest(unittest.TestCase):
         assert len(pcalls) == 0
         assert len(scalls) == 0, `scalls`
         assert len(rcalls) == 2
-        assert len(fcalls) == 8, len(fcalls)
+        assert len(fcalls) == 6, len(fcalls)
 
     def testPackageChainWithBroken(self):
         data = {"pkg1": {"install": {"fullName":"pkg1-1",
@@ -548,7 +543,7 @@ class BombardierTest(unittest.TestCase):
         rcalls = self.repository.getAllCalls()
         scalls = self.server.getAllCalls()
         assert len(pcalls) == 0
-        assert len(fcalls) == 2, `fcalls`
+        assert len(fcalls) == 1, `fcalls`
         assert len(scalls) == 0
         assert len(rcalls) == 0
 
@@ -595,8 +590,8 @@ class BombardierTest(unittest.TestCase):
         assert len(scalls) == 0, `scalls`
         fcalls = self.filesystem.getAllCalls()
         wcalls = self.windows.getAllCalls()
-        assert len(fcalls) == 3, len(fcalls)
-        assert `fcalls[2]` == "clearLock()", `fcalls[1]`
+        assert len(fcalls) == 1, len(fcalls)
+        assert `fcalls[0]` == "clearLock()", `fcalls[1]`
         assert len(wcalls) == 3, wcalls
         assert `wcalls[0]` == "testConsole()"
         assert `wcalls[1]` == "autoLogin(MOCK-CONFIG)"
@@ -621,9 +616,9 @@ class BombardierTest(unittest.TestCase):
         assert self.windows.getAllCalls() == []
         assert self.repository.getAllCalls() == []
         fcalls = self.filesystem.getAllCalls()
-        assert len(fcalls) == 4, `fcalls`
-        assert `fcalls[0]` == "getProgressData(True)", `fcalls[1]`
-        assert `fcalls[1]` == "getProgressData(False)", `fcalls[2]`
+        assert len(fcalls) == 2, `fcalls`
+        assert `fcalls[0]` == "getProgressData(True)", `fcalls[0]`
+        assert `fcalls[1]` == "getProgressData(True)", `fcalls[1]`
         pcalls = pkg1.getAllCalls()
         assert len(pcalls) == 0, `pcalls`
 
@@ -649,8 +644,8 @@ class BombardierTest(unittest.TestCase):
         assert self.repository.getAllCalls() == []
         assert self.server.getAllCalls() == []
         fcalls = self.filesystem.getAllCalls()
-        assert len(fcalls) == 6, `fcalls`
-        assert `fcalls[5]` == "clearLock()"
+        assert len(fcalls) == 3, `fcalls`
+        assert `fcalls[2]` == "clearLock()"
         pcalls = pkg1.getAllCalls()
         assert len(pcalls) == 1, `pcalls`
         wcalls = self.windows.getAllCalls()
@@ -673,8 +668,8 @@ class BombardierTest(unittest.TestCase):
         assert self.repository.getAllCalls() == []
         assert self.server.getAllCalls() == []
         fcalls = self.filesystem.getAllCalls()
-        assert len(fcalls) == 6, fcalls
-        assert `fcalls[5]` == "clearLock()"
+        assert len(fcalls) == 3, fcalls
+        assert `fcalls[2]` == "clearLock()"
         pcalls = pkg1.getAllCalls()
         assert len(pcalls) == 0, len(pcalls)
         wcalls = self.windows.getAllCalls()
@@ -741,7 +736,6 @@ class BombardierTest(unittest.TestCase):
         self.filesystem.files = [os.path.join(base, "scripts", "verify.py")]
         self.bombardier.repository = repository
         self.windows.verifiablePackages = ["pkg1-1"]
-        self.bombardier.refreshProgressData()
         testResults = self.bombardier.verifySystem()
         assert testResults.has_key("pkg1"), testResults
         assert testResults['pkg1'] == OK, testResults
@@ -750,13 +744,12 @@ class BombardierTest(unittest.TestCase):
         scalls = self.server.getAllCalls()
         assert len(scalls) == 1, `scalls`
         fcalls = self.filesystem.getAllCalls()
-        assert len(fcalls) == 18, len(fcalls)
+        assert len(fcalls) == 15, len(fcalls)
         #for i in range(0,len(fcalls)):
             #print i, fcalls[i]
-        assert `fcalls[0]` == "getProgressData(True)", `fcalls[0]`
-        assert `fcalls[4]`.startswith("isdir")
-        assert `fcalls[5]`.startswith("isfile")
-        assert `fcalls[17]`.startswith("open")
+        assert `fcalls[1]`.startswith("isdir"), `fcalls[0]`
+        assert `fcalls[2]`.startswith("isfile")
+        assert `fcalls[14]`.startswith("open")
 
     def testVerifySystem2(self):
         installProgress = {"install-progress":
@@ -781,7 +774,6 @@ class BombardierTest(unittest.TestCase):
                                  os.path.join(base2, "scripts", "verify.py")]
         self.bombardier.repository = repository
         self.windows.verifiablePackages = ["pkg1-1", "pkg2-1"]
-        self.bombardier.refreshProgressData()
         testResults = self.bombardier.verifySystem()
         assert testResults == {"pkg1": OK, "pkg2":OK}, testResults
 
@@ -882,9 +874,9 @@ class BombardierTest(unittest.TestCase):
         fcalls = self.filesystem.getAllCalls()
         #for i in range(0,len(fcalls)):
             #print i, fcalls[i]
-        assert len(fcalls) == 34, len(fcalls)
-        assert `fcalls[0]` == "getProgressData(True)"
-        assert `fcalls[33]` == "clearLock()", `fcalls[34]`
+        assert len(fcalls) == 32, len(fcalls)
+        assert `fcalls[0]`.startswith("chdir("), `fcalls[0]`
+        assert `fcalls[31]` == "clearLock()", `fcalls[34]`
         wcalls = self.windows.getAllCalls()
         assert len(wcalls) == 8, len(wcalls)
         assert `wcalls[0]`.startswith('run'), `wcalls[0]`
@@ -950,7 +942,7 @@ class BombardierTest(unittest.TestCase):
         assert `wcalls[4]`.startswith('noRestartOnLogon'), `wcalls[4]`
         assert `wcalls[5]`.startswith('noAutoLogin'), `wcalls[5]`
         fcalls = self.filesystem.getAllCalls()
-        assert len(fcalls) == 27, len(fcalls)
+        assert len(fcalls) == 26, len(fcalls)
 
     def testReconcileSystemBogus(self):
         self.config.data = {"bom": ["base"]}
@@ -1003,7 +995,6 @@ class BombardierTest(unittest.TestCase):
         #^ have the system report that the package with different config data needs attention
         self.config.repository = repository
         self.bombardier.repository = repository
-        self.bombardier.refreshProgressData()
         packageData = self.bombardier.checkSystem()
         assert packageData["reconfigure"] == {'reconfig': ['/section1']}, packageData
         assert packageData["ok"] == ["stable"], packageData
@@ -1030,7 +1021,6 @@ class BombardierTest(unittest.TestCase):
         self.config.data["packages"] = ["reconfig", "stable"]
         self.config.repository = repository
         self.bombardier.repository = repository
-        self.bombardier.refreshProgressData()
         packageData = self.bombardier.checkSystem()
         assert packageData["reconfigure"] == {}, packageData
         assert "reconfig" in packageData["ok"], packageData
