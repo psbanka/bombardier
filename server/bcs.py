@@ -4,7 +4,7 @@ import pxssh, pexpect
 import sys, re, glob, sys, optparse, os, getpass, base64
 import yaml
 import Client
-from bombardier.staticData import OK, FAIL
+from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
 import StringIO
 import traceback
 
@@ -28,6 +28,8 @@ PURGE     = 8
 ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i', 
                VERIFY: '-v', RECONCILE: '-r', STATUS: '-s', 
                EXECUTE: '-x', FIX: '-f', PURGE: '-p'}
+
+RETURN_DICT = {OK: 'OK', FAIL: 'FAIL', REBOOT: 'REBOOT', PREBOOT: 'PREBOOT'}
 
 def getClient(serverName):
     client = Client.Client(serverName)
@@ -193,6 +195,7 @@ class remoteClient:
 
     def reconcile(self):
         print "==> Connecting..."
+        returnCode = OK
         try:
             if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):
                 print "==> SSH session failed on login."
@@ -207,7 +210,6 @@ class remoteClient:
             self.s.sendline(cmd)
             #print "==> Ran %s on the server" % cmd
             foundIndex = 0
-            returnCode = 0
             while True:
                 foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=600)
                 if foundIndex == 1:
@@ -215,14 +217,16 @@ class remoteClient:
                     #print self.s.read_nonblocking(100,1)
                     continue
                 if foundIndex == 0:
-                    print "==> BOMBARDIER HAS EXITED"
-                    print "==> Remaining output: %s" % self.s.before
+                    if DEBUG:
+                        print "==> BOMBARDIER HAS EXITED"
+                    if self.s.before.strip():
+                        print "==> Remaining output: %s" % self.s.before.strip()
                     self.s.setecho(False)
                     self.s.sendline("echo $?")
                     self.s.prompt()
                     try:
                         returnCode = int(self.s.before.strip())
-                        print "==> RETURN CODE: %s" % returnCode
+                        print "\n\n==> RETURN CODE: %s\n" % RETURN_DICT[returnCode]
                     except:
                         print "==> invalid returncode: %s" % self.s.before
                     break
@@ -234,9 +238,6 @@ class remoteClient:
                 message=message.strip()
                 if self.processMessage(message) == False:
                     print "[FROM %s]: %s" % (self.hostname, message)
-
-            if returnCode == 2:
-                print "==========REBOOT"
         except Exception, e:
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
@@ -248,6 +249,7 @@ class remoteClient:
             print ermsg
         finally:
             self.s.logout()
+        return returnCode
 
 
 if __name__ == "__main__":
@@ -308,4 +310,4 @@ if __name__ == "__main__":
 
     serverName = args[0]
     r = remoteClient(serverName, options.action, packageNames, scriptName)
-    r.reconcile()
+    sys.exit(r.reconcile())
