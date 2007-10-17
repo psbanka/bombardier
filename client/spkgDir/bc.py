@@ -41,6 +41,12 @@ EXECUTE   = 6
 FIX       = 7
 PURGE     = 8
 
+actionDict = { UNINSTALL:'uninstall', CONFIGURE:'configure', 
+               INSTALL:'install', VERIFY:'verify', 
+               RECONCILE:'reconcile', STATUS:'status', 
+               EXECUTE:'execute', FIX:'fix', PURGE:'purge' } 
+
+
 def findLikelyPackageName(packageName):
     statusYml = yaml.load(open('status.yml').read())
     packageNames = []
@@ -131,16 +137,9 @@ def processAction(action, packageName, scriptName):
                 status = FAIL
         elif action == RECONCILE:
             status = bc.reconcileSystem()
-        elif action == INSTALL:
-            status = bc.installPackage(packageName)
-        elif action == CONFIGURE:
-            status = bc.configurePackage(packageName)
-        elif action == VERIFY:
-            status = bc.verifyPackage(packageName)
-        elif action == UNINSTALL:
-            status = bc.uninstallPackage(packageName)
-        elif action == EXECUTE:
-            status = bc.executeMaintScript(packageName, scriptName)
+        else:
+            status = bc.usePackage(packageName, actionDict[action], scriptName)
+
         if status == OK:
             logger.info( "COMPLETED SUCCESSFULLY" )
         else:
