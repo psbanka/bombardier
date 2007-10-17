@@ -173,8 +173,7 @@ class Bombardier:
         self.operatingSystem    = operatingSystem
         self.addPackages = {}
         self.delPackages = {}
-        self.refreshProgressData()
-
+        
     ### TESTED
     def dependenciesInstalled(self, bomPackageNames):
         installedDependencies = []
@@ -285,14 +284,11 @@ class Bombardier:
             Logger.info( "CHAIN %s; priority: %s; items: %s" % (ordinal, priority, chain))
             ordinal += 1
 
-    def refreshProgressData(self):
-        self.progressData = self.filesystem.getProgressData(stripVersionFromName = True)
-        self.progressDataFull = self.filesystem.getProgressData(stripVersionFromName = False)
-
     # TESTED
     def createPackageChains(self, packageDict):
         chains = []
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(self.progressData)
+        packageData = self.filesystem.getProgressData(stripVersionFromName = True)
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(packageData)
         for packageName in packageDict.keys():
             if packageName in brokenPackageNames:
                 Logger.warning("Skipping broken package %s" % packageName)
@@ -334,9 +330,9 @@ class Bombardier:
         - A package chain can have a single package in it if it does not
         have any dependencies and is not dependent on others."""
 
-        self.refreshProgressData()
         chains = self.createPackageChains(packageDict)
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(self.progressData)
+        progressData = self.filesystem.getProgressData(stripVersionFromName = True)
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         # - Put all the packages of each chain into the installation
         # order, excluding those that have already been installed in order
         # of chain priority. If a package is already in the installation
@@ -352,6 +348,36 @@ class Bombardier:
                                 installOrder.append(packageName)
                     chains.remove([priority, chain])
         return installOrder # returns a list of packageNames in the correct installation order
+
+#    def getSources(self, installList):
+#        source = {} # this is a dictionary of package name: groups it comes from
+#        pkgGroups,individualPackageNames  = self.config.getPackageGroups()
+#        for packageName in installList:
+#            source[packageName] = []
+#            for groupName in pkgGroups:
+#                groupPackages = self.server.bomRequest(groupName)
+#                if packageName in groupPackages:
+#                    source[packageName].append(groupName)
+#        for packageName in individualPackageNames:
+#            source[packageName] = ["Individually-selected"]
+#        return source
+#
+#    def getDetailedTodolist(self, installList):
+#        '''This returns a list of strings, of the form
+#        "package,packageGroup", or if the package comes from more than
+#        one packagegroup, it will return
+#        "package,packageGroup1/packageGroup2". If the package does not
+#        have any packageGroups, it will return
+#        "package,<<dependency>>"'''
+#        
+#        source = self.getSources(installList)
+#        output = []
+#        for packageName in source.keys():
+#            if len(source[packageName]) == 0:
+#                output.append("%s,<<dependency>>" % (packageName))
+#            else:
+#                output.append("%s,%s" % (packageName, "/".join(source[packageName])))
+#        return output
 
     def preboot(self, packageName):
         Logger.warning("Package %s wants the system to "\
@@ -378,7 +404,6 @@ class Bombardier:
                 Logger.info("Packages remaining to install (in order): %s" % packageNamesLeft)
                 packageNamesLeft.remove(packageName)
                 package = self.addPackages[packageName]
-                self.filesystem.updateProgress({"status": {"package":packageName}}, self.server)
                 erstr = "Currently installing package "\
                         "priority %s [%s]" % (package.priority, packageName)
                 Logger.info(erstr)
@@ -528,7 +553,8 @@ class Bombardier:
 
     ### TESTED
     def getPackagesToRemove(self, delPackageNames):
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(self.progressData)
+        progressData = self.filesystem.getProgressData(stripVersionFromName = True)
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         packageDict = self.createPackageDict(delPackageNames, UNINSTALL)
         if sets.Set(installedPackageNames) == sets.Set(packageDict.keys()):
             return packageDict
@@ -580,7 +606,8 @@ class Bombardier:
         shouldn't be."""
         shouldBeInstalled = []
         shouldntBeInstalled = []
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(self.progressData)
+        progressData = self.filesystem.getProgressData(stripVersionFromName = True)
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         dependencyErrors = self.dependenciesInstalled(bomPackageNames)
         if dependencyErrors:
             errmsg = "The following packages are installed as "\
@@ -597,7 +624,8 @@ class Bombardier:
 
     def verifySystem(self):
         self.server.clearCache()
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(self.progressDataFull)
+        progressData = self.filesystem.getProgressData()
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         testResults = {}
 
         for fullPackageName in installedPackageNames:
@@ -611,16 +639,19 @@ class Bombardier:
                 Logger.warning(errmsg)
                 self.filesystem.warningLog(errmsg, self.server)
                 continue
+            
+            interval = package.metaData.get('verify','verifyInterval', VERIFY_INTERVAL)
 
-            if not self.progressDataFull.has_key(package.fullName):
-                continue
+            if not progressData.has_key(package.fullName): # don't verify if the package isn't installed
+                return {}
             Logger.info("Trying to verify %s" % package.name) 
-            timeString = self.progressDataFull[package.fullName]['VERIFIED']
+            timeString = progressData[package.fullName]['VERIFIED']
             timer = time.mktime(time.strptime(timeString))
 
-            package.action = VERIFY
-            package.verify()
-            testResults[shortPackageName] = package.status
+            if timer + interval <= time.time():
+                package.action = VERIFY
+                package.verify()
+                testResults[shortPackageName] = package.status
 
         return testResults
 
@@ -676,7 +707,8 @@ class Bombardier:
     def checkSystem(self, packageNames = None):
         if self.checkInstallationStatus(packageNames) != OK:
             return FAIL
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(self.progressData)
+        progressData = self.filesystem.getProgressData(stripVersionFromName = True)
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         shouldBeInstalled, shouldntBeInstalled = self.checkBom(self.packageNames)
         # check the configuration for each installed package
         packageInfo = {"ok":installedPackageNames,
@@ -701,77 +733,34 @@ class Bombardier:
                     packageInfo["ok"].remove(packageName)
         return packageInfo
 
-    def installPackage(self, packageName):
-        self.addPackages = self.getPackagesToAdd([packageName])
-        package = self.addPackages[packageName]
-        if self.progressData.has_key(package.fullName):
-            progressData[package.fullName] = {"INSTALLED": "NA", "UNINSTALLED": "NA", "VERIFIED": "NA"}
-        self.filesystem.updateProgress({"install-progress":self.progressDataFull},
-                                       self.server, overwrite=True)
-        status = self.installPackages()
-        return self.cleanup(status, logmessage="Finished installing.")
-
-    def uninstallPackage(self, packageName):
+    def usePackage(self, packageName, action, scriptName=''):
         try:
             package = Package.Package(packageName, self.repository,
                                       self.config, self.filesystem,
                                       self.server, self.operatingSystem)
             package.initialize()
-            status = package.uninstall()
+            if action == 'install':
+                status = package.process()
+            if action == 'uninstall':
+                status = package.uninstall()
+            if action == 'verify':
+                status = package.verify()
+            if action == 'configure':
+                if self.checkConfiguration(package) == FAIL:
+                    return FAIL
+                else:
+                    status = package.configure()
+                    hashPath = os.path.join(miniUtility.getPackagePath(), package.fullName, HASH_FILE)
+                    Logger.info("writing configuration fingerprint to %s" % hashPath)
+                    self.config.saveHash(hashPath)
+            if action == 'execute':
+                status = package.executeMaintScript(scriptName)
             return self.cleanup(status, logmessage="Finished installing.")
         except Exceptions.BadPackage, e:
             errmsg = "Cannot uninstall bad package %s: %s" % (e.packageName, e.errmsg)
             Logger.warning(errmsg)
             self.filesystem.warningLog(errmsg, self.server)
             return FAIL
-
-    def verifyPackage(self, packageName):
-        try:
-            package = Package.Package(packageName, self.repository,
-                                      self.config, self.filesystem,
-                                      self.server, self.operatingSystem)
-            package.initialize()
-            status = package.verify()
-            return self.cleanup(status, logmessage="Finished verifying.")
-        except Exceptions.BadPackage, e:
-            errmsg = "Cannot verify bad package %s: %s" % (e.packageName, e.errmsg)
-            Logger.warning(errmsg)
-            self.filesystem.warningLog(errmsg, self.server)
-            return FAIL
-
-    def executeMaintScript(self, packageName, scriptName):
-        try:
-            package = Package.Package(packageName, self.repository,
-                                      self.config, self.filesystem,
-                                      self.server, self.operatingSystem)
-            package.initialize()
-            status = package.executeMaintScript(scriptName)
-            return self.cleanup(status, logmessage="Finished running %s." %scriptName)
-        except Exceptions.BadPackage, e:
-            errmsg = "Cannot run maintenance script %s for bad package %s: %s" % (scriptName, e.packageName, e.errmsg)
-            Logger.warning(errmsg)
-            self.filesystem.warningLog(errmsg, self.server)
-            return FAIL
-
-    def configurePackage(self, packageName):
-        try:
-            package = Package.Package(packageName, self.repository,
-                                      self.config, self.filesystem,
-                                      self.server, self.operatingSystem)
-            package.initialize()
-            if self.checkConfiguration(package) == FAIL:
-                return FAIL
-            else:
-                status = package.configure()
-                hashPath = os.path.join(miniUtility.getPackagePath(), package.fullName, HASH_FILE)
-                Logger.info("writing configuration fingerprint to %s" % hashPath)
-                self.config.saveHash(hashPath)
-                return self.cleanup(status, logmessage="Finished installing.")
-        except Exceptions.BadPackage, e:
-            errmsg = "Cannot configure bad package %s: %s" % (e.packageName, e.errmsg)
-            Logger.warning(errmsg)
-            self.filesystem.warningLog(errmsg, self.server)
-
 
 if __name__ == "__main__":
     message =  """NOTE: This program is no longer

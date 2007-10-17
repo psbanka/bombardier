@@ -362,12 +362,10 @@ class Package:
                 self.operatingSystem.restartOnLogon()
                 self.writeProgress()
             self.install(packageList)
-            Logger.info("Install result: %s" % self.status)
             if self.status == PREBOOT:
                 return PREBOOT
             if self.status == OK:
                 self.verify()
-                Logger.info("Verify result: %s" % self.status)
             self.writeProgress()
             return self.status
         Logger.error("Unknown action: [%s]" % self.action)
@@ -402,6 +400,7 @@ class Package:
         Logger.info(message)
         self.preload()
         self.status = self.findCmd(INSTALL, packageList)
+        Logger.info("Install result: %s" % self.status)
         return self.status
     
     def executeMaintScript(self, scriptName):
@@ -429,6 +428,7 @@ class Package:
         self.status = self.findCmd(VERIFY)
         if self.action != INSTALL:
             self.writeProgress()
+        Logger.info("Verify result: %s" % self.status)
         return self.status
 
     # TESTED

@@ -248,7 +248,7 @@ class Filesystem:
         data = self.loadCurrent()
         try:
             intData = miniUtility.integrate(data, dictionary, overwrite)
-            yamlString = yaml.dump(intData)
+            yamlString = yaml.dump(intData, default_flow_style=False)
             fh = open(tmpPath, 'w')
             fh.write(yamlString)
             fh.flush()
