@@ -8,6 +8,9 @@ from bombardier.staticData import OK, FAIL
 import StringIO
 import traceback
 
+
+DEBUG = False
+
 DEFAULT_PASSWORD = "defaultPassword.b64"
 TMP_FILE = "tmp.yml"
 DOT_LENGTH = 20
@@ -44,6 +47,7 @@ class ClientUnavailableException(Exception):
         return "Unable to connect to %s (%s)" % (self.server, self.errmsg)
 
 def scp(source, dest, hostname, username, password):
+    print "==> sending %s" % source
     sshNewkey = 'Are you sure you want to continue connecting'
     s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, username, hostname, dest), timeout=30)
     i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=30)
@@ -59,7 +63,8 @@ def scp(source, dest, hostname, username, password):
     if i == 2:
         s.sendline(password)
     if i == 3:
-        print '==> Used shared key for authentication.'
+        #print '==> Used shared key for authentication.'
+        pass
     s.expect(pexpect.EOF)
     s.close()
     #print "Sent %s to %s:%s" % (source, hostname, dest)
@@ -157,7 +162,7 @@ class remoteClient:
                 sys.stdout.write('.')
                 sys.stdout.flush()
             self.s.send(chunk)
-        print "\n"
+        print
 
     def sendClient(self, data):
         client = Client.Client(self.hostname)
@@ -183,6 +188,8 @@ class remoteClient:
             if grepInfo:
                 if function:
                     function(grepInfo[0])
+                    return True
+        return False
 
     def reconcile(self):
         print "==> Connecting..."
@@ -198,7 +205,7 @@ class remoteClient:
             packageString = ' '.join(self.packageNames)
             cmd = '%s bc.py %s %s %s' % (self.python, ACTION_DICT[self.action], packageString, self.scriptName)
             self.s.sendline(cmd)
-            print "==> Ran %s on the server" % cmd
+            #print "==> Ran %s on the server" % cmd
             foundIndex = 0
             returnCode = 0
             while True:
@@ -220,12 +227,14 @@ class remoteClient:
                         print "==> invalid returncode: %s" % self.s.before
                     break
                 type, message = self.s.match.groups()
-                print "[FROM %s]: %s" % (self.hostname, message)
                 if type == "DEBUG":
+                    if DEBUG == True:
+                        print "[FROM %s]: %s" % (self.hostname, message)
                     continue
                 message=message.strip()
-                if type != "DEBUG":
-                    self.processMessage(message)
+                if self.processMessage(message) == False:
+                    print "[FROM %s]: %s" % (self.hostname, message)
+
             if returnCode == 2:
                 print "==========REBOOT"
         except Exception, e:
