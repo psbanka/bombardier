@@ -7,11 +7,8 @@ import Client
 from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
 import StringIO
 import traceback
+from RemoteClient import RemoteClient
 
-
-DEBUG = False
-
-DEFAULT_PASSWORD = "defaultPassword.b64"
 TMP_FILE = "tmp.yml"
 DOT_LENGTH = 20
 
@@ -31,72 +28,13 @@ ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i',
 
 RETURN_DICT = {OK: 'OK', FAIL: 'FAIL', REBOOT: 'REBOOT', PREBOOT: 'PREBOOT'}
 
-def getClient(serverName):
-    client = Client.Client(serverName)
-    status = client.downloadClient()
-    if status == FAIL:
-        print "==> Could not find valid configuration data for this host. Exiting."
-        sys.exit()
-    return client.data
-
-class ClientUnavailableException(Exception):
-    def __init__(self, server, errmsg):
-        e = Exception()
-        Exception.__init__(e)
-        self.server = server
-        self.errmsg = errmsg
-    def __repr__(self):
-        return "Unable to connect to %s (%s)" % (self.server, self.errmsg)
-
-def scp(source, dest, hostname, username, password):
-    print "==> sending %s" % source
-    sshNewkey = 'Are you sure you want to continue connecting'
-    s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, username, hostname, dest), timeout=30)
-    i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=30)
-    if i == 0:
-        raise ClientUnavailableException(dest, s.before+'|'+s.after)
-    if i == 1:
-        s.sendline('yes')
-        s.expect('[pP]assword: ', timeout=30)
-        i = s.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=30)
-        if i == 0:
-            raise ClientUnavailableException(dest, s.before+'|'+s.after)
-        s.sendline(password)
-    if i == 2:
-        s.sendline(password)
-    if i == 3:
-        #print '==> Used shared key for authentication.'
-        pass
-    s.expect(pexpect.EOF)
-    s.close()
-    #print "Sent %s to %s:%s" % (source, hostname, dest)
-    return OK
-
-class remoteClient:
+class BombardierRemoteClient(RemoteClient):
 
     def __init__(self, hostname, action, packageNames, scriptName):
-        self.hostname     = hostname
-        info = getClient(self.hostname)
-        self.username     = info["defaultUser"]
+        RemoteClient.__init__(self, hostname)
         self.action       = action
         self.scriptName   = scriptName
-        self.ipAddress    = info["ipAddress"]
-        self.platform     = info["platform"]
-        if self.platform == 'win32':
-            self.python  = '/cygdrive/c/Python25/python.exe'
-            self.spkgDir = '/cygdrive/c/spkg'
-        else:
-            self.python  = '/usr/local/bin/python2.4'
-            self.spkgDir = '/opt/spkg'
         self.packageNames = packageNames
-        if 'sharedKeys' not in info:
-            if os.path.isfile("defaultPassword.b64"):
-                print "==> Using default password"
-                self.password = base64.decodestring(open(DEFAULT_PASSWORD).read())
-            else:
-                self.password  = getpass.getpass( "Enter password for %s: "% self.username )
-        else:
-            self.password = ''
         self.stateMachine = []
         self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendClient])
         self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)"), self.sendBom])
@@ -106,8 +44,12 @@ class remoteClient:
         self.stateMachine.append([re.compile("Verify result: (\d)"), self.verifyResult])
         self.logMatcher = re.compile( "\d+\-\d+\-\d+\s\d+\:\d+\:\d+\,\d+\|([A-Z]+)\|(.+)\|" )
         self.traceMatcher = re.compile( "\|\|\>\>\>(.+)" )
-        self.s = pxssh.pxssh()
-        self.s.timeout = 6000
+        if self.platform == 'win32':
+            self.python  = '/cygdrive/c/Python25/python.exe'
+            self.spkgDir = '/cygdrive/c/spkg'
+        else:
+            self.python  = '/usr/local/bin/python2.4'
+            self.spkgDir = '/opt/spkg'
 
     def verifyResult(self, result):
         print "============================================="
@@ -194,16 +136,10 @@ class remoteClient:
         return False
 
     def reconcile(self):
-        print "==> Connecting..."
+        self.connect()
         returnCode = OK
         try:
-            if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):
-                print "==> SSH session failed on login."
-                print str(self.s)
-                sys.exit(1)
             self.s.sendline ('cd %s' %self.spkgDir)
-            self.s.prompt()
-            self.s.sendline('stty -echo')
             self.s.prompt()
             packageString = ' '.join(self.packageNames)
             cmd = '%s bc.py %s %s %s' % (self.python, ACTION_DICT[self.action], packageString, self.scriptName)
@@ -248,7 +184,7 @@ class remoteClient:
                 ermsg += "\n||>>>%s" % line
             print ermsg
         finally:
-            self.s.logout()
+            self.disconnect()
         return returnCode
 
 
@@ -309,5 +245,5 @@ if __name__ == "__main__":
         packageNames = []
 
     serverName = args[0]
-    r = remoteClient(serverName, options.action, packageNames, scriptName)
+    r = BombardierRemoteClient(serverName, options.action, packageNames, scriptName)
     sys.exit(r.reconcile())
