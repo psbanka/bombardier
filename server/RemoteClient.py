@@ -9,7 +9,6 @@ import StringIO
 import traceback
 
 
-DEBUG = False
 DEFAULT_PASSWORD = "defaultPassword.b64"
 DOT_LENGTH = 20
 
@@ -29,30 +28,6 @@ class ClientUnavailableException(Exception):
         self.errmsg = errmsg
     def __repr__(self):
         return "Unable to connect to %s (%s)" % (self.server, self.errmsg)
-
-def scp(source, dest, hostname, username, password):
-    print "==> sending %s" % source
-    sshNewkey = 'Are you sure you want to continue connecting'
-    s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, username, hostname, dest), timeout=30)
-    i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=30)
-    if i == 0:
-        raise ClientUnavailableException(dest, s.before+'|'+s.after)
-    if i == 1:
-        s.sendline('yes')
-        s.expect('[pP]assword: ', timeout=30)
-        i = s.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=30)
-        if i == 0:
-            raise ClientUnavailableException(dest, s.before+'|'+s.after)
-        s.sendline(password)
-    if i == 2:
-        s.sendline(password)
-    if i == 3:
-        #print '==> Used shared key for authentication.'
-        pass
-    s.expect(pexpect.EOF)
-    s.close()
-    #print "Sent %s to %s:%s" % (source, hostname, dest)
-    return OK
 
 class RemoteClient:
 
@@ -93,6 +68,30 @@ class RemoteClient:
                 ermsg += "\n||>>>%s" % line
             print ermsg
             self.s.logout()
+
+    def scp(self, source, dest):
+        print "==> sending %s" % source
+        sshNewkey = 'Are you sure you want to continue connecting'
+        s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest), timeout=30)
+        i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=30)
+        if i == 0:
+            raise ClientUnavailableException(dest, s.before+'|'+s.after)
+        if i == 1:
+            s.sendline('yes')
+            s.expect('[pP]assword: ', timeout=30)
+            i = s.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=30)
+            if i == 0:
+                raise ClientUnavailableException(dest, s.before+'|'+s.after)
+            s.sendline(self.password)
+        if i == 2:
+            s.sendline(self.password)
+        if i == 3:
+            #print '==> Used shared key for authentication.'
+            pass
+        s.expect(pexpect.EOF)
+        s.close()
+        #print "Sent %s to %s:%s" % (source, self.hostname, dest)
+        return OK
 
     def disconnect(self):
         self.s.logout()

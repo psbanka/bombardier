@@ -12,6 +12,7 @@ from RemoteClient import RemoteClient
 TMP_FILE = "tmp.yml"
 DOT_LENGTH = 20
 
+DEBUG     = False
 UNINSTALL = 0
 CONFIGURE = 1
 INSTALL   = 2
@@ -75,7 +76,7 @@ class BombardierRemoteClient(RemoteClient):
         if not os.path.isfile(filename):
             print "Client requested a file that is not on this server: %s" % filename
             self.s.send(`FAIL`)
-        scp(filename, path, self.ipAddress, self.username, self.password)
+        self.scp(filename, path)
         self.s.send("OK\n")
 
     def streamData(self, filename):
@@ -168,7 +169,7 @@ class BombardierRemoteClient(RemoteClient):
                     break
                 type, message = self.s.match.groups()
                 if type == "DEBUG":
-                    if DEBUG == True:
+                    if DEBUG:
                         print "[FROM %s]: %s" % (self.hostname, message)
                     continue
                 message=message.strip()
