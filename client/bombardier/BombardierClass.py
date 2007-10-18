@@ -682,8 +682,8 @@ class Bombardier:
             logmessage += `e`
             return self.cleanup(OK, logmessage)
         Logger.info("Packages to install: %s" % self.addPackages.keys())
-        removefullPackageNames = [self.delPackages[x].fullName for x in self.delPackages.keys()]
-        Logger.info("Packages to remove: %s" % removeFullPackageNames))
+        removeFullPackageNames = [self.delPackages[x].fullName for x in self.delPackages.keys()]
+        Logger.info("Packages to remove: %s" % removeFullPackageNames)
         return OK
 
     ### TESTED
