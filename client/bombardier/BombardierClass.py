@@ -528,7 +528,7 @@ class Bombardier:
             newDependencyNames = []
             delPackageNames = []
             for packageName in installedPackageNames:
-                Logger.info("checking dependencies of %s" % packageName)
+                #Logger.info("checking dependencies of %s" % packageName)
                 if packageName in packageDict.keys():
                     Logger.debug("Package %s will already be deleted -- "\
                                  "ignoring" % packageName)
