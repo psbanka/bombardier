@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import pxssh, pexpect
-import sys, re, glob, sys, optparse, os, getpass, base64
+import sys, os, getpass, base64
 import yaml
 import Client
 from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
