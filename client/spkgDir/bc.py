@@ -197,16 +197,19 @@ if __name__ == "__main__":
             parser.print_help()
             sys.exit( 1 )
         packageNames = args
-    if options.action == EXECUTE:
-        if len(args) != 2:
-            print "This command requires a package name and a script name."
-            parser.print_help()
-            sys.exit( 1 )
-        packageNames = args[:-1]
-        scriptName = args[-1]
+        if options.action == EXECUTE:
+            if len(args) != 2:
+                print "This command requires a package name and a script name."
+                parser.print_help()
+                sys.exit( 1 )
+            packageNames = args[:-1]
+            scriptName = args[-1]
 
-    for packageName in packageNames:
+        for packageName in packageNames:
+            status = processAction(options.action, packageName, scriptName)
+            if status != OK:
+                 sys.exit(status)
+    else:
         status = processAction(options.action, packageName, scriptName)
-        if status != OK:
-            sys.exit(status)
-    sys.exit(OK)
+    
+    sys.exit(status)
