@@ -179,5 +179,6 @@ class Spkg:
             self.filesystem.open(outputFile, 'w').write(outputData)
         else:
             self.filesystem.open(outputFile, 'wb').write(outputData.encode( encoding ))
-        self.info( "\nCreated: " + outputFile + "\nTemplate: " + inputFile + "\n" )
+        self.info("Template: " + inputFile )
+        self.info("Created: " + outputFile )
         return status
