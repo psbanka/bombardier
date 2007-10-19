@@ -28,6 +28,31 @@
 import sys, os, shutil
 from bombardier.miniUtility import getSpkgPath
 
+def updateSpkgDir(startDir, pythonPath):
+    print "Cleaning spkgDir..."
+    spkgPath = getSpkgPath()
+    os.chdir( spkgPath )
+    for i in os.listdir('.'):
+        if os.path.isfile(i) and i != 'status.yml' and 'bombardier.log' not in i:
+            os.unlink( i )
+        else:
+            print "SAVED: %s" %i
+
+    os.chdir( "%s/spkgDir" %startDir )
+    os.system( "%s setup.py install %s" %(pythonPath, spkgPath) )
+    os.chdir( startDir )
+
+def updateBombardier(startDir, pythonPath):
+    os.chdir( startDir )
+    for s in sys.path:
+        if s.endswith('site-packages') and 'bombardier' in os.listdir(s):
+            os.chdir(s)
+            os.system('rm -rf bombardier')
+            print "DELETED: bombardier"
+            os.chdir(startDir)
+
+    os.system( "%s bombardier/setup.py install" %pythonPath )
+
 def updatePython():
     print "Updating python libraries."
     if sys.platform == "win32":
@@ -35,14 +60,9 @@ def updatePython():
     else:
         pythonPath = os.path.join(sys.prefix, "bin", "python2.4")
 
-    spkgPath = getSpkgPath()
     startDir = os.getcwd()
-
-    os.chdir( "spkgDir" )
-    os.system( "%s setup.py install %s" %(pythonPath, spkgPath) )
-    os.chdir( startDir )
-    
-    os.system( "%s bombardier/setup.py install" %pythonPath )
+    updateSpkgDir(startDir, pythonPath)
+    updateBombardier(startDir, pythonPath)
 
 if __name__ == '__main__':
     updatePython()
