@@ -57,6 +57,15 @@ def main(cls):
         status = FAIL
     sys.exit(status)
 
+def dumpReport(report, config, logger):
+    import miniUtility
+    outputPath = os.path.join(miniUtility.getSpkgPath(), "output")
+    if not os.path.isdir(outputPath):
+        os.makedirs(outputPath)
+    scriptName = sys.argv[-1].split(".py")[0]
+    outputFile = "%s-output.yml" % scriptName
+    open(os.path.join(outputPath, outputFile), 'w').write(yaml.dump(report))
+
 class Spkg:
 
     def __init__(self, config, filesystem = Filesystem.Filesystem(), futurePackages = [], logger = None):
