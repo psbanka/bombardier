@@ -400,7 +400,7 @@ class Package:
         Logger.info(message)
         self.preload()
         self.status = self.findCmd(INSTALL, packageList)
-        Logger.info("Install result: %s" % self.status)
+        Logger.info("Install result for %s : %s" % (self.fullName, self.status))
         return self.status
     
     def executeMaintScript(self, scriptName):
@@ -428,7 +428,7 @@ class Package:
         self.status = self.findCmd(VERIFY)
         if self.action != INSTALL:
             self.writeProgress()
-        Logger.info("Verify result: %s" % self.status)
+        Logger.info("Verify result for %s : %s" % (self.fullName, self.status))
         return self.status
 
     # TESTED
@@ -440,6 +440,7 @@ class Package:
         Logger.info("Uninstalling package %s" % self.name)
         self.status = self.findCmd(UNINSTALL)
         self.writeProgress()
+        Logger.info("Uninstall result for %s : %s" % (self.fullName, self.status))
         return self.status
 
     # TESTED

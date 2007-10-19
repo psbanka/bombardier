@@ -756,7 +756,7 @@ class Bombardier:
                     self.config.saveHash(hashPath)
             if action == 'execute':
                 status = package.executeMaintScript(scriptName)
-            return self.cleanup(status, logmessage="Finished installing.")
+            return self.cleanup(status, logmessage="Finished %s for %s." %(action, packageName))
         except Exceptions.BadPackage, e:
             errmsg = "Cannot uninstall bad package %s: %s" % (e.packageName, e.errmsg)
             Logger.warning(errmsg)

@@ -140,10 +140,6 @@ def processAction(action, packageName, scriptName):
         else:
             status = bc.usePackage(packageName, actionDict[action], scriptName)
 
-        if status == OK:
-            logger.info( "COMPLETED SUCCESSFULLY" )
-        else:
-            logger.error( "======================\n\n%s\n" % yaml.dump(status))
         bc.filesystem.clearLock()
     except:
         e = StringIO.StringIO()
@@ -155,7 +151,7 @@ def processAction(action, packageName, scriptName):
             ermsg += "\n||>>>%s" % line
         logger.error(ermsg)
         return FAIL
-    return OK
+    return status
 
 if __name__ == "__main__":
     import optparse
@@ -200,13 +196,17 @@ if __name__ == "__main__":
             print "This command requires a package name as an argument."
             parser.print_help()
             sys.exit( 1 )
-        packageName = args[0]
+        packageNames = args
     if options.action == EXECUTE:
         if len(args) != 2:
             print "This command requires a package name and a script name."
             parser.print_help()
             sys.exit( 1 )
-        scriptName = args[1]
+        packageNames = args[:-1]
+        scriptName = args[-1]
 
-    status = processAction(options.action, packageName, scriptName)
-    sys.exit(status)
+    for packageName in packageNames:
+        status = processAction(options.action, packageName, scriptName)
+        if status != OK:
+            sys.exit(status)
+    sys.exit(OK)
