@@ -60,7 +60,7 @@ class BombardierRemoteClient(RemoteClient):
     def install(self, packageName):
         print 
         print "============================================="
-        print " CLIENT INSTALLING %s" % packageName
+        print " %s INSTALLING %s" %(self.hostname, packageName)
         print "============================================="
 
     def sendPackage(self, data):
