@@ -46,7 +46,7 @@ def prepareBombardierClient():
     version = int(re.compile("Last Changed Rev\: (\d+)").findall(output)[0])
     filename = "bomClient-%d.tar.gz" % version
     #cmd = 'tar -czvf /tmp/%s --exclude "*.pyc" --exclude "*.svn" *' % filename
-    cmd = 'tar -czvf /tmp/%s --exclude "*.pyc" *' % filename
+    cmd = 'tar -czvf /tmp/%s --exclude "*.pyc" .svn *' % filename
     print "==> creating tarball..."
     status, output = commands.getstatusoutput(cmd)
     if status != OK:

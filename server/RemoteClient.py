@@ -49,7 +49,7 @@ class RemoteClient:
         self.s.timeout = 6000
 
     def connect(self):
-        print "==> Connecting..."
+        print "==> Connecting to %s..." %self.hostname
         returnCode = OK
         try:
             if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):

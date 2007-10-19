@@ -41,8 +41,7 @@ class BombardierRemoteClient(RemoteClient):
         self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)"), self.sendBom])
         self.stateMachine.append([re.compile("\=\=REQUEST-PACKAGE\=\=:(.+):(.+)"), self.sendPackage])
         self.stateMachine.append([re.compile("Beginning installation of \((\S+)\)"), self.install])
-        self.stateMachine.append([re.compile("Install result: (\d)"), self.installResult])
-        self.stateMachine.append([re.compile("Verify result: (\d)"), self.verifyResult])
+        self.stateMachine.append([re.compile("(\S+) result for (\S+) : (\d)"), self.actionResult])
         self.logMatcher = re.compile( "\d+\-\d+\-\d+\s\d+\:\d+\:\d+\,\d+\|([A-Z]+)\|(.+)\|" )
         self.traceMatcher = re.compile( "\|\|\>\>\>(.+)" )
         if self.platform == 'win32':
@@ -52,16 +51,10 @@ class BombardierRemoteClient(RemoteClient):
             self.python  = '/usr/local/bin/python2.4'
             self.spkgDir = '/opt/spkg'
 
-    def verifyResult(self, result):
+    def actionResult(self, data):
+        action, packageName, result = data
         print "============================================="
-        if result == '0':
-            print "VERIFY SUCCESSFUL"
-        print "============================================="
-
-    def installResult(self, result):
-        print "============================================="
-        if result == '0':
-            print "INSTALL SUCCESSFUL"
+        print "%s %s: %s" %(action.upper(), RETURN_DICT[int(result)], packageName)
         print "============================================="
 
     def install(self, packageName):
@@ -245,6 +238,7 @@ if __name__ == "__main__":
     else:
         packageNames = []
 
-    serverName = args[0]
-    r = BombardierRemoteClient(serverName, options.action, packageNames, scriptName)
-    sys.exit(r.reconcile())
+    serverNames = [s for s in args[0].split(' ') if len(s) ]
+    for serverName in serverNames:
+        r = BombardierRemoteClient(serverName, options.action, packageNames, scriptName)
+        r.reconcile()
