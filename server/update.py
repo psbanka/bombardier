@@ -64,13 +64,14 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(1)
 
-    serverName = args[0]
-    filename = prepareBombardierClient()
-    r = UpdateRemoteClient(serverName)
-    r.scp("/tmp/%s" % filename, filename)
-    os.unlink("/tmp/%s" % filename)
+    serverNames = [s for s in args[0].split(' ') if len(s) ]
+    for serverName in serverNames:
+        filename = prepareBombardierClient()
+        r = UpdateRemoteClient(serverName)
+        r.scp("/tmp/%s" % filename, filename)
+        os.unlink("/tmp/%s" % filename)
 
-    r.connect()
-    r.unpackClient(filename)
-    r.srcUpdate()
-    r.disconnect()
+        r.connect()
+        r.unpackClient(filename)
+        r.srcUpdate()
+        r.disconnect()
