@@ -349,36 +349,6 @@ class Bombardier:
                     chains.remove([priority, chain])
         return installOrder # returns a list of packageNames in the correct installation order
 
-#    def getSources(self, installList):
-#        source = {} # this is a dictionary of package name: groups it comes from
-#        pkgGroups,individualPackageNames  = self.config.getPackageGroups()
-#        for packageName in installList:
-#            source[packageName] = []
-#            for groupName in pkgGroups:
-#                groupPackages = self.server.bomRequest(groupName)
-#                if packageName in groupPackages:
-#                    source[packageName].append(groupName)
-#        for packageName in individualPackageNames:
-#            source[packageName] = ["Individually-selected"]
-#        return source
-#
-#    def getDetailedTodolist(self, installList):
-#        '''This returns a list of strings, of the form
-#        "package,packageGroup", or if the package comes from more than
-#        one packagegroup, it will return
-#        "package,packageGroup1/packageGroup2". If the package does not
-#        have any packageGroups, it will return
-#        "package,<<dependency>>"'''
-#        
-#        source = self.getSources(installList)
-#        output = []
-#        for packageName in source.keys():
-#            if len(source[packageName]) == 0:
-#                output.append("%s,<<dependency>>" % (packageName))
-#            else:
-#                output.append("%s,%s" % (packageName, "/".join(source[packageName])))
-#        return output
-
     def preboot(self, packageName):
         Logger.warning("Package %s wants the system to "\
                        "reboot before installing..." % packageName) # FIXME
@@ -741,7 +711,14 @@ class Bombardier:
                                       self.server, self.operatingSystem)
             package.initialize()
             if action == 'install':
-                status = package.process()
+                progressData = self.filesystem.getProgressData(stripVersionFromName = False)
+                installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
+                for p in installedPackageNames:
+                    if p.startswith(packageName):
+                        Logger.error( 'Package %s is already installed.' %p )
+                        return FAIL
+                self.addPackages = {packageName:package}
+                status = self.installPackages()
             if action == 'uninstall':
                 status = package.uninstall()
             if action == 'verify':
