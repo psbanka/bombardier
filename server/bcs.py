@@ -31,11 +31,12 @@ RETURN_DICT = {OK: 'OK', FAIL: 'FAIL', REBOOT: 'REBOOT', PREBOOT: 'PREBOOT'}
 
 class BombardierRemoteClient(RemoteClient):
 
-    def __init__(self, hostname, action, packageNames, scriptName):
+    def __init__(self, hostname, action, packageNames, scriptName, configPasswd):
         RemoteClient.__init__(self, hostname)
         self.action       = action
         self.scriptName   = scriptName
         self.packageNames = packageNames
+        self.configPasswd = configPasswd
         self.stateMachine = []
         self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendClient])
         self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)"), self.sendBom])
@@ -103,8 +104,9 @@ class BombardierRemoteClient(RemoteClient):
         print
 
     def sendClient(self, data):
-        client = Client.Client(self.hostname)
+        client = Client.Client(self.hostname, self.configPasswd)
         status = client.downloadClient()
+        client.decryptConfig()
         if status == FAIL:
             print "==> Could not find valid configuration data for this host. Exiting."
             sys.exit()
@@ -211,6 +213,9 @@ if __name__ == "__main__":
     parser.add_option("-p", "--purge", dest="action",
                       action="store_const", const=PURGE,
                       help="Remove a package from the client's status")
+    parser.add_option("-k", "--insecure", dest="insecure",
+                      action="store_true", default=False,
+                      help="Don't decrypt and send any sensitive data")
 
     (options, args) = parser.parse_args()
 
@@ -238,7 +243,12 @@ if __name__ == "__main__":
     else:
         packageNames = []
 
+    if options.insecure:
+        configPasswd = ''
+    else:
+        configPasswd = getpass.getpass("Enter client configuration password: ")
+
     serverNames = [s for s in args[0].split(' ') if len(s) ]
     for serverName in serverNames:
-        r = BombardierRemoteClient(serverName, options.action, packageNames, scriptName)
+        r = BombardierRemoteClient(serverName, options.action, packageNames, scriptName, configPasswd)
         r.reconcile()

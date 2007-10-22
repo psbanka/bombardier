@@ -13,7 +13,7 @@ DEFAULT_PASSWORD = "defaultPassword.b64"
 DOT_LENGTH = 20
 
 def getClient(serverName):
-    client = Client.Client(serverName)
+    client = Client.Client(serverName, '')
     status = client.downloadClient()
     if status == FAIL:
         print "==> Could not find valid configuration data for this host. Exiting."
@@ -69,10 +69,37 @@ class RemoteClient:
             print ermsg
             self.s.logout()
 
+    def processScp(self, s):
+        sshNewkey = 'Are you sure you want to continue connecting'
+        i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=30)
+        if i == 0:
+            raise ClientUnavailableException(dest, s.before+'|'+s.after)
+        if i == 1:
+            s.sendline('yes')
+            s.expect('[pP]assword: ', timeout=30)
+            i = s.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=30)
+            if i == 0:
+                raise ClientUnavailableException(dest, s.before+'|'+s.after)
+            s.sendline(self.password)
+        if i == 2:
+            s.sendline(self.password)
+        if i == 3:
+            #print '==> Used shared key for authentication.'
+            pass
+        s.expect(pexpect.EOF)
+        s.close()
+        #print "Sent %s to %s:%s" % (source, self.hostname, dest)
+        return OK
+
+    def get(self, destFile):
+        print "==> getting %s" % destFile
+        s = pexpect.spawn('scp -v %s@%s:%s .' % (self.username, self.ipAddress, destFile), timeout=30)
+        return self.processScp(s)
+
     def scp(self, source, dest):
         print "==> sending %s" % source
-        sshNewkey = 'Are you sure you want to continue connecting'
         s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest), timeout=30)
+        sshNewkey = 'Are you sure you want to continue connecting'
         i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=30)
         if i == 0:
             raise ClientUnavailableException(dest, s.before+'|'+s.after)
