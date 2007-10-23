@@ -418,6 +418,9 @@ class Package:
         sys.path.remove("%s/maint" %self.scriptsDir )
         if status == None:
             status = OK
+        if type(status) != type(1):
+            Logger.warning("Invalid status type (%s: '%s')" % (type(status), status))
+            status = FAIL
         return status
 
     # TESTED
