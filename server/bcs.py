@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import pxssh, pexpect
-import sys, re, glob, sys, optparse, os, getpass, base64
+import sys, re, sys, optparse, os, getpass, base64
 import yaml
 import Client
 from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
@@ -160,7 +160,7 @@ class BombardierRemoteClient(RemoteClient):
                         returnCode = int(self.s.before.strip())
                         print "\n\n==> RETURN CODE: %s\n" % RETURN_DICT[returnCode]
                     except:
-                        print "==> invalid returncode: %s" % self.s.before
+                        print "==> invalid returncode: ('%s')" % self.s.before
                     break
                 type, message = self.s.match.groups()
                 if type == "DEBUG":
@@ -183,6 +183,10 @@ class BombardierRemoteClient(RemoteClient):
             self.disconnect()
         return returnCode
 
+    def getScriptOutput(self):
+        filename = "%s-output.yml" % (self.scriptName)
+        self.get("%s/output/%s" % (self.spkgDir, filename))
+        return filename
 
 if __name__ == "__main__":
     parser = optparse.OptionParser("usage: %prog server-name [options] [package-names]")
@@ -249,6 +253,13 @@ if __name__ == "__main__":
         configPasswd = getpass.getpass("Enter client configuration password: ")
 
     serverNames = [s for s in args[0].split(' ') if len(s) ]
+    status = OK
     for serverName in serverNames:
         r = BombardierRemoteClient(serverName, options.action, packageNames, scriptName, configPasswd)
-        r.reconcile()
+        machineStatus = r.reconcile()
+        if status == OK:
+            status = machineStatus
+        if options.action == EXECUTE:
+            filename = r.getScriptOutput()
+            os.system("mv %s output" % filename)
+    sys.exit(status)
