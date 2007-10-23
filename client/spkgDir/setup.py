@@ -57,7 +57,7 @@ def setRegistry(spkgPath):
     import _winreg
     hklm = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, 'SOFTWARE')
     bomKey = _winreg.CreateKey(hklm,'GE-IT\\Bombardier')
-    _winreg.SetValue(bomKey, 'InstallPath', 0, _winreg.REG_SZ, spkgPath)
+    _winreg.SetValueEx(bomKey, 'InstallPath', 0, _winreg.REG_SZ, spkgPath)
 
 if __name__ == "__main__":
     try:
