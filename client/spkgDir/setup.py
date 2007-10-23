@@ -30,6 +30,9 @@ Prequisites:
 """
 
 def install(spkgPath):
+    setRegistry(spkgPath)
+    if not os.path.isdir(spkgPath):
+        os.makedirs(spkgPath)
     configFiles = [ 'repositoryDirectory.yml', 'status.yml' ]
     noFileWarningTemplate = "Warning! %s/%s does not exist. Not copying." 
     for inode in os.listdir("."):
@@ -49,6 +52,12 @@ def install(spkgPath):
             os.system("%s /s %s" % (regSvr, dll))
 
     sys.stdout.write("Successfully updated spkg.\n")
+
+def setRegistry(spkgPath):
+    import _winreg
+    hklm = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, 'SOFTWARE')
+    bomKey = _winreg.CreateKey(hklm,'GE-IT\\Bombardier')
+    _winreg.SetValue(bomKey, 'InstallPath', 0, _winreg.REG_SZ, spkgPath)
 
 if __name__ == "__main__":
     try:
