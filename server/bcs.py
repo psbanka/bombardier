@@ -179,8 +179,8 @@ class BombardierRemoteClient(RemoteClient):
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
             print ermsg
-        finally:
             self.disconnect()
+        self.disconnect()
         return returnCode
 
     def getScriptOutput(self):
