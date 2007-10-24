@@ -30,7 +30,6 @@ Prequisites:
 """
 
 def install(spkgPath):
-    setRegistry(spkgPath)
     if not os.path.isdir(spkgPath):
         os.makedirs(spkgPath)
     configFiles = [ 'repositoryDirectory.yml', 'status.yml' ]
@@ -66,8 +65,10 @@ if __name__ == "__main__":
     except:
         if sys.platform == "win32":
             spkgPath = "c:\\spkg"
+            setRegistry(spkgPath)
         else:
             spkgPath = "/opt/spkg"
+            open('/etc/bombardier.yml', 'w').write('---\nspkgPath: /opt/spkg\n')
     if len(sys.argv) > 2:
         if sys.argv[2] != "install":
             spkgPath = sys.argv[2]
