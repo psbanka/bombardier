@@ -64,7 +64,10 @@ if __name__ == "__main__":
         import bombardier.Config
         spkgPath = bombardier.Config.getSpkgPath()
     except:
-        spkgPath = "c:\\spkg"
+        if sys.platform == "win32":
+            spkgPath = "c:\\spkg"
+        else:
+            spkgPath = "/opt/spkg"
     if len(sys.argv) > 2:
         if sys.argv[2] != "install":
             spkgPath = sys.argv[2]
