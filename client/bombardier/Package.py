@@ -407,7 +407,10 @@ class Package:
         self.download()
         message = "Executing (%s) inside package (%s)" %(scriptName, self.fullName)
         Logger.info(message)
+        scriptDir = "%s/maint/" %(self.scriptsDir)
         scriptPath = "%s/maint/%s.py" %(self.scriptsDir, scriptName)
+        startDir = os.getcwd()
+        os.chdir(scriptDir)
         if not os.path.isfile(scriptPath):
             msg = "%s does not exist" %scriptPath
             raise Exceptions.BadPackage, (self.name, msg)
@@ -416,6 +419,7 @@ class Package:
         exec(importString)
         exec('status = %s.execute(self.config, Logger.logger)'%scriptName)
         sys.path.remove("%s/maint" %self.scriptsDir )
+        os.chdir(startDir)
         if status == None:
             status = OK
         if type(status) != type(1):
