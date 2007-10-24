@@ -31,11 +31,14 @@ class UpdateRemoteClient(RemoteClient):
         self.s.prompt()
         print self.s.before
 
-def prepareBombardierClient():
+def prepareBombardierClient(svnUser):
     cwd = os.getcwd()
     os.chdir("../client")
     print "==> updating client"
-    status, output = commands.getstatusoutput("svn update")
+    userStr = ''
+    if svnUser:
+        userStr = " --no-auth-cache --username %s"%svnUser
+    status, output = commands.getstatusoutput("svn %s update"%userStr)
     if status != OK:
         print "==> failed to update bombardier client"
         sys.exit(1)
@@ -56,17 +59,32 @@ def prepareBombardierClient():
     return filename
 
 if __name__ == "__main__":
+    NO_USER=0
+    USER=1
+    svnUser = None
+
     parser = optparse.OptionParser("usage: %prog server-name [server]")
+    parser.add_option("-u", "--svnUser", dest="svnUser",
+                      action="store_const", const=USER,
+                      help="Don't decrypt and send any sensitive data")
     (options, args) = parser.parse_args()
 
     if len(args) == 0:
         print "==> Need to provide a system name"
         parser.print_help()
         sys.exit(1)
+    servers = args[0]
+    if options.svnUser == USER:
+        if len(args) < 2:
+            print "==> Need to provide a user name with the -u option."
+            parser.print_help()
+            sys.exit(1)
+        svnUser = args[0]
+        servers = args[1]
 
-    serverNames = [s for s in args[0].split(' ') if len(s) ]
+    filename = prepareBombardierClient(svnUser)
+    serverNames = [s for s in servers.split(' ') if len(s) ]
     for serverName in serverNames:
-        filename = prepareBombardierClient()
         r = UpdateRemoteClient(serverName)
         r.scp("/tmp/%s" % filename, filename)
         os.unlink("/tmp/%s" % filename)
