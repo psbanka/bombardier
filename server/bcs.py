@@ -184,9 +184,11 @@ class BombardierRemoteClient(RemoteClient):
         return returnCode
 
     def getScriptOutput(self):
-        filename = "%s-output.yml" % (self.scriptName)
-        self.get("%s/output/%s" % (self.spkgDir, filename))
-        return filename
+        remoteFilename = "%s-output.yml" % (self.scriptName)
+        localFilename  = "%s-%s.yml" % (self.hostname, self.scriptName)
+        self.get("%s/output/%s" % (self.spkgDir, remoteFilename))
+        os.system("mv %s output/%s" % (remoteFilename, localFilename) )
+        return 
 
 if __name__ == "__main__":
     parser = optparse.OptionParser("usage: %prog server-name [options] [package-names]")
@@ -260,6 +262,5 @@ if __name__ == "__main__":
         if status == OK:
             status = machineStatus
         if options.action == EXECUTE:
-            filename = r.getScriptOutput()
-            os.system("mv %s output" % filename)
+            r.getScriptOutput()
     sys.exit(status)
