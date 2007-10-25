@@ -29,6 +29,9 @@ class Client:
         else:
             self.passwd = ''
 
+    def __getitem__(self, key):
+        return self.data[key]
+
     def findIncludeList(data):
         includeList = []
         for key in data.keys():
@@ -107,7 +110,9 @@ class DecryptionException(Exception):
 if __name__ == "__main__":
     import sys
     client = sys.argv[1]
-    passwd = getpass.getpass("Enter decryption password: ")
+    passwd = ''
+    if len(sys.argv) < 3:
+        passwd = getpass.getpass("Enter decryption password: ")
     config = Client(client, passwd)
     status = config.downloadClient()
     if status == FAIL:
