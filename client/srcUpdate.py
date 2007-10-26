@@ -28,8 +28,23 @@
 import sys, os, shutil
 from bombardier.miniUtility import getSpkgPath
 
+def setRegistry(spkgPath):
+    import _winreg
+    hklm = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, 'SOFTWARE')
+    bomKey = _winreg.CreateKey(hklm,'GE-IT\\Bombardier')
+    _winreg.SetValueEx(bomKey, 'InstallPath', 0, _winreg.REG_SZ, spkgPath)
+
 def updateSpkgDir(startDir, pythonPath):
     print "Cleaning spkgDir..."
+    try:
+        spkgPath = getSpkgPath()
+    except:
+        if sys.platform == "win32":
+            spkgPath = "c:\\spkg"
+            setRegistry(spkgPath)
+        else:
+            spkgPath = "/opt/spkg"
+            open('/etc/bombardier.yml', 'w').write('---\nspkgPath: /opt/spkg\n')
     spkgPath = getSpkgPath()
     os.chdir( spkgPath )
     for i in os.listdir('.'):
