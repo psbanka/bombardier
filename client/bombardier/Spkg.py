@@ -13,7 +13,7 @@ def doubleEscape(oldString):
 
 class SpkgException( Exception ):
     def __init__(self, errorMessage=""):
-        self.errorMessage = errorMessage
+        self.errorMessage = str(errorMessage)
         e = Exception()
         Exception.__init__(e)
     def __str__(self):
