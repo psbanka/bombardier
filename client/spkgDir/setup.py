@@ -30,8 +30,8 @@ Prequisites:
 """
 
 def install(spkgPath):
-    if not os.path.isdir(spkgPath):
-        os.makedirs(spkgPath)
+    if not os.path.isdir("%s/packages"%spkgPath):
+        os.makedirs("%s/packages"%spkgPath)
     configFiles = [ 'repositoryDirectory.yml', 'status.yml' ]
     noFileWarningTemplate = "Warning! %s/%s does not exist. Not copying." 
     for inode in os.listdir("."):
