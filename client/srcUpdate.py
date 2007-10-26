@@ -46,6 +46,8 @@ def updateSpkgDir(startDir, pythonPath):
             spkgPath = "/opt/spkg"
             open('/etc/bombardier.yml', 'w').write('---\nspkgPath: /opt/spkg\n')
     spkgPath = getSpkgPath()
+    if not os.path.isdir(spkgPath):
+        os.makedirs(spkgPath)
     os.chdir( spkgPath )
     for i in os.listdir('.'):
         if os.path.isfile(i) and i != 'status.yml' and 'bombardier.log' not in i:
