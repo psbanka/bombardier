@@ -679,6 +679,9 @@ class Bombardier:
         if self.checkInstallationStatus(packageNames) != OK:
             return FAIL
         progressData = self.filesystem.getProgressData(stripVersionFromName = True)
+        fullProgressData = self.filesystem.getProgressData(stripVersionFromName = False)
+        fullInstalledPackageNames, fullBrokenPackageNames = miniUtility.getInstalled(fullProgressData)
+        Logger.info("packages that are installed: %s" % ' '.join(fullInstalledPackageNames))
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         shouldBeInstalled, shouldntBeInstalled = self.checkBom(self.packageNames)
         # check the configuration for each installed package
