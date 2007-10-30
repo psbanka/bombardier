@@ -288,10 +288,10 @@ class Windows(OperatingSystem.OperatingSystem):
                 infoDict=win32net.NetUserGetInfo(server, login, 3)
                 fullName=str(infoDict['full_name'])
                 userDict[login] = {"fullName": fullName, 
-                                   "comment": u['comment'],
+                                   "comment": str(u['comment']),
                                    "lastLogon": time.asctime(time.localtime(int(u["last_logon"]))),
                                    "passwordExpired": u["password_expired"],
-                                   "homeDirectory": infoDict["home_dir"],
+                                   "homeDirectory": str(infoDict["home_dir"]),
                                    "expires": u["acct_expires"],
                                    "primaryGroup": u['primary_group_id'],
                                    "passwordAge": u['password_age'] }
