@@ -278,13 +278,17 @@ class Windows(OperatingSystem.OperatingSystem):
         res      = 1
         users    = []
         userDict = {}
+        newUsers = True
 
-        while res:
-            (users,total,res) = win32net.NetUserEnum(server,3,
+        while newUsers:
+            newUsers = False
+            (users,total,res2) = win32net.NetUserEnum(server,3,
                win32netcon.FILTER_NORMAL_ACCOUNT,res,win32netcon.MAX_PREFERRED_LENGTH)
             for u in users:
-                add=0
                 login=str(u['name'])
+                if login in userDict.keys():
+                    continue
+                newUsers = True
                 infoDict=win32net.NetUserGetInfo(server, login, 3)
                 fullName=str(infoDict['full_name'])
                 userDict[login] = {"fullName": fullName, 
@@ -295,6 +299,7 @@ class Windows(OperatingSystem.OperatingSystem):
                                    "expires": u["acct_expires"],
                                    "primaryGroup": u['primary_group_id'],
                                    "passwordAge": u['password_age'] }
+            res = res2
         return userDict
 
     def removeScriptUser(self, username):
