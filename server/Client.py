@@ -66,6 +66,19 @@ class Client:
                 self.includes.append(includeName)
                 self.downloadClient(includeName)
 
+    def checkEncryption(self):
+        return self.checkCryptDict(self.data)
+
+    def checkCryptDict(self, dict):
+        encryptedEntries = 0
+        for key in dict:
+            t = type(dict[key])
+            if t == type('') and type(key) == type('') and key.startswith('enc_'):
+                encryptedEntries += 1
+            elif t == type({}):
+                encryptedEntries += self.checkCryptDict(dict[key])
+        return encryptedEntries
+
     def decryptConfig(self):
         self.decryptDict(self.data)
 
@@ -109,9 +122,21 @@ class DecryptionException(Exception):
     
 if __name__ == "__main__":
     import sys
-    client = sys.argv[1]
+    import optparse
+    parser = optparse.OptionParser("usage: %prog server-name [options]")
+    parser.add_option("-k", "--insecure", dest="insecure",
+                      action="store_true", default=False,
+                      help="don't ask for a password")
+    parser.add_option("-o", "--output", dest="output", metavar="FILENAME",
+                      help="designate on output file")
+
+    (options, args) = parser.parse_args()
+    if len(args) != 1:
+        parser.print_help()
+        sys.exit(1)
+    client = args[0]
     passwd = ''
-    if len(sys.argv) < 3:
+    if not options.insecure:
         passwd = getpass.getpass("Enter decryption password: ")
     config = Client(client, passwd)
     status = config.downloadClient()
@@ -119,5 +144,10 @@ if __name__ == "__main__":
         print "Bad config file."
         sys.exit(1)
     status = config.decryptConfig()
-    print yaml.dump(config.data)
+    data   = yaml.dump(config.data)
+    if options.output:
+        print "output to filename: %s" % options.output
+        open(options.output, 'w').write(data)
+    else:
+        print data
 

@@ -249,12 +249,26 @@ if __name__ == "__main__":
     else:
         packageNames = []
 
-    if options.insecure:
-        configPasswd = ''
-    else:
-        configPasswd = getpass.getpass("Enter client configuration password: ")
-
     serverNames = [s for s in args[0].split(' ') if len(s) ]
+
+    encryptedItems = 0
+    for serverName in serverNames:
+        client = Client.Client(serverName, '')
+        status = client.downloadClient()
+        encryptedItems += client.checkEncryption()
+
+    if encryptedItems:
+        if options.insecure:
+            configPasswd = ''
+        else:
+            print "==> There are %d encrypted configuration items." % encryptedItems
+            configPasswd = getpass.getpass("Enter client configuration password: ")
+        if configPasswd == '':
+            print "==> Redacting %d sensitive configuration items." % encryptedItems
+    else:
+        print "==> There are no encrypted configuration items..."
+        configPasswd = ''
+
     status = OK
     for serverName in serverNames:
         r = BombardierRemoteClient(serverName, options.action, packageNames, scriptName, configPasswd)
