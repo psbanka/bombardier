@@ -306,7 +306,11 @@ class Windows(OperatingSystem.OperatingSystem):
         win32net.NetUserDel(None, username)
         return OK
 
-    def createWin32User(self, username, password, type, comment=''):
+    def removeUser(self, username):
+        win32net.NetUserDel(None, username)
+        return OK
+
+    def createUser(self, username, password, type, comment=''):
         username = username.strip().replace(' ', '.')
         if comment == None:
             comment = ''
