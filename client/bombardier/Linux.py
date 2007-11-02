@@ -39,7 +39,7 @@ def md5crypt(password, salt='', magic='$1$'):
     # This port adds no further stipulations.  I forfeit any copyright interest.
     itoa64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     if not salt:
-        salt = random.sample(itoa64, 8)
+        salt = ''.join(random.sample(itoa64, 8))
     m = md5.new()
     m.update(password + magic + salt)
     mixin = md5.md5(password + salt + password).digest()
@@ -98,13 +98,19 @@ def setUserAliases(data, aliases):
             output.append(line)
     return output
 
-def modifySudoers(username, type, filename="/etc/sudoers"):
+def modifySudoers(username, type, filename="/etc/sudoers", remove=False):
     data = open(filename).read()
     aliases = getUserAliases(data)
-    if type == ADMIN_USER:
-        aliases["ADMINS"].add(username)
-    if type == DEV_USER:
-        aliases["DEVS"].add(username)
+    Logger.info("This user is of type (%s)" % type)
+    if remove:
+        for groupName in aliases:
+            if username in aliases[groupName]:
+                aliases[groupName].remove(username)
+    else:
+        if type == ADMIN_USER:
+            aliases["ADMINS"].add(username)
+        if type == DEV_USER:
+            aliases["DEVS"].add(username)
     open(filename, 'w').write('\n'.join(setUserAliases(data, aliases)))
 
 
@@ -136,6 +142,7 @@ class Linux(OperatingSystem.OperatingSystem):
         return output.split( '\n' )
         
     def removeUser(self, username):
+        modifySudoers(username, type=0, remove=True)
         status,output = getstatusoutput('userdel %s 2>&1' %username )
         if status != OK:
             raise Exception( "Error deleting %s: %s" %(username, output) )
