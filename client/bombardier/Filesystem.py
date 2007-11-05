@@ -79,10 +79,15 @@ def rmScheduledFile(filename):
     import pywintypes
     import win32api, win32file
     try:
-        win32api.MoveFileEx(filename, None,
-                            win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
-    except pywintypes.error, e:
-        Logger.error("Cannot remove file: %s (%s)" % (filename, e))
+        os.unlink(filename)
+        return OK
+    except:
+        try:
+            win32api.MoveFileEx(filename, None,
+                                win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
+            return REBOOT
+        except pywintypes.error, e:
+            Logger.error("Cannot remove file: %s (%s)" % (filename, e))
 
 def rmScheduledDir(path):
     for root, dirs, files in os.walk(path):
