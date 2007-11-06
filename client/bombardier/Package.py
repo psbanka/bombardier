@@ -521,6 +521,9 @@ class Package:
                 return FAIL
     
         elif self.action == UNINSTALL:
+            likePackages = [ p for p in progressData if p.startswith(self.name) and p != self.fullName ]
+            for p in likePackages:
+                del progressData[p]
             if self.status == OK:
                 progressData[self.fullName]['UNINSTALLED'] = timeString
                 progressData[self.fullName]['INSTALLED']   = 'NA'
