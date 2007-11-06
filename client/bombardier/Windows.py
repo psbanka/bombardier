@@ -382,6 +382,27 @@ class Windows(OperatingSystem.OperatingSystem):
                 return FAIL
         return OK
 
+    def changeLocalUserPassword(self, user, password):
+        try:
+            ads = win32com.client.GetObject("ADs:")
+            userObject = ads.GetObject('','WinNT://localhost/%s' %user)
+            userObject.SetPassword(password)
+            userObject.SetInfo()
+        except:
+            Logger.error('Could not change password for user: %s' %user)
+            return FAIL
+        return OK
+        
+
+    def checkLocalUserCredentials(self, username, password):
+         try:
+             win32security.LogonUser( username, '.', password,
+                                      win32security.LOGON32_LOGON_INTERACTIVE,
+                                      win32security.LOGON32_PROVIDER_DEFAULT  )
+         except:
+             return FAIL
+         return OK
+
     def LogMsg(self, type, event, info):
         try:
             return servicemanager.LogMsg(type, event, info)
