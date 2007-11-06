@@ -154,7 +154,7 @@ class Linux(OperatingSystem.OperatingSystem):
             shell = "/bin/false"
         else:
             shell = "/bin/bash"
-        cmd = "useradd -p %s -s %s %s" % (md5Pass, shell, username)
+        cmd = "useradd -p '%s' -s %s %s" % (md5Pass, shell, username)
         status,output = getstatusoutput(cmd)
         if status != OK:
             raise Exception( "Error creating %s: %s" %(username, output) )
