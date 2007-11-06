@@ -738,7 +738,7 @@ class Bombardier:
                 status = package.executeMaintScript(scriptName)
             return self.cleanup(status, logmessage="Finished %s for %s." %(action, packageName))
         except Exceptions.BadPackage, e:
-            errmsg = "Cannot uninstall bad package %s: %s" % (e.packageName, e.errmsg)
+            errmsg = "Cannot perform action %s on package %s: %s" % (action, e.packageName, e.errmsg)
             Logger.warning(errmsg)
             self.filesystem.warningLog(errmsg, self.server)
             return FAIL
