@@ -393,7 +393,6 @@ class Windows(OperatingSystem.OperatingSystem):
             return FAIL
         return OK
         
-
     def checkLocalUserCredentials(self, username, password):
          try:
              win32security.LogonUser( username, '.', password,
