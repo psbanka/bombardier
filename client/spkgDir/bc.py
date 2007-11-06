@@ -55,17 +55,17 @@ def findLikelyPackageName(packageName):
         if statusPackages[name]['INSTALLED'] in [ 'NA', 'BROKEN' ]:
             continue
         if packageName.lower() in name.lower():
-            basePackageName = '-'.join(name.split('-')[:-1])
-            packageNames.append(basePackageName)
+            packageNames.append(name)
     if len(packageNames) > 1:
         logger.error( 'Ambiguous package name: %s could be any of %s' %(packageName, str(packageNames)))
-        sys.exit(FAIL)    
+        sys.exit(FAIL)
     if len(packageNames) == 0:
         logger.error( 'Package not found: %s' %packageName )
-        sys.exit(FAIL)    
+        sys.exit(FAIL)
     else:
-        logger.info( 'Using %s' %packageNames[0])
-        return packageNames[0] 
+        packageName = '-'.join(packageNames[0].split('-')[:-1])
+        logger.info( 'Using %s' %packageName)
+        return packageName
 
 def fixSpkg(packageName, action):
     statusData = open(getProgressPath(), 'r').read()
