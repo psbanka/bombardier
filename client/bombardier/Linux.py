@@ -161,6 +161,32 @@ class Linux(OperatingSystem.OperatingSystem):
         modifySudoers(username, type)
         return status
    
+    def changeLocalUserPassword(self, username, password):
+        if self.checkLocalUserCredentials(username, password) != OK:
+            hashStr = md5crypt( password )
+            cmd = "echo '%s:%s' | chpasswd -e" %(username, hashStr)
+            status,output = getstatusoutput(cmd)
+            if status != OK:
+                Logger.error( "Error creating %s: %s" %(username, output) )
+                return FAIL
+        return OK
+        
+    def checkLocalUserCredentials(self, username, password):
+        shadowLines = open('/etc/shadow').readlines()
+        for shadowLine in shadowLines:
+            name = shadowLine.split( ':' )[0]
+            if name == username:
+                foundHashStr = shadowLine.split( ':' )[1]
+                salt = foundHashStr.split('$')[2]
+                break
+        if not foundHashStr:
+            Logger.error( "Error getting hash string for user: %s" %username )
+            return FAIL
+        newHashStr =  md5crypt( password, salt )
+        if newHashStr != foundHashStr:
+            return FAIL
+        return OK
+
     def noRestartOnLogon(self): 
         pass
 
