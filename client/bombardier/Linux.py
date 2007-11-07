@@ -172,11 +172,15 @@ class Linux(OperatingSystem.OperatingSystem):
         return OK
         
     def checkLocalUserCredentials(self, username, password):
+        if password == '':
+            return OK
         shadowLines = open('/etc/shadow').readlines()
         for shadowLine in shadowLines:
             name = shadowLine.split( ':' )[0]
             if name == username:
                 foundHashStr = shadowLine.split( ':' )[1]
+                if not '$' in foundHashStr:
+                    return FAIL
                 salt = foundHashStr.split('$')[2]
                 break
         if not foundHashStr:
