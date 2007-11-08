@@ -72,6 +72,8 @@ BLOCK_SIZE    = 10000
 
 INSTALL_KEY = r"HKLM\Software\GE-IT\Bombardier\InstallPath"
 
+CENSORED = '=== CENSORED ==='
+
 # loop timer constants for bombardierClientService
 
 BC_PIPE_NAME      = r"\\.\pipe\BombardierClientService"

@@ -394,13 +394,15 @@ class Windows(OperatingSystem.OperatingSystem):
         return OK
         
     def checkLocalUserCredentials(self, username, password):
-         try:
+        if password in [ '', CENSORED ]:
+            return OK
+        try:
              win32security.LogonUser( username, '.', password,
                                       win32security.LOGON32_LOGON_INTERACTIVE,
                                       win32security.LOGON32_PROVIDER_DEFAULT  )
-         except:
-             return FAIL
-         return OK
+        except:
+            return FAIL
+        return OK
 
     def LogMsg(self, type, event, info):
         try:

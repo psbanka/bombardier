@@ -172,7 +172,7 @@ class Linux(OperatingSystem.OperatingSystem):
         return OK
         
     def checkLocalUserCredentials(self, username, password):
-        if password == '':
+        if password in [ '', CENSORED ]:
             return OK
         shadowLines = open('/etc/shadow').readlines()
         for shadowLine in shadowLines:
