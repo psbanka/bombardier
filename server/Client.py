@@ -5,7 +5,7 @@ import yaml
 import getpass
 import base64
 from Crypto.Cipher import AES
-from bombardier.staticData import OK, FAIL
+from bombardier.staticData import OK, FAIL, CENSORED
 
 VALID_CHARS = [ chr(x) for x in range(ord(' '), ord('~')+1) ]
 
@@ -90,7 +90,7 @@ class Client:
                 if self.passwd:
                     dict[newKey] = self.decryptString(dict[key])
                 else:
-                    dict[newKey] = '===== CENSORED ====='
+                    dict[newKey] = CENSORED
                 del dict[key]
             elif t == type({}):
                 self.decryptDict(dict[key])

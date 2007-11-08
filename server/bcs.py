@@ -157,9 +157,10 @@ class BombardierRemoteClient(RemoteClient):
                     self.s.sendline("echo $?")
                     self.s.prompt()
                     try:
-                        returnCode = int(self.s.before.strip())
+                        returnCode = int(str(self.s.before.split()[0].strip()))
                         print "\n\n==> RETURN CODE: %s\n" % RETURN_DICT[returnCode]
-                    except:
+                    except Exception, e:
+                        print e
                         print "==> invalid returncode: ('%s')" % self.s.before
                     break
                 type, message = self.s.match.groups()
