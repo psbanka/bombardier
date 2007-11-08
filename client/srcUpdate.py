@@ -51,7 +51,10 @@ def updateSpkgDir(startDir, pythonPath):
     os.chdir( spkgPath )
     for i in os.listdir('.'):
         if os.path.isfile(i) and i != 'status.yml' and 'bombardier.log' not in i:
-            os.unlink( i )
+            try:
+                os.unlink( i )
+            except:
+                print "unable to delete %s" % i
         else:
             print "SAVED: %s" %i
 
