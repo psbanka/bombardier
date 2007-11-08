@@ -1,12 +1,17 @@
-import commands, os, sys, yaml, glob
+import commands, os, sys, yaml, glob, time
 from bombardier.staticData import *
 from bombardier.miniUtility import cygpath, addDictionaries
+from bcs import BombardierRemoteClient, EXECUTE
 import Client
-
-PYTHON = os.path.join(sys.prefix, "bin", "python")
-
 import logging
 import logging.handlers
+
+SYSTEM_LOCK_TIMEOUT = 900
+BACKUP_FULL = 0
+BACKUP_LOG  = 1
+RESTORE     = 3
+
+SCRIPT = {BACKUP_FULL: "backupFull", BACKUP_LOG: "backupLog", RESTORE:"restore"}
 
 logger = logging.getLogger("backupServer")
 fileHandler = logging.FileHandler("output/backup.log")
@@ -17,6 +22,11 @@ logger.setLevel(logging.DEBUG)
 stdErrHandler = logging.StreamHandler(sys.stderr)
 stdErrHandler.setFormatter(formatter)
 logger.addHandler(stdErrHandler)
+
+class BombardierBackup(BombardierRemoteClient):
+    def __init__(self, hostname, action):
+        BombardierRemoteClient.__init__(self, hostname, EXECUTE, ["SqlBackup"], SCRIPT[action], '')
+
 
 def archiveMaint(clientConfig, databases, localArchive):
     daysToKeep = int(clientConfig["sql"]["backupDays"])
@@ -52,8 +62,11 @@ def archiveMaint(clientConfig, databases, localArchive):
             os.system(cmd)
 
 def pullFiles(backupServer, clientConfig, localDir):
+    if setLock("%s-pull-lock" % backupServer) == FAIL:
+        logger.error("Unable to proceed with backup. Lock is set.")
+        return FAIL
     localReplica  = "%s/%s" % (localDir, backupServer) 
-    backupPath = clientConfig["sql"]["backupPath"]
+    backupPath = clientConfig["sql"]["servers"][backupServer]["backupPath"]
     ipAddress  = clientConfig["ipAddress"]
     username   = clientConfig["defaultUser"]
     status = OK
@@ -70,66 +83,65 @@ def pullFiles(backupServer, clientConfig, localDir):
     #except:
         logger.error("Exception caught in trying to rsync.")
         status = FAIL
+    clearLock("%s-pull-lock" % backupServer)
     return status
 
-def pushFiles(restoreServers, backupServer, localDir):
+def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
     localReplica = "%s/%s" % (localDir, backupServer) 
-    
     status = OK
     for restoreServer in restoreServers:
-        clientConfig = Client.Client(restoreServer, '')
+        clientConfig   = Client.Client(restoreServer, '')
         clientConfig.downloadClient()
-        ipAddress    = clientConfig["ipAddress"]
-        username     = clientConfig["defaultUser"]
-        restorePath  = clientConfig["sql"]["restorePath"]
-        if 1 == 1:
-        #try: 
-            logger.info("Transferring files to %s..." % (restoreServer))
-            restoreCygPath = cygpath(restorePath)
-            cmd = "rsync -a %s/* %s@%s:%s" % (localReplica, username, ipAddress, restoreCygPath)
-            logger.debug(cmd)
-            status, output = commands.getstatusoutput(cmd)
-            if status != OK:
-                logger.error( "%s failed." % cmd)
-        else:
-        #except:
-            logger.error("Exception caught in trying to rsync.")
-            status = FAIL
-    return status
-
-def dumpOutput(output):
-    for line in output.split('\n'):
-        print "   ",line
-
-def runBackup(backupServer, full, debug):
-    if full:
-        logger.info("Running full backup on %s" % backupServer)
-        cmd = "%s bcs.py %s -k SqlBackup -x backupFull" % (PYTHON, backupServer)
-    else:
-        logger.info("Running log backup on %s" % backupServer)
-        cmd = "%s bcs.py %s -k SqlBackup -x backupLog" % (PYTHON, backupServer)
-    status, output = commands.getstatusoutput(cmd)
-    if debug:
-        dumpOutput(output)
-    if status == FAIL:
-        logger.error( "Backup failed on %s" % backupServer )
-        dumpOutput(output)
-        sys.exit(FAIL)
-    return status
-
-def runRestore(restoreServers, full, debug):
-    status = OK
-    for server in restoreServers:
-        cmd = "%s bcs.py %s -k SqlBackup -x restore" % (PYTHON, server)
-        cmdstatus, output = commands.getstatusoutput(cmd)
-        logger.info( "Running restore on %s" % server )
-        if debug:
-            dumpOutput(output)
+        ipAddress      = clientConfig["ipAddress"]
+        username       = clientConfig["defaultUser"]
+        restorePath    = clientConfig["sql"]["servers"][restoreServer]["restorePath"]
+        restoreNetwork = clientConfig["sql"]["servers"][restoreServer]["network"]
+        if restoreNetwork != localNetwork:
+            logger.info("Pushing to %s on network %s" % (restoreServer, restoreNetwork))
+            if setLock(restoreServer+"-push-lock") == FAIL:
+                logger.info("%s busy. Try again later." % restoreServer)
+                continue
+            if 1 == 1:
+            #try: 
+                logger.info("Transferring files to %s..." % (restoreServer))
+                if "\\" in restorePath or ':' in restorePath:
+                    restorePath = cygpath(restorePath)
+                cmd = "rsync -a %s/* %s@%s:%s" % (localReplica, username, ipAddress, restorePath)
+                logger.debug(cmd)
+                status, output = commands.getstatusoutput(cmd)
+                if status != OK:
+                    logger.error( "%s failed." % cmd)
+            else:
+            #except:
+                logger.error("Exception caught in trying to rsync.")
+                clearLock(restoreServer+"-push-lock")
+                status = FAIL
+                continue
+        logger.info("Instructing server %s to restore..." % restoreServer)
+        r = BombardierBackup(restoreServer, RESTORE)
+        cmdstatus = r.reconcile()
+        r.getScriptOutput()
         if cmdstatus == FAIL:
             status = FAIL
-            logger.error( "Restore failed on %s" % server )
-            dumpOutput(output)
+            logger.error( "Restore failed on %s" % ( restoreServer) )
             sys.exit(FAIL)
+        clearLock(restoreServer+"-push-lock")
+    return status
+
+def runBackup(backupServer, full, debug):
+    if setLock("%s-backup-lock" % backupServer) == FAIL:
+        logger.error("Unable to proceed with backup. Lock is set.")
+        return FAIL
+    if full:
+        r = BombardierBackup(backupServer, BACKUP_FULL)
+    else:
+        r = BombardierBackup(backupServer, BACKUP_LOG)
+    status = r.reconcile()
+    r.getScriptOutput()
+    if status != OK:
+        logger.error( "Backup failed on %s" % ( backupServer ) )
+        sys.exit(FAIL)
+    clearLock("%s-backup-lock" % backupServer)
     return status
 
 def dbReport(restoreServers, backupServer, databases, full):
@@ -221,7 +233,7 @@ def statusEmail(clientConfig, subject, report):
     import smtplib
     dest          = clientConfig["sql"]["administrators"]
     status,source = commands.getstatusoutput('hostname')
-    mailServer    = clientConfig["mail"]["relay"]
+    mailServer    = clientConfig["cg"]["relay"]
 
     if clientConfig["system"]["debug"]:
         logger.warning("*********SKIPPING EMAIL due to debugging")
@@ -251,9 +263,52 @@ def wrapup(report, backupServer, clientConfig):
 def prettyReport(report):
     print "\n",yaml.dump(report, default_flow_style=False)
 
+class DeadLockException(Exception):
+    def __init__(self, filename, elapsedMin):
+        Exception.__init__(self)
+        self.filename  = filename
+        self.elapsedMin = elapsedMin
+    def __str__(self):
+        return "Lock file %s has been locked for too long (%s)" % (self.filename, `self.elapsedMin`)
+    def __repr__(self):
+        return "Lock file %s has been locked for too long (%s)" % (self.filename, `self.elapsedMin`)
+
+def setLock(lockFilename, sleepTime=0):
+    time.sleep(sleepTime)
+    maxTime    = SYSTEM_LOCK_TIMEOUT
+    lockPath   = "output/" + lockFilename
+
+    if os.path.isfile(lockPath):
+        timestr = open(lockPath).read().strip()
+        try:
+            elapsedMin = (time.time() - float(timestr)) / 60.0
+        except ValueError:
+            elapsedMin = maxTime
+        logger.warning("Lock file %s is busy (%3.0f min old)" % (lockPath, elapsedMin))
+        if elapsedMin > maxTime:
+            raise DeadLockException(lockFilename, elapsedMin)
+        return FAIL
+    open(lockPath, 'w').write(`time.time()`)
+    logger.info("Set lock %s" % lockFilename)
+    return OK
+
+def clearLock(lockFilename):
+    lockPath = "output/" + lockFilename
+    if not os.path.isfile(lockPath):
+        logger.warning("Lock was not previously set. Could be some tom foolery going on...")
+        return OK
+    logger.info("Unlocking %s..." % lockFilename)
+    try:
+        os.unlink(lockPath)
+    except:
+        logger.error("Could not delete %s. Unable to unlock" % lockPath)
+        return FAIL
+    return OK
+
+
 if __name__ == "__main__":
     import optparse
-    LOCAL_ARCHIVE = "/var/blob"
+    LOCAL_ARCHIVE = "/data02/blob"
     parser = optparse.OptionParser("usage: %prog server-name [options] <backupServer>")
     parser.add_option("-f", "--full", dest="full",
                       action="store_true", default=False,
@@ -270,24 +325,26 @@ if __name__ == "__main__":
     backupServer = args[0]
     clientConfig = Client.Client(backupServer, '')
     clientConfig.downloadClient()
-    databases = []
-    for databaseName in clientConfig["sql"]["backupDatabases"]:
-        if clientConfig[databaseName]["primary"].lower() == backupServer.lower():
-            databases.append(databaseName)
-    servers = clientConfig["sql"]["servers"]
+    databases = clientConfig["sql"]["databases"]
+    servers = clientConfig["sql"]["servers"].keys()
+    localNetwork = clientConfig["sql"]["servers"][backupServer]["network"]
     restoreServers = list(set(servers) - set([backupServer]))
     report = {"backupServer": backupServer, "databases": databases, "restoreServers": restoreServers}
     if options.full:
         report["backupType"] = "FULL"
     else:
         report["backupType"] = "LOG"
+    report['status'] = 'OK'
         
-    report['backup']    = runBackup(backupServer, options.full, options.debug)
-    report['pullFiles'] = pullFiles(backupServer, clientConfig, LOCAL_ARCHIVE)
-    archiveMaint(clientConfig, databases, "%s/%s" % (LOCAL_ARCHIVE, backupServer))
-    report['pushFiles'] = pushFiles(restoreServers, backupServer, LOCAL_ARCHIVE)
-    report['restore']   = runRestore(restoreServers, options.full, options.debug)
-    addDictionaries(report, dbReport(restoreServers, backupServer, databases, options.full) )
-    wrapup(report, backupServer, clientConfig)
-
+    try:
+        report['backup']    = runBackup(backupServer, options.full, options.debug)
+        report['pullFiles'] = pullFiles(backupServer, clientConfig, LOCAL_ARCHIVE)
+        archiveMaint(clientConfig, databases, "%s/%s" % (LOCAL_ARCHIVE, backupServer))
+        report['syncAndRestore'] = syncAndRestore(restoreServers, backupServer, localNetwork, LOCAL_ARCHIVE)
+        addDictionaries(report, dbReport(restoreServers, backupServer, databases, options.full) )
+        wrapup(report, backupServer, clientConfig)
+    except DeadLockException, e:
+        report["EXCEPTION"] = str(e)
+        report["status"] = "FAIL"
+        wrapup(report, backupServer, clientConfig)
     prettyReport(report)
