@@ -17,6 +17,11 @@ class PackageCommand(PinshCmd.PinshCmd):
         self.action = None
         self.level = 0
         self.cmdOwner = 1
+        self.scriptName = ''
+
+    def processObject(self, hostName, packageName, tokens):
+        r = BombardierRemoteClient(hostName, self.action, [packageName], '', '')
+        return r
 
     def cmd(self, tokens, noFlag, slash):
         if noFlag:
@@ -31,7 +36,7 @@ class PackageCommand(PinshCmd.PinshCmd):
         if self.packageField.match(tokens, 2) != (COMPLETE, 1):
             return FAIL, ["Invalid package: "+packageName]
         packageName = self.packageField.name(["command", hostName, packageName])[0]
-        r = BombardierRemoteClient(hostName, self.action, [packageName], '', '')
+        r = self.processObject(hostName, packageName, tokens)
         status = r.reconcile()
         if status == FAIL:
             return FAIL, ["Host is screwed up"]
@@ -71,6 +76,11 @@ class Execute(PackageCommand):
         self.scriptField = ScriptField.ScriptField()
         self.packageField.children = [self.scriptField]
         self.action = EXECUTE
+
+    def processObject(self, hostName, packageName, tokens):
+        scriptName = self.scriptField.name(tokens)[0]
+        r = BombardierRemoteClient(hostName, self.action, [packageName], scriptName, '')
+        return r
 
 if __name__ == "__main__":
     pass
