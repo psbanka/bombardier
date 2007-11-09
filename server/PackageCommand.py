@@ -3,7 +3,7 @@
 import sys
 from bcs import BombardierRemoteClient, UNINSTALL, INSTALL, VERIFY, EXECUTE
 import PinshCmd, libCmd
-import BomHostField, PackageField
+import BomHostField, PackageField, ScriptField
 from commonUtil import *
 
 DEBUG = 0
@@ -38,22 +38,39 @@ class PackageCommand(PinshCmd.PinshCmd):
         else:
             return OK, ['']
 
-
 class Install(PackageCommand):
     def __init__(self):
         PackageCommand.__init__(self, "install")
         self.helpText = "install\tinstall a package"
-        self.packageField = PackageField.InstallPackageField()
+        self.packageField = PackageField.InstallablePackageField()
         self.bomHostField.children = [self.packageField]
         self.action = INSTALL
+
+class Verify(PackageCommand):
+    def __init__(self):
+        PackageCommand.__init__(self, "verify")
+        self.helpText = "verify\tverify a package"
+        self.packageField = PackageField.InstalledPackageField()
+        self.bomHostField.children = [self.packageField]
+        self.action = VERIFY
 
 class Uninstall(PackageCommand):
     def __init__(self):
         PackageCommand.__init__(self, "uninstall")
         self.helpText = "uninstall\tuninstall a package"
-        self.packageField = PackageField.UninstallPackageField()
+        self.packageField = PackageField.InstalledPackageField()
         self.bomHostField.children = [self.packageField]
         self.action = UNINSTALL
+
+class Execute(PackageCommand):
+    def __init__(self):
+        PackageCommand.__init__(self, "execute")
+        self.helpText = "execute\texecute a script within a package"
+        self.packageField = PackageField.InstalledPackageField()
+        self.bomHostField.children = [self.packageField]
+        self.scriptField = ScriptField.ScriptField()
+        self.packageField.children = [self.scriptField]
+        self.action = EXECUTE
 
 if __name__ == "__main__":
     pass

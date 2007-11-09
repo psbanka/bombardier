@@ -21,8 +21,6 @@ class PackageField(PinshCmd.PinshCmd):
     def __init__(self, name = "packageName"):
         PinshCmd.PinshCmd.__init__(self, name)
         self.helpText = "<packageName>\tthe name of a bombardier package"
-        self.min = min
-        self.max = max
         self.level = 99
         self.cmdOwner = 0
 
@@ -48,8 +46,8 @@ class PackageField(PinshCmd.PinshCmd):
         else:
             return PARTIAL, 1
 
-class InstallPackageField(PackageField):
-    def __init__(self, name = "installPackageName"):
+class InstallablePackageField(PackageField):
+    def __init__(self, name = "installablePackageField"):
         PackageField.__init__(self, name)
 
     def possiblePackageNames(self, hostName, packageName):
@@ -69,8 +67,8 @@ class InstallPackageField(PackageField):
         installedPackageNames =  getInstalled(progressData)[0]
         return list(set(possibleMatches) - set(installedPackageNames))
 
-class UninstallPackageField(PackageField):
-    def __init__(self, name = "uninstallPackageName"):
+class InstalledPackageField(PackageField):
+    def __init__(self, name = "installedPackageField"):
         PackageField.__init__(self, name)
 
     def possiblePackageNames(self, hostName, packageName):

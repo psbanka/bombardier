@@ -197,6 +197,7 @@ class PinshCmd:
                 else:
                     arguments.append(child)
             elif matchValue == COMPLETE:
+                tokens[index] = child.name(tokens)[0]
                 if child.cmdOwner:
                     return child.findLastResponsibleChild(tokens, index+length)
                 else:
