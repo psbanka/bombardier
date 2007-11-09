@@ -24,7 +24,7 @@ class Ping(PinshCmd.PinshCmd):
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
         target = tokens[1]
-        if self.hostField.match(target) != (COMPLETE, 1):
+        if self.hostField.match(tokens, 1) != (COMPLETE, 1):
             return FAIL, ["Invalid address: "+target]
         status, output = libCmd.runcmd(PING+" -c 1 "+target, 0)
         if status == FAIL:

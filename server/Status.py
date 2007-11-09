@@ -22,7 +22,7 @@ class Status(PinshCmd.PinshCmd):
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
         target = tokens[1]
-        if self.bomHostField.match([target]) != (COMPLETE, 1):
+        if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
             return FAIL, ["Invalid host: "+target]
         target = self.bomHostField.name(["status", target])[0]
         r = BombardierRemoteClient(target, STATUS, [], '', '')

@@ -14,7 +14,8 @@ class Uninstall(PinshCmd.PinshCmd):
         self.helpText = "uninstall\tuninstall a package"
         self.bomHostField = BomHostField.BomHostField()
         self.packageField = PackageField.UninstallPackageField()
-        self.children = [self.packageField]
+        self.children = [self.bomHostField]
+        self.bomHostField.children = [self.packageField]
         self.level = 0
         self.cmdOwner = 1
 
@@ -24,13 +25,13 @@ class Uninstall(PinshCmd.PinshCmd):
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
         hostName = tokens[1]
-        if self.bomHostField.match([hostName]) != (COMPLETE, 1):
+        if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
             return FAIL, ["Invalid host: "+hostName]
         hostName = self.bomHostField.name(["uninstall", hostName])[0]
         packageName = tokens[2]
-        if self.packageField.match([hostName, packageName]) != (COMPLETE, 2):
+        if self.packageField.match(tokens, 2) != (COMPLETE, 1):
             return FAIL, ["Invalid package: "+packageName]
-        hostName = self.packageField.name(["uninstall", hostName, packageName])[0]
+        packageName = self.packageField.name(["uninstall", hostName, packageName])[0]
         r = BombardierRemoteClient(hostName, UNINSTALL, [packageName], '', '')
         status = r.reconcile()
         if status == FAIL:

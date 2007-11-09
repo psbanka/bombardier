@@ -4,7 +4,7 @@ import traceback, StringIO
 import sys, os, readline
 import PinshCmd, Mode, libUi
 from commonUtil import *
-import libCmd, libPackage
+import libCmd
 
 class Slash(PinshCmd.PinshCmd):
     def __init__(self, children):
@@ -22,18 +22,14 @@ class Slash(PinshCmd.PinshCmd):
 ## 2. add the class to the following vector of command or add it to
 ##    the Configure.py class
     
-import Show, Expert, Ping, Telnet, Ssh, Terminal, Exit, Status, Uninstall, Install
+import Expert, Ping, Telnet, Ssh, Terminal, Exit, Status, Uninstall, Install
 
-commands = [Show.Show(), Terminal.Terminal(), Status.Status(), Uninstall.Uninstall(),
+commands = [Terminal.Terminal(), Status.Status(), Uninstall.Uninstall(),
             Install.Install(), Ping.Ping(), Telnet.Telnet(), Ssh.Ssh(), Exit.Exit()]
 
-if libPackage.FIREWALL in mode.packages:
-    import Reset
-    commands += [Reset.Reset()]
 if mode.auth == USER:
-    import Halt, Reboot, Debug, Undebug, Write, Expert
-    commands += [Halt.Halt(), Reboot.Reboot(), Debug.Debug(), Undebug.Undebug(),
-                 Write.Write(), Expert.Expert()]
+    import Expert
+    commands += [Expert.Expert()]
 
 slash = Slash(commands)
 

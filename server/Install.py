@@ -14,7 +14,7 @@ class Install(PinshCmd.PinshCmd):
         self.helpText = "install\tinstall a package"
         self.bomHostField = BomHostField.BomHostField()
         self.packageField = PackageField.InstallPackageField()
-        self.children = [self.packageField]
+        self.children = [self.bomHostField, self.packageField]
         self.level = 0
         self.cmdOwner = 1
 
@@ -24,10 +24,10 @@ class Install(PinshCmd.PinshCmd):
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
         hostName = tokens[1]
-        if self.bomHostField.match([hostName]) != (COMPLETE, 1):
+        if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
             return FAIL, ["Invalid host: "+hostName]
         packageName = tokens[2]
-        if self.packageField.match([hostName, packageName]) != (COMPLETE, 2):
+        if self.packageField.match(tokens, 2) != (COMPLETE, 1):
             return FAIL, ["Invalid package: "+packageName]
         r = BombardierRemoteClient(hostName, INSTALL, [packageName], '', '')
         status = r.reconcile()

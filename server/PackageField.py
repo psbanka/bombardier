@@ -20,7 +20,6 @@ def getProgressData(hostName):
 class PackageField(PinshCmd.PinshCmd):
     def __init__(self, name = "packageName"):
         PinshCmd.PinshCmd.__init__(self, name)
-        self.bomHostField = BomHostField.BomHostField()
         self.helpText = "<packageName>\tthe name of a bombardier package"
         self.min = min
         self.max = max
@@ -31,31 +30,23 @@ class PackageField(PinshCmd.PinshCmd):
         print "VIRTUAL", hostName, packageName
 
     def name(self, tokens):
-        if len(tokens) == 2:
-            return self.bomHostField.name( tokens )
         hostName = tokens[1]
         possibleMatches = self.possiblePackageNames(hostName, tokens[2])
         if possibleMatches:
             return possibleMatches
         return ''
 
-    def match(self, tokens):
-        if tokens[0] == '':
+    def match(self, tokens, index):
+        if tokens[index] == '':
             return NO_MATCH, 1
-        hostName = tokens[0]
-        if len(tokens) == 1:
-            if self.bomHostField.match([hostName])[0] == NO_MATCH:
-                return NO_MATCH, 1
-            return PARTIAL, 2
-        if self.bomHostField.match([hostName])[0] != COMPLETE:
-            return NO_MATCH, 1
-        possibleMatches = self.possiblePackageNames(hostName, tokens[1])
+        hostName = tokens[index-1]
+        possibleMatches = self.possiblePackageNames(hostName, tokens[index])
         if len(possibleMatches) == 0:
-            return INCOMPLETE, 2
+            return INCOMPLETE, 1
         elif len(possibleMatches) == 1:
-            return COMPLETE, 2
+            return COMPLETE, 1
         else:
-            return PARTIAL, 2
+            return PARTIAL, 1
 
 class InstallPackageField(PackageField):
     def __init__(self, name = "installPackageName"):

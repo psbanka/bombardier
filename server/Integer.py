@@ -14,12 +14,12 @@ class Integer(PinshCmd.PinshCmd):
         self.max = max
         self.cmdOwner = 0
 
-    def match(self, tokens):
-        if tokens[0] == '':
+    def match(self, tokens, index):
+        if tokens[index] == '':
             return NO_MATCH, 1
         value = 0
         try:
-            value = int(tokens[0])
+            value = int(tokens[index])
             if value >= self.min and value <= self.max:
                 return COMPLETE, 1
             else:

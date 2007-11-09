@@ -37,14 +37,14 @@ class PinshCmd:
     def name(self, tokens):
         return self.myName
 
-    def match(self, tokens):
+    def match(self, tokens, index):
         if self.auth > mode.auth:
             return NO_MATCH, 1
-        if tokens[0] == '':
+        if tokens[index] == '':
             return PARTIAL, 1
-        if self.myName == tokens[0]:
+        if self.myName == tokens[index]:
             return COMPLETE, 1
-        if self.myName.startswith(tokens[0]):
+        if self.myName.startswith(tokens[index]):
             return PARTIAL, 1
         else:
             return NO_MATCH, 1
@@ -59,9 +59,9 @@ class PinshCmd:
     def findCompletions(self, tokens, index):
         returnError = 1
         if DEBUG: print "findCompletions: self.myName:",`self.myName`, "tokens:",`tokens`, len(tokens)
-        if len(tokens) == 0: # no tokens left, I must be who you want!
+        if len(tokens[index:]) == 0: # no tokens left, I must be who you want!
             return [self], index
-        if tokens[0] == '':
+        if tokens[index] == '':
             if len(self.children) > 0:
                 return self.children, index
             returnError = 0
@@ -69,7 +69,7 @@ class PinshCmd:
         incompleteObjects = []
         matchLen = 0
         for child in self.children:
-            matchValue, length = child.match(tokens)
+            matchValue, length = child.match(tokens, index)
             if matchValue == INCOMPLETE:
                 if DEBUG: print "findcompletions INCOMPLETE : matchValue:",matchValue, "length:",length
                 incompleteObjects.append(child)
@@ -80,9 +80,9 @@ class PinshCmd:
                 completionObjects.append(child)
             elif matchValue == COMPLETE: # go see if there are more tokens!
                 if DEBUG: print "findcompletions COMPLETE : matchValue:",matchValue, "length:",length
-                return child.findCompletions(tokens[length:], index+length)
+                return child.findCompletions(tokens, index+length)
         if len(completionObjects) == 1: # one partial match is as good as a complete match
-            return completionObjects[0].findCompletions(tokens[matchLen:], index+matchLen)
+            return completionObjects[0].findCompletions(tokens, index+matchLen)
         elif len(completionObjects) == 0: # No matches: go away.
             if len(incompleteObjects) > 0:
                 print "\n% command cannot be completed."
@@ -107,7 +107,7 @@ class PinshCmd:
                 if DEBUG: 
                     print "COMPLETE: ",`tokens`
                 if helpFlag: # Process the [?] key first
-                    object = self.findHelp(tokens)
+                    object = self.findHelp(tokens, 0)
                     mode.reprompt()
                     return None
                 # this is [tab] and not [?]
@@ -143,45 +143,45 @@ class PinshCmd:
     # When complete is calling this, it wants help for all the 
     # possible arguments of the last token, which should be unambiguous.
     # No return value is necessary
-    def findHelp(self, tokens):
+    def findHelp(self, tokens, index):
         if DEBUG: print "findHelp:", `self.myName`, 'tokens:', `tokens`
         # no tokens left, I must be who you want!
-        if len(tokens) == 0 or tokens[0] == '': 
+        if len(tokens[index:]) == 0 or tokens[index] == '': 
             self.help()
             return
         matchLen = 0
         completionObjects = []
         for child in self.children:
-            matchValue, length = child.match(tokens)
+            matchValue, length = child.match(tokens, index)
             if matchValue == PARTIAL:
                 if length > matchLen:
                     matchLen = length
                 completionObjects.append(child)
             elif matchValue == COMPLETE: # go see if there are more tokens!
-                child.findHelp(tokens[length:])
+                child.findHelp(tokens, index+length)
                 return
         if len(completionObjects) == 1: # one partial matches is as good as a complete match
-            return completionObjects[0].findHelp(tokens[matchLen:])
+            return completionObjects[0].findHelp(tokens, index+matchLen)
         elif len(completionObjects) == 0: # No matches: go away.
             print "\n",convertTokensToString(tokens)+": Unrecognized command"
             return
         else: # ^ FIXME: Provide help on the few commands that are left!
-            print "\n",tokens[0]+": Ambiguous command"
+            print "\n",tokens[index]+": Ambiguous command"
             return
         
     # Run is calling this method to find the last object in the chain
     # that is willing to run cmd() on the set of tokens on the list.
     # Must be unambiguous. Assume coming into the routine that the
     # current object ("self") is a cmdOwner.
-    def findLastResponsibleChild(self, tokens):
-        if DEBUG: print "findLastResponsibleChild: ",self.myName, "[",`tokens`,"]"
-        if len(tokens) == 0 or tokens[0] == '': # complete and no more tokens. Object takes responsibility
+    def findLastResponsibleChild(self, tokens, index):
+        if DEBUG: print "findLastResponsibleChild: ",self.myName, "[",`tokens`,"], index:", index
+        if len(tokens[index:]) == 0 or tokens[index] == '': # complete and no more tokens. Object takes responsibility
             return self
         owners = []
         arguments = []
         matchLen = 0
         for child in self.children:
-            matchValue, length = child.match(tokens)
+            matchValue, length = child.match(tokens, index)
             if DEBUG: print "Match:",child.myName, matchValue
             if matchValue == PARTIAL:
                 if length > matchLen:
@@ -192,11 +192,11 @@ class PinshCmd:
                     arguments.append(child)
             elif matchValue == COMPLETE:
                 if child.cmdOwner:
-                    return child.findLastResponsibleChild(tokens[length:])
+                    return child.findLastResponsibleChild(tokens, index+length)
                 else:
                     return self
         if len(owners) == 1: # one partial matches is as good as a complete match
-            return owners[0].findLastResponsibleChild(tokens[matchLen:])
+            return owners[0].findLastResponsibleChild(tokens, index+matchLen)
         elif len(owners) == 0: 
             if len(arguments) > 0: # this is a valid argument, I will take responsibility.
                 return self
@@ -204,12 +204,12 @@ class PinshCmd:
             mode.reprompt()
             return None
         else: # more than one owner-- need to be unambiguous
-            print tokens[0]+": Ambiguous command"
+            print tokens[index]+": Ambiguous command"
             return None
 
     # finds the correct object and runs a command
     def run(self, tokens, noFlag, slash):
-        owner = self.findLastResponsibleChild(tokens)
+        owner = self.findLastResponsibleChild(tokens, 0)
         if not owner:
             return FAIL, []
         returnValue = owner.cmd(tokens, noFlag, slash)

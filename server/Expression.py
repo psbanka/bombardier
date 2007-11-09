@@ -12,8 +12,8 @@ class Expression(PinshCmd.PinshCmd):
         self.level = 99
         self.cmdOwner = 0
 
-    def match(self, tokens):
-        if tokens[0] == '':
+    def match(self, tokens, index):
+        if tokens[index] == '':
             return NO_MATCH, 1
         return PARTIAL, 1
 

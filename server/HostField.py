@@ -14,14 +14,14 @@ class HostField(PinshCmd.PinshCmd):
         self.level = 99
         self.cmdOwner = 0
 
-    def match(self, tokens):
-        if tokens[0] == '':
+    def match(self, tokens, index):
+        if tokens[index] == '':
             return NO_MATCH, 1
-        tokens = tokens[0].split('.')
-        for token in tokens:
-            cleanedUp = token.replace('*','').replace('&','').replace(' ','').replace('(','').replace('/','')
+        hostChunks = tokens[index].split('.')
+        for hostChunk in hostChunks:
+            cleanedUp = hostChunk.replace('*','').replace('&','').replace(' ','').replace('(','').replace('/','')
             cleanedUp = cleanedUp.replace('%','').replace('^','').replace(')','').replace('$','').replace('#','')
-            if cleanedUp != token:
+            if cleanedUp != hostChunk:
                 return NO_MATCH, 1
         return COMPLETE, 1
 
