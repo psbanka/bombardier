@@ -34,8 +34,11 @@ class PinshCmd:
         self.cmdOwner = 0
         self.names = []
 
-    def name(self, tokens):
+    def __repr__(self):
         return self.myName
+
+    def name(self, tokens):
+        return [self.myName]
 
     def match(self, tokens, index):
         if self.auth > mode.auth:
@@ -68,6 +71,7 @@ class PinshCmd:
         completionObjects = []
         incompleteObjects = []
         matchLen = 0
+        if DEBUG: print "CHILDREN: ", self.children
         for child in self.children:
             matchValue, length = child.match(tokens, index)
             if matchValue == INCOMPLETE:
@@ -80,6 +84,8 @@ class PinshCmd:
                 completionObjects.append(child)
             elif matchValue == COMPLETE: # go see if there are more tokens!
                 if DEBUG: print "findcompletions COMPLETE : matchValue:",matchValue, "length:",length
+                tokens[index] = child.name(tokens)[0]
+                if DEBUG: print "NEW TOKEN:", tokens[index]
                 return child.findCompletions(tokens, index+length)
         if len(completionObjects) == 1: # one partial match is as good as a complete match
             return completionObjects[0].findCompletions(tokens, index+matchLen)

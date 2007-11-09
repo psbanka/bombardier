@@ -14,7 +14,8 @@ class Install(PinshCmd.PinshCmd):
         self.helpText = "install\tinstall a package"
         self.bomHostField = BomHostField.BomHostField()
         self.packageField = PackageField.InstallPackageField()
-        self.children = [self.bomHostField, self.packageField]
+        self.children = [self.bomHostField]
+        self.bomHostField.children = [self.packageField]
         self.level = 0
         self.cmdOwner = 1
 
