@@ -1,0 +1,105 @@
+#!/opt/python2.5/bin/python
+
+import traceback, StringIO
+import sys, os, readline
+import PinshCmd, Mode, libUi
+from commonUtil import *
+import libCmd, libPackage
+
+class Slash(PinshCmd.PinshCmd):
+    def __init__(self, children):
+        PinshCmd.PinshCmd.__init__(self, "")
+        self.children = children
+        self.cmdOwner = 1
+        self.helpText = ''
+
+##########################################################################
+
+## Adding new commands:
+## 
+## 0. Create a class that extends PinshCmd
+## 1. Import the class.
+## 2. add the class to the following vector of command or add it to
+##    the Configure.py class
+    
+import Show, Expert, Ping, Telnet, Ssh, Terminal, Exit, Status, Uninstall, Install
+
+commands = [Show.Show(), Terminal.Terminal(), Status.Status(), Uninstall.Uninstall(),
+            Install.Install(), Ping.Ping(), Telnet.Telnet(), Ssh.Ssh(), Exit.Exit()]
+
+if libPackage.FIREWALL in mode.packages:
+    import Reset
+    commands += [Reset.Reset()]
+if mode.auth == USER:
+    import Halt, Reboot, Debug, Undebug, Write, Expert
+    commands += [Halt.Halt(), Reboot.Reboot(), Debug.Debug(), Undebug.Undebug(),
+                 Write.Write(), Expert.Expert()]
+
+slash = Slash(commands)
+
+##########################################################################
+
+# Verify that this user is root
+WHOAMI = "/usr/bin/whoami"
+status, output = libCmd.runcmd(WHOAMI)
+mode.auth = USER
+if output == "root":
+    mode.auth = ADMIN
+
+# READLINE CONFIGS
+readline.parse_and_bind('tab: complete')
+readline.parse_and_bind('C-z: "end\n"')
+readline.parse_and_bind('?: "\C-v?\t\d"')
+readline.parse_and_bind('set bell-style none')
+readline.set_completer_delims(' ')
+# Print the message of the day
+if len(sys.argv) == 1:
+    libUi.motd()
+
+# I don't know how to turn off file completion in readline, so this is
+# my stupid work-around:
+try:
+    os.mkdir('/tmp/sandbox')
+except:
+    pass
+try:
+    os.chdir('/tmp/sandbox')
+except:
+    print "[Warning: cannot change directory. Completion may not work properly.]"
+
+while mode.active():
+
+    try:
+        mode.setPrompt()
+        readline.set_completer(slash.complete)
+        command = raw_input(mode.getPrompt())
+        if mode.currentState() != Mode.FREE_TEXT:
+            noFlag, helpFlag, tokens = libUi.processInput(command)
+            if len(tokens) == 0:
+                continue
+            status, output = slash.run(tokens, noFlag, slash)
+        else:
+            status, output = slash.run(command, slash)
+        libUi.userOutput(output, status)
+    except EOFError, eof:
+        print
+        if mode.popPrompt() == FAIL:
+            print
+            sys.exit(0)
+    except KeyboardInterrupt, key:
+        print
+        pass
+    except SystemExit, e:
+        sys.exit(0)
+    except Exception, e:
+        sys.stderr.write("Error detected in %s (%s)." % (file, e))
+        e = StringIO.StringIO()
+        traceback.print_exc(file=e)
+        e.seek(0)
+        data = e.read()
+        ermsg = ''
+        for line in data.split('\n'):
+            ermsg += "\n||>>>%s" % line
+        sys.stderr.write(ermsg)
+        sys.stderr.write("Error ocurred in %s" % file)
+        sys.stderr.write("\n")

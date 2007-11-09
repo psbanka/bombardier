@@ -7,6 +7,7 @@ import base64
 from Crypto.Cipher import AES
 from bombardier.staticData import OK, FAIL, CENSORED
 
+SERVER_PATH = "/var/dev/bombardier/server"
 VALID_CHARS = [ chr(x) for x in range(ord(' '), ord('~')+1) ]
 
 def pad(str):
@@ -41,6 +42,11 @@ class Client:
 
     findIncludeList = staticmethod(findIncludeList)
 
+    def get(self):
+        if self.downloadClient() == OK:
+            return self.convertBoms()
+        return FAIL
+
     def loadIncludes(self, newIncludes):
         for includeName in newIncludes:
             if includeName not in self.includes:
@@ -53,11 +59,25 @@ class Client:
             configName = self.systemName
         else:
             ymlDirectory = "include"
-        filename   = "deploy/%s/%s.yml" % (ymlDirectory, configName)
+        filename   = SERVER_PATH + "/deploy/%s/%s.yml" % (ymlDirectory, configName)
         newData   = yaml.load( open(filename, 'r').read() )
         self.data = miniUtility.addDictionaries(self.data, newData)
         newIncludes = self.findIncludeList(newData)
         self.loadIncludes(newIncludes)
+        return OK
+
+    def convertBoms(self):
+        boms = self.data.get("bom", [])
+        packages = set(self.data.get("packages", []))
+        for bom in boms:
+            filename = "%s/deploy/bom/%s.yml" % (SERVER_PATH, bom)
+            if not os.path.isfile(filename):
+                print "%s does not exist" % filename
+                return FAIL
+            packages = packages.union(set(yaml.load(open(filename).read())))
+        self.data["packages"] = list(packages)
+        if self.data.get("bom"):
+            del self.data["bom"]
         return OK
 
     def loadIncludes(self, newIncludes):
@@ -139,11 +159,11 @@ if __name__ == "__main__":
     if not options.insecure:
         passwd = getpass.getpass("Enter decryption password: ")
     config = Client(client, passwd)
-    status = config.downloadClient()
+    status = config.get()
     if status == FAIL:
         print "Bad config file."
         sys.exit(1)
-    status = config.decryptConfig()
+    client.decryptConfig()
     data   = yaml.dump(config.data)
     if options.output:
         print "output to filename: %s" % options.output

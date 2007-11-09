@@ -9,6 +9,7 @@ import StringIO
 import traceback
 from RemoteClient import RemoteClient
 
+
 TMP_FILE = "tmp.yml"
 DOT_LENGTH = 20
 
@@ -66,7 +67,7 @@ class BombardierRemoteClient(RemoteClient):
 
     def sendPackage(self, data):
         package, path = data
-        filename = "deploy/packages/"+package
+        filename = Client.SERVER_PATH +"/deploy/packages/"+package
         if not os.path.isfile(filename):
             print "Client requested a file that is not on this server: %s" % filename
             self.s.send(`FAIL`)
@@ -105,7 +106,7 @@ class BombardierRemoteClient(RemoteClient):
 
     def sendClient(self, data):
         client = Client.Client(self.hostname, self.configPasswd)
-        status = client.downloadClient()
+        status = client.get()
         client.decryptConfig()
         if status == FAIL:
             print "==> Could not find valid configuration data for this host. Exiting."
@@ -115,7 +116,7 @@ class BombardierRemoteClient(RemoteClient):
         os.unlink(TMP_FILE)
 
     def sendBom(self, data):
-        filename = "deploy/bom/%s.yml" % data
+        filename = Client.SERVER_PATH + "/deploy/bom/%s.yml" % data
         if not os.path.isfile(filename):
             print "==> Could not find valid bom data for this %s. Exiting." % filename
             sys.exit()
@@ -181,6 +182,7 @@ class BombardierRemoteClient(RemoteClient):
                 ermsg += "\n||>>>%s" % line
             print ermsg
             self.disconnect()
+        self.getStatusYml()
         self.disconnect()
         return returnCode
 
@@ -190,6 +192,22 @@ class BombardierRemoteClient(RemoteClient):
         self.get("%s/output/%s" % (self.spkgDir, remoteFilename))
         os.system("mv %s output/%s" % (remoteFilename, localFilename) )
         return 
+
+    def getStatusYml(self):
+        statusDir = '%s/status'% Client.SERVER_PATH 
+        if not os.path.isdir( statusDir ):
+            os.makedirs( statusDir )
+
+        self.s.sendline ('cd %s && cat status.yml' %self.spkgDir)
+        self.s.prompt()
+        statusYml = str(self.s.before).split("status:")[0]
+        try:
+            y = yaml.load(statusYml)
+        except:
+            print "==> status.yml could not be parsed (writing to error.yml)"
+            open( "%s/error.yml" %(statusDir), 'w' ).write(statusYml)
+            return
+        open( "%s/%s.yml" %(statusDir, self.hostname), 'w' ).write(statusYml)
 
 if __name__ == "__main__":
     parser = optparse.OptionParser("usage: %prog server-name [options] [package-names]")
@@ -255,7 +273,7 @@ if __name__ == "__main__":
     encryptedItems = 0
     for serverName in serverNames:
         client = Client.Client(serverName, '')
-        status = client.downloadClient()
+        status = client.get()
         encryptedItems += client.checkEncryption()
 
     if encryptedItems:
