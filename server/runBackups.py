@@ -86,6 +86,19 @@ def pullFiles(backupServer, clientConfig, localDir):
     clearLock("%s-pull-lock" % backupServer)
     return status
 
+def restore(restoreServer):
+    if setLock(restoreServer+"-push-lock") == FAIL:
+        logger.info("%s busy. Try again later." % restoreServer)
+        return FAIL
+    logger.info("Instructing server %s to restore..." % restoreServer)
+    r = BombardierBackup(restoreServer, RESTORE)
+    cmdstatus = r.reconcile()
+    r.getScriptOutput()
+    if cmdstatus == FAIL:
+        logger.error( "Restore failed on %s" % ( restoreServer) )
+    clearLock(restoreServer+"-push-lock")
+    return cmdstatus
+
 def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
     localReplica = "%s/%s" % (localDir, backupServer) 
     status = OK
@@ -96,7 +109,11 @@ def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
         username       = clientConfig["defaultUser"]
         restorePath    = clientConfig["sql"]["servers"][restoreServer]["restorePath"]
         restoreNetwork = clientConfig["sql"]["servers"][restoreServer]["network"]
-        if restoreNetwork != localNetwork:
+        if restoreNetwork == localNetwork:
+            cmdstatus = restore(restoreServer)
+            if cmdstatus == FAIL:
+                status = FAIL
+        else:
             logger.info("Pushing to %s on network %s" % (restoreServer, restoreNetwork))
             if setLock(restoreServer+"-push-lock") == FAIL:
                 logger.info("%s busy. Try again later." % restoreServer)
@@ -111,21 +128,16 @@ def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
                 status, output = commands.getstatusoutput(cmd)
                 if status != OK:
                     logger.error( "%s failed." % cmd)
+                    continue
+                cmdstatus = restore(restoreServer)
+                if cmdstatus == FAIL:
+                    status = FAIL
             else:
             #except:
                 logger.error("Exception caught in trying to rsync.")
                 clearLock(restoreServer+"-push-lock")
                 status = FAIL
                 continue
-        logger.info("Instructing server %s to restore..." % restoreServer)
-        r = BombardierBackup(restoreServer, RESTORE)
-        cmdstatus = r.reconcile()
-        r.getScriptOutput()
-        if cmdstatus == FAIL:
-            status = FAIL
-            logger.error( "Restore failed on %s" % ( restoreServer) )
-            sys.exit(FAIL)
-        clearLock(restoreServer+"-push-lock")
     return status
 
 def runBackup(backupServer, full, debug):
@@ -138,9 +150,9 @@ def runBackup(backupServer, full, debug):
         r = BombardierBackup(backupServer, BACKUP_LOG)
     status = r.reconcile()
     r.getScriptOutput()
+    status = OK
     if status != OK:
         logger.error( "Backup failed on %s" % ( backupServer ) )
-        sys.exit(FAIL)
     clearLock("%s-backup-lock" % backupServer)
     return status
 
@@ -158,10 +170,10 @@ def dbReport(restoreServers, backupServer, databases, full):
             report[database]["stats"] = backupData[database]["stats"]
         for key in ["backup", "compress", "verify", "rrd"]:
             report[database][key] = backupData[database][key]
+    status = OK
     for restoreServer in restoreServers:
         report[restoreServer] = {}
         restoreData = yaml.load(open("output/%s-restore.yml" % restoreServer, 'r').read())
-        status = OK
         for database in databases:
             report[restoreServer][database] = {}
             dbInfo = restoreData.get(database)
@@ -343,6 +355,7 @@ if __name__ == "__main__":
         report['syncAndRestore'] = syncAndRestore(restoreServers, backupServer, localNetwork, LOCAL_ARCHIVE)
         addDictionaries(report, dbReport(restoreServers, backupServer, databases, options.full) )
         wrapup(report, backupServer, clientConfig)
+        open("output/backupReport.yml", 'w').write(yaml.dump(report))
     except DeadLockException, e:
         report["EXCEPTION"] = str(e)
         report["status"] = "FAIL"
