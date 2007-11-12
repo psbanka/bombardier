@@ -47,6 +47,7 @@ class Mode:
         self.auth = USER
         self.systemType = systemType()
         self.fullPrompt = ""
+        self.password = ''
         if systemType == UNKNOWN:
             print >>sys.stderr,"Sorry, only Debian and Redhat Linux systems are supported in this release."
             sys.exit(1)

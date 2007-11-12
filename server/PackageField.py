@@ -17,6 +17,30 @@ def getProgressData(hostName):
     progressData = yml["install-progress"]
     return progressData
 
+def getNamesFromProgress(hostName, stripped=False):
+    progressData = getProgressData(hostName)
+    if progressData == None:
+         (installedPackageNames, brokenPackageNames) = ([],[])
+    else:
+        if stripped:
+            progressData = stripVersionFromKeys(progressData)
+        installedPackageNames, brokenPackageNames = getInstalled(progressData)
+    return (set(installedPackageNames), set(brokenPackageNames))
+
+def getInstalledPackageNames(hostName, stripped=False):
+    return getNamesFromProgress(hostName, stripped)[0]  
+
+def getBrokenPackageNames(hostName, stripped=False):
+    return getNamesFromProgress(hostName, stripped)[1]  
+
+def getPackageNamesFromBom(hostName):
+    client = Client(hostName, mode.password)
+    status = client.get()
+    if status == FAIL:
+        print "Bad config file for %s." % hostName
+        return []
+    return set(client.data.get("packages", []))
+
 class PackageField(PinshCmd.PinshCmd):
     def __init__(self, name = "packageName"):
         PinshCmd.PinshCmd.__init__(self, name)
@@ -51,31 +75,50 @@ class InstallablePackageField(PackageField):
         PackageField.__init__(self, name)
 
     def possiblePackageNames(self, hostName, packageName):
-        client = Client(hostName, '')
+        client = Client(hostName, mode.password)
         status = client.get()
         if status == FAIL:
             print "Bad config file for %s." % hostName
             return []
-        possibleMatches = []
-        for i in client.data.get("packages", []):
+        possibleMatches = set([])
+        for i in getPackageNamesFromBom(hostName):
             if i.lower().startswith( packageName.lower() ):
-                possibleMatches.append( i )
-        progressData = getProgressData(hostName)
-        if progressData == None:
-            return possibleMatches
-        progressData = stripVersionFromKeys(progressData)
-        installedPackageNames =  getInstalled(progressData)[0]
-        return list(set(possibleMatches) - set(installedPackageNames))
+                possibleMatches.add( i )
+        installedPackageNames  =  getInstalledPackageNames(hostName, stripped=True)
+        brokenPackageNames = getBrokenPackageNames(hostName, stripped=True)
+        return list(possibleMatches - installedPackageNames - brokenPackageNames)
 
 class InstalledPackageField(PackageField):
     def __init__(self, name = "installedPackageField"):
         PackageField.__init__(self, name)
 
     def possiblePackageNames(self, hostName, packageName):
-        progressData = getProgressData(hostName)
-        installedPackageNames =  getInstalled(progressData)[0]
         possibleMatches = []
-        for i in installedPackageNames:
+        for i in getInstalledPackageNames(hostName):
+            if i.lower().startswith( packageName.lower() ):
+                possibleMatches.append( i )
+        return possibleMatches
+
+class PurgablePackageField(PackageField):
+    def __init__(self, name = "purgablePackageField"):
+        PackageField.__init__(self, name)
+
+    def possiblePackageNames(self, hostName, packageName):
+        possibleMatches = []
+        packages = getInstalledPackageNames(hostName).union( getBrokenPackageNames(hostName) )
+        for i in packages:
+            if i.lower().startswith( packageName.lower() ):
+                possibleMatches.append( i )
+        return possibleMatches
+
+class FixablePackageField(PackageField):
+    def __init__(self, name = "fixablePackageField"):
+        PackageField.__init__(self, name)
+
+    def possiblePackageNames(self, hostName, packageName):
+        possibleMatches = []
+        packages = getBrokenPackageNames(hostName)
+        for i in packages:
             if i.lower().startswith( packageName.lower() ):
                 possibleMatches.append( i )
         return possibleMatches

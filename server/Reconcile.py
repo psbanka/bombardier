@@ -1,16 +1,16 @@
 #!/usr/bin/python
 
 import sys
-from bcs import BombardierRemoteClient, STATUS
+from bcs import BombardierRemoteClient, RECONCILE
 import PinshCmd, BomHostField, libCmd
 from commonUtil import *
 
 DEBUG = 0
 
-class Status(PinshCmd.PinshCmd):
+class Reconcile(PinshCmd.PinshCmd):
     def __init__(self):
-        PinshCmd.PinshCmd.__init__(self, "status")
-        self.helpText = "status\tdetermine the status of a host"
+        PinshCmd.PinshCmd.__init__(self, "reconcile")
+        self.helpText = "reconcile\treconcile a host with it's bill of materials"
         self.bomHostField = BomHostField.BomHostField() # FIXME: want a real machine
         self.children = [self.bomHostField]
         self.level = 0
@@ -24,8 +24,8 @@ class Status(PinshCmd.PinshCmd):
         target = tokens[1]
         if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
             return FAIL, ["Invalid host: "+target]
-        target = self.bomHostField.name(["status", target])[0]
-        r = BombardierRemoteClient(target, STATUS, [], '', mode.password)
+        target = self.bomHostField.name(["reconcile", target])[0]
+        r = BombardierRemoteClient(target, RECONCILE, [], '', mode.password)
         status = r.reconcile()
         if status == FAIL:
             return FAIL, ["Host is screwed up"]

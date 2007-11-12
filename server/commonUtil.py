@@ -5,7 +5,7 @@ from commands import getstatusoutput
 
 import Mode
 
-mode = Mode.Mode(Mode.ENABLE, '(BOM) #')
+mode = Mode.Mode(Mode.USER, '>')
 
 DEBUG = 0
 

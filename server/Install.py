@@ -30,7 +30,7 @@ class Install(PinshCmd.PinshCmd):
         packageName = tokens[2]
         if self.packageField.match(tokens, 2) != (COMPLETE, 1):
             return FAIL, ["Invalid package: "+packageName]
-        r = BombardierRemoteClient(hostName, INSTALL, [packageName], '', '')
+        r = BombardierRemoteClient(hostName, INSTALL, [packageName], '', mode.password)
         status = r.reconcile()
         if status == FAIL:
             return FAIL, ["Host is screwed up"]

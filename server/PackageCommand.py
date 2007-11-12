@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import sys
-from bcs import BombardierRemoteClient, UNINSTALL, INSTALL, VERIFY, EXECUTE
+from bcs import BombardierRemoteClient, UNINSTALL, INSTALL, VERIFY, EXECUTE, PURGE, FIX
 import PinshCmd, libCmd
 import BomHostField, PackageField, ScriptField
 from commonUtil import *
@@ -20,7 +20,7 @@ class PackageCommand(PinshCmd.PinshCmd):
         self.scriptName = ''
 
     def processObject(self, hostName, packageName, tokens):
-        r = BombardierRemoteClient(hostName, self.action, [packageName], '', '')
+        r = BombardierRemoteClient(hostName, self.action, [packageName], '', mode.password)
         return r
 
     def cmd(self, tokens, noFlag, slash):
@@ -67,6 +67,22 @@ class Uninstall(PackageCommand):
         self.bomHostField.children = [self.packageField]
         self.action = UNINSTALL
 
+class Purge(PackageCommand):
+    def __init__(self):
+        PackageCommand.__init__(self, "purge")
+        self.helpText = "purge\tremove a package from a client's list"
+        self.packageField = PackageField.PurgablePackageField()
+        self.bomHostField.children = [self.packageField]
+        self.action = PURGE
+
+class Fix(PackageCommand):
+    def __init__(self):
+        PackageCommand.__init__(self, "fix")
+        self.helpText = "fix\tfix a broken package"
+        self.packageField = PackageField.FixablePackageField()
+        self.bomHostField.children = [self.packageField]
+        self.action = FIX
+
 class Execute(PackageCommand):
     def __init__(self):
         PackageCommand.__init__(self, "execute")
@@ -79,7 +95,7 @@ class Execute(PackageCommand):
 
     def processObject(self, hostName, packageName, tokens):
         scriptName = self.scriptField.name(tokens)[0]
-        r = BombardierRemoteClient(hostName, self.action, [packageName], scriptName, '')
+        r = BombardierRemoteClient(hostName, self.action, [packageName], scriptName, mode.password)
         return r
 
 if __name__ == "__main__":
