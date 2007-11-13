@@ -56,15 +56,21 @@ class ScriptField(PinshCmd.PinshCmd):
         return ''
 
     def match(self, tokens, index):
-        if tokens[index] == '':
+        possibleMatches = self.name(tokens, index)
+        if not possibleMatches:
             return NO_MATCH, 1
-        packageName = tokens[index-1]
-        scriptName = tokens[index]
-        possibleMatches = self.possibleScriptNames(packageName, scriptName)
-        if len(possibleMatches) == 0:
-            return INCOMPLETE, 1
-        elif len(possibleMatches) == 1:
-            return COMPLETE, 1
-        else:
+        if len(possibleMatches) > 1:
             return PARTIAL, 1
+        return COMPLETE, 1
+
+if __name__ == "__main__":
+    from libTest import *
+    scriptField = ScriptField()
+    status = OK
+    startTest()
+    status = runTest(scriptField.name, [["bigap", "Conn", "conn"], 2], ["connectTest"], status)
+    status = runTest(scriptField.name, [["bigs", "con", "co"], 2], ["connectTest"], status)
+    status = runTest(scriptField.name, [["virtap", "a", "a"], 2], "", status)
+    status = runTest(scriptField.name, [["foo", "Conn", 'conn'], 2], '', status)
+    endTest(status)
 
