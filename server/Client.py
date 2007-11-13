@@ -7,7 +7,6 @@ import base64
 from Crypto.Cipher import AES
 from bombardier.staticData import OK, FAIL, CENSORED
 
-SERVER_PATH = "/var/dev/bombardier/server"
 VALID_CHARS = [ chr(x) for x in range(ord(' '), ord('~')+1) ]
 
 def pad(str):
@@ -59,7 +58,7 @@ class Client:
             configName = self.systemName
         else:
             ymlDirectory = "include"
-        filename   = SERVER_PATH + "/deploy/%s/%s.yml" % (ymlDirectory, configName)
+        filename   = "deploy/%s/%s.yml" % (ymlDirectory, configName)
         newData   = yaml.load( open(filename, 'r').read() )
         self.data = miniUtility.addDictionaries(self.data, newData)
         newIncludes = self.findIncludeList(newData)
@@ -70,7 +69,7 @@ class Client:
         boms = self.data.get("bom", [])
         packages = set(self.data.get("packages", []))
         for bom in boms:
-            filename = "%s/deploy/bom/%s.yml" % (SERVER_PATH, bom)
+            filename = "deploy/bom/%s.yml" % (bom)
             if not os.path.isfile(filename):
                 print "%s does not exist" % filename
                 return FAIL

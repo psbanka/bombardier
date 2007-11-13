@@ -5,11 +5,11 @@ import BomHostField
 import os
 import yaml
 from commonUtil import *
-from Client import SERVER_PATH, Client
+from Client import Client
 from bombardier.miniUtility import getInstalled, stripVersionFromKeys
 
 def getProgressData(hostName):
-    statusYml = "%s/status/%s.yml"%(SERVER_PATH, hostName)
+    statusYml = "status/%s.yml"%(hostName)
     if not os.path.isfile(statusYml):
         print "NO FILE: %s" %statusYml
         return None

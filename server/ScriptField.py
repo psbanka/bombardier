@@ -3,10 +3,9 @@
 import PinshCmd
 import yaml
 from commonUtil import *
-from Client import SERVER_PATH
 
 def getSubsection(name):
-    d = open("%s/deploy/packages/packages.yml" % SERVER_PATH).readlines()
+    d = open("deploy/packages/packages.yml").readlines()
     output = []
     collect = False
     for line in d:

@@ -67,7 +67,7 @@ class BombardierRemoteClient(RemoteClient):
 
     def sendPackage(self, data):
         package, path = data
-        filename = Client.SERVER_PATH +"/deploy/packages/"+package
+        filename = "deploy/packages/"+package
         if not os.path.isfile(filename):
             print "Client requested a file that is not on this server: %s" % filename
             self.s.send(`FAIL`)
@@ -116,7 +116,7 @@ class BombardierRemoteClient(RemoteClient):
         os.unlink(TMP_FILE)
 
     def sendBom(self, data):
-        filename = Client.SERVER_PATH + "/deploy/bom/%s.yml" % data
+        filename = "deploy/bom/%s.yml" % data
         if not os.path.isfile(filename):
             print "==> Could not find valid bom data for this %s. Exiting." % filename
             sys.exit()
@@ -194,7 +194,7 @@ class BombardierRemoteClient(RemoteClient):
         return 
 
     def getStatusYml(self):
-        statusDir = '%s/status'% Client.SERVER_PATH 
+        statusDir = 'status'
         if not os.path.isdir( statusDir ):
             os.makedirs( statusDir )
 

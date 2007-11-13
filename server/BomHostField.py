@@ -6,7 +6,7 @@ import PinshCmd
 from commonUtil import *
 
 def possibleHostNames(hostName):
-    yamlFiles = glob.glob("/var/www/deploy/client/*.yml")
+    yamlFiles = glob.glob("deploy/client/*.yml")
     hostNames = []
     for filename in yamlFiles:
         hostNames.append(filename.split('/')[-1].split('.yml')[0])

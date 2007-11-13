@@ -56,14 +56,14 @@ if len(sys.argv) == 1:
 
 # I don't know how to turn off file completion in readline, so this is
 # my stupid work-around:
-try:
-    os.mkdir('/tmp/sandbox')
-except:
-    pass
-try:
-    os.chdir('/tmp/sandbox')
-except:
-    print "[Warning: cannot change directory. Completion may not work properly.]"
+#try:
+    #os.mkdir('sandbox')
+#except:
+    #pass
+#try:
+    #os.chdir('sandbox')
+#except:
+    #print "[Warning: cannot change directory. Completion may not work properly.]"
 
 while mode.active():
 
