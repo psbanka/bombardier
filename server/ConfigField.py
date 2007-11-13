@@ -6,6 +6,8 @@ import PinshCmd, BomHostField, yaml
 import Client
 from commonUtil import *
 
+
+
 class ConfigField(PinshCmd.PinshCmd):
     def __init__(self, name = "configField"):
         PinshCmd.PinshCmd.__init__(self, name, tokenDelimiter = '.')
@@ -14,16 +16,44 @@ class ConfigField(PinshCmd.PinshCmd):
         self.level = 99
         self.cmdOwner = 0
 
-    def name(self, tokens, index):
-        hostNames = self.bomHostField.name(tokens, index-1)
-        if len(hostNames) != 1:
-            return ''
-        hostName = hostNames[0]
+    def getConfigData(self, tokens, index):
+        hostNames = self.bomHostField.name([tokens[index].split('.')[0]], 0)
+        if len(hostNames) == 0:
+            return []
+        if len(hostNames) > 1:
+            return hostNames
+            #return FAIL, ["No server %s" % tokens[index]]
+        else:
+            hostName = hostNames[0]
         client = Client.Client(hostName, '')
         client.get()
-        if tokens[index] == '':
+        if len(tokens[index].split('.')) > 1:
+            configName = self.name(tokens, index)
+            if len(configName) == 0:
+                return []
+                #return FAIL, ["Unknown configuration option"]
+            if len(configName) > 1:
+                #return FAIL, ["Incomplete configuration option"]
+                return []
+            currentDict = client.data
+            for configValue in configName[0].split('.')[1:]:
+                currentDict = currentDict.get(configValue)
+        else:
+            currentDict = client.data
+        return currentDict
+
+    def name(self, tokens, index):
+        hostNames = self.bomHostField.name([tokens[index].split('.')[0]], 0)
+        if len(hostNames) != 1:
+            if len(tokens[index].split('.')) == 1:
+                return hostNames 
+            return ''
+        client = Client.Client(hostName, '')
+        client.get()
+        if len(tokens[index].split('.')) == 1:
             return client.data.keys()
-        configValues = tokens[index].split('.')
+
+        configValues = tokens[index].split('.')[1:]
         currentDict = client.data
         for configValue in configValues[:-1]:
             if type(currentDict) == type({}):
@@ -37,9 +67,9 @@ class ConfigField(PinshCmd.PinshCmd):
         for item in currentDict:
             if item.lower().startswith(configValues[-1].lower()):
                 if prefix:
-                    possibleMatches.append("%s.%s" % (prefix, item))
+                    possibleMatches.append("%s.%s.%s" % (hostName, prefix, item))
                 else:
-                    possibleMatches.append(item)
+                    possibleMatches.append("%s.%s" % (hostName, item))
         
         if possibleMatches:
             return possibleMatches

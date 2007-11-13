@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import PinshCmd
+import PinshCmd, PackageField, BomHostField
 import yaml
 from commonUtil import *
 
@@ -24,6 +24,8 @@ class ScriptField(PinshCmd.PinshCmd):
     def __init__(self, name = "packageName"):
         PinshCmd.PinshCmd.__init__(self, name)
         self.helpText = "<scriptName>\tthe name of a bombardier maintenance script"
+        self.installedPackageField = PackageField.InstalledPackageField()
+        self.bomHostField = BomHostField.BomHostField()
         self.level = 99
         self.cmdOwner = 0
 
@@ -38,9 +40,17 @@ class ScriptField(PinshCmd.PinshCmd):
         return possibleCompletions
 
     def name(self, tokens, index):
-        packageName = tokens[2]
-        scriptName  = tokens[3]
-        possibleMatches = self.possibleScriptNames(packageName, scriptName)
+        hostNames = self.bomHostField.name(tokens, index-2)
+        if len(hostNames) != 1:
+            return ''
+        hostName = hostNames[0]
+        partialPackageName = tokens[index-1]
+        packageNames = self.installedPackageField.possiblePackageNames(hostName, partialPackageName)
+        if len(packageNames) != 1:
+            return ''
+        packageName = packageNames[0]
+        partialScriptName  = tokens[index]
+        possibleMatches = self.possibleScriptNames(packageName, partialScriptName)
         if possibleMatches:
             return possibleMatches
         return ''

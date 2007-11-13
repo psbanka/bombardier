@@ -47,7 +47,14 @@ def processInput(string):
     processedData = []
     for token in tokens:
         if token != '':
-            processedData.append(token)
+            if token.startswith('[') and len(token) > 1:
+                processedData.append('[')
+                processedData.append(token[1:])
+            elif token.endswith(']') and len(token) > 1:
+                processedData.append(token[:-1])
+                processedData.append(']')
+            else:
+                processedData.append(token)
     if tokens[-1] != '':
         tokens = processedData
     else:

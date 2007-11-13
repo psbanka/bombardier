@@ -21,6 +21,9 @@ C0 = 1
 C1 = 2
 C2 = 3
 C3 = 4
+F0 = 10
+F1 = 11
+F2 = 12
 ALL = 99
 FREE_TEXT = 100
 
@@ -40,6 +43,8 @@ class Mode:
     def __init__(self, state, prompt):
         self.state = [state]
         self.prompt = [prompt]
+        self.commandBuffer = {F0:[], F1:[], F2:[]}
+        self.variables = {F0:[], F1:[], F2:[]}
         self.info = []
         self.setPrompt()
         self.termlen = 23
@@ -51,6 +56,10 @@ class Mode:
         if systemType == UNKNOWN:
             print >>sys.stderr,"Sorry, only Debian and Redhat Linux systems are supported in this release."
             sys.exit(1)
+
+    def cleanMode(self, state):
+        self.commandBuffer[state] = []
+        self.variables[state] = []
 
     def setPrompt(self):
         if self.currentState() != FREE_TEXT:

@@ -34,6 +34,7 @@ class PinshCmd:
         self.cmdOwner = 0
         self.tokenDelimiter = tokenDelimiter
         self.names = []
+        self.exitMode = False
 
     def __repr__(self):
         return self.myName
@@ -218,16 +219,49 @@ class PinshCmd:
 
     # finds the correct object and runs a command
     def run(self, tokens, noFlag, slash):
-        owner = self.findLastResponsibleChild(tokens, 0)
-        if not owner:
-            return FAIL, []
-        returnValue = owner.cmd(tokens, noFlag, slash)
-        if returnValue == None or len(returnValue) != 2:
+        if mode.state[-1] == Mode.F0:
+            if tokens[0].lower() != 'end':
+                mode.commandBuffer[Mode.F0].append([tokens, noFlag, slash])
+            else:
+                variable, values = mode.variables[Mode.F0]
+                for value in values:
+                    for tokens, noFlag, slash in mode.commandBuffer[Mode.F0]:
+                        newTokens = []
+                        for token in tokens:
+                            if token == '$%s' % variable:
+                                newTokens.append(value)
+                            else:
+                                newTokens.append(token)
+                        owner = self.findLastResponsibleChild(newTokens, 0)
+                        if not owner:
+                            continue
+                        returnValue = owner.cmd(newTokens, noFlag, slash)
+                        if not (returnValue == None and len(returnValue) != 2):
+                            status = returnValue[0]
+                            output = returnValue[1]
+                            libUi.userOutput(output, status)
+
+                extraClasses = mode.newClasses[-1]
+                for i in range(0,extraClasses):
+                    slash.children.pop()
+                mode.popPrompt()
+                mode.cleanMode(Mode.F0)
             return OK, []
         else:
-            status = returnValue[0]
-            output = returnValue[1]
-            return status, output
+            owner = self.findLastResponsibleChild(tokens, 0)
+            if not owner:
+                return FAIL, []
+            if mode.state[-1] == Mode.F0 and owner.exitMode == False:
+                mode.commands.append([owner.cmd, tokens, noFlag, slash])
+                return OK, []
+            else:
+                returnValue = owner.cmd(tokens, noFlag, slash)
+                if returnValue == None or len(returnValue) != 2:
+                    return OK, []
+                else:
+                    status = returnValue[0]
+                    output = returnValue[1]
+                    return status, output
 
     # pretty-print the help strings of all my children on this level
     def help(self):

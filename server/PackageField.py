@@ -50,6 +50,7 @@ class PackageField(PinshCmd.PinshCmd):
 
     def possiblePackageNames(self, hostName, packageName):
         print "VIRTUAL", hostName, packageName
+        return []
 
     def name(self, tokens, index):
         hostName = tokens[1]
@@ -126,11 +127,11 @@ class FixablePackageField(PackageField):
 if __name__ == "__main__":
     from libTest import *
     print os.getcwd()
-    pField = PackageField()
+    pField = InstallablePackageField()
     status = OK
     startTest()
-    runTest(pField.match, [["bigdb"]], (PARTIAL, 2), status)
-    runTest(pField.match, [["lilap", "foo"]], (NO_MATCH, 1), status)
-    runTest(pField.match, [["lilap", "CgApache"]], (COMPLETE, 2), status)
+    runTest(pField.match, [["bigdb", ""], 0], (PARTIAL, 2), status)
+    runTest(pField.match, [["lilap", "foo"], 1], (NO_MATCH, 1), status)
+    runTest(pField.match, [["lilap", "CgApache"], 1], (COMPLETE, 2), status)
     runTest(pField.match, [[""]], (NO_MATCH, 1), status)
     endTest(status)

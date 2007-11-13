@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import sys
-from bcs import BombardierRemoteClient, UNINSTALL, INSTALL, VERIFY, EXECUTE, PURGE, FIX
+from bcs import BombardierRemoteClient, UNINSTALL, INSTALL, VERIFY, EXECUTE, PURGE, FIX, CONFIGURE
 import PinshCmd, libCmd
 import BomHostField, PackageField, ScriptField
 from commonUtil import *
@@ -37,6 +37,8 @@ class PackageCommand(PinshCmd.PinshCmd):
             return FAIL, ["Invalid package: "+packageName]
         packageName = self.packageField.name(["command", hostName, packageName], 2)[0]
         r = self.processObject(hostName, packageName, tokens)
+        if r == None:
+            return FAIL, ["Unable to run command."]
         status = r.reconcile()
         if status == FAIL:
             return FAIL, ["Host is screwed up"]
@@ -50,6 +52,14 @@ class Install(PackageCommand):
         self.packageField = PackageField.InstallablePackageField()
         self.bomHostField.children = [self.packageField]
         self.action = INSTALL
+
+class Configure(PackageCommand):
+    def __init__(self):
+        PackageCommand.__init__(self, "configure")
+        self.helpText = "configure\tconfigure a package"
+        self.packageField = PackageField.InstalledPackageField()
+        self.bomHostField.children = [self.packageField]
+        self.action = CONFIGURE
 
 class Verify(PackageCommand):
     def __init__(self):
@@ -94,17 +104,12 @@ class Execute(PackageCommand):
         self.action = EXECUTE
 
     def processObject(self, hostName, packageName, tokens):
-        scriptName = self.scriptField.name(tokens, len(tokens))[0]
-        r = BombardierRemoteClient(hostName, self.action, [packageName], scriptName, mode.password)
+        scriptNames = self.scriptField.name(tokens, len(tokens)-1)
+        if len(scriptNames) != 1:
+            return None
+        r = BombardierRemoteClient(hostName, self.action, [packageName], scriptNames[0], mode.password)
         return r
 
 if __name__ == "__main__":
     pass
-    #from libTest import *
-    #status = startTest()
-    #ping = Ping()
-#
-    #status = testMe(ping, "ping 4.2.2.2", OK, "4.2.2.2 is alive", status)
-    #status = testMe(ping, "ping www.yahoo.com", OK, "www.yahoo.com is alive", status)
-    #endTest(status)
 
