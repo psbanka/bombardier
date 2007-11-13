@@ -51,7 +51,7 @@ class PackageField(PinshCmd.PinshCmd):
     def possiblePackageNames(self, hostName, packageName):
         print "VIRTUAL", hostName, packageName
 
-    def name(self, tokens):
+    def name(self, tokens, index):
         hostName = tokens[1]
         possibleMatches = self.possiblePackageNames(hostName, tokens[2])
         if possibleMatches:

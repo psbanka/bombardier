@@ -12,11 +12,11 @@ PARTIAL  = 1
 COMPLETE = 2
 
 # find the names of all the objects given to me
-def getNames(objects, tokens):
+def getNames(objects, tokens, index):
     names = []
     for object in objects:
         if DEBUG: print "object.myName:",object.myName
-        newName = object.name(tokens)
+        newName = object.name(tokens, index)
         if type(newName) == type("string"):
             names.append(newName)
         else:
@@ -25,19 +25,20 @@ def getNames(objects, tokens):
 
 class PinshCmd:
 
-    def __init__(self, name, helpText = "<cr>", level = Mode.ENABLE):
+    def __init__(self, name, helpText = "<cr>", level = Mode.ENABLE, tokenDelimiter = ' '):
         self.myName = name
         self.helpText = helpText
         self.children = []
         self.level = level
         self.auth = USER
         self.cmdOwner = 0
+        self.tokenDelimiter = tokenDelimiter
         self.names = []
 
     def __repr__(self):
         return self.myName
 
-    def name(self, tokens):
+    def name(self, tokens, index):
         return [self.myName]
 
     def match(self, tokens, index):
@@ -66,7 +67,7 @@ class PinshCmd:
             return [self], index
         if tokens[index] == '':
             if len(self.children) > 0:
-                return self.children, index
+                return self.children, index+1
             returnError = 0
         completionObjects = []
         incompleteObjects = []
@@ -84,7 +85,7 @@ class PinshCmd:
                 completionObjects.append(child)
             elif matchValue == COMPLETE: # go see if there are more tokens!
                 if DEBUG: print "findcompletions COMPLETE : matchValue:",matchValue, "length:",length
-                tokens[index] = child.name(tokens)[0]
+                tokens[index] = child.name(tokens, index)[0]
                 if DEBUG: print "NEW TOKEN:", tokens[index]
                 return child.findCompletions(tokens, index+length)
         if len(completionObjects) == 1: # one partial match is as good as a complete match
@@ -130,10 +131,11 @@ class PinshCmd:
                     #mode.reprompt()
                     return None
                 # status is the index of the completion that readline wants
-                self.names =  getNames(completionObjects, tokens)
+                self.names =  getNames(completionObjects, tokens, index-1)
                 if DEBUG: 
                     print "COMPLETE: tokens:",`tokens`,"index:",index,"names:",`self.names`
-                return self.names[0] + ' '
+                #return self.names[0]
+                return self.names[0] + completionObjects[0].tokenDelimiter
         except StandardError, e:
             sys.stderr.write("Error detected in %s (%s)." % (file, e))
             e = StringIO.StringIO()
@@ -197,7 +199,7 @@ class PinshCmd:
                 else:
                     arguments.append(child)
             elif matchValue == COMPLETE:
-                tokens[index] = child.name(tokens)[0]
+                tokens[index] = child.name(tokens, index)[0]
                 if child.cmdOwner:
                     return child.findLastResponsibleChild(tokens, index+length)
                 else:

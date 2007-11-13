@@ -17,7 +17,7 @@ class Expression(PinshCmd.PinshCmd):
             return NO_MATCH, 1
         return PARTIAL, 1
 
-    def name(self, tokens):
+    def name(self, tokens, index):
         return ""
 
 if __name__ == "__main__":

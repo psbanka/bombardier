@@ -25,7 +25,7 @@ class HostField(PinshCmd.PinshCmd):
                 return NO_MATCH, 1
         return COMPLETE, 1
 
-    def name(self, tokens):
+    def name(self, tokens, index):
         return ""
 
 if __name__ == "__main__":

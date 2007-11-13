@@ -31,11 +31,11 @@ class PackageCommand(PinshCmd.PinshCmd):
         hostName = tokens[1]
         if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
             return FAIL, ["Invalid host: "+hostName]
-        hostName = self.bomHostField.name(["command", hostName])[0]
+        hostName = self.bomHostField.name(["command", hostName], 1)[0]
         packageName = tokens[2]
         if self.packageField.match(tokens, 2) != (COMPLETE, 1):
             return FAIL, ["Invalid package: "+packageName]
-        packageName = self.packageField.name(["command", hostName, packageName])[0]
+        packageName = self.packageField.name(["command", hostName, packageName], 2)[0]
         r = self.processObject(hostName, packageName, tokens)
         status = r.reconcile()
         if status == FAIL:
@@ -94,7 +94,7 @@ class Execute(PackageCommand):
         self.action = EXECUTE
 
     def processObject(self, hostName, packageName, tokens):
-        scriptName = self.scriptField.name(tokens)[0]
+        scriptName = self.scriptField.name(tokens, len(tokens))[0]
         r = BombardierRemoteClient(hostName, self.action, [packageName], scriptName, mode.password)
         return r
 

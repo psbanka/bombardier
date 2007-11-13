@@ -37,7 +37,7 @@ class ScriptField(PinshCmd.PinshCmd):
                 possibleCompletions.append(i)
         return possibleCompletions
 
-    def name(self, tokens):
+    def name(self, tokens, index):
         packageName = tokens[2]
         scriptName  = tokens[3]
         possibleMatches = self.possibleScriptNames(packageName, scriptName)

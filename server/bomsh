@@ -22,12 +22,13 @@ class Slash(PinshCmd.PinshCmd):
 ## 2. add the class to the following vector of command or add it to
 ##    the Configure.py class
     
-import Expert, Ping, Telnet, Ssh, Terminal, Exit, Reconcile, Status, PackageCommand, Enable
+import Expert, Ping, Telnet, Ssh, Terminal, Exit, Reconcile, Status, PackageCommand, Enable, Show, Configure
 
 commands = [Terminal.Terminal(), Status.Status(), PackageCommand.Uninstall(),
             PackageCommand.Verify(), PackageCommand.Install(), PackageCommand.Execute(),
             PackageCommand.Purge(), PackageCommand.Fix(), Reconcile.Reconcile(),
-            Ping.Ping(), Telnet.Telnet(), Ssh.Ssh(), Exit.Exit(), Enable.Enable()]
+            Show.Show(), Configure.Configure(), Ping.Ping(), Telnet.Telnet(), Ssh.Ssh(), 
+            Exit.Exit(), Enable.Enable()]
 
 if mode.auth == USER:
     import Expert

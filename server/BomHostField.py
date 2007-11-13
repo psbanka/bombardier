@@ -22,8 +22,9 @@ class BomHostField(PinshCmd.PinshCmd):
         self.level = 99
         self.cmdOwner = 0
 
-    def name(self, tokens):
-        possibleMatches = possibleHostNames(tokens[1])
+    def name(self, tokens, index):
+        possibleMatches = possibleHostNames(tokens[index])
+        #possibleMatches = possibleHostNames(tokens[-1])
         if possibleMatches:
             return possibleMatches
         return ''
