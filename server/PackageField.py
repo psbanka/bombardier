@@ -46,6 +46,7 @@ class PackageField(PinshCmd.PinshCmd):
         PinshCmd.PinshCmd.__init__(self, name)
         self.helpText = "<packageName>\tthe name of a bombardier package"
         self.level = 99
+        self.bomHostField = BomHostField.BomHostField()
         self.cmdOwner = 0
 
     def possiblePackageNames(self, hostName, packageName):
@@ -53,17 +54,17 @@ class PackageField(PinshCmd.PinshCmd):
         return []
 
     def name(self, tokens, index):
-        hostName = tokens[1]
-        possibleMatches = self.possiblePackageNames(hostName, tokens[2])
+        hostNames = self.bomHostField.name(tokens, index-1)
+        if len(hostNames) != 1:
+            return NO_MATCH, 1
+        hostName = hostNames[0]
+        possibleMatches = self.possiblePackageNames(hostName, tokens[index])
         if possibleMatches:
             return possibleMatches
         return ''
 
     def match(self, tokens, index):
-        if tokens[index] == '':
-            return NO_MATCH, 1
-        hostName = tokens[index-1]
-        possibleMatches = self.possiblePackageNames(hostName, tokens[index])
+        possibleMatches = self.name(tokens, index)
         if len(possibleMatches) == 0:
             return INCOMPLETE, 1
         elif len(possibleMatches) == 1:
@@ -130,8 +131,8 @@ if __name__ == "__main__":
     pField = InstallablePackageField()
     status = OK
     startTest()
-    runTest(pField.match, [["bigdb", ""], 0], (PARTIAL, 2), status)
-    runTest(pField.match, [["lilap", "foo"], 1], (NO_MATCH, 1), status)
-    runTest(pField.match, [["lilap", "CgApache"], 1], (COMPLETE, 2), status)
-    runTest(pField.match, [[""]], (NO_MATCH, 1), status)
+    status = runTest(pField.match, [["bigdb", ""], 0], (PARTIAL, 1), status)
+    status = runTest(pField.match, [["lilap", "foo"], 1], (INCOMPLETE, 1), status)
+    status = runTest(pField.match, [["lilap", "CgApache"], 1], (INCOMPLETE, 1), status)
+    status = runTest(pField.match, [["foo"], 0], (PARTIAL, 1), status)
     endTest(status)

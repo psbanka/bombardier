@@ -24,29 +24,26 @@ class BomHostField(PinshCmd.PinshCmd):
 
     def name(self, tokens, index):
         possibleMatches = possibleHostNames(tokens[index])
-        #possibleMatches = possibleHostNames(tokens[-1])
         if possibleMatches:
             return possibleMatches
         return ''
 
     def match(self, tokens, index):
-        if tokens[index] == '':
+        possibleMatches = self.name(tokens, index)
+        if not possibleMatches:
             return NO_MATCH, 1
-        possibleMatches = possibleHostNames(tokens[index])
-        if len(possibleMatches) == 0:
-            return NO_MATCH, 1
-        elif len(possibleMatches) == 1:
-            return COMPLETE, 1
-        else:
+        if len(possibleMatches) > 1:
             return PARTIAL, 1
+        return COMPLETE, 1
 
 if __name__ == "__main__":
     from libTest import *
     hostField = BomHostField()
     status = OK
     startTest()
-    runTest(hostField.match, [["bigdb"]], (COMPLETE, 1), status)
-    runTest(hostField.match, [["bigsam"]], (COMPLETE, 1), status)
-    runTest(hostField.match, [["foo"]], (NO_MATCH, 1), status)
-    runTest(hostField.match, [[""]], (NO_MATCH, 1), status)
+    status = runTest(hostField.match, [["bigdb"], 0], (COMPLETE, 1), status)
+    status = runTest(hostField.match, [["bigsam"], 0], (COMPLETE, 1), status)
+    status = runTest(hostField.match, [["foo"], 0], (NO_MATCH, 1), status)
+    status = runTest(hostField.match, [[""], 0], (PARTIAL, 1), status)
+    status = runTest(hostField.name, [["big"], 0], ['bigap', 'bigsam', 'bigdb'], status)
     endTest(status)
