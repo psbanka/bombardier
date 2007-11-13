@@ -48,6 +48,7 @@ class ConfigField(PinshCmd.PinshCmd):
             if len(tokens[index].split('.')) == 1:
                 return hostNames 
             return ''
+        hostName = hostNames[0]
         client = Client.Client(hostName, '')
         client.get()
         if len(tokens[index].split('.')) == 1:
@@ -88,9 +89,10 @@ if __name__ == "__main__":
     configField = ConfigField()
     status = OK
     startTest()
-    runTest(configField.name, [["bigdb", "sql.servers"], 1], ["sql.servers"], status)
-    runTest(configField.name, [["bigsam", "ipAddre"], 1], ["ipAddress"], status)
-    runTest(configField.name, [["virtap", "connectTest.connectionData.pro"], 1], ["connectTest.connectionData.proxy"], status)
-    runTest(configField.name, [["foo", "foo"], 1], '', status)
-    runTest(configField.name, [["bigsam", "thingy.majig"], 1], '', status)
+    status = runTest(configField.name, [["bigdb.sql.servers"], 0], ["bigdb.sql.servers"], status)
+    status = runTest(configField.name, [["bigsam.ipAddre"], 0], ["bigsam.ipAddress"], status)
+    status = runTest(configField.name, [["virtap.connectTest.connectionData.pro"], 0], ["virtap.connectTest.connectionData.proxy"], status)
+    status = runTest(configField.name, [["foo.foo"], 0], '', status)
+    status = runTest(configField.name, [["bigsam.thingy.majig"], 0], '', status)
+    status = runTest(configField.name, [["big"], 0], ["bigap", "bigsam", "bigdb"], status)
     endTest(status)
