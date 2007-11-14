@@ -47,13 +47,26 @@ def processInput(string):
     processedData = []
     for token in tokens:
         if token != '':
+            processed = False
+            if token.startswith('$'):
+                varName = token[1:]
+                if mode.globals.has_key(varName):
+                    value = mode.globals.get(varName)
+                    if type(value) == type(["list"]):
+                        processedData.append('[')
+                        processedData += value
+                        processedData.append(']')
+                    else:
+                        token = str(value)
+                    processed = True
             if token.startswith('[') and len(token) > 1:
                 processedData.append('[')
-                processedData.append(token[1:])
-            elif token.endswith(']') and len(token) > 1:
+                token = token[1:]
+            if token.endswith(']') and len(token) > 1:
                 processedData.append(token[:-1])
                 processedData.append(']')
-            else:
+                processed = True
+            if not processed:
                 processedData.append(token)
     if tokens[-1] != '':
         tokens = processedData

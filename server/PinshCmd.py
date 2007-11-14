@@ -241,6 +241,8 @@ class PinshCmd:
                             status = returnValue[0]
                             output = returnValue[1]
                             libUi.userOutput(output, status)
+                        mode.globals["output"] = output
+                        mode.globals["status"] = status
 
                 extraClasses = mode.newClasses[-1]
                 for i in range(0,extraClasses):
@@ -262,6 +264,8 @@ class PinshCmd:
                 else:
                     status = returnValue[0]
                     output = returnValue[1]
+                    mode.globals["output"] = output
+                    mode.globals["status"] = status
                     return status, output
 
     # pretty-print the help strings of all my children on this level

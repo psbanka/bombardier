@@ -24,14 +24,6 @@ class Exit(PinshCmd.PinshCmd):
         else:
             return OK, []
 
-    def running(self):
-        pass
-
-    def config(self):
-        pass
-
-    def write(self):
-        return OK
 
 def myTest():
     print "=============NAME:",__name__

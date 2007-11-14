@@ -45,6 +45,7 @@ class Mode:
         self.prompt = [prompt]
         self.commandBuffer = {F0:[], F1:[], F2:[]}
         self.variables = {F0:[], F1:[], F2:[]}
+        self.globals = {}
         self.info = []
         self.setPrompt()
         self.termlen = 23
