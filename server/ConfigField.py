@@ -7,56 +7,105 @@ import Client
 from commonUtil import *
 
 
+MERGED = 1
+CLIENT = 2
+INCLUDE = 3
+BOM = 4
 
 class ConfigField(PinshCmd.PinshCmd):
-    def __init__(self, name = "configField"):
+    def __init__(self, name = "configField", dataType=MERGED):
         PinshCmd.PinshCmd.__init__(self, name, tokenDelimiter = '.')
         self.helpText = "<configurationField>\ta dot-delimeted configuration value"
         self.bomHostField = BomHostField.BomHostField()
         self.level = 99
+        self.dataType = dataType
         self.cmdOwner = 0
 
-    def getConfigData(self, tokens, index):
+    def setValue(self, tokens, index, newValue):
+        if self.dataType == MERGED:
+            return FAIL
+        elif self.dataType == CLIENT:
+            hostNames = self.getHostNames(tokens, index)
+            if len(hostNames) != 1:
+                return FAIL
+            hostName = hostNames[0]
+            data = self.getClientData(hostName)
+            currentDict = data
+            configName = self.name(tokens, index)
+            cmd = "data"
+            for configValue in configName[0].split('.')[1:]:
+                cmd += "['%s']" % configValue
+                currentDict = currentDict.get(configValue)
+            if type(newValue) == type('string'):
+                thing = "%s = \"%s\"" % (cmd, newValue ) 
+            if type(newValue) == type(['list']):
+                thing = "%s = %s" % (cmd, newValue ) 
+            exec( thing )
+            self.writeClientData(hostName, data)
+            return OK
+
+    def getHostNames(self, tokens, index):
         hostNames = self.bomHostField.name([tokens[index].split('.')[0]], 0)
+        if len(hostNames) == 0:
+            return []
+        return hostNames
+
+    def writeClientData(self, hostName, data):
+        #print yaml.dump(data, default_flow_style=False)
+        open("deploy/client/%s.yml" % hostName, 'w').write(yaml.dump(data, default_flow_style=False))
+        return OK
+
+    def getClientData(self, hostName):
+        return yaml.load(open("deploy/client/%s.yml" % hostName).read())
+
+    def getConfigData(self, tokens, index):
+        hostNames = self.getHostNames(tokens, index)
         if len(hostNames) == 0:
             return []
         if len(hostNames) > 1:
             return hostNames
-            #return FAIL, ["No server %s" % tokens[index]]
         else:
             hostName = hostNames[0]
-        client = Client.Client(hostName, '')
-        client.get()
+        if self.dataType == MERGED:
+            client = Client.Client(hostName, '')
+            client.get()
+            data = client.data
+        elif self.dataType == CLIENT:
+            data = self.getClientData(hostName)
         if len(tokens[index].split('.')) > 1:
             configName = self.name(tokens, index)
             if len(configName) == 0:
                 return []
-                #return FAIL, ["Unknown configuration option"]
             if len(configName) > 1:
-                #return FAIL, ["Incomplete configuration option"]
                 return []
-            currentDict = client.data
+            currentDict = data
             for configValue in configName[0].split('.')[1:]:
                 currentDict = currentDict.get(configValue)
         else:
-            currentDict = client.data
+            currentDict = data
         return currentDict
 
     def name(self, tokens, index):
-        partialHostName = tokens[index].split('.')[0]
-        hostNames = self.bomHostField.name([partialHostName], 0)
+        hostNames = self.getHostNames(tokens, index)
         if len(tokens[index].split('.')) == 1:
             return hostNames
         if len(hostNames) == 0:
             return ''
         hostName = hostNames[0]
-        client = Client.Client(hostName, '')
-        client.get()
+        if self.dataType == MERGED:
+            client = Client.Client(hostName, '')
+            client.get()
+            data = client.data
+        elif self.dataType == CLIENT:
+            data = yaml.load(open("deploy/client/%s.yml" % hostName).read())
+        else:
+            print "Unknown data type"
+            return ''
         if len(tokens[index].split('.')) == 1:
-            return client.data.keys()
+            return data.keys()
 
         configValues = tokens[index].split('.')[1:]
-        currentDict = client.data
+        currentDict = data
         for configValue in configValues[:-1]:
             if type(currentDict) == type({}):
                 currentDict = currentDict.get(configValue)
@@ -98,4 +147,11 @@ if __name__ == "__main__":
     status = runTest(configField.name, [["bigsam.thingy.majig"], 0], '', status)
     status = runTest(configField.name, [["big"], 0], ["bigap", "bigsam", "bigdb"], status)
     status = runTest(configField.name, [["sho","server","l"], 2], ["lilap", "lildb", "ltdb"], status)
+    configField = ConfigField(dataType=CLIENT)
+    status = runTest(configField.name, [["lilap.s"], 0], ["lilap.sharedKeys"], status)
+    status = runTest(configField.setValue, [["lilap.sharedKeys"], 0, "yes"], OK, status)
+    status = runTest(configField.setValue, [["bigdb.sharedKeys"], 0, ["yup"]], OK, status)
+    data = configField.getConfigData(["bigdb.sharedKeys"], 0)
+    assert data == ["yup"], data
+    status = runTest(configField.setValue, [["bigdb.sharedKeys"], 0, "yup"], OK, status)
     endTest(status)

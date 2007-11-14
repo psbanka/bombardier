@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, re, termios, tty, time, select, popen2
+import os, sys, re, termios, tty, time, select, popen2, logging
 from commands import getstatusoutput
 
 import Mode
@@ -58,6 +58,26 @@ def convertTokensToString(tokens, delimeter=' '):
     for token in tokens:
         output += token+delimeter
     return output[:-1]
+
+logger      = logging.getLogger('bomsh_changes')
+fileHandler = logging.FileHandler("changes.log")
+formatter = logging.Formatter('%(asctime)-15s|%(user)-12s|%(message)s')
+fileHandler.setFormatter(formatter)
+logger.addHandler(fileHandler)
+logger.setLevel(logging.DEBUG)
+
+def log(tokens, status, output):
+    command = ' '.join(tokens)
+    outputString = ':'.join(output)
+    statusDict = {OK: "OK", FAIL:"FAIL"}
+    logMessage = "CMD:%s|STATUS:%s|OUTPUT:%s" % (command, statusDict[status], outputString)
+    logger.info(logMessage, extra={'user':os.environ["USER"]})
+
+def logComment(comment=None):
+    if not comment:
+        comment = raw_input("Enter a comment for this change:\n> ")
+    logger.info("COMMENT: %s" % comment, extra={'user':os.environ["USER"]})
+
 
 if __name__ == "__main__":
     from libTest import *

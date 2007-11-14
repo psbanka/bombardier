@@ -52,14 +52,16 @@ class Install(PackageCommand):
         self.packageField = PackageField.InstallablePackageField()
         self.bomHostField.children = [self.packageField]
         self.action = INSTALL
+        self.logCommand = True
 
-class Configure(PackageCommand):
+class Reconfigure(PackageCommand):
     def __init__(self):
-        PackageCommand.__init__(self, "configure")
-        self.helpText = "configure\tconfigure a package"
+        PackageCommand.__init__(self, "reconfigure")
+        self.helpText = "reconfigure\treconfigure a package"
         self.packageField = PackageField.InstalledPackageField()
         self.bomHostField.children = [self.packageField]
         self.action = CONFIGURE
+        self.logCommand = True
 
 class Verify(PackageCommand):
     def __init__(self):
@@ -76,6 +78,7 @@ class Uninstall(PackageCommand):
         self.packageField = PackageField.InstalledPackageField()
         self.bomHostField.children = [self.packageField]
         self.action = UNINSTALL
+        self.logCommand = True
 
 class Purge(PackageCommand):
     def __init__(self):

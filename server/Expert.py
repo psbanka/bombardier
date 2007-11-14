@@ -8,8 +8,10 @@ from commonUtil import *
 
 DEBUG = 0
 
+os.environ["no_bom_sh"] = "1"
+#BASH = "bashem"
 BASH = "/bin/bash"
-BASHRC = "../../../../root/.bash-normal" #^ FIXME!
+BASHRC = "/etc/nobomshrc" #^ FIXME!
 
 class Expert(PinshCmd.PinshCmd):
     def __init__(self):
@@ -23,7 +25,7 @@ class Expert(PinshCmd.PinshCmd):
         if noFlag:
             return OK, []
         #os.system(BASH+' --init-file '+BASHRC)
-        os.chdir('/')
+        #os.chdir('/')
         os.system(BASH)
 
 if __name__ == "__main__":

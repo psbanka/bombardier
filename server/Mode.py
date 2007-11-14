@@ -54,6 +54,7 @@ class Mode:
         self.systemType = systemType()
         self.fullPrompt = ""
         self.password = ''
+        self.commentRequired = False
         if systemType == UNKNOWN:
             print >>sys.stderr,"Sorry, only Debian and Redhat Linux systems are supported in this release."
             sys.exit(1)
@@ -69,7 +70,10 @@ class Mode:
             self.fullPrompt = ''
 
     def getPrompt(self):
-        return self.fullPrompt
+        commentString = ''
+        if self.commentRequired:
+            commentString = "(*)"
+        return commentString+self.fullPrompt
 
     def pushPrompt(self, slash, newPrompt, newState, newClasses = 0):
         # pop out of any equal or higher levels
@@ -100,7 +104,10 @@ class Mode:
     def reprompt(self):
         if REPROMPT: #^ FIXME
             print >>sys.stderr
-            print >>sys.stderr,self.fullPrompt+readline.get_line_buffer(),
+            commentString = ''
+            if self.commentRequired:
+                commentString = "(*)"
+            print >>sys.stderr,self.getPrompt()+readline.get_line_buffer(),
 
     def currentState(self):
         return self.state[-1]

@@ -6,6 +6,9 @@ import PinshCmd, Mode, libUi
 from commonUtil import *
 import libCmd
 
+#if os.environ["NO_BOMSH"]:
+    #sys.exit(0)
+
 class Slash(PinshCmd.PinshCmd):
     def __init__(self, children):
         PinshCmd.PinshCmd.__init__(self, "")
@@ -23,12 +26,12 @@ class Slash(PinshCmd.PinshCmd):
 ##    the Configure.py class
     
 import Expert, Ping, Telnet, Ssh, Terminal, Exit, Reconcile, Status, PackageCommand, Enable, Show
-import For, Echo
+import For, Echo, Cfg
 
 commands = [Terminal.Terminal(), Status.Status(), PackageCommand.Uninstall(),
-            PackageCommand.Verify(), PackageCommand.Configure(), PackageCommand.Install(), 
+            PackageCommand.Verify(), PackageCommand.Reconfigure(), PackageCommand.Install(), 
             PackageCommand.Execute(), PackageCommand.Purge(), PackageCommand.Fix(), 
-            Reconcile.Reconcile(),
+            Reconcile.Reconcile(), Cfg.Cfg(), Echo.Comment(),
             Show.Show(), Ping.Ping(), Telnet.Telnet(), Ssh.Ssh(), 
             Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo()]
 

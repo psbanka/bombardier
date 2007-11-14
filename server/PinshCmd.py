@@ -1,10 +1,11 @@
 #!/usr/bin/python
 
-import readline, sys
+import readline, sys, os
 import Mode, libUi
 import StringIO
 import traceback
 from commonUtil import *
+import logging
 
 DEBUG = 0
 NO_MATCH  = 0
@@ -35,6 +36,7 @@ class PinshCmd:
         self.tokenDelimiter = tokenDelimiter
         self.names = []
         self.exitMode = False
+        self.logCommand = False
 
     def __repr__(self):
         return self.myName
@@ -225,6 +227,7 @@ class PinshCmd:
                 mode.commandBuffer[Mode.F0].append([tokens, noFlag, slash])
             else:
                 variable, values = mode.variables[Mode.F0]
+                askForComment = False
                 for value in values:
                     for tokens, noFlag, slash in mode.commandBuffer[Mode.F0]:
                         newTokens = []
@@ -240,10 +243,12 @@ class PinshCmd:
                         if not (returnValue == None and len(returnValue) != 2):
                             status = returnValue[0]
                             output = returnValue[1]
+                            if owner.logCommand:
+                                log(tokens, status, output)
+                                mode.commentRequired = True
                             libUi.userOutput(output, status)
                         mode.globals["output"] = output
                         mode.globals["status"] = status
-
                 extraClasses = mode.newClasses[-1]
                 for i in range(0,extraClasses):
                     slash.children.pop()
@@ -264,6 +269,9 @@ class PinshCmd:
                 else:
                     status = returnValue[0]
                     output = returnValue[1]
+                    if owner.logCommand:
+                        log(tokens, status, output)
+                        mode.commentRequired = True
                     mode.globals["output"] = output
                     mode.globals["status"] = status
                     return status, output
