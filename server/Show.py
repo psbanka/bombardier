@@ -17,6 +17,8 @@ class Server(PinshCmd.PinshCmd):
     def cmd(self, tokens, noFlag, slash):
         if noFlag:
             return FAIL, []
+        if len(tokens) < 3:
+            return FAIL, ["Incomplete command."]
         currentDict = self.configField.getConfigData(tokens, 2)
         return OK, yaml.dump(currentDict, default_flow_style=False).split('\n')
 

@@ -43,10 +43,11 @@ class ConfigField(PinshCmd.PinshCmd):
         return currentDict
 
     def name(self, tokens, index):
-        hostNames = self.bomHostField.name([tokens[index].split('.')[0]], 0)
-        if len(hostNames) != 1:
-            if len(tokens[index].split('.')) == 1:
-                return hostNames 
+        partialHostName = tokens[index].split('.')[0]
+        hostNames = self.bomHostField.name([partialHostName], 0)
+        if len(tokens[index].split('.')) == 1:
+            return hostNames
+        if len(hostNames) == 0:
             return ''
         hostName = hostNames[0]
         client = Client.Client(hostName, '')
@@ -89,10 +90,12 @@ if __name__ == "__main__":
     configField = ConfigField()
     status = OK
     startTest()
+    status = runTest(configField.name, [["lila"], 0], ["lilap"], status)
     status = runTest(configField.name, [["bigdb.sql.servers"], 0], ["bigdb.sql.servers"], status)
     status = runTest(configField.name, [["bigsam.ipAddre"], 0], ["bigsam.ipAddress"], status)
     status = runTest(configField.name, [["virtap.connectTest.connectionData.pro"], 0], ["virtap.connectTest.connectionData.proxy"], status)
     status = runTest(configField.name, [["foo.foo"], 0], '', status)
     status = runTest(configField.name, [["bigsam.thingy.majig"], 0], '', status)
     status = runTest(configField.name, [["big"], 0], ["bigap", "bigsam", "bigdb"], status)
+    status = runTest(configField.name, [["sho","server","l"], 2], ["lilap", "lildb", "ltdb"], status)
     endTest(status)

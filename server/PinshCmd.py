@@ -135,8 +135,9 @@ class PinshCmd:
                 self.names =  getNames(completionObjects, tokens, index-1)
                 if DEBUG: 
                     print "COMPLETE: tokens:",`tokens`,"index:",index,"names:",`self.names`
-                #return self.names[0]
-                return self.names[0] + completionObjects[0].tokenDelimiter
+                if len(self.names) == 1:
+                    return self.names[0] + completionObjects[0].tokenDelimiter
+                return self.names[0]
         except StandardError, e:
             sys.stderr.write("Error detected in %s (%s)." % (file, e))
             e = StringIO.StringIO()
