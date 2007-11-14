@@ -105,6 +105,7 @@ class Execute(PackageCommand):
         self.scriptField = ScriptField.ScriptField()
         self.packageField.children = [self.scriptField]
         self.action = EXECUTE
+        self.logCommand = True
 
     def processObject(self, hostName, packageName, tokens):
         scriptNames = self.scriptField.name(tokens, len(tokens)-1)

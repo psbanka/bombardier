@@ -253,7 +253,7 @@ class PinshCmd:
                 for i in range(0,extraClasses):
                     slash.children.pop()
                 mode.popPrompt()
-                mode.cleanMode(Mode.F0)
+                mode.cleanMode(mode.state[-1])
             return OK, []
         else:
             owner = self.findLastResponsibleChild(tokens, 0)

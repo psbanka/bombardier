@@ -26,18 +26,14 @@ class Slash(PinshCmd.PinshCmd):
 ##    the Configure.py class
     
 import Expert, Ping, Telnet, Ssh, Terminal, Exit, Reconcile, Status, PackageCommand, Enable, Show
-import For, Echo, Cfg
+import For, Echo, Configure, UpdateClient
 
 commands = [Terminal.Terminal(), Status.Status(), PackageCommand.Uninstall(),
             PackageCommand.Verify(), PackageCommand.Reconfigure(), PackageCommand.Install(), 
             PackageCommand.Execute(), PackageCommand.Purge(), PackageCommand.Fix(), 
-            Reconcile.Reconcile(), Cfg.Cfg(), Echo.Comment(),
-            Show.Show(), Ping.Ping(), Telnet.Telnet(), Ssh.Ssh(), 
-            Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo()]
-
-if mode.auth == USER:
-    import Expert
-    commands += [Expert.Expert()]
+            Reconcile.Reconcile(), Configure.Configure(), Echo.Comment(),
+            Show.Show(), Ping.Ping(), Telnet.Telnet(), Ssh.Ssh(), Expert.Expert(), 
+            UpdateClient.UpdateClient(), Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo()]
 
 slash = Slash(commands)
 
@@ -86,10 +82,14 @@ while mode.active():
             status, output = slash.run(command, slash)
         libUi.userOutput(output, status)
     except EOFError, eof:
-        print
+        extraClasses = mode.newClasses[-1]
+        for i in range(0,extraClasses):
+            slash.children.pop()
         if mode.popPrompt() == FAIL:
             print
             sys.exit(0)
+        mode.cleanMode(mode.state[-1])
+        print
     except KeyboardInterrupt, key:
         print
         pass

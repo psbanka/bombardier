@@ -14,6 +14,7 @@ class Ssh(PinshCmd.PinshCmd):
         self.bomHostField = BomHostField.BomHostField()
         self.children = [self.bomHostField]
         self.cmdOwner = 1
+        self.logCommand = True
 
     def cmd(self, tokens, noFlag, slash):
         if noFlag:

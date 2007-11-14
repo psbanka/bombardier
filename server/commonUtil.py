@@ -61,7 +61,7 @@ def convertTokensToString(tokens, delimeter=' '):
 
 logger      = logging.getLogger('bomsh_changes')
 fileHandler = logging.FileHandler("changes.log")
-formatter = logging.Formatter('%(asctime)-15s|%(user)-12s|%(message)s')
+formatter = logging.Formatter('%(asctime)-15s|%(user)-15s|%(message)s')
 fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(logging.DEBUG)

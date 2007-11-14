@@ -6,14 +6,15 @@ from RemoteClient import RemoteClient
 
 class UpdateRemoteClient(RemoteClient):
 
-    def __init__(self, hostname):
+    def __init__(self, hostname, svnUser=''):
         RemoteClient.__init__(self, hostname)
+        self.svnUser = svnUser
         if self.platform == 'win32':
             self.python  = '/cygdrive/c/Python25/python.exe'
         else:
             self.python  = '/usr/local/bin/python2.4'
 
-    def unpackClient(self, filename):
+    def unpackClient(self):
         print "==> cleaning out old files"
         self.s.sendline("rm -rf client")
         self.s.prompt()
@@ -22,7 +23,7 @@ class UpdateRemoteClient(RemoteClient):
         self.s.sendline("cd client")
         self.s.prompt()
         print "==> copying in new files"
-        self.s.sendline("tar -xzf ../%s" % filename)
+        self.s.sendline("tar -xzf ../%s" % self.fileName)
         self.s.prompt()
 
     def srcUpdate(self):
@@ -31,32 +32,39 @@ class UpdateRemoteClient(RemoteClient):
         self.s.prompt()
         print self.s.before
 
-def prepareBombardierClient(svnUser):
-    cwd = os.getcwd()
-    os.chdir("../client")
-    print "==> updating client"
-    userStr = ''
-    if svnUser:
-        userStr = " --no-auth-cache --username %s"%svnUser
-    status, output = commands.getstatusoutput("svn %s update"%userStr)
-    if status != OK:
-        print "==> failed to update bombardier client"
-        sys.exit(1)
-    status, output = commands.getstatusoutput("svn info")
-    if status != OK:
-        print "==> failed to determine version of bombardier client"
-        sys.exit(1)
-    version = int(re.compile("Last Changed Rev\: (\d+)").findall(output)[0])
-    filename = "bomClient-%d.tar.gz" % version
-    #cmd = 'tar -czvf /tmp/%s --exclude "*.pyc" --exclude "*.svn" *' % filename
-    cmd = 'tar -czvf /tmp/%s --exclude "*.pyc" .svn *' % filename
-    print "==> creating tarball..."
-    status, output = commands.getstatusoutput(cmd)
-    if status != OK:
-        print "==> failed to create tarball"
-        sys.exit(1)
-    os.chdir(cwd)
-    return filename
+    def update(self):
+        self.prepareBombardierClient()
+        self.scp("/tmp/%s" % self.fileName, self.fileName)
+        self.connect()
+        self.unpackClient()
+        self.srcUpdate()
+        self.disconnect()
+        os.unlink("/tmp/%s" % self.fileName)
+
+    def prepareBombardierClient(self):
+        cwd = os.getcwd()
+        os.chdir("../client")
+        print "==> updating client"
+        userStr = ''
+        if self.svnUser:
+            userStr = " --no-auth-cache --username %s"%self.svnUser
+        status, output = commands.getstatusoutput("svn %s update"%userStr)
+        if status != OK:
+            print "==> failed to update bombardier client"
+            sys.exit(1)
+        status, output = commands.getstatusoutput("svn info")
+        if status != OK:
+            print "==> failed to determine version of bombardier client"
+            sys.exit(1)
+        version = int(re.compile("Last Changed Rev\: (\d+)").findall(output)[0])
+        self.fileName = "bomClient-%d.tar.gz" % version
+        cmd = 'tar -czvf /tmp/%s --exclude "*.pyc" .svn *' % self.fileName
+        print "==> creating tarball..."
+        status, output = commands.getstatusoutput(cmd)
+        if status != OK:
+            print "==> failed to create tarball"
+            sys.exit(1)
+        os.chdir(cwd)
 
 if __name__ == "__main__":
     NO_USER=0
@@ -82,14 +90,7 @@ if __name__ == "__main__":
         svnUser = args[0]
         servers = args[1]
 
-    filename = prepareBombardierClient(svnUser)
     serverNames = [s for s in servers.split(' ') if len(s) ]
     for serverName in serverNames:
-        r = UpdateRemoteClient(serverName)
-        r.scp("/tmp/%s" % filename, filename)
-        os.unlink("/tmp/%s" % filename)
-
-        r.connect()
-        r.unpackClient(filename)
-        r.srcUpdate()
-        r.disconnect()
+        r = UpdateRemoteClient(serverName, svnUser)
+        r.update()
