@@ -98,6 +98,7 @@ class Server:
         return bom
 
     def dataRequest(self, requestString):
+        import zlib
         Logger.info(requestString)
         STREAM_BLOCK_SIZE= 77
         b64Data = []
@@ -107,7 +108,7 @@ class Server:
                 break
             b64Data.append(chunk)
         yamlData = ''
-        yamlData = base64.decodestring(''.join(b64Data))
+        yamlData = zlib.decompress(base64.decodestring(''.join(b64Data)))
         Logger.debug("Received %s lines of yaml" % len(yamlData.split('\n')))
 
         if 1 == 1:
