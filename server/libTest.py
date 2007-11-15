@@ -72,13 +72,12 @@ def runTest2(function, args, expectedRegex, status):
     print "--------------------------------"
     return status + 1
 
-def testMe(object, command, expectedState, expectedString, status, info = ['']):
+def testMe(object, command, expectedState, expectedString, status):
     import PinshCmd
     slash = PinshCmd.PinshCmd("slash")
     slash.children = [object]
     mode.state = [2]
     mode.prompt = ["test>"]
-    mode.info = info
     noFlag, helpFlag, tokens = libUi.processInput(command)
     if expectedString == '':
         status = runTest(slash.run, [tokens, noFlag, slash], (expectedState, []), status)
@@ -86,17 +85,15 @@ def testMe(object, command, expectedState, expectedString, status, info = ['']):
         status = runTest(slash.run, [tokens, noFlag, slash], (expectedState, [expectedString]), status)
     return status
     
-def runObject(object, command, expectedState, expectedString, status, info = ['']):
+def runObject(object, command, expectedState, expectedString, status):
     import PinshCmd
     slash = PinshCmd.PinshCmd("slash")
     slash.children = [object]
-    mode.info = info
     noFlag, helpFlag, tokens = libUi.processInput(command)
     if expectedString == '':
         status = runTest(slash.run, [tokens, noFlag, slash], (expectedState, []), status, 0)
     else:
         status = runTest(slash.run, [tokens, noFlag, slash], (expectedState, [expectedString]), status, 0)
-    mode.info = []
     return status
 
 def huntForRegex(output, regex):
@@ -130,13 +127,12 @@ def runTest3(function, args, expectedRegex, status):
     return status + 1
 
 #this is better, but everyone else is using the first one...
-def testMe2(object, command, expectedState, expectedRegex, status, info = ['']):
+def testMe2(object, command, expectedState, expectedRegex, status):
     import Mode
     import PinshCmd
     slash = PinshCmd.PinshCmd("slash")
     slash.children = [object]
     mode = Mode.Mode(2, "test>")
-    mode.info = info
     noFlag, helpFlag, tokens = libUi.processInput(command)
     newStatus, output = slash.run(tokens, noFlag, slash)
     if newStatus == FAIL:

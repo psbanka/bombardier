@@ -26,6 +26,7 @@ class BomCmd(PinshCmd.PinshCmd):
         if len(hostNames) > 1:
             return FAIL, ["Ambiguous host %s" % tokens[1]]
         hostName = hostNames[0]
+        r = mode.getBombardierRemoteClient(hostName)
         r = BombardierRemoteClient(hostName, mode.password)
         status = r.process(self.action, [], '')
         if status == FAIL:

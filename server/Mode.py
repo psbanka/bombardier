@@ -2,11 +2,6 @@
 
 import readline, socket, sys, os
 
-# types of systems
-REDHAT = 0
-DEBIAN = 1
-UNKNOWN = -1
-
 OK = 0
 FAIL = 1
 UNKNOWN = -1
@@ -29,16 +24,6 @@ FREE_TEXT = 100
 
 REPROMPT = 1
 
-MANDATORY_SERVICES = ["ssh", "logging"]
-
-def systemType():
-    if os.path.isdir("/etc/sysconfig/network-scripts"):
-        return REDHAT
-    elif os.path.isfile("/etc/network/interfaces"):
-        return DEBIAN
-    else:
-        return UNKNOWN
-
 class Mode:
     def __init__(self, state, prompt):
         self.state = [state]
@@ -46,18 +31,13 @@ class Mode:
         self.commandBuffer = {F0:[], F1:[], F2:[]}
         self.variables = {F0:[], F1:[], F2:[]}
         self.globals = {}
-        self.info = []
         self.setPrompt()
         self.termlen = 23
         self.newClasses = []
         self.auth = USER
-        self.systemType = systemType()
         self.fullPrompt = ""
         self.password = ''
         self.commentRequired = False
-        if systemType == UNKNOWN:
-            print >>sys.stderr,"Sorry, only Debian and Redhat Linux systems are supported in this release."
-            sys.exit(1)
 
     def cleanMode(self, state):
         self.commandBuffer[state] = []
@@ -112,12 +92,6 @@ class Mode:
     def currentState(self):
         return self.state[-1]
     
-    def active(self):
-        if self.state[-1] >= ENABLE:
-            return 1
-        else:
-            return 0
-        
 if __name__ == "__main__":
     from libTest import *
     status = OK
@@ -125,7 +99,6 @@ if __name__ == "__main__":
     mode = Mode(1,"#")
     
     status = runTest(getPromptFile, [], "testing", status)
-    status = runTest(systemType, [], DEBIAN, status)
     status = runTest(reprompt, [], None, status)
     status = runTest(mode.setPrompt, [], None, status)
     status = runTest(getPromptFile, [], "gruyere# ", status)
@@ -135,6 +108,5 @@ if __name__ == "__main__":
     status = runTest(mode.popPrompt, [], OK, status)
     status = runTest(mode.getPrompt, [], "gruyere# ", status)
     status = runTest(mode.currentState, [], 1, status)
-    status = runTest(mode.active, [], 1, status)
     
     endTest(status)

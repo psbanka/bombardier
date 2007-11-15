@@ -27,12 +27,3 @@ class Terminal(PinshCmd.PinshCmd):
             return OK, []
         except:
             return FAIL, ["Please choose a terminal length between 0 and 1000"]
-
-if __name__ == "__main__":
-    from libTest import *
-    status = OK
-    terminal = Terminal()
-    startTest()
-
-    status = testMe(terminal, "term len 0", OK, "", status)
-    endTest(status)

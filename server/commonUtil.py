@@ -31,12 +31,6 @@ YES = 1
 NO = 0
 NEUTRAL = 2
 
-# SYSTEM TYPES
-DEBIAN = 1
-REDHAT = 0
-
-RH_ERROR = "Not supported on RedHat"
-
 # Authorization levels
 USER = 0
 ADMIN = 1
@@ -46,12 +40,6 @@ NO_MATCH  = 0
 PARTIAL  = 1
 COMPLETE = 2
 DEBUG = 0
-
-# Items based on MODE
-if mode.systemType == DEBIAN:
-    MOTD = "/usr/lib/pinsh/motd.txt"
-else:
-    MOTD = "./motd.txt"
 
 def convertTokensToString(tokens, delimeter=' '):
     output = ''

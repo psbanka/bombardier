@@ -5,8 +5,6 @@ import sys
 import PinshCmd, HostField, libCmd
 from commonUtil import *
 
-DEBUG = 0
-
 PING = "/bin/ping"
 
 class Ping(PinshCmd.PinshCmd):
@@ -31,13 +29,3 @@ class Ping(PinshCmd.PinshCmd):
             return FAIL, ["Host is not reachable"]
         else:
             return OK, [output]
-
-if __name__ == "__main__":
-    from libTest import *
-    status = startTest()
-    ping = Ping()
-
-    status = testMe(ping, "ping 4.2.2.2", OK, "4.2.2.2 is alive", status)
-    status = testMe(ping, "ping www.yahoo.com", OK, "www.yahoo.com is alive", status)
-    endTest(status)
-

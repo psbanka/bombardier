@@ -5,8 +5,6 @@ import sys
 import PinshCmd, Mode
 from commonUtil import *
 
-DEBUG = 0
-
 class Exit(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "exit")
@@ -23,17 +21,3 @@ class Exit(PinshCmd.PinshCmd):
             sys.exit(0)
         else:
             return OK, []
-
-
-def myTest():
-    print "=============NAME:",__name__
-    startTest()
-    status = OK
-    exit = Exit()
-    status = testMe(exit, "exit", OK, "", status)
-    return status
-
-if __name__ == "__main__":
-    from libTest import *
-    endTest(myTest())
-    

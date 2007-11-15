@@ -58,19 +58,7 @@ readline.set_completer_delims(' ')
 if len(sys.argv) == 1:
     libUi.motd()
 
-# I don't know how to turn off file completion in readline, so this is
-# my stupid work-around:
-#try:
-    #os.mkdir('sandbox')
-#except:
-    #pass
-#try:
-    #os.chdir('sandbox')
-#except:
-    #print "[Warning: cannot change directory. Completion may not work properly.]"
-
-while mode.active():
-
+while True:
     try:
         mode.setPrompt()
         readline.set_completer(slash.complete)

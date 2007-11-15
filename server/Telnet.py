@@ -33,13 +33,3 @@ class Telnet(PinshCmd.PinshCmd):
         else:
             os.system(TELNET+" "+address)
         return OK, []
-
-if __name__ == "__main__":
-    from libTest import *
-    status = startTest()
-    telnet = Telnet()
-    status = testMe(telnet, "telnet 66.150.145.197 80", OK, "", status)
-    # FIXME: ADD NAME SUPPORT
-    status = testMe(telnet, "telnet www.piniongroup.com 80", OK, "", status)
-    endTest(status)
-

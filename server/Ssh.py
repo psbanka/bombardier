@@ -31,15 +31,3 @@ class Ssh(PinshCmd.PinshCmd):
         if username and address:
             os.system(SSH+" "+username+"@"+address)
         return OK, []
-
-if __name__ == "__main__":
-    from libTest import *
-    import Mode
-    mode = Mode.Mode(1, "#")
-    status = OK
-    ssh = Ssh()
-    startTest()
-
-    status = testMe(ssh, "ssh mail.thebankas.com peter", OK, "", status)
-    #status = testMe(ssh, "ssh 192.168.0.11 peter", OK, "", status)
-    endTest(status)

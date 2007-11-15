@@ -33,10 +33,3 @@ class Enable(PinshCmd.PinshCmd):
         mode.auth = ADMIN
         mode.pushPrompt(slash, "#", Mode.ENABLE)
         return OK, []
-
-if __name__ == "__main__":
-    from libTest import *
-    status = startTest()
-    enable = Enable()
-    status = testMe(enable, "enable", OK, '', status)
-    endTest(status)
