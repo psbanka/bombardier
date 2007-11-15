@@ -1,16 +1,22 @@
 #!/usr/bin/env python
 
 import pxssh, pexpect
-import sys, os, getpass, base64
+import sys, os, getpass, base64, time
 import yaml
 import Client
 from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
 import StringIO
 import traceback
 
+#Statuses:
+DISCONNECTED = 0
+CONNECTED    = 1
+BROKEN       = 2
 
 DEFAULT_PASSWORD = "defaultPassword.b64"
 DOT_LENGTH = 20
+
+CONNECTION_TIMEOUT = 90 * 3600 #90 min
 
 def getClient(serverName):
     client = Client.Client(serverName, '')
@@ -31,9 +37,10 @@ class ClientUnavailableException(Exception):
 
 class RemoteClient:
 
-    def __init__(self, hostname):
-        self.hostname     = hostname
-        info = getClient(self.hostname)
+    def __init__(self, hostName):
+        self.hostName     = hostName
+        self.status       = DISCONNECTED
+        info = getClient(self.hostName)
         self.username     = info["defaultUser"]
         self.ipAddress    = info["ipAddress"]
         self.platform     = info["platform"]
@@ -47,15 +54,16 @@ class RemoteClient:
             self.password = ''
         self.s = pxssh.pxssh()
         self.s.timeout = 6000
+        self.connectTime = 0
 
     def connect(self):
-        print "==> Connecting to %s..." %self.hostname
-        returnCode = OK
+        print "==> Connecting to %s..." %self.hostName
         try:
             if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):
                 print "==> SSH session failed on login."
                 print str(self.s)
-                sys.exit(1)
+                self.status = BROKEN
+                return FAIL
             self.s.sendline('stty -echo')
             self.s.prompt()
         except Exception, e:
@@ -68,18 +76,45 @@ class RemoteClient:
                 ermsg += "\n||>>>%s" % line
             print ermsg
             self.s.logout()
+            self.status = BROKEN
+            return FAIL
+        self.status = CONNECTED
+        self.connectTime = time.time()
+        return OK
+
+    def freshen(self):
+        if self.status == BROKEN:
+            return FAIL
+        connectionAge = time.time() - self.connectTime
+        if self.status == DISCONNECTED or connectionAge > CONNECTION_TIMEOUT:
+            if self.status == CONNECTED:
+                print "==> Our connection to %s is stale after "\
+                      "%4.2f minutes. Reconnecting..." % (self.hostName, connectionAge / 60.0)
+                self.disconnect()
+            if self.connect() != OK:
+                return FAIL
+        try:
+            self.s.sendline('echo hello')
+            self.s.prompt()
+        except:
+            print "==> Our connection to %s has been cut off after "\
+                  "%4.2f minutes." % (self.hostName, connectionAge / 60.0)
+            self.disconnect()
+            if self.connect() != OK:
+                return FAIL
+        return OK 
 
     def processScp(self, s):
         sshNewkey = 'Are you sure you want to continue connecting'
         i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=30)
         if i == 0:
-            raise ClientUnavailableException(dest, s.before+'|'+s.after)
+            raise ClientUnavailableException(self.hostName, s.before+'|'+s.after)
         if i == 1:
             s.sendline('yes')
             s.expect('[pP]assword: ', timeout=30)
             i = s.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=30)
             if i == 0:
-                raise ClientUnavailableException(dest, s.before+'|'+s.after)
+                raise ClientUnavailableException(self.hostName, s.before+'|'+s.after)
             s.sendline(self.password)
         if i == 2:
             s.sendline(self.password)
@@ -88,7 +123,7 @@ class RemoteClient:
             pass
         s.expect(pexpect.EOF)
         s.close()
-        #print "Sent %s to %s:%s" % (source, self.hostname, dest)
+        #print "Sent %s to %s:%s" % (source, self.hostName, dest)
         return OK
 
     def get(self, destFile):
@@ -117,8 +152,12 @@ class RemoteClient:
             pass
         s.expect(pexpect.EOF)
         s.close()
-        #print "Sent %s to %s:%s" % (source, self.hostname, dest)
+        #print "Sent %s to %s:%s" % (source, self.hostName, dest)
         return OK
 
     def disconnect(self):
-        self.s.logout()
+        self.connectTime = 0
+        try:
+            self.s.logout()
+        finally:
+            self.status = DISCONNECTED

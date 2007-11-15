@@ -25,14 +25,14 @@ class Slash(PinshCmd.PinshCmd):
 ## 2. add the class to the following vector of command or add it to
 ##    the Configure.py class
     
-import Expert, Ping, Telnet, Ssh, Terminal, Exit, Reconcile, Status, PackageCommand, Enable, Show
-import For, Echo, Configure, UpdateClient
+import Bash, Ping, Telnet, Ssh, Terminal, Exit, Reconcile, Status, PackageCommand, Enable, Show
+import For, Echo, UpdateClient, Set
 
 commands = [Terminal.Terminal(), Status.Status(), PackageCommand.Uninstall(),
-            PackageCommand.Verify(), PackageCommand.Reconfigure(), PackageCommand.Install(), 
+            PackageCommand.Verify(), PackageCommand.Configure(), PackageCommand.Install(), 
             PackageCommand.Execute(), PackageCommand.Purge(), PackageCommand.Fix(), 
-            Reconcile.Reconcile(), Configure.Configure(), Echo.Comment(),
-            Show.Show(), Ping.Ping(), Telnet.Telnet(), Ssh.Ssh(), Expert.Expert(), 
+            Reconcile.Reconcile(), Echo.Comment(), Set.Set(),
+            Show.Show(), Ping.Ping(), Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(), 
             UpdateClient.UpdateClient(), Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo()]
 
 slash = Slash(commands)
@@ -82,9 +82,10 @@ while mode.active():
             status, output = slash.run(command, slash)
         libUi.userOutput(output, status)
     except EOFError, eof:
-        extraClasses = mode.newClasses[-1]
-        for i in range(0,extraClasses):
-            slash.children.pop()
+        if mode.newClasses:
+            extraClasses = mode.newClasses[-1]
+            for i in range(0,extraClasses):
+                slash.children.pop()
         if mode.popPrompt() == FAIL:
             print
             sys.exit(0)

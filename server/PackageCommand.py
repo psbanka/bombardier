@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
 import sys
-from bcs import BombardierRemoteClient, UNINSTALL, INSTALL, VERIFY, EXECUTE, PURGE, FIX, CONFIGURE
-import PinshCmd, libCmd
+from BombardierRemoteClient import *
+import PinshCmd
 import BomHostField, PackageField, ScriptField
 from commonUtil import *
 
@@ -15,15 +15,18 @@ class PackageCommand(PinshCmd.PinshCmd):
         self.bomHostField = BomHostField.BomHostField()
         self.children = [self.bomHostField]
         self.action = None
+        self.packageField = None
         self.level = 0
         self.cmdOwner = 1
         self.scriptName = ''
 
-    def processObject(self, hostName, packageName, tokens):
-        r = BombardierRemoteClient(hostName, self.action, [packageName], '', mode.password)
-        return r
+    def processObject(self, r, packageName, tokens):
+        if tokens: pass
+        status = r.process(self.action, [packageName], '')
+        return status
 
     def cmd(self, tokens, noFlag, slash):
+        if slash: pass # pychecker
         if noFlag:
             return FAIL, []
         if len(tokens) < 3:
@@ -36,10 +39,8 @@ class PackageCommand(PinshCmd.PinshCmd):
         if self.packageField.match(tokens, 2) != (COMPLETE, 1):
             return FAIL, ["Invalid package: "+packageName]
         packageName = self.packageField.name(["command", hostName, packageName], 2)[0]
-        r = self.processObject(hostName, packageName, tokens)
-        if r == None:
-            return FAIL, ["Unable to run command."]
-        status = r.reconcile()
+        r = BombardierRemoteClient(hostName, mode.password)
+        status = self.processObject(r, packageName, tokens)
         if status == FAIL:
             return FAIL, ["Host is screwed up"]
         else:
@@ -54,10 +55,10 @@ class Install(PackageCommand):
         self.action = INSTALL
         self.logCommand = True
 
-class Reconfigure(PackageCommand):
+class Configure(PackageCommand):
     def __init__(self):
-        PackageCommand.__init__(self, "reconfigure")
-        self.helpText = "reconfigure\treconfigure a package"
+        PackageCommand.__init__(self, "configure")
+        self.helpText = "configure\tconfigure a package"
         self.packageField = PackageField.InstalledPackageField()
         self.bomHostField.children = [self.packageField]
         self.action = CONFIGURE
@@ -107,12 +108,12 @@ class Execute(PackageCommand):
         self.action = EXECUTE
         self.logCommand = True
 
-    def processObject(self, hostName, packageName, tokens):
+    def processObject(self, r, packageName, tokens):
         scriptNames = self.scriptField.name(tokens, len(tokens)-1)
         if len(scriptNames) != 1:
-            return None
-        r = BombardierRemoteClient(hostName, self.action, [packageName], scriptNames[0], mode.password)
-        return r
+            return FAIL
+        status = r.process(self.action, [packageName], scriptNames[0])
+        return status
 
 if __name__ == "__main__":
     pass

@@ -162,7 +162,7 @@ if __name__ == "__main__":
     if status == FAIL:
         print "Bad config file."
         sys.exit(1)
-    client.decryptConfig()
+    config.decryptConfig()
     data   = yaml.dump(config.data)
     if options.output:
         print "output to filename: %s" % options.output

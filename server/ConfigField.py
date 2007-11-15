@@ -86,18 +86,26 @@ class ConfigField(PinshCmd.PinshCmd):
         return currentDict
 
     def name(self, tokens, index):
-        hostNames = self.getHostNames(tokens, index)
-        if len(tokens[index].split('.')) == 1:
-            return hostNames
-        if len(hostNames) == 0:
-            return ''
-        hostName = hostNames[0]
+        if self.dataType in [MERGED, CLIENT]:
+            hostNames = self.getHostNames(tokens, index)
+            if len(tokens[index].split('.')) == 1:
+                return hostNames
+            if len(hostNames) == 0:
+                return ''
+            hostName = hostNames[0]
+            completeFirstToken = hostName
+        if self.dataType == INCLUDE:
+            print "NEED TO CHECK INCLUDE FILE"
+            includeFile = tokens[index].split('.')[0]
+            completeFirstToken = includeFile
         if self.dataType == MERGED:
             client = Client.Client(hostName, '')
             client.get()
             data = client.data
         elif self.dataType == CLIENT:
             data = yaml.load(open("deploy/client/%s.yml" % hostName).read())
+        elif self.dataType == INCLUDE:
+            data = yaml.load(open("deploy/include/%s.yml" % includeFile).read())
         else:
             print "Unknown data type"
             return ''
@@ -118,9 +126,9 @@ class ConfigField(PinshCmd.PinshCmd):
         for item in currentDict:
             if item.lower().startswith(configValues[-1].lower()):
                 if prefix:
-                    possibleMatches.append("%s.%s.%s" % (hostName, prefix, item))
+                    possibleMatches.append("%s.%s.%s" % (completeFirstToken, prefix, item))
                 else:
-                    possibleMatches.append("%s.%s" % (hostName, item))
+                    possibleMatches.append("%s.%s" % (completeFirstToken, item))
         
         if possibleMatches:
             return possibleMatches
@@ -142,6 +150,7 @@ if __name__ == "__main__":
     status = runTest(configField.name, [["lila"], 0], ["lilap"], status)
     status = runTest(configField.name, [["bigdb.sql.servers"], 0], ["bigdb.sql.servers"], status)
     status = runTest(configField.name, [["bigsam.ipAddre"], 0], ["bigsam.ipAddress"], status)
+    status = runTest(configField.name, [["bigsam.ipAddress"], 0], ["bigsam.ipAddress"], status)
     status = runTest(configField.name, [["virtap.connectTest.connectionData.pro"], 0], ["virtap.connectTest.connectionData.proxy"], status)
     status = runTest(configField.name, [["foo.foo"], 0], '', status)
     status = runTest(configField.name, [["bigsam.thingy.majig"], 0], '', status)
@@ -154,4 +163,7 @@ if __name__ == "__main__":
     data = configField.getConfigData(["bigdb.sharedKeys"], 0)
     assert data == ["yup"], data
     status = runTest(configField.setValue, [["bigdb.sharedKeys"], 0, "yup"], OK, status)
+    configField = ConfigField(dataType=INCLUDE)
+    status = runTest(configField.name, [["serviceNet.ca"], 0], ["serviceNet.cas"], OK, status)
+    status = runTest(configField.name, [["servicenet.ca"], 0], ["serviceNet.cas"], OK, status)
     endTest(status)

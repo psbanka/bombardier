@@ -25,8 +25,8 @@ class Status(PinshCmd.PinshCmd):
         if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
             return FAIL, ["Invalid host: "+target]
         target = self.bomHostField.name(["status", target], 1)[0]
-        r = BombardierRemoteClient(target, STATUS, [], '', mode.password)
-        status = r.reconcile()
+        r = BombardierRemoteClient(target, mode.password)
+        status = r.process(STATUS, [], '')
         if status == FAIL:
             return FAIL, ["Host is screwed up"]
         else:
