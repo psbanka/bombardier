@@ -5,7 +5,6 @@ import exceptions
 import sys, os, readline
 import PinshCmd, Mode, libUi
 from commonUtil import *
-import libCmd
 
 class Slash(PinshCmd.PinshCmd):
     def __init__(self, children):
@@ -14,75 +13,17 @@ class Slash(PinshCmd.PinshCmd):
         self.cmdOwner = 1
         self.helpText = ''
 
-##########################################################################
-## Adding new commands:
-## 
-## 0. Create a class that extends PinshCmd
-## 1. Import the class.
-## 2. add the class to the following vector of command or add it to
-##    the Configure.py class
-    
-import Bash, Ping, Telnet, Ssh, Terminal, Exit, BomCmd, Enable, Show
-import For, Echo, UpdateClient, Set
-
-bomCommands = [ BomCmd.Status(), BomCmd.Uninstall(),
-                BomCmd.Verify(), BomCmd.Configure(), BomCmd.Install(), 
-                BomCmd.Execute(), BomCmd.Purge(), BomCmd.Fix(), 
-                BomCmd.Reconcile()]
-
-commands = [Echo.Comment(), Set.Set(), Terminal.Terminal(), Show.Show(), Ping.Ping(), 
-            Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(), 
-            UpdateClient.UpdateClient(), Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo()]
-
-slash = Slash(commands + bomCommands)
-
-##########################################################################
-
-# Verify that this user is root
-WHOAMI = "/usr/bin/whoami"
-status, output = libCmd.runcmd(WHOAMI)
-mode.auth = USER
-if output == "root":
-    mode.auth = ADMIN
-
-# READLINE CONFIGS
-readline.parse_and_bind('tab: complete')
-readline.parse_and_bind('C-z: "end\n"')
-readline.parse_and_bind('?: "\C-v?\t\d"')
-readline.parse_and_bind('set bell-style none')
-readline.set_completer_delims(' ')
-# Print the message of the day
-if len(sys.argv) == 1:
-    libUi.motd()
-
-if __name__ == "__main__":
-    while True:
+    def processCommand(self, command):
         try:
-            mode.setPrompt()
-            readline.set_completer(slash.complete)
-            command = raw_input(mode.getPrompt())
             if mode.currentState() != Mode.FREE_TEXT:
                 noFlag, helpFlag, tokens = libUi.processInput(command)
                 if len(tokens) == 0:
-                    continue
-                status, output = slash.run(tokens, noFlag, slash)
+                    return OK, []
+                status, output = self.run(tokens, noFlag, self)
             else:
-                status, output = slash.run(command, slash)
+                status, output = self.run(command, self)
             libUi.userOutput(output, status)
-        except EOFError, eof:
-            if mode.newClasses:
-                extraClasses = mode.newClasses[-1]
-                for i in range(0,extraClasses):
-                    slash.children.pop()
-            if mode.popPrompt() == FAIL:
-                print
-                mode.clearBomConnections()
-                sys.exit(0)
-            mode.cleanMode(mode.state[-1])
-            print
-        except exceptions.KeyboardInterrupt, key:
-            print
-            pass
+            return status, output
         except exceptions.SystemExit, e:
             sys.exit(0)
         except Exception, e:
@@ -97,3 +38,73 @@ if __name__ == "__main__":
             sys.stderr.write(ermsg)
             sys.stderr.write("Error ocurred in %s" % file)
             sys.stderr.write("\n")
+
+
+##########################################################################
+## Adding new commands:
+## 
+## 0. Create a class that extends PinshCmd
+## 1. Import the class.
+## 2. add the class to the following vector of command or add it to
+##    the Configure.py class
+    
+import Bash, Ping, Telnet, Ssh, Terminal, Exit, BomCmd, Enable, Show
+import For, Echo, UpdateClient, Set, Run
+
+bomCommands = [ BomCmd.Status(), BomCmd.Uninstall(),
+                BomCmd.Verify(), BomCmd.Configure(), BomCmd.Install(), 
+                BomCmd.Execute(), BomCmd.Purge(), BomCmd.Fix(), 
+                BomCmd.Reconcile()]
+
+commands = [Echo.Comment(), Set.Set(), Terminal.Terminal(), Show.Show(), Ping.Ping(), 
+            Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(), Run.Run(),
+            UpdateClient.UpdateClient(), Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo()]
+
+slash = Slash(commands + bomCommands)
+
+##########################################################################
+
+mode.auth = USER
+
+# READLINE CONFIGS
+readline.parse_and_bind('tab: complete')
+readline.parse_and_bind('C-z: "end\n"')
+readline.parse_and_bind('?: "\C-v?\t\d"')
+readline.parse_and_bind('set bell-style none')
+readline.set_completer_delims(' ')
+# Print the message of the day
+if len(sys.argv) == 1:
+    libUi.motd()
+
+if __name__ == "__main__":
+
+    if len(sys.argv) > 1:
+        status = OK
+        filename = sys.argv[-1]
+        lines = open(filename, 'r').readlines()
+        for line in lines:
+            cmdStatus, cmdOutput = slash.processCommand(line.strip())
+            if status == OK:
+                status = cmdStatus
+        sys.exit(status)
+    else:
+        while True:
+            try:
+                mode.setPrompt()
+                readline.set_completer(slash.complete)
+                command = raw_input(mode.getPrompt())
+                slash.processCommand(command)
+            except EOFError, eof:
+                if mode.newClasses:
+                    extraClasses = mode.newClasses[-1]
+                    for i in range(0,extraClasses):
+                        slash.children.pop()
+                if mode.popPrompt() == FAIL:
+                    print
+                    mode.clearBomConnections()
+                    sys.exit(0)
+                mode.cleanMode(mode.state[-1])
+                print
+            except exceptions.KeyboardInterrupt, key:
+                print
+                pass

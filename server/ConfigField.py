@@ -14,7 +14,7 @@ BOM = 4
 
 class ConfigField(PinshCmd.PinshCmd):
     def __init__(self, name = "configField", dataType=MERGED):
-        PinshCmd.PinshCmd.__init__(self, name, tokenDelimiter = '.')
+        PinshCmd.PinshCmd.__init__(self, name, tokenDelimiter = '')
         self.helpText = "<configurationField>\ta dot-delimeted configuration value"
         self.bomHostField = BomHostField.BomHostField()
         self.level = 99

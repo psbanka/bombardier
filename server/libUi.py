@@ -82,6 +82,8 @@ def processInput(string):
     tokens = tokenize(string)
     # handle a preceding 'no'
     noFlag = 0
+    if not tokens:
+        return 0,0,[]
     if tokens[0] == 'no':
         noFlag = 1
         if len(tokens) > 1:

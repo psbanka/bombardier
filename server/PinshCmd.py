@@ -57,8 +57,8 @@ class PinshCmd:
         else:
             return NO_MATCH, 1
 
-    def cmd(self, tokens, noFlag, slash):
-        if tokens or noFlag or slash: pass # pychecker
+    def cmd(self, tokens, noFlag, mySlash):
+        if tokens or noFlag or mySlash: pass # pychecker
         if DEBUG: print "NAME:",self.myName, self.cmdOwner
         return FAIL, ["Incomplete command."]
 
@@ -224,14 +224,14 @@ class PinshCmd:
             return None
 
     # finds the correct object and runs a command
-    def run(self, tokens, noFlag, slash):
+    def run(self, tokens, noFlag, mySlash):
         if mode.state[-1] == Mode.F0:
             if tokens[0].lower() != 'end':
-                mode.commandBuffer[Mode.F0].append([tokens, noFlag, slash])
+                mode.commandBuffer[Mode.F0].append([tokens, noFlag, mySlash])
             else:
                 variable, values = mode.variables[Mode.F0]
                 for value in values:
-                    for tokens, noFlag, slash in mode.commandBuffer[Mode.F0]:
+                    for tokens, noFlag, mySlash in mode.commandBuffer[Mode.F0]:
                         newTokens = []
                         for token in tokens:
                             if token == '$%s' % variable:
@@ -241,7 +241,7 @@ class PinshCmd:
                         owner = self.findLastResponsibleChild(newTokens, 0)
                         if not owner:
                             continue
-                        returnValue = owner.cmd(newTokens, noFlag, slash)
+                        returnValue = owner.cmd(newTokens, noFlag, mySlash)
                         if not (returnValue == None and len(returnValue) != 2):
                             status = returnValue[0]
                             output = returnValue[1]
@@ -254,7 +254,7 @@ class PinshCmd:
                 extraClasses = mode.newClasses[-1]
                 for i in range(0,extraClasses):
                     if i: pass # pychecker
-                    slash.children.pop()
+                    mySlash.children.pop()
                 mode.popPrompt()
                 mode.cleanMode(mode.state[-1])
             return OK, []
@@ -263,10 +263,10 @@ class PinshCmd:
             if not owner:
                 return FAIL, []
             if mode.state[-1] == Mode.F0 and not owner.exitMode:
-                mode.commands.append([owner.cmd, tokens, noFlag, slash])
+                mode.commands.append([owner.cmd, tokens, noFlag, mySlash])
                 return OK, []
             else:
-                returnValue = owner.cmd(tokens, noFlag, slash)
+                returnValue = owner.cmd(tokens, noFlag, mySlash)
                 if returnValue == None or len(returnValue) != 2:
                     return OK, []
                 else:
@@ -312,52 +312,3 @@ class PinshCmd:
             text = helpLine[1]
             spaces = maxLen - len(cmd) + 5
             print "  ",cmd+' '*spaces+text
-
-
-if __name__ == "__main__":
-    from libTest import *
-    import Mode
-    import sys
-    #DEBUG = 1
-    status = startTest()
-    slash = PinshCmd("")
-    obj = PinshCmd("testobject","testobject\tthis is just a test")
-    obj.cmdOwner = 1
-    achild =  PinshCmd("achild","achild\tthis is just a test")
-    achild.cmdOwner = 1
-    bchild =  PinshCmd("bchild","bchild\tthis is just a test")
-    obj.children = [achild, bchild]
-    slash.children = [obj]
-    mode = Mode.Mode(Mode.ENABLE, "#")
-    status = runTest(getNames,[[obj],["testobject"]],["testobject"], status)
-    status = runTest(getNames,[[slash],["testobject"]],[""], status)
-    
-    status = runTest(slash.findHelp, [["testobject"]], None, status)
-    status = runTest(obj.findHelp, [["achi"]], None, status)
-
-    status = runTest(slash.findCompletions, [["testobject", "achil"], 0], ([achild], 0), status)
-    status = runTest(slash.findCompletions, [["testobject", ""], 0], ([achild, bchild], 0), status)
-
-    status = runTest(slash.findLastResponsibleChild, [["testobject", "achil"]], achild, status)
-    status = runTest(slash.findLastResponsibleChild, [["testobject", "bchil"]], obj, status)
-    endTest(status)
-
-    status = runTest(slash.complete, ['', 0], 'testobject', status)
-
-    # UNTESTABLE UI SHIT
-    #status = runTest(slash.complete, ['test', 0], 'testobject', status)
-    #status = runTest(slash.complete, ['test a', 0], 'achild', status)
-
-    status = runTest(slash.run, [["testobject", "ach"], 0, slash], (FAIL, ["Incomplete command."]), status)
-    status = runTest(slash.run, [["testobject", "ach"], 1, slash], (FAIL, ["Incomplete command."]), status)
-    status = runTest(obj.help, [], None, status)
-
-    import MultipleChoice
-    multipleChoice = MultipleChoice.MultipleChoice(["gt", "lt", "eq", "ge", "le"], ["greater than", "less than", "equal to", "greater than or equal to", "less than or equal to"])
-    slash.children = [multipleChoice]
-    status = runTest(getNames,[[multipleChoice],["l"]],["lt", 'le'], status)
-    status = runTest(slash.findHelp,[["l"]], None, status)
-
-    endTest(status)
-
-
