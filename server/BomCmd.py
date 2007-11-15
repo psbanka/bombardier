@@ -9,7 +9,7 @@ from commonUtil import *
 class BomCmd(PinshCmd.PinshCmd):
     def __init__(self, name):
         PinshCmd.PinshCmd.__init__(self, name)
-        self.bomHostField = BomHostField.BomHostField() # FIXME: want a real machine
+        self.bomHostField = BomHostField.BomHostField()
         self.children = [self.bomHostField]
         self.action = None
         self.level = 0

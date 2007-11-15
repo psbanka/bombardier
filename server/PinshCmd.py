@@ -58,6 +58,7 @@ class PinshCmd:
             return NO_MATCH, 1
 
     def cmd(self, tokens, noFlag, slash):
+        if tokens or noFlag or slash: pass # pychecker
         if DEBUG: print "NAME:",self.myName, self.cmdOwner
         return FAIL, ["Incomplete command."]
 

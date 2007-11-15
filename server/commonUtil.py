@@ -42,10 +42,10 @@ COMPLETE = 2
 DEBUG = 0
 
 def convertTokensToString(tokens, delimeter=' '):
-    output = ''
+    retVal = ''
     for token in tokens:
-        output += token+delimeter
-    return output[:-1]
+        retVal += token+delimeter
+    return retVal[:-1]
 
 logger      = logging.getLogger('bomsh_changes')
 fileHandler = logging.FileHandler("changes.log")
@@ -54,11 +54,11 @@ fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(logging.DEBUG)
 
-def log(tokens, status, output):
+def log(tokens, cmdStatus, cmdOutput):
     command = ' '.join(tokens)
-    outputString = ':'.join(output)
+    outputString = ':'.join(cmdOutput)
     statusDict = {OK: "OK", FAIL:"FAIL"}
-    logMessage = "CMD:%s|STATUS:%s|OUTPUT:%s" % (command, statusDict[status], outputString)
+    logMessage = "CMD:%s|STATUS:%s|OUTPUT:%s" % (command, statusDict[cmdStatus], outputString)
     logger.info(logMessage, extra={'user':os.environ["USER"]})
 
 def logComment(comment=None):
