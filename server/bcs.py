@@ -75,7 +75,13 @@ class BombardierRemoteClient(RemoteClient):
         self.s.send("OK\n")
 
     def streamData(self, filename):
-        base64.encode(open(filename, 'rb'), open(filename+".b64", 'w'))
+        import time
+        start = time.time()
+        import zlib
+        plain = open(filename, 'rb').read()
+        compressed = zlib.compress(plain)
+        open(filename+".z", 'wb').write(compressed)
+        base64.encode(open(filename+".z", 'rb'), open(filename+".b64", 'w'))
         self.s.setecho(False)
         handle = open(filename+'.b64', 'r')
         BLOCK_SIZE = 77
@@ -103,6 +109,7 @@ class BombardierRemoteClient(RemoteClient):
                 sys.stdout.flush()
             self.s.send(chunk)
         print
+        print "==> Configuration sent in : %3.2f seconds" %(time.time() - start)
 
     def sendClient(self, data):
         client = Client.Client(self.hostname, self.configPasswd)
