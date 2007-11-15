@@ -18,6 +18,7 @@ class Exit(PinshCmd.PinshCmd):
             for i in range(0,extraClasses):
                 slash.children.pop()
         if mode.popPrompt() == FAIL:
+            mode.clearBomConnections()
             sys.exit(0)
         else:
             return OK, []

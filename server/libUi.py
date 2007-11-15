@@ -20,6 +20,51 @@ def motd():
         userOutput(output, OK)
     except:
         pass
+
+
+def appendNotBlank(currentToken, tokens):
+    currentToken = currentToken.strip()
+    if currentToken:
+        tokens.append(currentToken)
+    return tokens
+
+def tokenize(str):
+    tokens = []
+    quoteMode = False
+    currentToken = ''
+    appendLast = False
+    for i in range(0, len(str)):
+        c = str[i]
+        if not quoteMode:
+            if c not in ['"', '#', ' ']:
+                currentToken += c
+                appendLast = True
+                continue
+            tokens = appendNotBlank(currentToken, tokens)
+            if c == '"': # start quote
+                quoteMode = True
+                currentToken = c
+            elif c == '#': # discard the rest, it's a real comment
+                if i != 0 and str[i-1] == ' ':
+                    appendLast = True
+                else:
+                    appendLast = False
+                break
+            elif c == ' ': # tokenize on spaces if not quoted
+                currentToken = ''
+                appendLast = True
+        else:
+            currentToken += c
+            if c == '"': # end quote
+                tokens = appendNotBlank(currentToken, tokens)
+                currentToken = ''
+                appendLast = False
+                quoteMode = False
+    if quoteMode: # unbalanced quotes
+        raise Exception
+    if appendLast:
+        tokens.append(currentToken.lstrip()) # grab the last
+    return tokens
     
 def processInput(string):
     "take a line of input from the user and convert it into an argv type structure"
@@ -34,8 +79,8 @@ def processInput(string):
     if len(string) == 0:
         return 0, 1, []
     string.lstrip() # left space is unimportant, right space is important
+    tokens = tokenize(string)
     # handle a preceding 'no'
-    tokens = string.split(' ')
     noFlag = 0
     if tokens[0] == 'no':
         noFlag = 1

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import readline, socket, sys, os
+from BombardierRemoteClient import BombardierRemoteClient
 
 OK = 0
 FAIL = 1
@@ -38,7 +39,19 @@ class Mode:
         self.fullPrompt = ""
         self.password = ''
         self.commentRequired = False
+        self.bomConnections = {}
 
+    def getBomConnection(self, hostName):
+        if not hostName in self.bomConnections:
+            brc = BombardierRemoteClient(hostName, self.password)
+            self.bomConnections[hostName] = brc
+        return self.bomConnections[hostName]
+
+    def clearBomConnections(self):
+        for hostName in self.bomConnections:
+            self.bomConnections[hostName].disconnect()
+            self.bomConnections[hostName] = None
+   
     def cleanMode(self, state):
         self.commandBuffer[state] = []
         self.variables[state] = []

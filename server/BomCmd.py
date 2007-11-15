@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys
+import sys, time
 from BombardierRemoteClient import *
 import PinshCmd
 import BomHostField, PackageField, ScriptField
@@ -16,6 +16,7 @@ class BomCmd(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        start = time.time()
         if noFlag:
             return FAIL, []
         if len(tokens) < 2:
@@ -26,13 +27,12 @@ class BomCmd(PinshCmd.PinshCmd):
         if len(hostNames) > 1:
             return FAIL, ["Ambiguous host %s" % tokens[1]]
         hostName = hostNames[0]
-        r = mode.getBombardierRemoteClient(hostName)
-        r = BombardierRemoteClient(hostName, mode.password)
+        r = mode.getBomConnection(hostName)
         status = r.process(self.action, [], '')
         if status == FAIL:
             return FAIL, ["Host is screwed up"]
         else:
-            return OK, ['']
+            return OK, ['Command took %4.2f seconds' % (time.time() - start)]
 
 class Status(BomCmd):
     def __init__(self):
@@ -64,6 +64,7 @@ class PackageCommand(PinshCmd.PinshCmd):
         return status
 
     def cmd(self, tokens, noFlag, slash):
+        start = time.time()
         if slash: pass # pychecker
         if noFlag:
             return FAIL, []
@@ -77,12 +78,12 @@ class PackageCommand(PinshCmd.PinshCmd):
         if self.packageField.match(tokens, 2) != (COMPLETE, 1):
             return FAIL, ["Invalid package: "+packageName]
         packageName = self.packageField.name(["command", hostName, packageName], 2)[0]
-        r = BombardierRemoteClient(hostName, mode.password)
+        r = mode.getBomConnection(hostName)
         status = self.processObject(r, packageName, tokens)
         if status == FAIL:
             return FAIL, ["Host is screwed up"]
         else:
-            return OK, ['']
+            return OK, ['Command took %4.2f seconds' % (time.time() - start)]
 
 class Install(PackageCommand):
     def __init__(self):

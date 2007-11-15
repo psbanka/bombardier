@@ -2,7 +2,7 @@
 
 import sys, os
 
-import PinshCmd, BomHostField, Expression, Client
+import PinshCmd, BomHostField, Client
 from commonUtil import *
 
 SSH = "/usr/bin/ssh"

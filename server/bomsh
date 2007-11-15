@@ -76,6 +76,7 @@ if __name__ == "__main__":
                     slash.children.pop()
             if mode.popPrompt() == FAIL:
                 print
+                mode.clearBomConnections()
                 sys.exit(0)
             mode.cleanMode(mode.state[-1])
             print

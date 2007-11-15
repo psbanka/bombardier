@@ -13,12 +13,12 @@ class Expression(PinshCmd.PinshCmd):
         self.cmdOwner = 0
 
     def match(self, tokens, index):
-        if tokens[index] == '':
-            return NO_MATCH, 1
-        return PARTIAL, 1
+        #print "exp-match %s\n" % ( len(tokens) - index )
+        return PARTIAL, len(tokens) - index
 
     def name(self, tokens, index):
-        return ""
+        #print tokens[-1],'\n'
+        return [tokens[-1], tokens[-1]]
 
 if __name__ == "__main__":
     from libTest import *
