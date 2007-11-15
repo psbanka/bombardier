@@ -6,7 +6,44 @@ import PinshCmd
 import BomHostField, PackageField, ScriptField
 from commonUtil import *
 
-DEBUG = 0
+class BomCmd(PinshCmd.PinshCmd):
+    def __init__(self, name):
+        PinshCmd.PinshCmd.__init__(self, name)
+        self.bomHostField = BomHostField.BomHostField() # FIXME: want a real machine
+        self.children = [self.bomHostField]
+        self.action = None
+        self.level = 0
+        self.cmdOwner = 1
+
+    def cmd(self, tokens, noFlag, slash):
+        if noFlag:
+            return FAIL, []
+        if len(tokens) < 2:
+            return FAIL, ["Incomplete command."]
+        hostNames = self.bomHostField.name(tokens, 1)
+        if len(hostNames) == 0:
+            return FAIL, ["Unknown host %s" % tokens[1]]
+        if len(hostNames) > 1:
+            return FAIL, ["Ambiguous host %s" % tokens[1]]
+        hostName = hostNames[0]
+        r = BombardierRemoteClient(hostName, mode.password)
+        status = r.process(self.action, [], '')
+        if status == FAIL:
+            return FAIL, ["Host is screwed up"]
+        else:
+            return OK, ['']
+
+class Status(BomCmd):
+    def __init__(self):
+        BomCmd.__init__(self, "status")
+        self.helpText = "status\tdetermine the status of a host"
+        self.action = STATUS
+
+class Reconcile(BomCmd):
+    def __init__(self):
+        BomCmd.__init__(self, "reconcile")
+        self.helpText = "reconcile\treconcile a host with it's bill of materials"
+        self.action = RECONCILE
 
 class PackageCommand(PinshCmd.PinshCmd):
     def __init__(self, name):

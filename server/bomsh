@@ -25,17 +25,19 @@ class Slash(PinshCmd.PinshCmd):
 ## 2. add the class to the following vector of command or add it to
 ##    the Configure.py class
     
-import Bash, Ping, Telnet, Ssh, Terminal, Exit, Reconcile, Status, PackageCommand, Enable, Show
+import Bash, Ping, Telnet, Ssh, Terminal, Exit, BomCmd, Enable, Show
 import For, Echo, UpdateClient, Set
 
-commands = [Terminal.Terminal(), Status.Status(), PackageCommand.Uninstall(),
-            PackageCommand.Verify(), PackageCommand.Configure(), PackageCommand.Install(), 
-            PackageCommand.Execute(), PackageCommand.Purge(), PackageCommand.Fix(), 
-            Reconcile.Reconcile(), Echo.Comment(), Set.Set(),
-            Show.Show(), Ping.Ping(), Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(), 
+bomCommands = [ BomCmd.Status(), BomCmd.Uninstall(),
+                BomCmd.Verify(), BomCmd.Configure(), BomCmd.Install(), 
+                BomCmd.Execute(), BomCmd.Purge(), BomCmd.Fix(), 
+                BomCmd.Reconcile()]
+
+commands = [Echo.Comment(), Set.Set(), Terminal.Terminal(), Show.Show(), Ping.Ping(), 
+            Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(), 
             UpdateClient.UpdateClient(), Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo()]
 
-slash = Slash(commands)
+slash = Slash(commands + bomCommands)
 
 ##########################################################################
 
