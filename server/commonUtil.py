@@ -9,7 +9,7 @@ mode = Mode.Mode(Mode.USER, '>')
 
 DEBUG = 0
 
-PINSH = "/usr/bin/pinsh"
+HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
 
 # RESULT CODES
 OK = 0

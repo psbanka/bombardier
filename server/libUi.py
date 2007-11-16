@@ -135,7 +135,7 @@ def pwdInput(prompt):
     old_settings = termios.tcgetattr(fd)
     try:
         tty.setraw(sys.stdin.fileno())
-        print prompt+" ",
+        print prompt,
         passwd = ''
         while 1 == 1:
             ch = sys.stdin.read(1)
@@ -143,7 +143,9 @@ def pwdInput(prompt):
                 break
             if ch == chr(8) or ch == chr(127):
                 if len(passwd) > 0:
-                    sys.stdout("\b")
+                    sys.stdout.write("\b")
+                    sys.stdout.write(" ")
+                    sys.stdout.write("\b")
                     passwd = passwd[:-1]
                 continue
             if ord(ch) > 31 and ord(ch) < 128:

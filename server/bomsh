@@ -87,6 +87,8 @@ if __name__ == "__main__":
                 status = cmdStatus
         sys.exit(status)
     else:
+        if os.path.isfile(HISTORY_FILE):
+            readline.read_history_file(HISTORY_FILE)
         while True:
             try:
                 mode.setPrompt()
@@ -101,6 +103,7 @@ if __name__ == "__main__":
                 if mode.popPrompt() == FAIL:
                     print
                     mode.clearBomConnections()
+                    readline.write_history_file(HISTORY_FILE)
                     sys.exit(0)
                 mode.cleanMode(mode.state[-1])
                 print
