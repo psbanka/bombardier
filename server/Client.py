@@ -4,19 +4,9 @@ import os
 import yaml
 import getpass
 import base64
+import libCipher
 from Crypto.Cipher import AES
 from bombardier.staticData import OK, FAIL, CENSORED
-
-VALID_CHARS = [ chr(x) for x in range(ord(' '), ord('~')+1) ]
-
-def pad(str):
-    return str + '=' * (16 - len(str) % 16)
-
-def isValidString(str):
-    for c in str:
-        if c not in VALID_CHARS:
-            return False
-    return True
 
 class Client:
 
@@ -25,7 +15,7 @@ class Client:
         self.includes   = []
         self.systemName = systemName
         if passwd:
-            self.passwd = pad(passwd)
+            self.passwd = libCipher.pad(passwd)
         else:
             self.passwd = ''
 
@@ -99,46 +89,8 @@ class Client:
         return encryptedEntries
 
     def decryptConfig(self):
-        self.decryptDict(self.data)
+        libCipher.decryptLoop(self.data, self.passwd)
 
-    def decryptDict(self, dict):
-        for key in dict:
-            t = type(dict[key])
-            if t == type('') and type(key) == type('') and key.startswith('enc_'):
-                newKey = key.split("enc_")[-1]
-                if self.passwd:
-                    dict[newKey] = self.decryptString(dict[key])
-                else:
-                    dict[newKey] = CENSORED
-                del dict[key]
-            elif t == type({}):
-                self.decryptDict(dict[key])
-        
-    def decryptString(self, b64CipherB64Str):
-        #print "b64CipherB64Str: (%s)"%b64CipherB64Str
-        cipherB64Str = base64.decodestring(b64CipherB64Str).strip()
-        #print "cipherB64Str: (%s)" %cipherB64Str
-        decrypter = AES.new(self.passwd, AES.MODE_ECB)
-        b64Str = decrypter.decrypt(cipherB64Str)
-        #print "b64Str: ", b64Str
-        base = b64Str.split('=')[0]
-        base += "=" * (len(base) % 4)
-        #print "base: ", base
-        plainStr = base64.decodestring(b64Str)
-        #print "plainStr: ", plainStr
-        if not isValidString(plainStr):
-            raise DecryptionException(b64CipherB64Str, "Invalid characters in the decrypted text")
-        return plainStr
-
-class DecryptionException(Exception):
-    def __init__(self, b64Text, reason):
-        e = Exception()
-        Exception.__init__(e)
-        self.key = b64Text
-        self.reason = reason
-    def __str__(self):
-        return "Could not decrypt %s: %s" % (self.b64Text, self.reason)
-    
 if __name__ == "__main__":
     import sys
     import optparse
