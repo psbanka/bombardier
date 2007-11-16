@@ -148,8 +148,9 @@ class Execute(PackageCommand):
         self.logCommand = True
 
     def processObject(self, r, packageName, tokens):
-        scriptNames = self.scriptField.name(tokens, len(tokens)-1)
+        scriptNames = self.scriptField.name(tokens, 3)
         if len(scriptNames) != 1:
+            print "Invalid scriptName"
             return FAIL
         status = r.process(self.action, [packageName], scriptNames[0])
         return status

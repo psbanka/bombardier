@@ -36,7 +36,6 @@ class Slash(PinshCmd.PinshCmd):
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
             sys.stderr.write(ermsg)
-            sys.stderr.write("Error ocurred in %s" % file)
             sys.stderr.write("\n")
 
 
