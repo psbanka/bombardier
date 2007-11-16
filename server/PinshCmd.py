@@ -102,12 +102,12 @@ class PinshCmd:
                 return [], 1
             if returnError:
                 print "\n"+convertTokensToString(tokens)+": Unrecognized command"
-                mode.reprompt()
+                #mode.reprompt()
             return [], index
         else: # we have a few possible matches, return them all
             return completionObjects, index
 
-    # command line completer, called with [tab] or [?]
+    # command line completer, called with [tab] or [?] (if we could bind '?')
     def complete(self, text, status):
         if text: pass # pychecker
         try:
@@ -119,11 +119,7 @@ class PinshCmd:
                 noFlag, helpFlag, tokens = libUi.processInput(readline.get_line_buffer())
                 if DEBUG: 
                     print "COMPLETE: ",`tokens`
-                if helpFlag: # Process the [?] key first
-                    self.findHelp(tokens, 0)
-                    mode.reprompt()
-                    return None
-                # this is [tab] and not [?]
+                # this is where we would process help if we could bind the '?' key properly
                 index = 0
                 if tokens == []:
                     if DEBUG: print "No tokens, returning children",
@@ -217,7 +213,7 @@ class PinshCmd:
             if len(arguments) > 0: # this is a valid argument, I will take responsibility.
                 return self
             print "\n",convertTokensToString(tokens)+": Unrecognized command" # No matches: go away.
-            mode.reprompt()
+            #mode.reprompt()
             return None
         else: # more than one owner-- need to be unambiguous
             print tokens[index]+": Ambiguous command"
@@ -281,7 +277,6 @@ class PinshCmd:
 
     # pretty-print the help strings of all my children on this level
     def help(self):
-        print "\n"
         helpText = []
         maxLen = 0
         if len(self.children) == 0:

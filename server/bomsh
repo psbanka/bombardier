@@ -17,9 +17,14 @@ class Slash(PinshCmd.PinshCmd):
         try:
             if mode.currentState() != Mode.FREE_TEXT:
                 noFlag, helpFlag, tokens = libUi.processInput(command)
+                if helpFlag: # Process the [?] key first
+                    self.findHelp(tokens, 0)
+                    #mode.reprompt()
+                    return None
                 if len(tokens) == 0:
                     return OK, []
-                status, output = self.run(tokens, noFlag, self)
+                else:
+                    status, output = self.run(tokens, noFlag, self)
             else:
                 status, output = self.run(command, self)
             libUi.userOutput(output, status)
@@ -68,7 +73,7 @@ mode.auth = USER
 # READLINE CONFIGS
 readline.parse_and_bind('tab: complete')
 readline.parse_and_bind('C-z: "end\n"')
-readline.parse_and_bind('?: "\C-v?\t\d"')
+#readline.parse_and_bind('?: "\C-v?\t\d"')
 readline.parse_and_bind('set bell-style none')
 readline.set_completer_delims(' ')
 # Print the message of the day
