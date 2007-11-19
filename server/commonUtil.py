@@ -49,7 +49,7 @@ def convertTokensToString(tokens, delimeter=' '):
 
 logger      = logging.getLogger('bomsh_changes')
 fileHandler = logging.FileHandler("changes.log")
-formatter = logging.Formatter('%(asctime)-15s|%(user)-15s|%(message)s')
+formatter = logging.Formatter('%(asctime)-15s|%(message)s')
 fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(logging.DEBUG)
@@ -58,13 +58,14 @@ def log(tokens, cmdStatus, cmdOutput):
     command = ' '.join(tokens)
     outputString = ':'.join(cmdOutput)
     statusDict = {OK: "OK", FAIL:"FAIL"}
-    logMessage = "CMD:%s|STATUS:%s|OUTPUT:%s" % (command, statusDict[cmdStatus], outputString)
-    logger.info(logMessage, extra={'user':os.environ["USER"]})
+    logMessage = "%-15s|CMD:%s|STATUS:%s|OUTPUT:%s"
+    logMessage = logMessage % (os.environ["USER"], command, statusDict[cmdStatus], outputString)
+    logger.info(logMessage)
 
 def logComment(comment=None):
     if not comment:
         comment = raw_input("Enter a comment for this change:\n> ")
-    logger.info("COMMENT: %s" % comment, extra={'user':os.environ["USER"]})
+    logger.info("%-15s|COMMENT: %s" % (os.environ["USER"], comment))
 
 
 if __name__ == "__main__":
