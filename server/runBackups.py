@@ -25,8 +25,21 @@ logger.addHandler(stdErrHandler)
 
 class BombardierBackup(BombardierRemoteClient):
     def __init__(self, hostname, action):
-        BombardierRemoteClient.__init__(self, hostname, EXECUTE, ["SqlBackup"], SCRIPT[action], '')
+        BombardierRemoteClient.__init__(self, hostname, '')
+        self.action = EXECUTE
+        self.packageList = ["SqlBackup"]
 
+    def restore(self):
+        self.script = SCRIPT[RESTORE]
+        return self.process(EXECUTE, self.packageList, self.script)
+
+    def backupFull(self):
+        self.script = SCRIPT[BACKUP_FULL]
+        return self.process(EXECUTE, self.packageList, self.script)
+
+    def backupLog(self):
+        self.script = SCRIPT[BACKUP_LOG]
+        return self.process(EXECUTE, self.packageList, self.script)
 
 def archiveMaint(clientConfig, databases, localArchive):
     daysToKeep = int(clientConfig["sql"]["backupDays"])
@@ -92,8 +105,7 @@ def restore(restoreServer):
         return FAIL
     logger.info("Instructing server %s to restore..." % restoreServer)
     r = BombardierBackup(restoreServer, RESTORE)
-    cmdstatus = r.reconcile()
-    r.getScriptOutput()
+    cmdstatus = r.restore()
     if cmdstatus == FAIL:
         logger.error( "Restore failed on %s" % ( restoreServer) )
     clearLock(restoreServer+"-push-lock")
@@ -146,10 +158,10 @@ def runBackup(backupServer, full, debug):
         return FAIL
     if full:
         r = BombardierBackup(backupServer, BACKUP_FULL)
+        status = r.backupFull()
     else:
         r = BombardierBackup(backupServer, BACKUP_LOG)
-    status = r.reconcile()
-    r.getScriptOutput()
+        status = r.backupLog()
     status = OK
     if status != OK:
         logger.error( "Backup failed on %s" % ( backupServer ) )
