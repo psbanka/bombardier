@@ -104,7 +104,7 @@ class Server:
         b64Data = []
         while True:
             chunk = sys.stdin.read(STREAM_BLOCK_SIZE)
-            if chunk[0] == ' ':
+            if not chunk or chunk[0] == ' ':
                 break
             b64Data.append(chunk)
         yamlData = ''
