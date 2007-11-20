@@ -49,8 +49,11 @@ class Mode:
 
     def clearBomConnections(self):
         for hostName in self.bomConnections:
-            self.bomConnections[hostName].disconnect()
-            self.bomConnections[hostName] = None
+            try:
+                self.bomConnections[hostName].disconnect()
+                self.bomConnections[hostName] = None
+            except:
+                print "%% Could not gracefully disconnect from %s." % hostName
    
     def cleanMode(self, state):
         self.commandBuffer[state] = []

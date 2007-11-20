@@ -138,6 +138,27 @@ class BombardierRemoteClient(RemoteClient):
                     return True
         return False
 
+    def runCmd(self, commandString):
+        if self.freshen() != OK:
+            print "==> UNABLE TO CONNECT TO %s. No actions are available." % self.hostName
+            return FAIL
+        returnCode = OK
+        self.s.sendline ('cd %s' %self.spkgDir)
+        self.s.prompt()
+        self.s.sendline(commandString)
+        self.s.prompt()
+        output = self.s.before
+        self.s.setecho(False)
+        self.s.sendline("echo $?")
+        self.s.prompt()
+        try:
+            returnCode = int(str(self.s.before.split()[0].strip()))
+            return returnCode, output
+        except Exception, e:
+            print e
+            print "==> invalid returncode: ('%s')" % self.s.before
+            return FAIL, output
+
     def process(self, action, packageNames, scriptName):
         if self.freshen() != OK:
             print "==> UNABLE TO CONNECT TO %s. No actions are available." % self.hostName
