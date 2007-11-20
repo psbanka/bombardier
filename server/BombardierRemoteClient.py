@@ -160,6 +160,8 @@ class BombardierRemoteClient(RemoteClient):
             return FAIL, output
 
     def process(self, action, packageNames, scriptName):
+        if action == EXECUTE:
+            self.clearScriptOutput(scriptName)
         if self.freshen() != OK:
             print "==> UNABLE TO CONNECT TO %s. No actions are available." % self.hostName
             return FAIL
@@ -215,6 +217,12 @@ class BombardierRemoteClient(RemoteClient):
         if action == EXECUTE:
             self.getScriptOutput(scriptName)
         return returnCode
+
+    def clearScriptOutput(self, scriptName):
+        localFilename  = "%s-%s.yml" % (self.hostName, scriptName)
+        if os.path.isfile(localFilename):
+            os.unlink(localFilename)
+        return 
 
     def getScriptOutput(self, scriptName):
         remoteFilename = "%s-output.yml" % (scriptName)
