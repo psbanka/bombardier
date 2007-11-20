@@ -1,11 +1,11 @@
-A    /tmp/CgApache-8/scripts
-A    /tmp/CgApache-8/scripts/noindex.html.template
-A    /tmp/CgApache-8/scripts/CgApache.py
-A    /tmp/CgApache-8/scripts/index.html.template
-A    /tmp/CgApache-8/scripts/installer.py
-A    /tmp/CgApache-8/scripts/cg_httpd.template
-A    /tmp/CgApache-8/scripts/uninstaller.py
-A    /tmp/CgApache-8/scripts/configure.py
-A    /tmp/CgApache-8/scripts/verify.py
-A    /tmp/CgApache-8/scripts/ajp13.conf.template
-Exported revision 288.
+A    /tmp/SqlBackup-1/scripts
+A    /tmp/SqlBackup-1/scripts/maint
+A    /tmp/SqlBackup-1/scripts/maint/backupFull.py
+A    /tmp/SqlBackup-1/scripts/maint/decrypt.py
+A    /tmp/SqlBackup-1/scripts/maint/clearLocks.py
+A    /tmp/SqlBackup-1/scripts/maint/restore.py
+A    /tmp/SqlBackup-1/scripts/maint/Backup.py
+A    /tmp/SqlBackup-1/scripts/maint/backupLog.py
+A    /tmp/SqlBackup-1/scripts/maint/recover.sh
+A    /tmp/SqlBackup-1/scripts/SqlBackup.py
+Exported revision 393.

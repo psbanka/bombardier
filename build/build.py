@@ -8,8 +8,8 @@ import yaml
 import tarfile
 import ConfigParser
 import commands
-sys.path.append("../../client")
-sys.path.append("../../client/site-root")
+sys.path.append("../client")
+#@sys.path.append("../../client/site-root")
 
 import bombardier.Server as Server
 import bombardier.Linux
@@ -18,8 +18,8 @@ import bombardier.Spkg as Spkg
 import bombardier.utility as utility
 
 PACKAGES_FILE = "packages.yml"
-PACKAGES_PATH = "/var/www/deploy/packages/"
-DEPLOY_DIR    = "/var/www/deploy"
+PACKAGES_PATH = "../server/deploy/packages/"
+DEPLOY_DIR    = "../server/deploy"
 
 OK          = 0
 FAIL        = 1
@@ -148,7 +148,7 @@ class TarCreator:
 
     def cleanup(self, deleteOld):
         print "cleaning up..."
-        os.unlink(self.spkg)
+        os.unlink("%s/%s"%(self.tempDir, self.spkg))
         os.chdir(self.startDir)
         try:
             shutil.rmtree(self.destDir)
@@ -207,13 +207,14 @@ class TarCreator:
             os.chdir(self.startDir)
         if createTarball:
             self.createTarball()
-        if not os.path.isfile(self.spkg):
+        if not os.path.isfile("%s/%s"%(self.tempDir, self.spkg) ):
             self.errors.append("spkg file %s does not exist." % self.spkg)
             return FAIL
-        checksum = getChecksum(self.spkg)
+        checksum = getChecksum("%s/%s"%(self.tempDir, self.spkg))
         metadata['install']['fullName'] = self.fullname
         metadata['install']['md5sum'] = checksum
         metadata['install']['className'] = self.className
+        print os.getcwd()
         packageData = yaml.load(open(PACKAGES_PATH + PACKAGES_FILE).read())
         print "amending %s for %s" % (PACKAGES_FILE, self.packageName)
         packageData[self.packageName] = metadata
@@ -229,8 +230,9 @@ class TarCreator:
         tar.close()
         data = open(self.spkg, 'rb').read()
         print "uploading spkg...(bytes %s)" % len(data)
-        cmd = "cp %s %s/packages" % (self.spkg, DEPLOY_DIR)
+        cmd = "cp %s %s/%s/packages" % (self.spkg, self.startDir, DEPLOY_DIR)
         os.system(cmd)
+        os.chdir(self.startDir)
         return OK
 
     def prepare(self):
