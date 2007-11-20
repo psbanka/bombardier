@@ -127,11 +127,11 @@ def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
                 status = FAIL
         else:
             logger.info("Pushing to %s on network %s" % (restoreServer, restoreNetwork))
-            if setLock(restoreServer+"-push-lock") == FAIL:
-                logger.info("%s busy. Try again later." % restoreServer)
-                continue
             if 1 == 1:
             #try: 
+                if setLock(restoreServer+"sync-push-lock") == FAIL:
+                    logger.info("%s busy. Try again later." % restoreServer)
+                    continue
                 logger.info("Transferring files to %s..." % (restoreServer))
                 if "\\" in restorePath or ':' in restorePath:
                     restorePath = cygpath(restorePath)
@@ -141,6 +141,7 @@ def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
                 if status != OK:
                     logger.error( "%s failed." % cmd)
                     continue
+                clearLock(restoreServer+"sync-push-lock")
                 cmdstatus = restore(restoreServer)
                 if cmdstatus == FAIL:
                     status = FAIL
@@ -185,7 +186,11 @@ def dbReport(restoreServers, backupServer, databases, full):
     status = OK
     for restoreServer in restoreServers:
         report[restoreServer] = {}
-        restoreData = yaml.load(open("output/%s-restore.yml" % restoreServer, 'r').read())
+        fileName = "output/%s-restore.yml" % restoreServer
+        if not os.path.isfile(fileName):
+            report[restoreServer] = "NO-OUTPUT"
+            continue
+        restoreData = yaml.load(open(fileName, 'r').read())
         for database in databases:
             report[restoreServer][database] = {}
             dbInfo = restoreData.get(database)
