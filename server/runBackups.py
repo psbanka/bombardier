@@ -182,7 +182,9 @@ def dbReport(restoreServers, backupServer, databases, full):
         if full:
             report[database]["stats"] = backupData[database]["stats"]
         for key in ["backup", "compress", "verify", "rrd"]:
-            report[database][key] = backupData[database][key]
+            data = backupData[database].get(key)
+            if data:
+                report[database][key] = data
     status = OK
     for restoreServer in restoreServers:
         report[restoreServer] = {}
@@ -337,7 +339,6 @@ def clearLock(lockFilename):
 
 if __name__ == "__main__":
     import optparse
-    LOCAL_ARCHIVE = "/data02/blob"
     parser = optparse.OptionParser("usage: %prog server-name [options] <backupServer>")
     parser.add_option("-f", "--full", dest="full",
                       action="store_true", default=False,
@@ -357,6 +358,7 @@ if __name__ == "__main__":
     databases = clientConfig["sql"]["databases"]
     servers = clientConfig["sql"]["servers"].keys()
     localNetwork = clientConfig["sql"]["servers"][backupServer]["network"]
+    localArchive = clientConfig["sql"]["mgmtBackupDirectory"]
     restoreServers = list(set(servers) - set([backupServer]))
     report = {"backupServer": backupServer, "databases": databases, "restoreServers": restoreServers}
     if options.full:
@@ -367,9 +369,9 @@ if __name__ == "__main__":
         
     try:
         report['backup']    = runBackup(backupServer, options.full, options.debug)
-        report['pullFiles'] = pullFiles(backupServer, clientConfig, LOCAL_ARCHIVE)
-        archiveMaint(clientConfig, databases, "%s/%s" % (LOCAL_ARCHIVE, backupServer))
-        report['syncAndRestore'] = syncAndRestore(restoreServers, backupServer, localNetwork, LOCAL_ARCHIVE)
+        report['pullFiles'] = pullFiles(backupServer, clientConfig, localArchive)
+        archiveMaint(clientConfig, databases, "%s/%s" % (localArchive, backupServer))
+        report['syncAndRestore'] = syncAndRestore(restoreServers, backupServer, localNetwork, localArchive)
         addDictionaries(report, dbReport(restoreServers, backupServer, databases, options.full) )
         wrapup(report, backupServer, clientConfig)
         open("output/backupReport.yml", 'w').write(yaml.dump(report))
