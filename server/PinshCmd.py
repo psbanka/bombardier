@@ -62,6 +62,13 @@ class PinshCmd:
         if DEBUG: print "NAME:",self.myName, self.cmdOwner
         return FAIL, ["Incomplete command."]
 
+    def printErrorMessage(self, tokens, index, message = "Unrecognized Command"):
+        preamble = ' '*len(mode.getPrompt())
+        okTokens = convertTokensToString(tokens[:index])
+        print "%s%s" % (preamble, convertTokensToString(tokens))
+        print "%s%s ^" % (preamble, " "*len(okTokens))
+        print " %% %s" % message
+
     # This is called by complete.
     # When complete is calling this it wants a list of objects
     # that could be completions for the final token.
@@ -97,12 +104,14 @@ class PinshCmd:
             return completionObjects[0].findCompletions(tokens, index+matchLen)
         elif len(completionObjects) == 0: # No matches: go away.
             if len(incompleteObjects) > 0:
-                print "\n% command cannot be completed."
+                print
+                self.printErrorMessage(tokens, index, "Command cannot be completed.")
                 mode.reprompt()
                 return [], 1
             if returnError:
-                print "\n"+convertTokensToString(tokens)+": Unrecognized command"
-                #mode.reprompt()
+                print
+                self.printErrorMessage(tokens, index)
+                mode.reprompt()
             return [], index
         else: # we have a few possible matches, return them all
             return completionObjects, index
@@ -117,8 +126,7 @@ class PinshCmd:
                 return self.names[status]
             else:
                 noFlag, helpFlag, tokens = libUi.processInput(readline.get_line_buffer())
-                if DEBUG: 
-                    print "COMPLETE: ",`tokens`
+                if DEBUG: print "COMPLETE: ",`tokens`
                 # this is where we would process help if we could bind the '?' key properly
                 index = 0
                 if tokens == []:
@@ -127,15 +135,13 @@ class PinshCmd:
                 else:
                     if DEBUG: print "Finding completions on",`tokens`
                     completionObjects, index = self.findCompletions(tokens, 0)
-                if DEBUG: 
-                    print "Found completions: ",completionObjects, index
+                if DEBUG: print "Found completions: ",completionObjects, index
                 if len(completionObjects) == 0:
                     #mode.reprompt()
                     return None
                 # status is the index of the completion that readline wants
                 self.names =  getNames(completionObjects, tokens, index-1)
-                if DEBUG: 
-                    print "COMPLETE: tokens:",`tokens`,"index:",index,"names:",`self.names`
+                if DEBUG: print "COMPLETE: tokens:",`tokens`,"index:",index,"names:",`self.names`
                 if len(self.names) == 1:
                     return self.names[0] + completionObjects[0].tokenDelimiter
                 return self.names[0]
@@ -158,8 +164,10 @@ class PinshCmd:
         if DEBUG: print "findHelp:", `self.myName`, 'tokens:', `tokens`
         # no tokens left, I must be who you want!
         if len(tokens[index:]) == 0 or tokens[index] == '': 
+            if DEBUG: print "myName:",self.myName
             self.help()
             return
+        if DEBUG: print "finding completions..."
         matchLen = 0
         completionObjects = []
         for child in self.children:
@@ -174,10 +182,10 @@ class PinshCmd:
         if len(completionObjects) == 1: # one partial matches is as good as a complete match
             return completionObjects[0].findHelp(tokens, index+matchLen)
         elif len(completionObjects) == 0: # No matches: go away.
-            print "\n",convertTokensToString(tokens)+": Unrecognized command"
+            self.printErrorMessage(tokens, index)
             return
-        else: # ^ FIXME: Provide help on the few commands that are left!
-            print "\n",tokens[index]+": Ambiguous command"
+        else:
+            self.printErrorMessage(tokens, index, "Ambiguous command")
             return
         
     # Run is calling this method to find the last object in the chain
@@ -212,11 +220,10 @@ class PinshCmd:
         elif len(owners) == 0: 
             if len(arguments) > 0: # this is a valid argument, I will take responsibility.
                 return self
-            print "\n",convertTokensToString(tokens)+": Unrecognized command" # No matches: go away.
-            #mode.reprompt()
+            self.printErrorMessage(tokens, index)
             return None
         else: # more than one owner-- need to be unambiguous
-            print tokens[index]+": Ambiguous command"
+            self.printErrorMessage(tokens, index, "Ambiguous command")
             return None
 
     # finds the correct object and runs a command
@@ -295,8 +302,11 @@ class PinshCmd:
                     if len(cmd) > maxLen:
                         maxLen = len(cmd)
             else:
-                cmd, doc = child.helpText.split('\t')
-                helpText.append([cmd, doc])
+                try:
+                    cmd, doc = child.helpText.split('\t')
+                    helpText.append([cmd, doc])
+                except:
+                    pass
             if len(cmd) > maxLen:
                 maxLen = len(cmd)
 
