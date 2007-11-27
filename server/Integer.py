@@ -29,7 +29,7 @@ class Integer(PinshCmd.PinshCmd):
         return NO_MATCH, 1
 
     def name(self, tokens, index):
-        return ""
+        return [tokens[index]]
 
 if __name__ == "__main__":
     from libTest import *

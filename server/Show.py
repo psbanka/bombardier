@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-import sys
+import sys, readline
 import yaml
 import Client
-import PinshCmd, ConfigField
+import PinshCmd, ConfigField, Integer
 from commonUtil import *
 
 class ShowCommand(PinshCmd.PinshCmd):
@@ -44,15 +44,41 @@ class Bom(ShowCommand):
         self.configField = ConfigField.ConfigField(dataType=ConfigField.BOM)
         self.children = [self.configField]
 
+class History(PinshCmd.PinshCmd):
+    def __init__(self):
+        PinshCmd.PinshCmd.__init__(self, "history")
+        self.helpText = "history\tdisplay the history of commands"
+        self.integer  = Integer.Integer(min=1, max=1000)
+        self.children = [self.integer]
+        self.level = 0
+        self.cmdOwner = 1
+
+    def cmd(self, tokens, noFlag, slash):
+        if len(tokens) == 2 or tokens[-1].strip()=='':
+            number = 20
+        else:
+            try:
+                number = int(tokens[2])
+            except:
+                return FAIL, ["%s is not a number." % tokens[2]]
+        hlen = readline.get_current_history_length()
+        if hlen < number:
+            number = hlen
+        output = []
+        for i in range(hlen, hlen-number, -1):
+            output.append("%4d\t%s" % (i, readline.get_history_item(i)))
+        return OK, output
+
 class Show(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "show")
         self.helpText = "show\tdisplay components of the system"
+        history = History()
         merged = Merged()
         client = Client()
         include = Include()
         bom = Bom()
-        self.children = [merged, client, include, bom]
+        self.children = [merged, client, include, bom, history]
         self.level = 0
         self.cmdOwner = 1
 
