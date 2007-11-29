@@ -20,7 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import sys, optparse, StringIO, traceback, yaml, time
+import sys, optparse, StringIO, traceback, yaml, time, re
 
 from bombardier.staticData import *
 from bombardier.Logger import logger, addStdErrLogging
@@ -75,7 +75,20 @@ def fixSpkg(packageName, action):
         return FAIL
     now = time.asctime()
     if action == FIX:
-        status["install-progress"]["%s-1" % packageName] = {"INSTALLED": now, "UNINSTALLED": "NA", "VERIFIED": now}
+        fixName = []
+        baseNames = re.compile("(\s+)\-\d+").findall(packageName)
+        if baseNames:
+            baseName = baseNames[0]
+        else:
+            baseName = packageName
+        for possiblePackageName in status["install-progress"]:
+            if baseName in possiblePackageName:
+                fixName.append(possiblePackageName)
+        if len(fixName) != 1:
+            logger.error("Could not find package %s. (possible %s)" % (packageName, ' '.join(fixName)))
+            return FAIL
+        packageName = fixName[0]
+        status["install-progress"]["%s" % packageName] = {"INSTALLED": now, "UNINSTALLED": "NA", "VERIFIED": now}
         logger.info("%s has been set to INSTALLED." % packageName )
     elif action == PURGE:
         if status["install-progress"].get(packageName):
