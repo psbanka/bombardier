@@ -169,7 +169,7 @@ def runBackup(backupServer, full, debug):
     clearLock("%s-backup-lock" % backupServer)
     return status
 
-def dbReport(restoreServers, backupServer, databases, full):
+def dbReport(restoreServers, backupServer, databases, full, clientConfig):
     report = {}
     if full:
         backupData = yaml.load(open("output/%s-backupFull.yml" % backupServer, 'r').read())
@@ -177,40 +177,45 @@ def dbReport(restoreServers, backupServer, databases, full):
         backupData = yaml.load(open("output/%s-backupLog.yml" % backupServer, 'r').read())
     startTime = backupData["startTime"]
     report["backupTime"] = startTime
+    report["databases"] = {}
     for database in databases:
-        report[database] = {}
+        report["databases"][database] = {}
         if full:
-            report[database]["stats"] = backupData[database]["stats"]
+            report["databases"][database]["stats"] = backupData[database]["stats"]
         for key in ["backup", "compress", "verify", "rrd"]:
             data = backupData[database].get(key)
             if data:
-                report[database][key] = data
+                report["databases"][database][key] = data
     status = OK
+    report["servers"] = {}
     for restoreServer in restoreServers:
-        report[restoreServer] = {}
+        report["servers"][restoreServer] = {}
         fileName = "output/%s-restore.yml" % restoreServer
         if not os.path.isfile(fileName):
-            report[restoreServer] = "NO-OUTPUT"
+            report["servers"][restoreServer] = "NO-OUTPUT"
             continue
         restoreData = yaml.load(open(fileName, 'r').read())
+        role = clientConfig["sql"]["servers"][restoreServer]["role"]
+        if role != "secondary" and not full:
+            continue
         for database in databases:
-            report[restoreServer][database] = {}
+            report["servers"][restoreServer][database] = {}
             dbInfo = restoreData.get(database)
             if dbInfo:
                 dbTimeCheck = dbInfo.get("timestamp")
-                report[restoreServer][database]["timestamp"] = dbTimeCheck
+                report["servers"][restoreServer][database]["timestamp"] = dbTimeCheck
                 if dbTimeCheck != startTime:
-                    msg = "Database %s did not restore properly on %s (should be %s, found %s)"
+                    msg = "BAD TIMESTAMP: %s/%s (should be %s, found %s)"
                     logger.error( msg % (database, restoreServer, startTime, dbTimeCheck))
                     status = FAIL
-                    report[restoreServer][database]["status"] = "FAIL"
+                    report["servers"][restoreServer][database]["status"] = "FAIL"
                 else:
-                    logger.info("Database %s on %s has correct timestamp %s" % (database, restoreServer, dbTimeCheck))
-                    report[restoreServer][database]["status"] = "OK"
+                    logger.info("Correct timestamp: %s/%s: %s" % (database, restoreServer, dbTimeCheck))
+                    report["servers"][restoreServer][database]["status"] = "OK"
             else:
                 logger.error( "Database %s on %s has no restore history." % (database, restoreServer) )
-                report[restoreServer][database]["timestamp"] = "NONE"
-                report[restoreServer][database]["status"] = "FAIL"
+                report["servers"][restoreServer][database]["timestamp"] = "NONE"
+                report["servers"][restoreServer][database]["status"] = "FAIL"
     if status == OK:
         logger.info("All databases replicated properly." )
         report["status"] = "OK"
@@ -372,7 +377,7 @@ if __name__ == "__main__":
         report['pullFiles'] = pullFiles(backupServer, clientConfig, localArchive)
         archiveMaint(clientConfig, databases, "%s/%s" % (localArchive, backupServer))
         report['syncAndRestore'] = syncAndRestore(restoreServers, backupServer, localNetwork, localArchive)
-        addDictionaries(report, dbReport(restoreServers, backupServer, databases, options.full) )
+        addDictionaries(report, dbReport(restoreServers, backupServer, databases, options.full, clientConfig) )
         wrapup(report, backupServer, clientConfig)
         open("output/backupReport.yml", 'w').write(yaml.dump(report))
     except DeadLockException, e:
