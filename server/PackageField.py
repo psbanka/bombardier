@@ -56,7 +56,7 @@ class PackageField(PinshCmd.PinshCmd):
     def name(self, tokens, index):
         hostNames = self.bomHostField.name(tokens, index-1)
         if len(hostNames) != 1:
-            return NO_MATCH, 1
+            return ''
         hostName = hostNames[0]
         possibleMatches = self.possiblePackageNames(hostName, tokens[index])
         if possibleMatches:

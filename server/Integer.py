@@ -29,15 +29,24 @@ class Integer(PinshCmd.PinshCmd):
         return NO_MATCH, 1
 
     def name(self, tokens, index):
-        return [tokens[index]]
+        try:
+            value = int(tokens[index])
+            if value >= self.min and value <= self.max:
+                return [tokens[index]]
+        except:
+            pass
+        return ''
 
 if __name__ == "__main__":
     from libTest import *
     integer = Integer(10, 1000)
     status = OK
     startTest()
-    runTest(integer.match, [[""]], (NO_MATCH, 1), status)
-    runTest(integer.match, [["1"]], (PARTIAL, 1), status)
-    runTest(integer.match, [["100"]], (COMPLETE, 1), status)
-    runTest(integer.match, [["foofy"]], (NO_MATCH, 1), status)
+    #status = runTest(integer.name, [["a"], 0], '', status)
+    status = runTest(integer.name, [["11"], 0], ['11'], status)
+    status = runTest(integer.name, [["10"], 0], ['10'], status)
+    status = runTest(integer.match, [[""], 0], (NO_MATCH, 1), status)
+    status = runTest(integer.match, [["1"], 0], (PARTIAL, 1), status)
+    status = runTest(integer.match, [["100"], 0], (COMPLETE, 1), status)
+    status = runTest(integer.match, [["foofy"], 0], (NO_MATCH, 1), status)
     endTest(status)

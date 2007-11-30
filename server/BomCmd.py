@@ -3,7 +3,7 @@
 import sys, time
 from BombardierRemoteClient import *
 import PinshCmd
-import BomHostField, PackageField, ScriptField
+import BomHostField, PackageField, ScriptField, LongList
 from commonUtil import *
 
 class BomCmd(PinshCmd.PinshCmd):
@@ -58,9 +58,9 @@ class PackageCommand(PinshCmd.PinshCmd):
         self.cmdOwner = 1
         self.scriptName = ''
 
-    def processObject(self, r, packageName, tokens):
+    def processObject(self, r, packageNames, tokens):
         if tokens: pass
-        status = r.process(self.action, [packageName], '')
+        status = r.process(self.action, packageNames.split(), '')
         return status
 
     def cmd(self, tokens, noFlag, slash):
@@ -74,12 +74,19 @@ class PackageCommand(PinshCmd.PinshCmd):
         if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
             return FAIL, ["Invalid host: "+hostName]
         hostName = self.bomHostField.name(["command", hostName], 1)[0]
-        packageName = tokens[2]
-        if self.packageField.match(tokens, 2) != (COMPLETE, 1):
-            return FAIL, ["Invalid package: "+packageName]
-        packageName = self.packageField.name(["command", hostName, packageName], 2)[0]
-        r = mode.getBomConnection(hostName)
-        status = self.processObject(r, packageName, tokens)
+        if self.action== EXECUTE:
+            if self.packageField.match(tokens, 2) != (COMPLETE, 1):
+                return FAIL, ["Invalid package: "+tokens[2]]
+            packageName = self.packageField.name(tokens, 2)[0]
+            r = mode.getBomConnection(hostName)
+            status = self.processObject(r, packageName, tokens)
+        else:
+            #if self.packageList.match(tokens, 2) != (PARTIAL, 1):
+                #print "\nOOPS"
+                #return FAIL, ["Invalid packages: "+str(tokens[2:])]
+            packageNames = self.packageList.fullName(tokens, 2)[0]
+            r = mode.getBomConnection(hostName)
+            status = self.processObject(r, packageNames, tokens)
         if status == FAIL:
             return FAIL, ["Host is screwed up"]
         else:
@@ -90,7 +97,8 @@ class Install(PackageCommand):
         PackageCommand.__init__(self, "install")
         self.helpText = "install\tinstall a package"
         self.packageField = PackageField.InstallablePackageField()
-        self.bomHostField.children = [self.packageField]
+        self.packageList = LongList.LongList(self.packageField)
+        self.bomHostField.children = [self.packageList]
         self.action = INSTALL
         self.logCommand = True
 
@@ -99,7 +107,8 @@ class Configure(PackageCommand):
         PackageCommand.__init__(self, "configure")
         self.helpText = "configure\tconfigure a package"
         self.packageField = PackageField.InstalledPackageField()
-        self.bomHostField.children = [self.packageField]
+        self.packageList = LongList.LongList(self.packageField)
+        self.bomHostField.children = [self.packageList]
         self.action = CONFIGURE
         self.logCommand = True
 
@@ -108,7 +117,8 @@ class Verify(PackageCommand):
         PackageCommand.__init__(self, "verify")
         self.helpText = "verify\tverify a package"
         self.packageField = PackageField.InstalledPackageField()
-        self.bomHostField.children = [self.packageField]
+        self.packageList = LongList.LongList(self.packageField)
+        self.bomHostField.children = [self.packageList]
         self.action = VERIFY
 
 class Uninstall(PackageCommand):
@@ -116,7 +126,8 @@ class Uninstall(PackageCommand):
         PackageCommand.__init__(self, "uninstall")
         self.helpText = "uninstall\tuninstall a package"
         self.packageField = PackageField.InstalledPackageField()
-        self.bomHostField.children = [self.packageField]
+        self.packageList = LongList.LongList(self.packageField)
+        self.bomHostField.children = [self.packageList]
         self.action = UNINSTALL
         self.logCommand = True
 
@@ -125,7 +136,8 @@ class Purge(PackageCommand):
         PackageCommand.__init__(self, "purge")
         self.helpText = "purge\tremove a package from a client's list"
         self.packageField = PackageField.PurgablePackageField()
-        self.bomHostField.children = [self.packageField]
+        self.packageList = LongList.LongList(self.packageField)
+        self.bomHostField.children = [self.packageList]
         self.action = PURGE
 
 class Fix(PackageCommand):
@@ -133,7 +145,8 @@ class Fix(PackageCommand):
         PackageCommand.__init__(self, "fix")
         self.helpText = "fix\tfix a broken package"
         self.packageField = PackageField.FixablePackageField()
-        self.bomHostField.children = [self.packageField]
+        self.packageList = LongList.LongList(self.packageField)
+        self.bomHostField.children = [self.packageList]
         self.action = FIX
 
 class Execute(PackageCommand):

@@ -16,7 +16,7 @@ COMPLETE = 2
 def getNames(objects, tokens, index):
     names = []
     for obj in objects:
-        if DEBUG: print "obj.myName:",obj.myName
+        if DEBUG: print "(GET NAMES) obj.myName:",obj.myName
         newName = obj.name(tokens, index)
         if type(newName) == type("string"):
             names.append(newName)
@@ -76,6 +76,7 @@ class PinshCmd:
         returnError = 1
         if DEBUG: print "findCompletions: self.myName:",`self.myName`, "tokens:",`tokens`, len(tokens)
         if len(tokens[index:]) == 0: # no tokens left, I must be who you want!
+            if DEBUG: print "findCompletions: FOUND at TOP"
             return [self], index
         if tokens[index] == '':
             if len(self.children) > 0:
@@ -101,6 +102,8 @@ class PinshCmd:
                 if DEBUG: print "NEW TOKEN:", tokens[index]
                 return child.findCompletions(tokens, index+length)
         if len(completionObjects) == 1: # one partial match is as good as a complete match
+            if index+matchLen >= len(tokens):  # NOTE: HIGHLY EXPERIMENTAL CHANGE
+                return [completionObjects[0]], index+1  # NOTE: HIGHLY EXPERIMENTAL CHANGE
             return completionObjects[0].findCompletions(tokens, index+matchLen)
         elif len(completionObjects) == 0: # No matches: go away.
             if len(incompleteObjects) > 0:
