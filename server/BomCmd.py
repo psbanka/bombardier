@@ -2,9 +2,28 @@
 
 import sys, time
 from BombardierRemoteClient import *
+import Client
 import PinshCmd
 import BomHostField, PackageField, ScriptField, LongList
 from commonUtil import *
+
+def ennumerate(configDictOrList, currentPath):
+    configList = []
+    if len(configDictOrList) == 0:
+        return [currentPath]
+    for thing in configDictOrList:
+        if type(configDictOrList) == type({}):
+            index = thing
+        else:
+            index = configDictOrList.index(thing)
+        value = configDictOrList[index]
+        vt = type(value) 
+        myCurrentPath = "%s/%s" % (currentPath, index)
+        if vt in [ type('string'), type(1) ]:
+            configList.append("%s/%s" % (myCurrentPath, value))
+        else:
+            configList += ennumerate(value, myCurrentPath)
+    return configList
 
 class BomCmd(PinshCmd.PinshCmd):
     def __init__(self, name):
@@ -27,6 +46,8 @@ class BomCmd(PinshCmd.PinshCmd):
         if len(hostNames) > 1:
             return FAIL, ["Ambiguous host %s" % tokens[1]]
         hostName = hostNames[0]
+        if self.action == RECONCILE and mode.password == '':
+            return FAIL, ["Reconcile must be run in enable mode"]
         r = mode.getBomConnection(hostName)
         status = r.process(self.action, [], '')
         if status == FAIL:
@@ -43,8 +64,9 @@ class Status(BomCmd):
 class Reconcile(BomCmd):
     def __init__(self):
         BomCmd.__init__(self, "reconcile")
-        self.helpText = "reconcile\treconcile a host with it's bill of materials"
+        self.helpText = "reconcile\treconcile a host with its bill of materials"
         self.action = RECONCILE
+        #self.auth = ADMIN
 
 class PackageCommand(PinshCmd.PinshCmd):
     def __init__(self, name):
@@ -57,11 +79,34 @@ class PackageCommand(PinshCmd.PinshCmd):
         self.level = 0
         self.cmdOwner = 1
         self.scriptName = ''
+        self.requireDecryption = False
+        self.removeVersion = True
 
     def processObject(self, r, packageNames, tokens):
         if tokens: pass
         status = r.process(self.action, packageNames.split(), '')
         return status
+
+    def checkEncryption(self, serverName, packageNames):
+        if mode.password != '':
+            return OK
+        client = Client.Client(serverName, '')
+        status = client.get()
+        encryptedDict = client.getEncryptedEntries()
+        if encryptedDict:
+            packageData = yaml.load(open("deploy/packages/packages.yml").read())
+            if self.removeVersion:
+                packageNames = [ '-'.join(x.split('-')[:-1]) for x in packageNames.split() ]
+            else:
+                packageNames = packageNames.split()
+            for packageName in packageNames:
+                configDict = packageData[packageName]["configuration"]
+                configList = ennumerate(configDict, '')
+                for configItem in configList:
+                    for encryptedItem in encryptedDict:
+                        if encryptedItem.startswith(configItem):
+                            return FAIL
+        return OK
 
     def cmd(self, tokens, noFlag, slash):
         start = time.time()
@@ -74,6 +119,8 @@ class PackageCommand(PinshCmd.PinshCmd):
         if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
             return FAIL, ["Invalid host: "+hostName]
         hostName = self.bomHostField.name(["command", hostName], 1)[0]
+        if tokens[-1] == '':
+            tokens = tokens[:-1]
         if self.action== EXECUTE:
             if self.packageField.match(tokens, 2) != (COMPLETE, 1):
                 return FAIL, ["Invalid package: "+tokens[2]]
@@ -84,8 +131,13 @@ class PackageCommand(PinshCmd.PinshCmd):
             #if self.packageList.match(tokens, 2) != (PARTIAL, 1):
                 #print "\nOOPS"
                 #return FAIL, ["Invalid packages: "+str(tokens[2:])]
-            packageNames = self.packageList.fullName(tokens, 2)[0]
+            try:
+                packageNames = self.packageList.fullName(tokens, 2)[0]
+            except:
+                return FAIL, ["Invalid package name: %s" % tokens[2]]
             r = mode.getBomConnection(hostName)
+            if self.requireDecryption and self.checkEncryption(hostName, packageNames) == FAIL:
+                return FAIL, ["This package requires sensitive data."]
             status = self.processObject(r, packageNames, tokens)
         if status == FAIL:
             return FAIL, ["Host is screwed up"]
@@ -101,6 +153,8 @@ class Install(PackageCommand):
         self.bomHostField.children = [self.packageList]
         self.action = INSTALL
         self.logCommand = True
+        self.requireDecryption = True
+        self.removeVersion = False
 
 class Configure(PackageCommand):
     def __init__(self):
@@ -111,6 +165,7 @@ class Configure(PackageCommand):
         self.bomHostField.children = [self.packageList]
         self.action = CONFIGURE
         self.logCommand = True
+        self.requireDecryption = True
 
 class Verify(PackageCommand):
     def __init__(self):
@@ -159,12 +214,15 @@ class Execute(PackageCommand):
         self.packageField.children = [self.scriptField]
         self.action = EXECUTE
         self.logCommand = True
+        self.requireDecryption = True
 
     def processObject(self, r, packageName, tokens):
         scriptNames = self.scriptField.name(tokens, 3)
         if len(scriptNames) != 1:
             print "Invalid scriptName"
-            return FAIL
+            return FAIL, []
+        if self.checkEncryption(hostName, packageName) == FAIL:
+            return FAIL, ["This pacakge requires sensitive data."]
         status = r.process(self.action, [packageName], scriptNames[0])
         return status
 

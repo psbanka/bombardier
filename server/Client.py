@@ -76,16 +76,21 @@ class Client:
                 self.downloadClient(includeName)
 
     def checkEncryption(self):
-        return self.checkCryptDict(self.data)
+        return len(self.checkCryptDict(self.data))
 
-    def checkCryptDict(self, dict):
-        encryptedEntries = 0
+    def getEncryptedEntries(self):
+        return self.checkCryptDict(self.data, '')
+
+    def checkCryptDict(self, dict, currentPath):
+        encryptedEntries = {}
         for key in dict:
+            myCurrentPath = "%s/%s" % (currentPath, key)
             t = type(dict[key])
             if t == type('') and type(key) == type('') and key.startswith('enc_'):
-                encryptedEntries += 1
+                encryptedEntries[myCurrentPath] = key
             elif t == type({}):
-                encryptedEntries += self.checkCryptDict(dict[key])
+                newDict = self.checkCryptDict(dict[key], myCurrentPath)
+                encryptedEntries = miniUtility.addDictionaries(encryptedEntries, newDict)
         return encryptedEntries
 
     def decryptConfig(self):
