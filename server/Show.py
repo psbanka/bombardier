@@ -3,7 +3,7 @@
 import sys, readline
 import yaml
 import Client
-import PinshCmd, ConfigField, Integer
+import PinshCmd, ConfigField, Integer, BomHostField, PackageField
 from commonUtil import *
 
 class ShowCommand(PinshCmd.PinshCmd):
@@ -69,6 +69,69 @@ class History(PinshCmd.PinshCmd):
             output.append("%4d\t%s" % (i, readline.get_history_item(i)))
         return OK, output
 
+def printify(textList):
+    output = []
+    if not textList:
+        return []
+    maxLength = max( [ len(x) for x in textList ] )
+    columns = mode.termwidth / maxLength
+    formatString = "%%%ds" % (maxLength+1)
+    for i in range(0, len(textList), columns):
+        newLine = ''
+        for item in textList[i:i+columns]:
+            newLine += formatString % item
+        output.append(newLine)
+    return output
+
+class Status(PinshCmd.PinshCmd):
+    def __init__(self):
+        PinshCmd.PinshCmd.__init__(self, "status")
+        self.helpText = "status\tstatus of a host"
+        self.bomHostField = BomHostField.BomHostField()
+        self.children = [self.bomHostField]
+        self.level = 0
+        self.cmdOwner = 1
+
+    def cmd(self, tokens, noFlag, slash):
+        if noFlag:
+            return FAIL, []
+        if len(tokens) < 3:
+            return FAIL, ["Incomplete command."]
+        hostNames = self.bomHostField.name(tokens, 2)
+        if len(hostNames) == 0:
+            return FAIL, ["Unknown host %s" % tokens[2]]
+        if len(hostNames) > 1:
+            return FAIL, ["Ambiguous host %s" % tokens[2]]
+        hostName = hostNames[0]
+        statusFile = "status/%s.yml" % hostName
+        if not os.path.isfile(statusFile):
+            return FAIL, ["No status on file (%s)" % statusFile]
+        installed, broken = PackageField.getNamesFromProgress(hostName, False)
+        totalPackages = PackageField.getPackageNamesFromBom(hostName)
+        missing = []
+        accountedPackages = list(installed.union(broken))
+        for item in totalPackages:
+            found = False
+            for packageName in accountedPackages:
+                if packageName.startswith(item):
+                    found = True
+                    break
+            if not found:
+                missing.append(item)
+        if installed:
+            output = ["Installed:",printify(list(installed)]
+        else:
+            output = ["Installed:",["NONE"]]
+        if broken:
+            output.append(["Broken:",printify(list(broken)])
+        else:
+            output += ["Broken:",["NONE"]]
+        if missing:
+            output.append(["Not Installed:",printify(list(missing)])
+        else:
+            output += ["Not Installed:",["NONE"]]
+        return OK, output
+
 class Show(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "show")
@@ -77,8 +140,9 @@ class Show(PinshCmd.PinshCmd):
         merged = Merged()
         client = Client()
         include = Include()
+        status = Status()
         bom = Bom()
-        self.children = [merged, client, include, bom, history]
+        self.children = [merged, client, include, bom, history, status]
         self.level = 0
         self.cmdOwner = 1
 

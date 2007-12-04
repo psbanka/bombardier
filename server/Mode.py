@@ -34,6 +34,7 @@ class Mode:
         self.globals = {}
         self.setPrompt()
         self.termlen = 23
+        self.termwidth = 80
         self.newClasses = []
         self.auth = USER
         self.fullPrompt = ""

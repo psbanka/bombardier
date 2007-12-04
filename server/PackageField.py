@@ -11,7 +11,7 @@ from bombardier.miniUtility import getInstalled, stripVersionFromKeys
 def getProgressData(hostName):
     statusYml = "status/%s.yml"%(hostName)
     if not os.path.isfile(statusYml):
-        print "NO FILE: %s" %statusYml
+        print "\n\n %% Cannot retrieve status (NO FILE: %s)" %statusYml
         return None
     yml = yaml.load( open(statusYml).read() ) 
     progressData = yml["install-progress"]
@@ -37,7 +37,7 @@ def getPackageNamesFromBom(hostName):
     client = Client(hostName, mode.password)
     status = client.get()
     if status == FAIL:
-        print "Bad config file for %s." % hostName
+        print " %% Bad config file for %s." % hostName
         return []
     return set(client.data.get("packages", []))
 
