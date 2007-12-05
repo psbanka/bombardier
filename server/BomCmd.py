@@ -221,8 +221,8 @@ class Execute(PackageCommand):
         if len(scriptNames) != 1:
             print "Invalid scriptName"
             return FAIL, []
-        if self.checkEncryption(hostName, packageName) == FAIL:
-            return FAIL, ["This pacakge requires sensitive data."]
+        #if self.checkEncryption(hostName, packageName) == FAIL:
+            #return FAIL, ["This pacakge requires sensitive data."]
         status = r.process(self.action, [packageName], scriptNames[0])
         return status
 
