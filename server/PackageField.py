@@ -14,7 +14,7 @@ def getProgressData(hostName):
         print "\n\n %% Cannot retrieve status (NO FILE: %s)" %statusYml
         return None
     yml = yaml.load( open(statusYml).read() ) 
-    progressData = yml["install-progress"]
+    progressData = yml.get("install-progress")
     return progressData
 
 def getNamesFromProgress(hostName, stripped=False):

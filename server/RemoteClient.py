@@ -93,13 +93,22 @@ class RemoteClient:
                 self.disconnect()
             if self.connect() != OK:
                 return FAIL
+        dead = False
         try:
             self.s.sendline('echo hello')
-            self.s.prompt()
+            if self.s.prompt(timeout = 5) == False:
+                dead = True
         except:
-            print "==> Our connection to %s has been cut off after "\
-                  "%4.2f minutes." % (self.hostName, connectionAge / 60.0)
-            self.disconnect()
+            dead = True
+
+        if dead:
+            print "==> Our connection handle is dead. Reconnecting..."
+            try:
+                print self.disconnect.__doc__
+                self.disconnect(timeout = 5)
+                print "ABC"
+            except:
+                pass
             if self.connect() != OK:
                 return FAIL
         return OK 
