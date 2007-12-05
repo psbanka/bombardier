@@ -43,7 +43,7 @@ def tokenize(str):
             tokens = appendNotBlank(currentToken, tokens)
             if c == '"': # start quote
                 quoteMode = True
-                currentToken = c
+                #currentToken = c
             elif c == '#': # discard the rest, it's a real comment
                 if i != 0 and str[i-1] == ' ':
                     appendLast = True
@@ -54,12 +54,13 @@ def tokenize(str):
                 currentToken = ''
                 appendLast = True
         else:
-            currentToken += c
             if c == '"': # end quote
                 tokens = appendNotBlank(currentToken, tokens)
                 currentToken = ''
                 appendLast = False
                 quoteMode = False
+            else:
+                currentToken += c
     if quoteMode: # unbalanced quotes
         raise Exception
     if appendLast:

@@ -65,7 +65,7 @@ class History(PinshCmd.PinshCmd):
         if hlen < number:
             number = hlen
         output = []
-        for i in range(hlen, hlen-number, -1):
+        for i in range(hlen-number, hlen):
             output.append("%4d\t%s" % (i, readline.get_history_item(i)))
         return OK, output
 

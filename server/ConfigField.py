@@ -84,6 +84,7 @@ class ConfigField(PinshCmd.PinshCmd):
         return OK
 
     def getSpecificData(self, tokens, index):
+        tokens[index] = tokens[index].replace('"', '')
         firstTokenNames, data = self.getTopLevelData(tokens, index, True)
         if len(firstTokenNames) != 1:
             return []
@@ -95,6 +96,7 @@ class ConfigField(PinshCmd.PinshCmd):
                 return configName
             currentDict = data
             for configValue in configName[0].split('.')[1:]:
+                configValue = configValue.replace('"', '')
                 if type(currentDict) == type({}):
                     currentDict = currentDict.get(configValue)
                 else:
@@ -104,6 +106,7 @@ class ConfigField(PinshCmd.PinshCmd):
         return currentDict
 
     def name(self, tokens, index):
+        tokens[index] = tokens[index].replace('"', '')
         firstTokenNames, data = self.getTopLevelData(tokens, index, True)
         if len(firstTokenNames) == 0:
             return ''
@@ -117,6 +120,7 @@ class ConfigField(PinshCmd.PinshCmd):
         if type(data) == type({}):
             currentDict = data
             for configValue in configValues[:-1]:
+                configValue = configValue.replace('"', '')
                 newCurrentDict = currentDict.get(configValue)
                 if type(newCurrentDict) in [type({})]:
                     currentDict = newCurrentDict
@@ -131,7 +135,8 @@ class ConfigField(PinshCmd.PinshCmd):
             else:
                 return ["%s" % (firstTokenName)]
         for item in currentDict:
-            if item.lower().startswith(configValues[-1].lower()):
+            testValue = configValues[-1].replace('"','').lower()
+            if item.lower().startswith(testValue):
                 if prefix:
                     possibleMatches.append("%s.%s.%s" % (firstTokenName, prefix, item))
                 else:
@@ -196,6 +201,10 @@ if __name__ == "__main__":
     status = runTest(configField.setValue, [["testInclude.sql.databases"], 0, ['casDB', 'mcsDB', 'rmsDB', 'uhrDB']], OK, status)
     status = runTest(configField.getSpecificData, [["testInclude.sql.databases"], 0], ['casDB', 'mcsDB', 'rmsDB', 'uhrDB'], status)
     status = runTest(configField.getSpecificData, [["testInclude.platform"], 0], "win32", status)
+    status = runTest(configField.getSpecificData, [['testInclude.thingWithoutSpaces.thisIsAThing'], 0], "wuzz", status)
+    status = runTest(configField.getSpecificData, [['testInclude."thingWithoutSpaces"."thisIsAThing"'], 0], "wuzz", status)
+    status = runTest(configField.getSpecificData, [['testInclude."Thing With Spaces"."this is a thing"'], 0], "fuzz", status)
+    status = runTest(configField.getSpecificData, [['"testInclude.Thing With Spaces.this is a thing"'], 0], "fuzz", status)
     configField = ConfigField(dataType=BOM)
     status = runTest(configField.name, [["testB"], 0], ["testbom"], OK, status)
     status = runTest(configField.name, [["testbom.DbAuth"], 0], ["testbom"], OK, status)
