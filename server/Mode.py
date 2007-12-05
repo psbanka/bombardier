@@ -33,14 +33,24 @@ class Mode:
         self.variables = {F0:[], F1:[], F2:[]}
         self.globals = {}
         self.setPrompt()
-        self.termlen = 23
-        self.termwidth = 80
         self.newClasses = []
         self.auth = USER
         self.fullPrompt = ""
         self.password = ''
         self.commentRequired = False
         self.bomConnections = {}
+        self.getTermInfo()
+
+    def getTermInfo(self):
+        try:
+            vars = os.environ["TERMCAP"].split(':')
+            co = [ x for x in vars if x.startswith("co") ][0]
+            self.termwidth = int(co.split("#")[-1])
+            li = [ x for x in vars if x.startswith("li") ][0]
+            self.termlen = int(li.split("#")[-1]) - 4
+        except:
+            self.termlen = 23
+            self.termwidth = 80
 
     def getBomConnection(self, hostName):
         if not hostName in self.bomConnections:

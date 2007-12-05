@@ -119,15 +119,15 @@ class Status(PinshCmd.PinshCmd):
             if not found:
                 missing.append(item)
         if installed:
-            output = ["Installed:",printify(list(installed)]
+            output = ["Installed:",printify(list(installed)) ]
         else:
             output = ["Installed:",["NONE"]]
         if broken:
-            output.append(["Broken:",printify(list(broken)])
+            output.append(["Broken:",printify(list(broken))])
         else:
             output += ["Broken:",["NONE"]]
         if missing:
-            output.append(["Not Installed:",printify(list(missing)])
+            output.append(["Not Installed:",printify(list(missing))])
         else:
             output += ["Not Installed:",["NONE"]]
         return OK, output
