@@ -118,25 +118,22 @@ class PackageCommand(PinshCmd.PinshCmd):
         hostName = tokens[1]
         if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
             return FAIL, ["Invalid host: "+hostName]
-        hostName = self.bomHostField.name(["command", hostName], 1)[0]
+        self.hostName = self.bomHostField.name(["command", hostName], 1)[0]
         if tokens[-1] == '':
             tokens = tokens[:-1]
         if self.action== EXECUTE:
             if self.packageField.match(tokens, 2) != (COMPLETE, 1):
                 return FAIL, ["Invalid package: "+tokens[2]]
             packageName = self.packageField.name(tokens, 2)[0]
-            r = mode.getBomConnection(hostName)
+            r = mode.getBomConnection(self.hostName)
             status = self.processObject(r, packageName, tokens)
         else:
-            #if self.packageList.match(tokens, 2) != (PARTIAL, 1):
-                #print "\nOOPS"
-                #return FAIL, ["Invalid packages: "+str(tokens[2:])]
             try:
                 packageNames = self.packageList.fullName(tokens, 2)[0]
             except:
                 return FAIL, ["Invalid package name: %s" % tokens[2]]
-            r = mode.getBomConnection(hostName)
-            if self.requireDecryption and self.checkEncryption(hostName, packageNames) == FAIL:
+            r = mode.getBomConnection(self.hostName)
+            if self.requireDecryption and self.checkEncryption(self.hostName, packageNames) == FAIL:
                 return FAIL, ["This package requires sensitive data."]
             status = self.processObject(r, packageNames, tokens)
         if status == FAIL:
@@ -221,8 +218,8 @@ class Execute(PackageCommand):
         if len(scriptNames) != 1:
             print "Invalid scriptName"
             return FAIL, []
-        #if self.checkEncryption(hostName, packageName) == FAIL:
-            #return FAIL, ["This pacakge requires sensitive data."]
+        if self.checkEncryption(self.hostName, packageName) == FAIL:
+            return FAIL, ["This pacakge requires sensitive data."]
         status = r.process(self.action, [packageName], scriptNames[0])
         return status
 
