@@ -2,7 +2,9 @@
 
 import sys
 import yaml
+import time
 import PinshCmd, Expression
+from getpass import getpass
 from commonUtil import *
 
 class Echo(PinshCmd.PinshCmd):
@@ -30,4 +32,12 @@ class Comment(Echo):
         logComment(comment)
         mode.commentRequired = False
 
-    
+class Pause(Echo):    
+    def __init__(self):
+        Echo.__init__(self)
+        self.myName = "pause"
+        self.helpText = "pause\twait for a <return>"
+
+    def cmd(self, tokens, noFlag, slash):
+        raw_input("Press Enter to continue\n")
+        

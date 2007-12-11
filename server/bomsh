@@ -61,7 +61,7 @@ bomCommands = [ BomCmd.Status(), BomCmd.Uninstall(),
                 BomCmd.Reconcile()]
 
 commands = [Echo.Comment(), Set.Set(), Terminal.Terminal(), Show.Show(), Ping.Ping(), 
-            Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(), Run.Run(), PushConfig.PushConfig(),
+            Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(), Run.Run(), PushConfig.PushConfig(), Echo.Pause(),
             UpdateClient.UpdateClient(), Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo()]
 
 slash = Slash(commands + bomCommands)
