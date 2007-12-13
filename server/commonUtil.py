@@ -63,10 +63,7 @@ def log(tokens, cmdStatus, cmdOutput):
     logger.info(logMessage)
 
 def logComment(comment=None):
-    if not comment:
-        comment = raw_input("Enter a comment for this change:\n> ")
     logger.info("%-15s|COMMENT: %s" % (os.environ["USER"], comment))
-
 
 if __name__ == "__main__":
     from libTest import *

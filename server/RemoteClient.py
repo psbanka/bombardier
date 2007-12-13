@@ -52,11 +52,11 @@ class RemoteClient:
                 self.password  = getpass.getpass( "Enter password for %s: "% self.username )
         else:
             self.password = ''
-        self.s = pxssh.pxssh()
-        self.s.timeout = 6000
         self.connectTime = 0
 
     def connect(self):
+        self.s = pxssh.pxssh()
+        self.s.timeout = 6000
         print "==> Connecting to %s..." %self.hostName
         try:
             if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):
@@ -80,6 +80,84 @@ class RemoteClient:
             return FAIL
         self.status = CONNECTED
         self.connectTime = time.time()
+        return OK
+
+    def connectRsync(self, direction, localPath, remotePath, dryRun = True):
+        cmd = 'rsync --progress -a '
+        if dryRun:
+            cmd += '--dry-run '
+        if direction == "PUSH":
+            cmd += "%s/* %s@%s:%s/" % (localPath, self.username, self.ipAddress, remotePath)
+        else:
+            cmd += "%s@%s:%s/* %s/" % (self.username, self.ipAddress, remotePath, localPath)
+        print "EXECUTING: %s" % cmd
+        print "==> Connecting to %s..." % self.hostName
+        s = pexpect.spawn(cmd, timeout=5000)
+        sshNewkey = 'Are you sure you want to continue connecting'
+        expectedValues = [pexpect.TIMEOUT, sshNewkey, '[pP]assword: ',
+                          '(\d+) files to consider']
+        while True:
+            i = s.expect(expectedValues, timeout=30)
+            if i == 0:
+                raise ClientUnavailableException(self.hostName, s.before+'|'+s.after)
+            if i == 1:
+                s.sendline('yes')
+                continue
+            if i == 2:
+                s.sendline(self.password)
+                continue
+            if i == 3:
+                break
+        return s
+
+    def getRsyncLine(self, s):
+        while True:
+            line = s.readline().strip()
+            if not line:
+                continue
+            if " " in line and "kB/s" in line:
+                continue
+            if line.startswith("created "):
+                continue
+            if line.startswith("sent "):
+                return ''
+            return line
+
+    def rsync(self, localPath, remotePath, direction):
+        s = self.connectRsync(direction, localPath, remotePath, True)
+        files = []
+        while True:
+            line = self.getRsyncLine(s)
+            if not line:
+                break
+            files.append(line)
+        s.expect(pexpect.EOF)
+        s.close()
+        numberOfFiles = float(len(files))
+        if direction == "PUSH":
+            print "==> %d files to push..." % numberOfFiles
+        else:
+            print "==> %d files to pull..." % numberOfFiles
+        if numberOfFiles == 0:
+            return OK
+        s = self.connectRsync(direction, localPath, remotePath, False)
+        numberToSkip = numberOfFiles / 10.0
+        #numberToSkip = 0
+        i = 0
+        while True:
+            line = self.getRsyncLine(s)
+            i += 1
+            if not line:
+                break
+            if line in files:
+                files.remove(line)
+                if i >= numberToSkip:
+                    current = float(len(files))
+                    i = 0
+                    value = 100.0 * (numberOfFiles - current) / numberOfFiles
+                    print "==> %3.1f%% done..." % value
+        s.expect(pexpect.EOF)
+        s.close()
         return OK
 
     def freshen(self):

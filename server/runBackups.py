@@ -83,19 +83,19 @@ def pullFiles(backupServer, clientConfig, localDir):
     ipAddress  = clientConfig["ipAddress"]
     username   = clientConfig["defaultUser"]
     status = OK
-    if 1 == 1:
-    #try: 
+    #if 1 == 1:
+    try: 
         logger.info("Transferring files from %s..." % (backupServer))
         backupCygPath = cygpath(backupPath)
-        cmd = "rsync -a %s@%s:%s/* %s/" % (username, ipAddress, backupCygPath, localReplica)
-        logger.debug(cmd)
-        status, output = commands.getstatusoutput(cmd)
-        if status != OK:
-            logger.error( "%s failed." % cmd)
-    else:
-    #except:
+        r = BombardierBackup(backupServer, BACKUP_FULL)
+        status = r.rsync(localReplica, backupCygPath, "PULL")
+    #else:
+    except:
         logger.error("Exception caught in trying to rsync.")
         status = FAIL
+    logger.info("Removing '.bak' and '.log' files..")
+    os.system("find %s -name \"*.bak\" -exec rm -f '{}' \\;" % localDir)
+    os.system("find %s -name \"*.log\" -exec rm -f '{}' \\;" % localDir)
     clearLock("%s-pull-lock" % backupServer)
     return status
 
@@ -127,26 +127,25 @@ def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
                 status = FAIL
         else:
             logger.info("Pushing to %s on network %s" % (restoreServer, restoreNetwork))
-            if 1 == 1:
-            #try: 
+            #if 1 == 1:
+            try: 
                 if setLock(restoreServer+"sync-push-lock") == FAIL:
                     logger.info("%s busy. Try again later." % restoreServer)
                     continue
                 logger.info("Transferring files to %s..." % (restoreServer))
                 if "\\" in restorePath or ':' in restorePath:
                     restorePath = cygpath(restorePath)
-                cmd = "rsync -a %s/* %s@%s:%s" % (localReplica, username, ipAddress, restorePath)
-                logger.debug(cmd)
-                status, output = commands.getstatusoutput(cmd)
+                r = BombardierBackup(restoreServer, RESTORE)
+                status = r.rsync(localReplica, restorePath, "PUSH")
                 if status != OK:
-                    logger.error( "%s failed." % cmd)
+                    logger.error( "failed.")
                     continue
                 clearLock(restoreServer+"sync-push-lock")
                 cmdstatus = restore(restoreServer)
                 if cmdstatus == FAIL:
                     status = FAIL
-            else:
-            #except:
+            #else:
+            except:
                 logger.error("Exception caught in trying to rsync.")
                 clearLock(restoreServer+"-push-lock")
                 status = FAIL
@@ -183,7 +182,7 @@ def dbReport(restoreServers, backupServer, databases, full, clientConfig):
         if full:
             report["databases"][database]["stats"] = backupData[database]["stats"]
         for key in ["backup", "compress", "verify", "rrd"]:
-            data = backupData[database].get(key)
+            data = backupData.get(database, {}).get(key)
             if data:
                 report["databases"][database][key] = data
     status = OK
@@ -258,7 +257,6 @@ def susanUpdate(clientConfig, report):
     if proxyData:
         proxy = '-x %s' % proxyData
     cmd = ' '.join([base, pem, postVars, proxy, dest])
-    #cmd = ' '.join([base, postVars, proxy, dest])
     logger.debug("Running this command to post status to susan: %s" % cmd)
     status = os.system(cmd)
     logger.info("Posted status to susan (%s)" % `status`)
