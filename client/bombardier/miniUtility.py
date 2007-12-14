@@ -248,6 +248,7 @@ def getInstalled(progressData):
     installed, uninstalled, brokenInstalled, brokenUninstalled = getInstalledUninstalledTimes(progressData)
     installedPackageNames = [packageName[0] for packageName in installed]
     brokenPackageNames    = [packageName[0] for packageName in brokenInstalled]
+    brokenPackageNames   += [packageName[0] for packageName in brokenUninstalled]
     return installedPackageNames, brokenPackageNames
 
 def integrate(data, dictionary, overwrite):
