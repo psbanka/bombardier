@@ -83,15 +83,17 @@ class RemoteClient:
         return OK
 
     def connectRsync(self, direction, localPath, remotePath, dryRun = True):
-        cmd = 'rsync --progress -a '
+        cmd = "bash -c 'rsync --progress -a "
         if dryRun:
-            cmd += '--dry-run '
+            cmd += "--dry-run "
         if direction == "PUSH":
             cmd += "%s/* %s@%s:%s/" % (localPath, self.username, self.ipAddress, remotePath)
         else:
             cmd += "%s@%s:%s/* %s/" % (self.username, self.ipAddress, remotePath, localPath)
-        print "EXECUTING: %s" % cmd
+        cmd += "'"
+        #print "EXECUTING: %s" % cmd
         print "==> Connecting to %s..." % self.hostName
+        #output, input = os.popen4(cmd)
         s = pexpect.spawn(cmd, timeout=5000)
         sshNewkey = 'Are you sure you want to continue connecting'
         expectedValues = [pexpect.TIMEOUT, sshNewkey, '[pP]assword: ',
@@ -133,6 +135,7 @@ class RemoteClient:
             files.append(line)
         s.expect(pexpect.EOF)
         s.close()
+        del s
         numberOfFiles = float(len(files))
         if direction == "PUSH":
             print "==> %d files to push..." % numberOfFiles
@@ -141,23 +144,21 @@ class RemoteClient:
         if numberOfFiles == 0:
             return OK
         s = self.connectRsync(direction, localPath, remotePath, False)
-        numberToSkip = numberOfFiles / 10.0
-        #numberToSkip = 0
-        i = 0
+        startTime = 0
         while True:
             line = self.getRsyncLine(s)
-            i += 1
             if not line:
                 break
             if line in files:
                 files.remove(line)
-                if i >= numberToSkip:
+                if time.time() - startTime > 500:
                     current = float(len(files))
-                    i = 0
+                    startTime = time.time()
                     value = 100.0 * (numberOfFiles - current) / numberOfFiles
-                    print "==> %3.1f%% done..." % value
+                    print "==> %3.1f%% done...(%s)" % (value, line)
         s.expect(pexpect.EOF)
         s.close()
+        del s
         return OK
 
     def freshen(self):

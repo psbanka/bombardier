@@ -127,8 +127,8 @@ def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
                 status = FAIL
         else:
             logger.info("Pushing to %s on network %s" % (restoreServer, restoreNetwork))
-            #if 1 == 1:
-            try: 
+            if 1 == 1:
+            #try: 
                 if setLock(restoreServer+"sync-push-lock") == FAIL:
                     logger.info("%s busy. Try again later." % restoreServer)
                     continue
@@ -144,8 +144,8 @@ def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
                 cmdstatus = restore(restoreServer)
                 if cmdstatus == FAIL:
                     status = FAIL
-            #else:
-            except:
+            else:
+            #except:
                 logger.error("Exception caught in trying to rsync.")
                 clearLock(restoreServer+"-push-lock")
                 status = FAIL
