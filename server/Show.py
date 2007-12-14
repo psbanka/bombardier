@@ -69,7 +69,9 @@ class History(PinshCmd.PinshCmd):
             output.append("%4d\t%s" % (i, readline.get_history_item(i)))
         return OK, output
 
-def printify(textList):
+def printify(inputObject):
+    textList = list(inputObject)
+    textList.sort()
     output = []
     if not textList:
         return []
