@@ -60,8 +60,14 @@ class Set(PinshCmd.PinshCmd):
                 currentValue.remove(newValue)
                 fieldObject.setValue(tokens, 2, currentValue)
                 return OK, ["%s removed from list" % newValue]
-            else:
-                return FAIL, ["%s is not in the current list of values." % newValue]
+            try:
+                if int(newValue) in currentValue:
+                    currentValue.remove(int(newValue))
+                    fieldObject.setValue(tokens, 2, currentValue)
+                    return OK, ["%s removed from list" % newValue]
+            except:
+                pass
+            return FAIL, ["%s is not in the current list of values." % newValue]
         currentValue.append(newValue)
         fieldObject.setValue(tokens, 2, currentValue)
         return OK, ["%s appended to list" % newValue]
