@@ -121,6 +121,7 @@ def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
         username       = clientConfig["defaultUser"]
         restorePath    = clientConfig["sql"]["servers"][restoreServer]["restorePath"]
         restoreNetwork = clientConfig["sql"]["servers"][restoreServer]["network"]
+        role = clientConfig["sql"]["servers"][restoreServer]["role"]
         if restoreNetwork == localNetwork:
             cmdstatus = restore(restoreServer)
             if cmdstatus == FAIL:
@@ -139,6 +140,8 @@ def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
                 status = r.rsync(localReplica, restorePath, "PUSH")
                 if status != OK:
                     logger.error( "failed.")
+                    continue
+                if role=="manual":
                     continue
                 clearLock(restoreServer+"sync-push-lock")
                 cmdstatus = restore(restoreServer)
@@ -195,7 +198,12 @@ def dbReport(restoreServers, backupServer, databases, full, clientConfig):
             continue
         restoreData = yaml.load(open(fileName, 'r').read())
         role = clientConfig["sql"]["servers"][restoreServer]["role"]
+        if role == "manual":
+            report["servers"][restoreServer] = "Automated restore disabled"
+            continue
         if role != "secondary" and not full:
+            print "ROLE: (%s)" % role
+            report["servers"][restoreServer] = "Skipped for log backup"
             continue
         for database in databases:
             report["servers"][restoreServer][database] = {}
