@@ -146,7 +146,7 @@ class Install(PackageCommand):
         PackageCommand.__init__(self, "install")
         self.helpText = "install\tinstall a package"
         self.packageField = PackageField.InstallablePackageField()
-        self.packageList = LongList.LongList(self.packageField)
+        self.packageList = LongList.LongList(self.packageField, unique=True)
         self.bomHostField.children = [self.packageList]
         self.action = INSTALL
         self.logCommand = True
@@ -158,7 +158,7 @@ class Configure(PackageCommand):
         PackageCommand.__init__(self, "configure")
         self.helpText = "configure\tconfigure a package"
         self.packageField = PackageField.InstalledPackageField()
-        self.packageList = LongList.LongList(self.packageField)
+        self.packageList = LongList.LongList(self.packageField, unique=True)
         self.bomHostField.children = [self.packageList]
         self.action = CONFIGURE
         self.logCommand = True
@@ -169,7 +169,7 @@ class Verify(PackageCommand):
         PackageCommand.__init__(self, "verify")
         self.helpText = "verify\tverify a package"
         self.packageField = PackageField.InstalledPackageField()
-        self.packageList = LongList.LongList(self.packageField)
+        self.packageList = LongList.LongList(self.packageField, unique=True)
         self.bomHostField.children = [self.packageList]
         self.action = VERIFY
 
@@ -178,7 +178,7 @@ class Uninstall(PackageCommand):
         PackageCommand.__init__(self, "uninstall")
         self.helpText = "uninstall\tuninstall a package"
         self.packageField = PackageField.InstalledPackageField()
-        self.packageList = LongList.LongList(self.packageField)
+        self.packageList = LongList.LongList(self.packageField, unique=True)
         self.bomHostField.children = [self.packageList]
         self.action = UNINSTALL
         self.logCommand = True
@@ -188,7 +188,7 @@ class Purge(PackageCommand):
         PackageCommand.__init__(self, "purge")
         self.helpText = "purge\tremove a package from a client's list"
         self.packageField = PackageField.PurgablePackageField()
-        self.packageList = LongList.LongList(self.packageField)
+        self.packageList = LongList.LongList(self.packageField, unique=True)
         self.bomHostField.children = [self.packageList]
         self.action = PURGE
 
@@ -197,7 +197,7 @@ class Fix(PackageCommand):
         PackageCommand.__init__(self, "fix")
         self.helpText = "fix\tfix a broken package"
         self.packageField = PackageField.FixablePackageField()
-        self.packageList = LongList.LongList(self.packageField)
+        self.packageList = LongList.LongList(self.packageField, unique=True)
         self.bomHostField.children = [self.packageList]
         self.action = FIX
 

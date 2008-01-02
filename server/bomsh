@@ -16,7 +16,7 @@ class Slash(PinshCmd.PinshCmd):
     def processCommand(self, command):
         try:
             if mode.currentState() != Mode.FREE_TEXT:
-                noFlag, helpFlag, tokens = libUi.processInput(command)
+                noFlag, helpFlag, tokens, comment = libUi.processInput(command)
                 if helpFlag: # Process the [?] key first
                     self.findHelp(tokens, 0)
                     #mode.reprompt()
@@ -25,11 +25,15 @@ class Slash(PinshCmd.PinshCmd):
                     return OK, []
                 else:
                     status, output = self.run(tokens, noFlag, self)
+                    if comment: 
+                        makeComment(comment)
             else:
                 status, output = self.run(command, self)
             libUi.userOutput(output, status)
             return status, output
         except exceptions.SystemExit, e:
+            if mode.commentCommands:
+                makeComment()
             sys.exit(0)
         except Exception, e:
             sys.stderr.write("Error detected in %s (%s)." % (file, e))
@@ -53,7 +57,7 @@ class Slash(PinshCmd.PinshCmd):
 ##    the Configure.py class
     
 import Bash, Ping, Telnet, Ssh, Terminal, Exit, BomCmd, Enable, Show
-import For, Echo, UpdateClient, Set, Run, PushConfig
+import For, Echo, UpdateClient, Set, Run, PushConfig, Edit
 
 bomCommands = [ BomCmd.Status(), BomCmd.Uninstall(), 
                 BomCmd.Verify(), BomCmd.Configure(), BomCmd.Install(), 
@@ -61,7 +65,7 @@ bomCommands = [ BomCmd.Status(), BomCmd.Uninstall(),
                 BomCmd.Reconcile()]
 
 commands = [Echo.Comment(), Set.Set(), Terminal.Terminal(), Show.Show(), Ping.Ping(), 
-            Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(), Run.Run(), PushConfig.PushConfig(), Echo.Pause(),
+            Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(), Run.Run(), PushConfig.PushConfig(), Edit.Edit(), Echo.Pause(),
             UpdateClient.UpdateClient(), Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo()]
 
 slash = Slash(commands + bomCommands)
@@ -81,7 +85,6 @@ if len(sys.argv) == 1:
     libUi.motd()
 
 if __name__ == "__main__":
-
     if len(sys.argv) > 1:
         status = OK
         filename = sys.argv[-1]
@@ -92,23 +95,30 @@ if __name__ == "__main__":
                 status = cmdStatus
         sys.exit(status)
     else:
+        if os.environ["USER"] == "root":
+            try:
+                logComment(raw_input("Provide a reason for logging in as root: "))
+            except:
+                print "(Good man.)"
+                sys.exit(0)
         if os.path.isfile(HISTORY_FILE):
             readline.read_history_file(HISTORY_FILE)
         while True:
             try:
                 mode.setPrompt()
                 readline.set_completer(slash.complete)
-                command = raw_input(mode.getPrompt())
+                command = raw_input(mode.getPrompt()+readline.get_line_buffer())
                 slash.processCommand(command)
             except EOFError, eof:
-                if mode.newClasses:
-                    extraClasses = mode.newClasses[-1]
-                    for i in range(0,extraClasses):
-                        slash.children.pop()
-                if mode.popPrompt() == FAIL:
+                if len(mode.exitMethods) > 0:
+                    status, output = mode.exitMethods[-1](slash)
+                    libUi.userOutput(output, status)
+                else:
                     print
                     mode.clearBomConnections()
                     readline.write_history_file(HISTORY_FILE)
+                    if mode.commentCommands:
+                        makeComment()
                     sys.exit(0)
                 mode.cleanMode(mode.state[-1])
                 print

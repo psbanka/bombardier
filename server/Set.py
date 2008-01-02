@@ -1,9 +1,46 @@
 #!/usr/bin/python
 
-import sys
+import os, sys
 
 import PinshCmd, Mode, libUi, ConfigField, Expression
 from commonUtil import *
+
+import Client, libCipher
+def setPassword(slash):
+    if not os.path.isfile(PASSWORD_FILE):
+        masterPass = libUi.pwdInput("Enter master password to authorize this user: ")
+        client = Client.Client("test", masterPass)
+        client.downloadClient()
+        try:
+            status = client.decryptConfig()
+        except:
+            return FAIL, ['Incorrect master password']
+        mode.password = masterPass
+        print "% Password correct, continue"
+    else:
+        if mode.auth != ADMIN:
+            return FAIL, ["Must be done from enable mode"]
+    bomDir = PASSWORD_FILE.rpartition('/')[0]
+    if not os.path.isdir(bomDir):
+        os.makedirs(bomDir)
+    testPass1 = libUi.pwdInput("new password: ")
+    if testPass1 == '':
+        return FAIL, ["Aborted"]
+    testPass2 = libUi.pwdInput("new password (confirm): ")
+    if testPass1 != testPass2:
+        return FAIL, ["Passwords do not match"]
+    mode.myPassword = testPass1
+    try:
+        cipherMasterPass = libCipher.encrypt(mode.password, mode.myPassword)
+        open(PASSWORD_FILE, 'w').write(cipherMasterPass)
+    except:
+        mode.password = ''
+        mode.myPassword = ''
+        return FAIL, ["Could not encrypt password"]
+    if mode.auth != ADMIN:
+        mode.auth = ADMIN
+        mode.pushPrompt(slash, "#", Mode.ENABLE)
+    return OK, ["Password set"]
 
 class Set(PinshCmd.PinshCmd):
     def __init__(self):
@@ -12,7 +49,8 @@ class Set(PinshCmd.PinshCmd):
         self.client = PinshCmd.PinshCmd("client","client\tchange the configuration of one client")
         self.bom = PinshCmd.PinshCmd("bom","bom\tchange a bill of materials")
         self.include = PinshCmd.PinshCmd("include","include\tchange an include file")
-        self.children = [self.client, self.bom, self.include]
+        self.password = PinshCmd.PinshCmd("password","password\tset your password")
+        self.children = [self.client, self.bom, self.include, self.password]
 
         # CLIENT
         self.clientConfigField = ConfigField.ConfigField(dataType=ConfigField.CLIENT)
@@ -80,6 +118,8 @@ class Set(PinshCmd.PinshCmd):
         return OK, []
 
     def cmd(self, tokens, noFlag, slash):
+        if tokens[1].lower().startswith('p'):
+            return setPassword(slash)
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
         fieldObject = self.getFieldObject(tokens)

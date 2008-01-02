@@ -7,8 +7,8 @@ import traceback
 from commonUtil import *
 import logging
 
-DEBUG = 0
-NO_MATCH  = 0
+DEBUG    = 0
+NO_MATCH = 0
 PARTIAL  = 1
 COMPLETE = 2
 
@@ -98,7 +98,12 @@ class PinshCmd:
                 completionObjects.append(child)
             elif matchValue == COMPLETE: # go see if there are more tokens!
                 if DEBUG: print "findcompletions COMPLETE : matchValue:",matchValue, "length:",length
-                tokens[index] = child.name(tokens, index)[0]
+                #print ">>>", child.name(tokens, index)
+                #print ">>>", child.name(tokens, index)[0]
+                #print ">>>", child.name(tokens, index)[0].split(' ')
+                #print ">>>", child.name(tokens, index)[0].split(' ')[-1]
+                tokens[index+length-1] = child.name(tokens, index)[0].split(' ')[-1]
+                #tokens[index] = child.name(tokens, index)[0]
                 if DEBUG: print "NEW TOKEN:", tokens[index]
                 return child.findCompletions(tokens, index+length)
         if len(completionObjects) == 1: # one partial match is as good as a complete match
@@ -126,9 +131,10 @@ class PinshCmd:
             if status > 0:
                 if status >= len(self.names):
                     return None
+                if DEBUG: print "COMPLETE: names (%s)" % (self.names[status])
                 return self.names[status]
             else:
-                noFlag, helpFlag, tokens = libUi.processInput(readline.get_line_buffer())
+                noFlag, helpFlag, tokens, comment = libUi.processInput(readline.get_line_buffer())
                 if DEBUG: print "COMPLETE: ",`tokens`
                 # this is where we would process help if we could bind the '?' key properly
                 index = 0
@@ -145,6 +151,7 @@ class PinshCmd:
                 # status is the index of the completion that readline wants
                 self.names =  getNames(completionObjects, tokens, index-1)
                 if DEBUG: print "COMPLETE: tokens:",`tokens`,"index:",index,"names:",`self.names`
+                if DEBUG: print "COMPLETE: names",self.names
                 if len(self.names) == 1:
                     return self.names[0] + completionObjects[0].tokenDelimiter
                 return self.names[0]
@@ -213,7 +220,12 @@ class PinshCmd:
                 else:
                     arguments.append(child)
             elif matchValue == COMPLETE:
-                tokens[index] = child.name(tokens, index)[0]
+                #print ">>>", child.name(tokens, index)
+                #print ">>>", child.name(tokens, index)[0]
+                #print ">>>", child.name(tokens, index)[0].split(' ')
+                #print ">>>", child.name(tokens, index)[0].split(' ')[-1]
+                tokens[index+length-1] = child.name(tokens, index)[0].split(' ')[-1]
+                #tokens[index] = child.name(tokens, index)[0]
                 if DEBUG: print "NEW TOKEN:", tokens[index]
                 if child.cmdOwner:
                     return child.findLastResponsibleChild(tokens, index+length)
@@ -253,8 +265,8 @@ class PinshCmd:
                             status = returnValue[0]
                             output = returnValue[1]
                             if owner.logCommand:
-                                log(tokens, status, output)
-                                mode.commentRequired = True
+                                cmd = log(noFlag, tokens, statusLookup(status), output)
+                                mode.commentCommands.append(cmd)
                             libUi.userOutput(output, status)
                         mode.globals["output"] = output
                         mode.globals["status"] = status
@@ -280,8 +292,8 @@ class PinshCmd:
                     status = returnValue[0]
                     output = returnValue[1]
                     if owner.logCommand:
-                        log(tokens, status, output)
-                        mode.commentRequired = True
+                        cmd = log(noFlag, tokens, status, output)
+                        mode.commentCommands.append(cmd)
                     mode.globals["output"] = output
                     mode.globals["status"] = status
                     return status, output

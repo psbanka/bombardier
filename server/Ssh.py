@@ -23,7 +23,7 @@ class Ssh(PinshCmd.PinshCmd):
             return FAIL, ["Incomplete command."]
         hostName = tokens[1] 
         if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
-            return FAIL, ["Invalid destination: ", address]
+            return FAIL, ["Invalid destination: ", hostName]
         client = Client.Client(hostName, '')
         client.get()
         username = client.data.get("defaultUser")

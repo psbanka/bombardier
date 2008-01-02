@@ -60,22 +60,12 @@ class RemoteClient:
         print "==> Connecting to %s..." %self.hostName
         try:
             if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):
-                print "==> SSH session failed on login."
-                print str(self.s)
-                self.status = BROKEN
-                return FAIL
+                raise Exception
             self.s.sendline('stty -echo')
             self.s.prompt()
         except Exception, e:
-            e = StringIO.StringIO()
-            traceback.print_exc(file=e)
-            e.seek(0)
-            data = e.read()
-            ermsg = ''
-            for line in data.split('\n'):
-                ermsg += "\n||>>>%s" % line
-            print ermsg
-            self.s.logout()
+            print "==> SSH session failed on login."
+            print str(self.s)
             self.status = BROKEN
             return FAIL
         self.status = CONNECTED
@@ -167,7 +157,7 @@ class RemoteClient:
         connectionAge = time.time() - self.connectTime
         if self.status == DISCONNECTED or connectionAge > CONNECTION_TIMEOUT:
             if self.status == CONNECTED:
-                print "==> Our connection to %s is stale after "\
+                print "==> Assuming our connection to %s is stale after "\
                       "%4.2f minutes. Reconnecting..." % (self.hostName, connectionAge / 60.0)
                 self.disconnect()
             if self.connect() != OK:
@@ -220,7 +210,7 @@ class RemoteClient:
         return self.processScp(s)
 
     def scp(self, source, dest):
-        print "==> sending %s" % source
+        print "==> sending %s to %s:%s" % (source, self.ipAddress, dest)
         s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest), timeout=30)
         sshNewkey = 'Are you sure you want to continue connecting'
         i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=30)
@@ -231,9 +221,14 @@ class RemoteClient:
             s.expect('[pP]assword: ', timeout=30)
             i = s.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=30)
             if i == 0:
-                raise ClientUnavailableException(dest, s.before+'|'+s.after)
+                if type(s.before) == type("string") and type(s.after) == type("string"):
+                    errMsg = s.before+'|'+s.after
+                else:
+                    errMsg = "s.before: (%s) s.after: (%s)" % (s.before, s.after)
+                raise ClientUnavailableException(dest, errMsg)
             s.sendline(self.password)
         if i == 2:
+            print '==> Using password authentication'
             s.sendline(self.password)
         if i == 3:
             #print '==> Used shared key for authentication.'

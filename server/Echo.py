@@ -4,7 +4,7 @@ import sys
 import yaml
 import time
 import PinshCmd, Expression
-from getpass import getpass
+import libUi
 from commonUtil import *
 
 class Echo(PinshCmd.PinshCmd):
@@ -13,13 +13,13 @@ class Echo(PinshCmd.PinshCmd):
         self.helpText = "echo\tprints out a line"
         self.expression = Expression.Expression()
         self.children = [self.expression]
+        self.logCommand = True
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
         if noFlag:
             return FAIL, []
         return OK, [' '.join(tokens[1:]).strip()]
-
 
 class Comment(Echo):
     def __init__(self):
@@ -28,9 +28,14 @@ class Comment(Echo):
         self.helpText = "comment\tenter a comment into the bomsh log"
 
     def cmd(self, tokens, noFlag, slash):
-        comment = ' '.join(tokens[1:])
+        if len(tokens) < 2 or tokens[1] == '':
+            print "\n\nCOMMANDS:"
+            libUi.userOutput(mode.commentCommands, OK)
+            comment = raw_input("Enter a comment for this change:\n> ")
+        else:
+            comment = ' '.join(tokens[1:])
         logComment(comment)
-        mode.commentRequired = False
+        mode.commentCommands = []
 
 class Pause(Echo):    
     def __init__(self):

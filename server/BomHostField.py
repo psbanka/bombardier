@@ -2,7 +2,7 @@
 
 import glob
 
-import PinshCmd
+import PinshCmd, Client
 from commonUtil import *
 
 def possibleHostNames(hostName):
@@ -21,6 +21,11 @@ class BomHostField(PinshCmd.PinshCmd):
         self.max = max
         self.level = 99
         self.cmdOwner = 0
+
+    def ipAddress(self, hostName):
+        client = Client.Client(hostName, '')
+        client.downloadClient()
+        return client.data.get("ipAddress")
 
     def name(self, tokens, index):
         possibleMatches = possibleHostNames(tokens[index])

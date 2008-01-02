@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, re, termios, tty, time, select, popen2, logging
+import os, sys, re, termios, tty, time, select, popen2, logging, libUi
 from commands import getstatusoutput
 
 import Mode
@@ -10,6 +10,7 @@ mode = Mode.Mode(Mode.USER, '>')
 DEBUG = 0
 
 HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
+PASSWORD_FILE = "%s/.bomsh/password" % (os.environ['HOME'])
 
 # RESULT CODES
 OK = 0
@@ -54,13 +55,31 @@ fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(logging.DEBUG)
 
-def log(tokens, cmdStatus, cmdOutput):
+def log(noFlag, tokens, cmdStatus, cmdOutput):
     command = ' '.join(tokens)
+    if noFlag:
+        command = "no %s" % command
     outputString = ':'.join(cmdOutput)
     statusDict = {OK: "OK", FAIL:"FAIL"}
-    logMessage = "%-15s|CMD:%s|STATUS:%s|OUTPUT:%s"
+    logMessage = "%-15s|STATUS:%4s|CMD:%s|OUTPUT:%s"
     logMessage = logMessage % (os.environ["USER"], command, statusDict[cmdStatus], outputString)
     logger.info(logMessage)
+    return command
+
+def makeComment(comment=''):
+    if not comment:
+        print "\n\nCOMMANDS:"
+        libUi.userOutput(mode.commentCommands, OK)
+        try:
+            comment = raw_input("Enter a comment for this change:\n> ")
+        except exceptions.KeyboardInterrupt, key:
+            pass
+        except EOFError:
+            pass
+    if not comment:
+        comment = "NO COMMENT ENTERED"
+    logComment(comment)
+    mode.commentCommands = []
 
 def logComment(comment=None):
     logger.info("%-15s|COMMENT: %s" % (os.environ["USER"], comment))

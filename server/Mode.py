@@ -28,6 +28,7 @@ REPROMPT = 1
 class Mode:
     def __init__(self, state, prompt):
         self.state = [state]
+        self.exitMethods = []
         self.prompt = [prompt]
         self.commandBuffer = {F0:[], F1:[], F2:[]}
         self.variables = {F0:[], F1:[], F2:[]}
@@ -37,7 +38,7 @@ class Mode:
         self.auth = USER
         self.fullPrompt = ""
         self.password = ''
-        self.commentRequired = False
+        self.commentCommands = []
         self.bomConnections = {}
         self.getTermInfo()
 
@@ -56,6 +57,8 @@ class Mode:
         if not hostName in self.bomConnections:
             brc = BombardierRemoteClient(hostName, self.password)
             self.bomConnections[hostName] = brc
+        if self.password:
+            self.bomConnections[hostName].configPasswd = self.password
         return self.bomConnections[hostName]
 
     def clearBomConnections(self):
@@ -69,16 +72,16 @@ class Mode:
     def cleanMode(self, state):
         self.commandBuffer[state] = []
         self.variables[state] = []
-
+        self.exitMethods = self.exitMethods[:-1]
     def setPrompt(self):
         if self.currentState() != FREE_TEXT:
-            self.fullPrompt = socket.gethostname()+self.prompt[-1]+' '
+            self.fullPrompt = "%s (%s)%s " %(socket.gethostname(),os.environ["USER"], self.prompt[-1])
         else:
             self.fullPrompt = ''
 
     def getPrompt(self):
         commentString = ''
-        if self.commentRequired:
+        if self.commentCommands:
             commentString = "(*)"
         return commentString+self.fullPrompt
 
@@ -111,9 +114,6 @@ class Mode:
     def reprompt(self):
         if REPROMPT: #^ FIXME
             print >>sys.stderr
-            commentString = ''
-            if self.commentRequired:
-                commentString = "(*)"
             print >>sys.stderr,self.getPrompt()+readline.get_line_buffer(),
 
     def currentState(self):

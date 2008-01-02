@@ -6,10 +6,10 @@ import PinshCmd
 from commonUtil import *
 
 class FileNameField(PinshCmd.PinshCmd):
-    def __init__(self, name = "fileNameField"):
-        PinshCmd.PinshCmd.__init__(self, name, tokenDelimiter = '')
+    def __init__(self, startDir=''):
+        PinshCmd.PinshCmd.__init__(self, "fileNameField", tokenDelimiter = '')
         self.helpText = "<file>\tthe name of a file"
-        self.level = 99
+        self.startDir = startDir
         self.cmdOwner = 0
 
     def match(self, tokens, index):
@@ -22,7 +22,11 @@ class FileNameField(PinshCmd.PinshCmd):
             return COMPLETE, 1
 
     def name(self, tokens, index):
-        names = glob.glob("%s*" % tokens[index])
+        if self.startDir:
+            names = glob.glob("%s/%s*" % (self.startDir, tokens[index]))
+            return [name.partition(self.startDir)[2][1:] for name in names]
+        else:
+            names = glob.glob("%s*" % tokens[index])
         if len(names) == 0:
             return ''
         return names
@@ -39,4 +43,7 @@ if __name__ == "__main__":
     status = runTest(fileNameField.match, [[""], 0], (PARTIAL, 1), status)
     status = runTest(fileNameField.match, [["/bin/bas"], 0], (COMPLETE, 1), status)
     status = runTest(fileNameField.match, [["/bin/bash"], 0], (COMPLETE, 1), status)
+    fnf2 = FileNameField(startDir="deploy")
+    status = runTest(fnf2.match, [["include"], 0], (COMPLETE, 1), status)
+    status = runTest(fnf2.match, [["include/test"], 0], (PARTIAL, 1), status)
     endTest(status)

@@ -33,6 +33,7 @@ def tokenize(str):
     quoteMode = False
     currentToken = ''
     appendLast = False
+    comment = ''
     for i in range(0, len(str)):
         c = str[i]
         if not quoteMode:
@@ -43,12 +44,12 @@ def tokenize(str):
             tokens = appendNotBlank(currentToken, tokens)
             if c == '"': # start quote
                 quoteMode = True
-                #currentToken = c
             elif c == '#': # discard the rest, it's a real comment
                 if i != 0 and str[i-1] == ' ':
                     appendLast = True
                 else:
                     appendLast = False
+                comment = str[i+1:]
                 break
             elif c == ' ': # tokenize on spaces if not quoted
                 currentToken = ''
@@ -65,12 +66,12 @@ def tokenize(str):
         raise Exception
     if appendLast:
         tokens.append(currentToken.lstrip()) # grab the last
-    return tokens
+    return tokens, comment
     
 def processInput(string):
     "take a line of input from the user and convert it into an argv type structure"
     if len(string) == 0:
-        return 0, 0, []
+        return 0, 0, [], ''
     # determine if the helpflag is there (cheap hack)
     helpFlag = 0
     strlen = len(string)
@@ -78,19 +79,19 @@ def processInput(string):
         helpFlag = 1
         string = string[:-1]
     if len(string) == 0:
-        return 0, 1, []
+        return 0, 1, [], ''
     string.lstrip() # left space is unimportant, right space is important
-    tokens = tokenize(string)
+    tokens, comment = tokenize(string)
     # handle a preceding 'no'
     noFlag = 0
     if not tokens:
-        return 0,0,[]
+        return 0,0,[],comment
     if tokens[0] == 'no':
         noFlag = 1
         if len(tokens) > 1:
             tokens = tokens[1:]
         else:
-            return 0, 0, []
+            return 0, 0, [], comment
     # get rid of extra spaces, except at the end!
     processedData = []
     for token in tokens:
@@ -121,8 +122,11 @@ def processInput(string):
     else:
         tokens = processedData + ['']
     if len(tokens) == 0:
-        return 0, 0, []
-    return noFlag, helpFlag, tokens
+        return 0, 0, [], comment
+    if tokens[0] == "ls" and len(tokens) == 1:
+        tokens[0] = ''
+        helpFlag = True
+    return noFlag, helpFlag, tokens, comment
 
 # User Input
 def getDefault(prompt, default):
@@ -155,7 +159,9 @@ def pwdInput(prompt):
                 passwd += ch
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    print
+    redaction = "\b" * len(passwd) + " " * len(passwd)
+    sys.stdout.write(redaction)
+    print 
     return passwd
     
 def getPassword(prompt = "enter password:"):
