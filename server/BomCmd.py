@@ -129,7 +129,7 @@ class PackageCommand(PinshCmd.PinshCmd):
             status = self.processObject(r, packageName, tokens)
         else:
             try:
-                packageNames = self.packageList.fullName(tokens, 2)[0]
+                packageNames = self.packageList.name(tokens, 2)[0]
             except:
                 return FAIL, ["Invalid package name: %s" % tokens[2]]
             r = mode.getBomConnection(self.hostName)

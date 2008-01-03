@@ -28,7 +28,7 @@ def getNamesFromProgress(hostName, stripped=False):
     return (set(installedPackageNames), set(brokenPackageNames))
 
 def getInstalledPackageNames(hostName, stripped=False):
-    return getNamesFromProgress(hostName, stripped)[0]  
+    return getNamesFromProgress(hostName, stripped)[0]
 
 def getBrokenPackageNames(hostName, stripped=False):
     return getNamesFromProgress(hostName, stripped)[1]  
