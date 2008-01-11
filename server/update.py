@@ -44,14 +44,14 @@ class UpdateRemoteClient(RemoteClient):
     def prepareBombardierClient(self):
         cwd = os.getcwd()
         os.chdir("../client")
-        print "==> updating client"
-        userStr = ''
-        if self.svnUser:
-            userStr = " --no-auth-cache --username %s"%self.svnUser
-        status, output = commands.getstatusoutput("svn %s update"%userStr)
-        if status != OK:
-            print "==> failed to update bombardier client"
-            sys.exit(1)
+        #print "==> updating client"
+        #userStr = ''
+        #if self.svnUser:
+            #userStr = " --no-auth-cache --username %s"%self.svnUser
+        #status, output = commands.getstatusoutput("svn %s update"%userStr)
+        #if status != OK:
+            #print "==> failed to update bombardier client"
+            #sys.exit(1)
         status, output = commands.getstatusoutput("svn info")
         if status != OK:
             print "==> failed to determine version of bombardier client"

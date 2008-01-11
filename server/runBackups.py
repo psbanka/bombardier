@@ -49,6 +49,7 @@ def archiveMaint(clientConfig, databases, localArchive):
         deleteList  = []
         directories = glob.glob("%s/%s/archive*" % ( localArchive, database ) )
         for directory in directories:
+            logger.info( "directory: %s" % directory )
             name, db, day, time = directory.split('-')
             if day in archiveDict:
                 archiveDict[day].append(time)
@@ -75,10 +76,10 @@ def archiveMaint(clientConfig, databases, localArchive):
             os.system(cmd)
 
 def pullFiles(backupServer, clientConfig, localDir):
-    if setLock("%s-pull-lock" % backupServer) == FAIL:
+    if setLock("%s-pull-lock" % backupServer.replace('-','')) == FAIL:
         logger.error("Unable to proceed with backup. Lock is set.")
         return FAIL
-    localReplica  = "%s/%s" % (localDir, backupServer) 
+    localReplica  = "%s/%s" % (localDir, backupServer.replace('-', '')) 
     backupPath = clientConfig["sql"]["servers"][backupServer]["backupPath"]
     ipAddress  = clientConfig["ipAddress"]
     username   = clientConfig["defaultUser"]
@@ -96,11 +97,11 @@ def pullFiles(backupServer, clientConfig, localDir):
     logger.info("Removing '.bak' and '.log' files..")
     os.system("find %s -name \"*.bak\" -exec rm -f '{}' \\;" % localDir)
     os.system("find %s -name \"*.log\" -exec rm -f '{}' \\;" % localDir)
-    clearLock("%s-pull-lock" % backupServer)
+    clearLock("%s-pull-lock" % backupServer.replace('-',''))
     return status
 
 def restore(restoreServer):
-    if setLock(restoreServer+"-push-lock") == FAIL:
+    if setLock(restoreServer.replace('-','')+"-push-lock") == FAIL:
         logger.info("%s busy. Try again later." % restoreServer)
         return FAIL
     logger.info("Instructing server %s to restore..." % restoreServer)
@@ -108,11 +109,11 @@ def restore(restoreServer):
     cmdstatus = r.restore()
     if cmdstatus == FAIL:
         logger.error( "Restore failed on %s" % ( restoreServer) )
-    clearLock(restoreServer+"-push-lock")
+    clearLock(restoreServer.replace('-','')+"-push-lock")
     return cmdstatus
 
 def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
-    localReplica = "%s/%s" % (localDir, backupServer) 
+    localReplica  = "%s/%s" % (localDir, backupServer.replace('-', '')) 
     status = OK
     for restoreServer in restoreServers:
         clientConfig   = Client.Client(restoreServer, '')
@@ -128,9 +129,9 @@ def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
                 status = FAIL
         else:
             logger.info("Pushing to %s on network %s" % (restoreServer, restoreNetwork))
-            if 1 == 1:
-            #try: 
-                if setLock(restoreServer+"sync-push-lock") == FAIL:
+            #if 1 == 1:
+            try: 
+                if setLock(restoreServer.replace('-','')+"sync-push-lock") == FAIL:
                     logger.info("%s busy. Try again later." % restoreServer)
                     continue
                 logger.info("Transferring files to %s..." % (restoreServer))
@@ -143,20 +144,20 @@ def syncAndRestore(restoreServers, backupServer, localNetwork, localDir):
                     continue
                 if role=="manual":
                     continue
-                clearLock(restoreServer+"sync-push-lock")
+                clearLock(restoreServer.replace('-','')+"sync-push-lock")
                 cmdstatus = restore(restoreServer)
                 if cmdstatus == FAIL:
                     status = FAIL
-            else:
-            #except:
+            #else:
+            except:
                 logger.error("Exception caught in trying to rsync.")
-                clearLock(restoreServer+"-push-lock")
+                clearLock(restoreServer.replace('-','')+"-push-lock")
                 status = FAIL
                 continue
     return status
 
 def runBackup(backupServer, full, debug):
-    if setLock("%s-backup-lock" % backupServer) == FAIL:
+    if setLock("%s-backup-lock" % backupServer.replace('-','')) == FAIL:
         logger.error("Unable to proceed with backup. Lock is set.")
         return FAIL
     if full:
@@ -168,7 +169,7 @@ def runBackup(backupServer, full, debug):
     status = OK
     if status != OK:
         logger.error( "Backup failed on %s" % ( backupServer ) )
-    clearLock("%s-backup-lock" % backupServer)
+    clearLock("%s-backup-lock" % backupServer.replace('-',''))
     return status
 
 def dbReport(restoreServers, backupServer, databases, full, clientConfig):
@@ -381,7 +382,7 @@ if __name__ == "__main__":
     try:
         report['backup']    = runBackup(backupServer, options.full, options.debug)
         report['pullFiles'] = pullFiles(backupServer, clientConfig, localArchive)
-        archiveMaint(clientConfig, databases, "%s/%s" % (localArchive, backupServer))
+        archiveMaint(clientConfig, databases, "%s/%s" % (localArchive, backupServer.replace('-','')))
         report['syncAndRestore'] = syncAndRestore(restoreServers, backupServer, localNetwork, localArchive)
         addDictionaries(report, dbReport(restoreServers, backupServer, databases, options.full, clientConfig) )
         wrapup(report, backupServer, clientConfig)

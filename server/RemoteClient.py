@@ -81,9 +81,9 @@ class RemoteClient:
         else:
             cmd += "%s@%s:%s/* %s/" % (self.username, self.ipAddress, remotePath, localPath)
         cmd += "'"
-        #print "EXECUTING: %s" % cmd
+        print "EXECUTING: %s" % cmd
         print "==> Connecting to %s..." % self.hostName
-        #output, input = os.popen4(cmd)
+        output, input = os.popen4(cmd)
         s = pexpect.spawn(cmd, timeout=5000)
         sshNewkey = 'Are you sure you want to continue connecting'
         expectedValues = [pexpect.TIMEOUT, sshNewkey, '[pP]assword: ',
