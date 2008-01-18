@@ -141,7 +141,7 @@ class BombardierRemoteClient(RemoteClient):
     def runCmd(self, commandString):
         if self.freshen() != OK:
             print "==> UNABLE TO CONNECT TO %s. No actions are available." % self.hostName
-            return FAIL
+            return FAIL, ''
         returnCode = OK
         self.s.sendline ('cd %s' %self.spkgDir)
         self.s.prompt()
@@ -229,7 +229,7 @@ class BombardierRemoteClient(RemoteClient):
         localFilename  = "%s-%s.yml" % (self.hostName, scriptName)
         self.get("%s/output/%s" % (self.spkgDir, remoteFilename))
         if os.path.isfile(remoteFilename):
-            os.system("mv %s output/%s" % (remoteFilename, localFilename) )
+            os.system("mv -f %s output/%s" % (remoteFilename, localFilename) )
         return 
 
     def getStatusYml(self):

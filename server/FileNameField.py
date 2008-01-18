@@ -24,7 +24,8 @@ class FileNameField(PinshCmd.PinshCmd):
     def name(self, tokens, index):
         if self.startDir:
             names = glob.glob("%s/%s*" % (self.startDir, tokens[index]))
-            return [name.partition(self.startDir)[2][1:] for name in names]
+            return [name.split(self.startDir)[-1] for name in names]
+            #return [name.partition(self.startDir)[2][1:] for name in names]
         else:
             names = glob.glob("%s*" % tokens[index])
         if len(names) == 0:

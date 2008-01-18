@@ -20,7 +20,8 @@ def setPassword(slash):
     else:
         if mode.auth != ADMIN:
             return FAIL, ["Must be done from enable mode"]
-    bomDir = PASSWORD_FILE.rpartition('/')[0]
+    bomDir = '/'.join(PASSWORD_FILE.split('/')[:-1])
+    #bomDir = PASSWORD_FILE.rpartition('/')[0]
     if not os.path.isdir(bomDir):
         os.makedirs(bomDir)
     testPass1 = libUi.pwdInput("new password: ")

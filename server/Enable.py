@@ -26,10 +26,12 @@ class Enable(PinshCmd.PinshCmd):
             return FAIL, ["Already in enable mode"]
         cipherPass = open(PASSWORD_FILE).read().strip()
         mode.myPassword = libUi.pwdInput("password: ")
-        try:
+        if 1 == 1:
+        #try:
             padPassword = libCipher.pad(mode.myPassword)
             mode.password = libCipher.decryptString(cipherPass, padPassword)
-        except:
+        else:
+        #except:
             mode.password = ''
             mode.myPassword = ''
             return FAIL, ["Invalid password"]

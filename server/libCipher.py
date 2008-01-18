@@ -48,7 +48,10 @@ def decryptString(b64CipherB64Str, passwd):
     cipherB64Str = base64.decodestring(b64CipherB64Str).strip()
     #print "cipherB64Str: (%s)" %cipherB64Str
     decrypter = AES.new(passwd, AES.MODE_ECB)
-    b64Str = decrypter.decrypt(cipherB64Str)
+    try:
+        b64Str = decrypter.decrypt(cipherB64Str)
+    except:
+        raise DecryptionException(b64CipherB64Str, "Invalid cyphertext")
     #print "b64Str: ", b64Str
     base = b64Str.split('=')[0]
     base += "=" * (len(base) % 4)
@@ -66,7 +69,9 @@ class DecryptionException(Exception):
         self.key = b64Text
         self.reason = reason
     def __str__(self):
-        return "Could not decrypt %s: %s" % (self.b64Text, self.reason)
+        return "Could not decrypt %s: %s" % (self.key, self.reason)
+    def __repr__(self):
+        return "Could not decrypt %s: %s" % (self.key, self.reason)
 
 if __name__ == "__main__":
     from libTest import *

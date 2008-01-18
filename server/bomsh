@@ -102,7 +102,10 @@ if __name__ == "__main__":
                 print "(Good man.)"
                 sys.exit(0)
         if os.path.isfile(HISTORY_FILE):
-            readline.read_history_file(HISTORY_FILE)
+            try:
+                readline.read_history_file(HISTORY_FILE)
+            except:
+                print "%% Unable to read history file %s" % HISTORY_FILE
         while True:
             try:
                 mode.setPrompt()

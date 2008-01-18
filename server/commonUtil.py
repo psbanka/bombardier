@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os, sys, re, termios, tty, time, select, popen2, logging, libUi
+import exceptions
 from commands import getstatusoutput
 
 import Mode
