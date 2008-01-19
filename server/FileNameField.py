@@ -24,7 +24,7 @@ class FileNameField(PinshCmd.PinshCmd):
     def name(self, tokens, index):
         if self.startDir:
             names = glob.glob("%s/%s*" % (self.startDir, tokens[index]))
-            return [name.split(self.startDir)[-1] for name in names]
+            return [name.split(self.startDir+'/')[-1] for name in names]
             #return [name.partition(self.startDir)[2][1:] for name in names]
         else:
             names = glob.glob("%s*" % tokens[index])
@@ -37,14 +37,15 @@ if __name__ == "__main__":
     fileNameField = FileNameField()
     status = OK
     startTest()
-    status = runTest(fileNameField.match, [["PinshCmd.py"], 0], (PARTIAL, 1), status)
-    status = runTest(fileNameField.match, [["PinshCmd.pyc"], 0], (COMPLETE, 1), status)
-    status = runTest(fileNameField.match, [["bom"], 0], (PARTIAL, 1), status)
-    status = runTest(fileNameField.match, [["a;sdjf#!"], 0], (NO_MATCH, 1), status)
-    status = runTest(fileNameField.match, [[""], 0], (PARTIAL, 1), status)
-    status = runTest(fileNameField.match, [["/bin/bas"], 0], (COMPLETE, 1), status)
-    status = runTest(fileNameField.match, [["/bin/bash"], 0], (COMPLETE, 1), status)
+    #status = runTest(fileNameField.match, [["PinshCmd.py"], 0], (PARTIAL, 1), status)
+    #status = runTest(fileNameField.match, [["PinshCmd.pyc"], 0], (COMPLETE, 1), status)
+    #status = runTest(fileNameField.match, [["bom"], 0], (PARTIAL, 1), status)
+    #status = runTest(fileNameField.match, [["a;sdjf#!"], 0], (NO_MATCH, 1), status)
+    #status = runTest(fileNameField.match, [[""], 0], (PARTIAL, 1), status)
+    #status = runTest(fileNameField.match, [["/bin/bas"], 0], (COMPLETE, 1), status)
+    #status = runTest(fileNameField.match, [["/bin/bash"], 0], (COMPLETE, 1), status)
     fnf2 = FileNameField(startDir="deploy")
-    status = runTest(fnf2.match, [["include"], 0], (COMPLETE, 1), status)
-    status = runTest(fnf2.match, [["include/test"], 0], (PARTIAL, 1), status)
+    #status = runTest(fnf2.match, [["include"], 0], (COMPLETE, 1), status)
+    #status = runTest(fnf2.match, [["include/test"], 0], (PARTIAL, 1), status)
+    status = runTest(fnf2.name, [["include/testI"], 0], ["include/testInclude.yml"], status)
     endTest(status)
