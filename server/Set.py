@@ -43,6 +43,25 @@ def setPassword(slash):
         mode.pushPrompt(slash, "#", Mode.ENABLE)
     return OK, ["Password set"]
 
+
+class UnsupportedTypeException(Exception):
+    def __init__(self, destObject):
+        Exception.__init__(self)
+        self.badType = type(destObject)
+    def __str__(self):
+        return "Cannot support conversion to type %s." % (self.badType)
+    def __repr__(self):
+        return "Lock file %s has been locked for too long (%s)" % (self.filename, `self.elapsedMin`)
+
+def makeSameType(currentValue, newValue):
+    if len(currentValue) == 0:
+        return newValue
+    if type(currentValue[0]) == type(newValue):
+        return newValue
+    if type(currentValue[0]) == type(1):
+        return int(newValue)
+    raise UnsupportedTypeException(currentValue[0])
+    
 class Set(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "set", "set\tset a configuration value")
@@ -107,6 +126,7 @@ class Set(PinshCmd.PinshCmd):
             except:
                 pass
             return FAIL, ["%s is not in the current list of values." % newValue]
+        newValue = makeSameType(currentValue, newValue)
         currentValue.append(newValue)
         fieldObject.setValue(tokens, 2, currentValue)
         return OK, ["%s appended to list" % newValue]

@@ -224,7 +224,8 @@ class PinshCmd:
                 #print ">>>", child.name(tokens, index)[0]
                 #print ">>>", child.name(tokens, index)[0].split(' ')
                 #print ">>>", child.name(tokens, index)[0].split(' ')[-1]
-                tokens[index+length-1] = child.name(tokens, index)[0].split(' ')[-1]
+                #tokens[index+length-1] = child.name(tokens, index)[0].split(' ')[-1]
+                tokens[index+length-1] = child.name(tokens, index)[0] # HIGHLY EXPERIMENTAL
                 #tokens[index] = child.name(tokens, index)[0]
                 if DEBUG: print "NEW TOKEN:", tokens[index]
                 if child.cmdOwner:

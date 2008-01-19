@@ -1,5 +1,5 @@
 #!/opt/python2.5/bin/python
-import base64
+import base64, binascii
 from Crypto.Cipher import AES
 from bombardier.staticData import CENSORED
 
@@ -45,28 +45,30 @@ def decryptLoop(dict, passwd):
     
 def decryptString(b64CipherB64Str, passwd):
     #print "b64CipherB64Str: (%s)"%b64CipherB64Str
-    cipherB64Str = base64.decodestring(b64CipherB64Str).strip()
-    #print "cipherB64Str: (%s)" %cipherB64Str
-    decrypter = AES.new(passwd, AES.MODE_ECB)
     try:
+        cipherB64Str = base64.decodestring(b64CipherB64Str).strip()
+        #print "cipherB64Str: (%s)" %cipherB64Str
+        decrypter = AES.new(passwd, AES.MODE_ECB)
         b64Str = decrypter.decrypt(cipherB64Str)
-    except:
-        raise DecryptionException(b64CipherB64Str, "Invalid cyphertext")
-    #print "b64Str: ", b64Str
-    base = b64Str.split('=')[0]
-    base += "=" * (len(base) % 4)
-    #print "base: ", base
-    plainStr = base64.decodestring(b64Str)
-    #print "plainStr: ", plainStr
+        #print "b64Str: ", b64Str
+        base = b64Str.split('=')[0]
+        base += "=" * (len(base) % 4)
+        #print "base: ", base
+        plainStr = base64.decodestring(b64Str)
+        #print "plainStr: ", plainStr
+    except binascii.Error:
+        raise DecryptionException(b64CipherB64Str, "Invalid characters in the decrypted text 0")
+    except ValueError:
+        raise DecryptionException(b64CipherB64Str, "Invalid characters in the decrypted text 1")
     if not isValidString(plainStr):
-        raise DecryptionException(b64CipherB64Str, "Invalid characters in the decrypted text")
+        raise DecryptionException(b64CipherB64Str, "Invalid characters in the decrypted text 2")
     return plainStr
 
 class DecryptionException(Exception):
     def __init__(self, b64Text, reason):
         e = Exception()
         Exception.__init__(e)
-        self.key = b64Text
+        self.b64Text = b64Text
         self.reason = reason
     def __str__(self):
         return "Could not decrypt %s: %s" % (self.key, self.reason)
