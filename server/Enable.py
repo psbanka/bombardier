@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
-import sys, getpass, os
+import sys, os
+import yaml
 import libCipher, libUi
 import PinshCmd, Mode, BomHostField, LongList
 from commonUtil import *
@@ -26,12 +27,10 @@ class Enable(PinshCmd.PinshCmd):
             return FAIL, ["Already in enable mode"]
         cipherPass = open(PASSWORD_FILE).read().strip()
         mode.myPassword = libUi.pwdInput("password: ")
-        if 1 == 1:
-        #try:
+        try:
             padPassword = libCipher.pad(mode.myPassword)
             mode.password = libCipher.decryptString(cipherPass, padPassword)
-        else:
-        #except:
+        except:
             mode.password = ''
             mode.myPassword = ''
             return FAIL, ["Invalid password"]
@@ -51,6 +50,10 @@ class Enable(PinshCmd.PinshCmd):
         return OK, []
 
     def cmd(self, tokens, noFlag, slash):
+        sshDir = "%s/.ssh" % os.environ["HOME"]
+        if not os.path.isdir(sshDir):
+            os.makedirs(sshDir)
+            os.system("chmod 700 %s" % sshDir)
         if len(tokens) == 1 or tokens[1] == '':
             return self.enableUser(noFlag, slash)
         if mode.auth != ADMIN:
@@ -64,6 +67,8 @@ class Enable(PinshCmd.PinshCmd):
             return FAIL, ["Invalid host name: %s" % tokens[2]]
         overallStatus = OK
         overallOutput = []
+        configFile = "%s/.bomsh/config.yml" % os.environ["HOME"]
+        config = yaml.load(open(configFile).read())
         for hostName in hostNames.split():
             r = mode.getBomConnection(hostName)
             r.password = mode.password
@@ -71,12 +76,14 @@ class Enable(PinshCmd.PinshCmd):
             remoteKeyFile = "%s_id_dsa.pub" % os.environ["USER"]
             r.scp(pubKeyFile, ".ssh/%s" % remoteKeyFile)
             status, output = r.runCmd("cd ~/.ssh && cat %s >> authorized_keys2" % remoteKeyFile)
-            print output
             r.password = ''
             r.sharedKey = True
             if status == OK:
                 overallOutput.append("Added key to %s" % hostName)
+                if not hostName in config["hosts"]:
+                    config["hosts"].append(hostName)
             else:
                 overallStatus = FAIL
                 overallOutput.append("Unable to add key to %s." % hostName)
+        open(configFile, 'w').write(yaml.dump(config))
         return overallStatus, overallOutput

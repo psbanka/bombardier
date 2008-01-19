@@ -266,7 +266,7 @@ class PinshCmd:
                             status = returnValue[0]
                             output = returnValue[1]
                             if owner.logCommand:
-                                cmd = log(noFlag, tokens, statusLookup(status), output)
+                                cmd = log(noFlag, tokens, status, output)
                                 mode.commentCommands.append(cmd)
                             libUi.userOutput(output, status)
                         mode.globals["output"] = output
