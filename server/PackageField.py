@@ -2,7 +2,7 @@
 
 import PinshCmd
 import BomHostField
-import os
+import os, re, glob
 import yaml
 from commonUtil import *
 from Client import Client
@@ -50,7 +50,7 @@ class PackageField(PinshCmd.PinshCmd):
         self.cmdOwner = 0
 
     def possiblePackageNames(self, hostName, packageName):
-        print "VIRTUAL", hostName, packageName
+        print "VIRTUAL"
         return []
 
     def name(self, tokens, index):
@@ -71,6 +71,25 @@ class PackageField(PinshCmd.PinshCmd):
             return COMPLETE, 1
         else:
             return PARTIAL, 1
+
+class BasicPackageField(PackageField):
+    def __init__(self, name = "BasicPackageField"):
+        PackageField.__init__(self, name)
+
+    def possiblePackageNames(self, hostName, packageName):
+        r = re.compile('([\w\-]+)\-\d+')
+        files = glob.glob("deploy/packages/*.spkg")
+        clippedFiles = [ x.split('.spkg')[0].split('/')[-1] for x in files ]
+        pkgNames = [ r.findall(x)[0] for x in clippedFiles ]
+        filteredNames = [ pkgName for pkgName in pkgNames if pkgName.lower().startswith(packageName.lower()) ]
+        uniquePkgNames = list(set(filteredNames))
+        return uniquePkgNames
+
+    def name(self, tokens, index):
+        possibleMatches = self.possiblePackageNames('', tokens[index])
+        if possibleMatches:
+            return possibleMatches
+        return ''
 
 class InstallablePackageField(PackageField):
     def __init__(self, name = "installablePackageField"):

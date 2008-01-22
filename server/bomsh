@@ -106,11 +106,16 @@ if __name__ == "__main__":
                 readline.read_history_file(HISTORY_FILE)
             except:
                 print "%% Unable to read history file %s" % HISTORY_FILE
+        clean = False
         while True:
             try:
                 mode.setPrompt()
                 readline.set_completer(slash.complete)
-                command = raw_input(mode.getPrompt()+readline.get_line_buffer())
+                if clean:
+                    command = raw_input(mode.getPrompt())
+                    clean = False
+                else:
+                    command = raw_input(mode.getPrompt()+readline.get_line_buffer())
                 slash.processCommand(command)
             except EOFError, eof:
                 if len(mode.exitMethods) > 0:
@@ -127,4 +132,4 @@ if __name__ == "__main__":
                 print
             except exceptions.KeyboardInterrupt, key:
                 print
-                pass
+                clean = True

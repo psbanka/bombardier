@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, re, termios, tty, time, select, popen2
+import os, sys, termios, tty
 from commands import getstatusoutput
 from commonUtil import *
 
@@ -9,6 +9,10 @@ ONE_LINE = 0
 QUIT = 1
 BACKUP = 2
 PAGE = 3
+NEUTRAL = 5
+YES = 1
+NO = 0
+MOTD = ''
 
 def motd():
     output = []
@@ -130,10 +134,10 @@ def processInput(string):
 
 # User Input
 def getDefault(prompt, default):
-    input = raw_input(prompt+" ["+default+"]: ")
-    if input == "":
-        input = default
-    return input
+    instr = raw_input(prompt+" ["+default+"]: ")
+    if instr == "":
+        instr = default
+    return instr
 
 def pwdInput(prompt):
     fd = sys.stdin.fileno()
@@ -185,12 +189,12 @@ def askYesNo(prompt, default = NEUTRAL):
     result = NEUTRAL
     while result == NEUTRAL:
         result = default
-        input = raw_input(prompt)
-        if len(input) == 0:
+        instr = raw_input(prompt)
+        if len(instr) == 0:
             continue
-        if input.lower()[0] == 'y':
+        if instr.lower()[0] == 'y':
             result = YES
-        elif input.lower()[0] == 'n':
+        elif instr.lower()[0] == 'n':
             result = NO
     return result
 
@@ -247,37 +251,39 @@ def pagerOut(printData):
             else:
                 backup = 0
                 pagerLine = 0
+
+def prepender(prepend, object, depth):
+    printData = ''
+    if type(object) == type(['list']):
+        for entry in object:
+            printData += prepender(prepend, entry, depth+1)
+    elif type(object) == type({}):
+        for entry in object:
+            if type(object[entry]) == type(['list']) and len(object[entry]) == 0:
+                printData += '%s%s%s: []\n' % (prepend, ' '*depth, entry)
+            elif type(object[entry]) == type('string') and len(object[entry]) == 0:
+                printData += '%s%s%s: \'\'\n' % (prepend, ' '*depth, entry)
+            elif type(object[entry]) == type({}) and len(object[entry]) == 0:
+                printData += '%s%s%s: {}\n' % (prepend, ' '*depth, entry)
+            else:
+                printData += '%s%s%s:\n' % (prepend, ' '*depth, entry)
+                printData += prepender(prepend, object[entry], depth+1)
+    elif type(object) in [ type('string') or type(u'unicode') ]:
+        printData += "%s%s%s\n" % (prepend, ' '*depth, object)
+    return printData
             
-def userOutput(output, status, prepend = ''):
+def userOutput(output, status, prepend = '', test=False):
     if output == []:
         return
-    printData = ""
     if prepend == '':
         if status == FAIL:
             prepend = '% '
         else:
             prepend = ' '
-    if type(output) == type(['list']):
-        for entry0 in output:
-            if type(entry0) == type(['list']):
-                for entry1 in entry0:
-                    if type(entry1) == type(['list']):
-                        for entry2 in entry1:
-                            if type(entry2) == type(['list']):
-                                for entry3 in entry2:
-                                    if type(entry3) == type("string") or type(entry3) == type(u"unicode"):
-                                        printData += prepend+"    "+entry3+"\n"
-                                    else:
-                                        printData += prepend+"    "+`entry3`+"\n"
-                            elif type(entry2) == type('string') or type(entry2) == type(u"unicode"):
-                                printData += prepend+"   "+entry2+"\n"
-                    elif type(entry1) == type('string') or type(entry1) == type(u"unicode"):
-                        printData += prepend+"  "+entry1+"\n"
-            elif type(entry0) == type('string') or type(entry0) == type(u"unicode"):
-                printData += prepend+" "+entry0+"\n"
-    elif type(output) == type('string') or type(output) == type(u"unicode"):
-        printData += prepend+output+"\n"
-    pagerOut(printData)
+    if test:
+        return prepender(prepend, output, 0)
+    pagerOut(prepender(prepend, output, 0))
+    return
 
 def user(string):
     "just print some text to stderr for user feedback"
@@ -289,19 +295,24 @@ if __name__ == "__main__":
     from libTest import *
     status = OK
     startTest()
-    status = runTest(user,["hello"],None, status)
-    status = runTest(getPassword, ["hello>"], "", status)
-    status = runTest(processInput,["no ip packet foo"],(1, 0, ["ip","packet","foo"]), status)
-    status = runTest(processInput,[" ip packet foo"],(0, 0, ["ip","packet","foo"]), status)
-    status = runTest(processInput,["ip  packet  foo "],(0, 0, ["ip","packet","foo",""]), status)
-    status = runTest(processInput,["ip packet foo"],(0, 0, ["ip","packet","foo"]), status)
-    status = runTest(askYesNo, ["enter yes", YES], YES, status)
-    status = runTest(askYesNo, ["enter no", NO], NO, status)
-    status = runTest(askYesNo, ["enter yes"], YES, status)
-    status = runTest(userOutput, [[],OK], None, status)
-    status = runTest(userOutput, ["abc",OK], None, status)
-    status = runTest(userOutput, [["def"],OK], None, status)
-    status = runTest(userOutput, [[["hij"]],OK], None, status)
-    status = runTest(userOutput, [["klm", "nop"],OK], None, status)
-    status = runTest(userOutput, ["abc", FAIL], None, status)
+    #status = runTest(user,["hello"],None, status)
+    #status = runTest(getPassword, ["hello>"], "", status)
+    #status = runTest(processInput,["no ip packet foo"],(1, 0, ["ip","packet","foo"]), status)
+    #status = runTest(processInput,[" ip packet foo"],(0, 0, ["ip","packet","foo"]), status)
+    #status = runTest(processInput,["ip  packet  foo "],(0, 0, ["ip","packet","foo",""]), status)
+    #status = runTest(processInput,["ip packet foo"],(0, 0, ["ip","packet","foo"]), status)
+    #status = runTest(askYesNo, ["enter yes", YES], YES, status)
+    #status = runTest(askYesNo, ["enter no", NO], NO, status)
+    #status = runTest(askYesNo, ["enter yes"], YES, status)
+    #status = runTest(userOutput, [[],OK], None, status)
+    #status = runTest(userOutput, ["abc",OK], None, status)
+    #status = runTest(userOutput, [["def"],OK], None, status)
+    #status = runTest(userOutput, [[["hij"]],OK], None, status)
+    #status = runTest(userOutput, [["klm", "nop"],OK], None, status)
+    #status = runTest(userOutput, ["abc", FAIL], None, status)
+    #status = runTest(userOutput, [["abc", "def"], OK, '', True], '  abc\n  def\n', status)
+    #status = runTest(userOutput, [[["abc"], "def"], OK, '', True], '   abc\n  def\n', status)
+    #status = runTest(userOutput, [{"abc": "def"}, OK, '', True], 'abc:\n  def\n', status)
+    status = runTest(userOutput, [[{"abc": ["def", 'ghi']}, 'foo'], OK, '', True], '  abc:\n    def\n    ghi\n  foo\n', status)
+    #status = runTest(userOutput, [{"abc", "def"}, OK, '', True], '  abc\n  def\n', status)
     endTest(status)

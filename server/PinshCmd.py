@@ -166,6 +166,8 @@ class PinshCmd:
                 ermsg += "\n||>>>%s" % line
             sys.stderr.write(ermsg)
             sys.stderr.write("Error ocurred in %s" % file)
+            print
+            return ''
 
     # When complete is calling this, it wants help for all the 
     # possible arguments of the last token, which should be unambiguous.

@@ -71,6 +71,29 @@ class History(PinshCmd.PinshCmd):
             output.append("%4d\t%s" % (i, readline.get_history_item(i)))
         return OK, output
 
+class Package(PinshCmd.PinshCmd):
+    def __init__(self):
+        PinshCmd.PinshCmd.__init__(self, "package")
+        self.helpText = "package\tdisplay information about a given package"
+        self.packageField = PackageField.BasicPackageField()
+        self.children = [self.packageField]
+        self.level = 0
+        self.cmdOwner = 1
+
+    def cmd(self, tokens, noFlag, slash):
+        if len(tokens) < 3:
+            return FAIL, ["Incomplete command."]
+        packageNames = self.packageField.name(tokens, 2)
+        if len(packageNames) == 0:
+            return FAIL, ["Unknown package %s" % tokens[2]]
+        if len(packageNames) > 1:
+            return FAIL, ["Ambiguous package %s" % tokens[2]]
+        packageName = packageNames[0]
+        pkgData = yaml.load(open("deploy/packages/packages.yml").read())
+        output = yaml.dump(pkgData.get(packageName), default_flow_style=False)
+        #print `output`
+        return OK, [packageName, pkgData.get(packageName)]
+
 def printify(inputObject):
     textList = list(inputObject)
     textList.sort()
@@ -144,8 +167,9 @@ class Show(PinshCmd.PinshCmd):
         client = Client()
         include = Include()
         status = Status()
+        package = Package()
         bom = Bom()
-        self.children = [merged, client, include, bom, history, status]
+        self.children = [merged, client, include, bom, history, status, package]
         self.level = 0
         self.cmdOwner = 1
 
