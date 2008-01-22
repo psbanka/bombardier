@@ -6,6 +6,8 @@ import Client
 import PinshCmd, ConfigField, Integer, BomHostField, PackageField
 from commonUtil import *
 
+TERM_OVERCOUNT = 8 # For some reason, the term width seems too long...
+
 class ShowCommand(PinshCmd.PinshCmd):
     def __init__(self, name, helpText):
         PinshCmd.PinshCmd.__init__(self, name, helpText)
@@ -76,7 +78,7 @@ def printify(inputObject):
     if not textList:
         return []
     maxLength = max( [ len(x) for x in textList ] )
-    columns = mode.termwidth / maxLength
+    columns = (mode.termwidth - TERM_OVERCOUNT) / maxLength
     for i in range(0, len(textList), columns):
         newLine = ''
         for item in textList[i:i+columns]:

@@ -72,7 +72,6 @@ class BombardierRemoteClient(RemoteClient):
         self.s.send("OK\n")
 
     def streamData(self, filename):
-        import time
         start = time.time()
         import zlib
         plain = open(filename, 'rb').read()
@@ -159,6 +158,26 @@ class BombardierRemoteClient(RemoteClient):
             print "==> invalid returncode: ('%s')" % self.s.before
             return FAIL, output
 
+    def dumpTrace(self):
+        traceback = []
+        foundIndex = 1
+        while foundIndex == 1:
+            traceback.append(self.s.match.groups()[0])
+            foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=600)
+        tString = '\n'.join(traceback)
+
+        data = re.compile("NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'").findall(tString)
+        if data:
+            print "==> ERROR IN CONFIGURATION"
+            print "==> Need option '%s' in section '%s'." % (data[0], data[1])
+        data = re.compile("NoSectionError\: No section\: \'(\w+)\'").findall(tString)
+        if data:
+            print "==> ERROR IN CONFIGURATION"
+            print "==> Need section '%s'." % (data[0])
+        else:
+            for line in traceback:
+                print "==> CLIENT TRACEBACK: ", line
+
     def process(self, action, packageNames, scriptName):
         if action == EXECUTE:
             self.clearScriptOutput(scriptName)
@@ -174,12 +193,14 @@ class BombardierRemoteClient(RemoteClient):
             self.s.sendline(cmd)
             #print "==> Ran %s on the server" % cmd
             foundIndex = 0
+            status = OK
             while True:
                 foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=600)
                 if foundIndex == 1:
-                    print "==> CLIENT TRACEBACK: ", self.s.match.groups()[0]
-                    #print self.s.read_nonblocking(100,1)
-                    continue
+                    self.dumpTrace()
+                    self.s.prompt()
+                    returnCode = FAIL
+                    break
                 if foundIndex == 0:
                     if DEBUG:
                         print "==> BOMBARDIER HAS EXITED"
@@ -194,6 +215,7 @@ class BombardierRemoteClient(RemoteClient):
                     except Exception, e:
                         print e
                         print "==> invalid returncode: ('%s')" % self.s.before
+                        returnCode = FAIL
                     break
                 messageType, message = self.s.match.groups()
                 if messageType == "DEBUG":
@@ -213,9 +235,12 @@ class BombardierRemoteClient(RemoteClient):
                 ermsg += "\n||>>>%s" % line
             print ermsg
             return FAIL
-        self.getStatusYml()
-        if action == EXECUTE:
-            self.getScriptOutput(scriptName)
+        if returnCode == OK:
+            self.getStatusYml()
+            if action == EXECUTE:
+                self.getScriptOutput(scriptName)
+        else:
+            print "Skipping status file collection due to error."
         return returnCode
 
     def clearScriptOutput(self, scriptName):
