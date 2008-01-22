@@ -261,14 +261,16 @@ def prepender(prepend, object, depth):
         for entry in object:
             if type(object[entry]) == type(['list']) and len(object[entry]) == 0:
                 printData += '%s%s%s: []\n' % (prepend, ' '*depth, entry)
-            elif type(object[entry]) == type('string') and len(object[entry]) == 0:
-                printData += '%s%s%s: \'\'\n' % (prepend, ' '*depth, entry)
+            elif type(object[entry]) == type('string'):
+                printData += '%s%s%s: \'%s\'\n' % (prepend, ' '*depth, entry, object[entry])
+            elif type(object[entry]) == type(0):
+                printData += '%s%s%s: %s\n' % (prepend, ' '*depth, entry, object[entry])
             elif type(object[entry]) == type({}) and len(object[entry]) == 0:
                 printData += '%s%s%s: {}\n' % (prepend, ' '*depth, entry)
             else:
                 printData += '%s%s%s:\n' % (prepend, ' '*depth, entry)
                 printData += prepender(prepend, object[entry], depth+1)
-    elif type(object) in [ type('string') or type(u'unicode') ]:
+    elif type(object) in [ type('string'), type(u'unicode'), type(0) ]:
         printData += "%s%s%s\n" % (prepend, ' '*depth, object)
     return printData
             

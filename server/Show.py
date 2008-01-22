@@ -92,7 +92,7 @@ class Package(PinshCmd.PinshCmd):
         pkgData = yaml.load(open("deploy/packages/packages.yml").read())
         output = yaml.dump(pkgData.get(packageName), default_flow_style=False)
         #print `output`
-        return OK, [packageName, pkgData.get(packageName)]
+        return OK, ['', packageName, "========================", '', [pkgData.get(packageName)]]
 
 def printify(inputObject):
     textList = list(inputObject)
