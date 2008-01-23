@@ -71,7 +71,7 @@ class RemoteClient:
                 raise Exception
             self.s.sendline('stty -echo')
             self.s.prompt()
-        except Exception, e:
+        except:
             print "==> SSH session failed on login."
             print str(self.s)
             self.status = BROKEN
@@ -97,7 +97,7 @@ class RemoteClient:
             cmd += "%s@%s:%s/* %s/" % (self.username, self.ipAddress, remotePath, localPath)
         cmd += "'"
         self.outputMsg("EXECUTING: %s" % cmd)
-        output, input = os.popen4(cmd)
+        stdout, stdin = os.popen4(cmd)
         s = pexpect.spawn(cmd, timeout=5000)
         sshNewkey = 'Are you sure you want to continue connecting'
         expectedValues = [pexpect.TIMEOUT, sshNewkey, '[pP]assword: ',
@@ -180,7 +180,7 @@ class RemoteClient:
         dead = False
         try:
             self.s.sendline('echo hello')
-            if self.s.prompt(timeout = 5) == False:
+            if not self.s.prompt(timeout = 5):
                 dead = True
         except:
             dead = True
@@ -188,7 +188,7 @@ class RemoteClient:
         if dead:
             self.outputMsg("Our connection handle is dead. Reconnecting...")
             try:
-                self.disconnect(timeout = 5)
+                self.disconnect()
             except:
                 pass
             if self.connect() != OK:

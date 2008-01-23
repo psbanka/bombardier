@@ -81,9 +81,9 @@ class BombardierRemoteClient(RemoteClient):
         base64.encode(open(filename+".z", 'rb'), open(filename+".b64", 'w'))
         self.s.setecho(False)
         handle = open(filename+'.b64', 'r')
-        BLOCK_SIZE = 77
+        BLK_SIZE = 77
         lines = 0
-        totalLines = os.stat(filename+".b64")[6] / BLOCK_SIZE
+        totalLines = os.stat(filename+".b64")[6] / BLK_SIZE
         printFrequency = totalLines / DOT_LENGTH
         if self.debug:
             if filename == "tmp.yml":
@@ -93,14 +93,14 @@ class BombardierRemoteClient(RemoteClient):
         if printFrequency < 1:
             printFrequency = 1
         while True:
-            chunk = handle.read(BLOCK_SIZE)
+            chunk = handle.read(BLK_SIZE)
             lines += 1
             if chunk == '':
-                chunk = ' '*(BLOCK_SIZE-1)+'\n'
+                chunk = ' '*(BLK_SIZE-1)+'\n'
                 self.s.send(chunk)
                 break
-            if len(chunk) < BLOCK_SIZE:
-                pad = ' '*(BLOCK_SIZE-len(chunk))
+            if len(chunk) < BLK_SIZE:
+                pad = ' '*(BLK_SIZE-len(chunk))
                 chunk = chunk[:-1] + pad + '\n'
             if lines % printFrequency == 0:
                 sys.stdout.write('.')
