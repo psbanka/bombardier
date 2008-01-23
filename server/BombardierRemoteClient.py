@@ -233,6 +233,7 @@ class BombardierRemoteClient(RemoteClient):
                         print "[FROM %s]: %s" % (self.hostName, message)
                     else:
                         sys.stdout.write('.')
+                        sys.stdout.flush()
         except Exception, e:
             e = StringIO.StringIO()
             traceback.print_exc(file=e)

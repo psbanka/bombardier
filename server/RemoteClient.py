@@ -85,6 +85,7 @@ class RemoteClient:
             print "==> %s" % text
         else:
             sys.stdout.write('.')
+            sys.stdout.flush()
 
     def connectRsync(self, direction, localPath, remotePath, dryRun = True):
         cmd = "bash -c 'rsync --progress -a "
@@ -196,13 +197,13 @@ class RemoteClient:
 
     def processScp(self, s):
         sshNewkey = 'Are you sure you want to continue connecting'
-        i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=30)
+        i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=50)
         if i == 0:
             raise ClientUnavailableException(self.hostName, s.before+'|'+s.after)
         if i == 1:
             s.sendline('yes')
             s.expect('[pP]assword: ', timeout=30)
-            i = s.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=30)
+            i = s.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=50)
             if i == 0:
                 raise ClientUnavailableException(self.hostName, s.before+'|'+s.after)
             s.sendline(self.password)
@@ -223,15 +224,15 @@ class RemoteClient:
 
     def scp(self, source, dest):
         self.outputMsg("sending %s to %s:%s" % (source, self.ipAddress, dest))
-        s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest), timeout=30)
+        s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest), timeout=50)
         sshNewkey = 'Are you sure you want to continue connecting'
-        i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=30)
+        i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=50)
         if i == 0:
             raise ClientUnavailableException(dest, s.before+'|'+s.after)
         if i == 1:
             s.sendline('yes')
             s.expect('[pP]assword: ', timeout=30)
-            i = s.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=30)
+            i = s.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=50)
             if i == 0:
                 if type(s.before) == type("string") and type(s.after) == type("string"):
                     errMsg = s.before+'|'+s.after
@@ -240,7 +241,11 @@ class RemoteClient:
                 raise ClientUnavailableException(dest, errMsg)
             s.sendline(self.password)
         if i == 2:
-            print '==> Using password authentication'
+            if self.debug:
+                print '==> Using password authentication'
+            else:
+                sys.stdout.write('.')
+                sys.stdout.flush()
             s.sendline(self.password)
         if i == 3:
             #print '==> Used shared key for authentication.'

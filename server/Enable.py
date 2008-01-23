@@ -4,13 +4,14 @@ import sys, os
 import yaml
 import libCipher, libUi
 import PinshCmd, Mode, BomHostField, LongList
+from RemoteClient import ClientUnavailableException
 from commonUtil import *
 
 class Enable(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "enable", "enable\tmake all priveleged commands available")
         self.level = Mode.ENABLE
-        self.bomHostField = BomHostField.BomHostField()
+        self.bomHostField = BomHostField.BomHostField(enabled = False)
         self.hostList = LongList.LongList(self.bomHostField, unique=True)
         self.children = [self.hostList]
         self.auth = USER
@@ -65,13 +66,16 @@ class Enable(PinshCmd.PinshCmd):
         except:
             return FAIL, ["Invalid host name: %s" % tokens[2]]
         overallStatus = OK
-        overallOutput = []
+        overallOutput = ['\n']
         for hostName in hostNames.split():
             r = mode.getBomConnection(hostName, ignoreConfig=True)
             r.password = mode.password
             r.sharedKey = False
             remoteKeyFile = "%s_id_dsa.pub" % os.environ["USER"]
-            r.scp(pubKeyFile, ".ssh/%s" % remoteKeyFile)
+            try:
+                r.scp(pubKeyFile, ".ssh/%s" % remoteKeyFile)
+            except ClientUnavailableException:
+                return FAIL, ['\n', "Client %s (IP: %s) will not accept an SCP connection." % (hostName, r.ipAddress)]
             status, output = r.runCmd("cd ~/.ssh && cat %s >> authorized_keys2" % remoteKeyFile)
             r.password = ''
             r.sharedKey = True

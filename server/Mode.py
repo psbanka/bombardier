@@ -68,6 +68,12 @@ class Mode:
     def loadConfig(self):
         if os.path.isfile(CONFIG_FILE):
             self.config=yaml.load(open(CONFIG_FILE).read())
+        debug = self.config.get("debug")
+        if type(debug) == type(True):
+            self.debug = debug
+            #print "  Setting debugging to %s" % self.debug
+        if not self.config.has_key("enabledSystems"):
+            self.config["enabledSystems"] = []
 
     def getTermInfo(self):
         try:
@@ -83,6 +89,9 @@ class Mode:
     def getBomConnection(self, hostName, ignoreConfig=False):
         if not ignoreConfig and not hostName in self.config["enabledSystems"]:
             raise HostNotEnabledException(hostName)
+        if not self.debug:
+            sys.stdout.write("  Progress: ")
+            sys.stdout.flush()
         if not hostName in self.bomConnections:
             brc = BombardierRemoteClient(hostName, self.password)
             self.bomConnections[hostName] = brc

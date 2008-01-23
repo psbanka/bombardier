@@ -49,9 +49,6 @@ class BomCmd(PinshCmd.PinshCmd):
         hostName = hostNames[0]
         if self.action == RECONCILE and mode.password == '':
             return FAIL, ["Reconcile must be run in enable mode"]
-        if not mode.debug:
-            sys.stdout.write("  Progress: ")
-            sys.stdout.flush()
         try:
             r = mode.getBomConnection(hostName)
         except HostNotEnabledException:
@@ -131,9 +128,6 @@ class PackageCommand(PinshCmd.PinshCmd):
             if self.packageField.match(tokens, 2) != (COMPLETE, 1):
                 return FAIL, ["Invalid package: "+tokens[2]]
             packageName = self.packageField.name(tokens, 2)[0]
-            if not mode.debug:
-                sys.stdout.write("  Progress: ")
-                sys.stdout.flush()
             try:
                 r = mode.getBomConnection(self.hostName)
             except HostNotEnabledException:
@@ -150,9 +144,6 @@ class PackageCommand(PinshCmd.PinshCmd):
                 packageNames = self.packageList.name(tokens, 2)[0]
             except:
                 return FAIL, ["Invalid package name: %s" % tokens[2]]
-            if not mode.debug:
-                sys.stdout.write("  Progress: ")
-                sys.stdout.flush()
             try:
                 r = mode.getBomConnection(self.hostName)
             except HostNotEnabledException:

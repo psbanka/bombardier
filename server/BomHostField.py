@@ -5,22 +5,24 @@ import glob
 import PinshCmd, Client
 from commonUtil import *
 
-def possibleHostNames(hostName):
-    yamlFiles = glob.glob("deploy/client/*.yml")
-    hostNames = []
-    for filename in yamlFiles:
-        hostNames.append(filename.split('/')[-1].split('.yml')[0])
-    possibleMatches = [ x for x in hostNames if x.lower().startswith(hostName.lower()) ]
-    return possibleMatches
-
 class BomHostField(PinshCmd.PinshCmd):
-    def __init__(self, name = "bomhostname"):
-        PinshCmd.PinshCmd.__init__(self, name)
+    def __init__(self, enabled = True):
+        PinshCmd.PinshCmd.__init__(self, name = "bomhostname")
         self.helpText = "<hostname>\tthe name of a bombardier client"
-        self.min = min
-        self.max = max
-        self.level = 99
         self.cmdOwner = 0
+        self.enabled = enabled
+
+    def possibleHostNames(self, hostName):
+        if not self.enabled:
+            yamlFiles = glob.glob("deploy/client/*.yml")
+            allHostNames = []
+            for filename in yamlFiles:
+                allHostNames.append(filename.split('/')[-1].split('.yml')[0])
+            hostNames = list(set(allHostNames) - set(mode.config["enabledSystems"]))
+        else:
+            hostNames = mode.config["enabledSystems"]
+        possibleMatches = [ x for x in hostNames if x.lower().startswith(hostName.lower()) ]
+        return possibleMatches
 
     def ipAddress(self, hostName):
         client = Client.Client(hostName, '')
@@ -28,7 +30,7 @@ class BomHostField(PinshCmd.PinshCmd):
         return client.data.get("ipAddress")
 
     def name(self, tokens, index):
-        possibleMatches = possibleHostNames(tokens[index])
+        possibleMatches = self.possibleHostNames(tokens[index])
         if possibleMatches:
             return possibleMatches
         return ''
