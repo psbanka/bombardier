@@ -2,11 +2,8 @@
 
 import pxssh, pexpect
 import sys, os, getpass, base64, time
-import yaml
 import Client
 from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
-import StringIO
-import traceback
 
 #Statuses:
 DISCONNECTED = 0
@@ -142,7 +139,7 @@ class RemoteClient:
         del s
         numberOfFiles = float(len(files))
         if direction == "PUSH":
-            self.ouputMsg( "%d files to push..." % numberOfFiles)
+            self.outputMsg( "%d files to push..." % numberOfFiles)
         else:
             self.outputMsg( "%d files to pull..." % numberOfFiles)
         if numberOfFiles == 0:
