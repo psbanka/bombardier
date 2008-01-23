@@ -35,6 +35,7 @@ class BombardierRemoteClient(RemoteClient):
     def __init__(self, hostName, configPasswd):
         RemoteClient.__init__(self, hostName)
         self.configPasswd = configPasswd
+        self.localFilename = ''
         self.stateMachine = []
         self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendClient])
         self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)"), self.sendBom])
@@ -84,10 +85,11 @@ class BombardierRemoteClient(RemoteClient):
         lines = 0
         totalLines = os.stat(filename+".b64")[6] / BLOCK_SIZE
         printFrequency = totalLines / DOT_LENGTH
-        if filename == "tmp.yml":
-            print "==> Sending configuration:",
-        else:
-            print "==> Sending "+filename+": ",
+        if self.debug:
+            if filename == "tmp.yml":
+                print "==> Sending configuration:",
+            else:
+                print "==> Sending "+filename+": ",
         if printFrequency < 1:
             printFrequency = 1
         while True:
@@ -104,8 +106,9 @@ class BombardierRemoteClient(RemoteClient):
                 sys.stdout.write('.')
                 sys.stdout.flush()
             self.s.send(chunk)
-        print
-        print "==> Configuration sent in : %3.2f seconds" %(time.time() - start)
+        if self.debug:
+            print
+            print "==> Configuration sent in : %3.2f seconds" %(time.time() - start)
 
     def sendClient(self, data):
         if data:
@@ -178,12 +181,13 @@ class BombardierRemoteClient(RemoteClient):
             for line in traceback:
                 print "==> CLIENT TRACEBACK: ", line
 
-    def process(self, action, packageNames, scriptName):
+    def process(self, action, packageNames, scriptName, debug):
+        msg = []
         if action == EXECUTE:
             self.clearScriptOutput(scriptName)
         if self.freshen() != OK:
-            print "==> UNABLE TO CONNECT TO %s. No actions are available." % self.hostName
-            return FAIL
+            msg.append("==> UNABLE TO CONNECT TO %s. No actions are available." % self.hostName)
+            return FAIL, msg
         returnCode = OK
         try:
             self.s.sendline ('cd %s' %self.spkgDir)
@@ -202,29 +206,33 @@ class BombardierRemoteClient(RemoteClient):
                     returnCode = FAIL
                     break
                 if foundIndex == 0:
-                    if DEBUG:
+                    if debug:
                         print "==> BOMBARDIER HAS EXITED"
-                    if self.s.before.strip():
-                        print "==> Remaining output: %s" % self.s.before.strip()
+                        if self.s.before.strip():
+                            print "==> Remaining output: %s" % self.s.before.strip()
                     self.s.setecho(False)
                     self.s.sendline("echo $?")
                     self.s.prompt()
                     try:
                         returnCode = int(str(self.s.before.split()[0].strip()))
-                        print "\n\n==> RETURN CODE: %s\n" % RETURN_DICT[returnCode]
+                        if debug:
+                            print "\n\n==> RETURN CODE: %s\n" % RETURN_DICT[returnCode]
                     except Exception, e:
-                        print e
-                        print "==> invalid returncode: ('%s')" % self.s.before
+                        msg.append( str(e) )
+                        msg.append( "invalid returncode: ('%s')" % self.s.before)
                         returnCode = FAIL
                     break
                 messageType, message = self.s.match.groups()
                 if messageType == "DEBUG":
-                    if DEBUG:
+                    if DEBUG and debug:
                         print "[FROM %s]: %s" % (self.hostName, message)
                     continue
                 message=message.strip()
                 if not self.processMessage(message):
-                    print "[FROM %s]: %s" % (self.hostName, message)
+                    if debug:
+                        print "[FROM %s]: %s" % (self.hostName, message)
+                    else:
+                        sys.stdout.write('.')
         except Exception, e:
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
@@ -233,15 +241,18 @@ class BombardierRemoteClient(RemoteClient):
             ermsg = ''
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
-            print ermsg
-            return FAIL
+            msg.append( ermsg )
+            print
+            return FAIL, msg
         if returnCode == OK:
             self.getStatusYml()
             if action == EXECUTE:
                 self.getScriptOutput(scriptName)
         else:
-            print "Skipping status file collection due to error."
-        return returnCode
+            if debug:
+                print "Skipping status file collection due to error."
+        print
+        return returnCode, msg
 
     def clearScriptOutput(self, scriptName):
         localFilename  = "%s-%s.yml" % (self.hostName, scriptName)
@@ -251,10 +262,10 @@ class BombardierRemoteClient(RemoteClient):
 
     def getScriptOutput(self, scriptName):
         remoteFilename = "%s-output.yml" % (scriptName)
-        localFilename  = "%s-%s.yml" % (self.hostName, scriptName)
+        self.localFilename  = "%s-%s.yml" % (self.hostName, scriptName)
         self.get("%s/output/%s" % (self.spkgDir, remoteFilename))
         if os.path.isfile(remoteFilename):
-            os.system("mv -f %s output/%s" % (remoteFilename, localFilename) )
+            os.system("mv -f %s output/%s" % (remoteFilename, self.localFilename) )
         return 
 
     def getStatusYml(self):

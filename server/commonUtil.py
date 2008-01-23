@@ -60,6 +60,8 @@ def log(noFlag, tokens, cmdStatus, cmdOutput):
     command = ' '.join(tokens)
     if noFlag:
         command = "no %s" % command
+    if type(cmdOutput) != type('string'):
+        cmdOutput = str(cmdOutput)
     outputString = ':'.join(cmdOutput)
     statusDict = {OK: "OK", FAIL:"FAIL"}
     logMessage = "%-15s|STATUS:%4s|CMD:%s|OUTPUT:%s"

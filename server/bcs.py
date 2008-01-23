@@ -87,7 +87,8 @@ if __name__ == "__main__":
     status = OK
     for serverName in serverNames:
         r = BombardierRemoteClient(serverName, configPasswd)
-        machineStatus = r.process(options.action, packageNames, scriptName)
+        machineStatus, output = r.process(options.action, packageNames, scriptName, True)
+        print output
         r.disconnect()
         if status == OK:
             status = machineStatus

@@ -41,6 +41,7 @@ class Mode:
         self.commentCommands = []
         self.bomConnections = {}
         self.getTermInfo()
+        self.debug = True
 
     def getTermInfo(self):
         try:
@@ -59,6 +60,7 @@ class Mode:
             self.bomConnections[hostName] = brc
         if self.password:
             self.bomConnections[hostName].configPasswd = self.password
+        self.bomConnections[hostName].debug = self.debug
         return self.bomConnections[hostName]
 
     def clearBomConnections(self):

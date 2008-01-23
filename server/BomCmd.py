@@ -48,10 +48,13 @@ class BomCmd(PinshCmd.PinshCmd):
         hostName = hostNames[0]
         if self.action == RECONCILE and mode.password == '':
             return FAIL, ["Reconcile must be run in enable mode"]
+        if not mode.debug:
+            sys.stdout.write("  Progress: ")
+            sys.stdout.flush()
         r = mode.getBomConnection(hostName)
-        status = r.process(self.action, [], '')
+        status, output = r.process(self.action, [], '', mode.debug)
         if status == FAIL:
-            return FAIL, ["Host is screwed up"]
+            return FAIL, output
         else:
             return OK, ['Command took %4.2f seconds' % (time.time() - start)]
 
@@ -83,9 +86,8 @@ class PackageCommand(PinshCmd.PinshCmd):
         self.removeVersion = True
 
     def processObject(self, r, packageNames, tokens):
-        if tokens: pass
-        status = r.process(self.action, packageNames.split(), '')
-        return status
+        status, output = r.process(self.action, packageNames.split(), '', mode.debug)
+        return status, output
 
     def checkEncryption(self, serverName, packageNames):
         if mode.password != '':
@@ -125,21 +127,35 @@ class PackageCommand(PinshCmd.PinshCmd):
             if self.packageField.match(tokens, 2) != (COMPLETE, 1):
                 return FAIL, ["Invalid package: "+tokens[2]]
             packageName = self.packageField.name(tokens, 2)[0]
+            if not mode.debug:
+                sys.stdout.write("  Progress: ")
+                sys.stdout.flush()
             r = mode.getBomConnection(self.hostName)
-            status = self.processObject(r, packageName, tokens)
+            status, output = self.processObject(r, packageName, tokens)
+            if status == OK:
+                outputFile = "output/%s" % r.localFilename
+                if os.path.isfile(outputFile):
+                    output = ['\n', yaml.load(open(outputFile).read())]
+                else:
+                    output = ["Output file (%s) does not exist." % outputFile]
         else:
             try:
                 packageNames = self.packageList.name(tokens, 2)[0]
             except:
                 return FAIL, ["Invalid package name: %s" % tokens[2]]
+            if not mode.debug:
+                sys.stdout.write("  Progress: ")
+                sys.stdout.flush()
             r = mode.getBomConnection(self.hostName)
             if self.requireDecryption and self.checkEncryption(self.hostName, packageNames) == FAIL:
                 return FAIL, ["This package requires sensitive data."]
-            status = self.processObject(r, packageNames, tokens)
+            status, output = self.processObject(r, packageNames, tokens)
         if status == FAIL:
-            return FAIL, ["Host is screwed up"]
+            return FAIL, output
         else:
-            return OK, ['Command took %4.2f seconds' % (time.time() - start)]
+            if output == []:
+                output.append('Command took %4.2f seconds' % (time.time() - start))
+            return OK, output
 
 class Install(PackageCommand):
     def __init__(self):
@@ -221,8 +237,8 @@ class Execute(PackageCommand):
         if self.checkEncryption(self.hostName, packageName) == FAIL:
             print "%% This pacakge requires sensitive data."
             return FAIL
-        status = r.process(self.action, [packageName], scriptNames[0])
-        return status
+        status, output = r.process(self.action, [packageName], scriptNames[0], mode.debug)
+        return status, output
 
 if __name__ == "__main__":
     pass

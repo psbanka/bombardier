@@ -57,14 +57,14 @@ class Slash(PinshCmd.PinshCmd):
 ##    the Configure.py class
     
 import Bash, Ping, Telnet, Ssh, Terminal, Exit, BomCmd, Enable, Show
-import For, Echo, UpdateClient, Set, Run, PushConfig, Edit
+import For, Echo, UpdateClient, Set, Run, PushConfig, Edit, Debug
 
 bomCommands = [ BomCmd.Status(), BomCmd.Uninstall(), 
                 BomCmd.Verify(), BomCmd.Configure(), BomCmd.Install(), 
                 BomCmd.Execute(), BomCmd.Purge(), BomCmd.Fix(), 
                 BomCmd.Reconcile()]
 
-commands = [Echo.Comment(), Set.Set(), Terminal.Terminal(), Show.Show(), Ping.Ping(), 
+commands = [Echo.Comment(), Set.Set(), Terminal.Terminal(), Show.Show(), Ping.Ping(), Debug.Debug(),
             Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(), Run.Run(), PushConfig.PushConfig(), Edit.Edit(), Echo.Pause(),
             UpdateClient.UpdateClient(), Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo()]
 

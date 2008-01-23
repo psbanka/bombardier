@@ -18,12 +18,19 @@ DOT_LENGTH = 20
 
 CONNECTION_TIMEOUT = 90 * 3600 #90 min
 
+class ClientConfigurationException(Exception):
+    def __init__(self, server):
+        e = Exception()
+        Exception.__init__(e)
+        self.server = server
+    def __repr__(self):
+        return "Could not find valid configuration data for %s" % self.server
+
 def getClient(serverName):
     client = Client.Client(serverName, '')
     status = client.downloadClient()
     if status == FAIL:
-        print "==> Could not find valid configuration data for this host. Exiting."
-        sys.exit()
+        raise ClientConfigurationException(serverName)
     return client.data
 
 class ClientUnavailableException(Exception):
@@ -38,6 +45,7 @@ class ClientUnavailableException(Exception):
 class RemoteClient:
 
     def __init__(self, hostName):
+        self.debug        = True
         self.hostName     = hostName
         self.status       = DISCONNECTED
         info = getClient(self.hostName)
@@ -57,7 +65,7 @@ class RemoteClient:
     def connect(self):
         self.s = pxssh.pxssh()
         self.s.timeout = 6000
-        print "==> Connecting to %s..." %self.hostName
+        self.outputMsg("Connecting to %s..." %self.hostName)
         try:
             if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):
                 raise Exception
@@ -72,6 +80,12 @@ class RemoteClient:
         self.connectTime = time.time()
         return OK
 
+    def outputMsg(self, text):
+        if self.debug:
+            print "==> %s" % text
+        else:
+            sys.stdout.write('.')
+
     def connectRsync(self, direction, localPath, remotePath, dryRun = True):
         cmd = "bash -c 'rsync --progress -a "
         if dryRun:
@@ -81,8 +95,7 @@ class RemoteClient:
         else:
             cmd += "%s@%s:%s/* %s/" % (self.username, self.ipAddress, remotePath, localPath)
         cmd += "'"
-        print "EXECUTING: %s" % cmd
-        print "==> Connecting to %s..." % self.hostName
+        self.outputMsg("EXECUTING: %s" % cmd)
         output, input = os.popen4(cmd)
         s = pexpect.spawn(cmd, timeout=5000)
         sshNewkey = 'Are you sure you want to continue connecting'
@@ -128,9 +141,9 @@ class RemoteClient:
         del s
         numberOfFiles = float(len(files))
         if direction == "PUSH":
-            print "==> %d files to push..." % numberOfFiles
+            self.ouputMsg( "%d files to push..." % numberOfFiles)
         else:
-            print "==> %d files to pull..." % numberOfFiles
+            self.outputMsg( "%d files to pull..." % numberOfFiles)
         if numberOfFiles == 0:
             return OK
         s = self.connectRsync(direction, localPath, remotePath, False)
@@ -145,7 +158,7 @@ class RemoteClient:
                     current = float(len(files))
                     startTime = time.time()
                     value = 100.0 * (numberOfFiles - current) / numberOfFiles
-                    print "==> %3.1f%% done...(%s)" % (value, line)
+                    self.outputMsg( "%3.1f%% done...(%s)" % (value, line))
         s.expect(pexpect.EOF)
         s.close()
         del s
@@ -157,8 +170,9 @@ class RemoteClient:
         connectionAge = time.time() - self.connectTime
         if self.status == DISCONNECTED or connectionAge > CONNECTION_TIMEOUT:
             if self.status == CONNECTED:
-                print "==> Assuming our connection to %s is stale after "\
+                msg = "Assuming our connection to %s is stale after "\
                       "%4.2f minutes. Reconnecting..." % (self.hostName, connectionAge / 60.0)
+                self.outputMsg(msg)
                 self.disconnect()
             if self.connect() != OK:
                 return FAIL
@@ -171,11 +185,9 @@ class RemoteClient:
             dead = True
 
         if dead:
-            print "==> Our connection handle is dead. Reconnecting..."
+            self.outputMsg("Our connection handle is dead. Reconnecting...")
             try:
-                print self.disconnect.__doc__
                 self.disconnect(timeout = 5)
-                print "ABC"
             except:
                 pass
             if self.connect() != OK:
@@ -205,12 +217,12 @@ class RemoteClient:
         return OK
 
     def get(self, destFile):
-        print "==> getting %s" % destFile
+        self.outputMsg( "getting %s" % destFile)
         s = pexpect.spawn('scp -v %s@%s:%s .' % (self.username, self.ipAddress, destFile), timeout=30)
         return self.processScp(s)
 
     def scp(self, source, dest):
-        print "==> sending %s to %s:%s" % (source, self.ipAddress, dest)
+        self.outputMsg("sending %s to %s:%s" % (source, self.ipAddress, dest))
         s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest), timeout=30)
         sshNewkey = 'Are you sure you want to continue connecting'
         i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=30)
