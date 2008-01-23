@@ -242,10 +242,10 @@ class BombardierBackup:
         status = OK
         if self.fullBackup:
             print "#################################### BACKUP FULL "
-            status = self.backupServerObject.process(EXECUTE, ["SqlBackup"], "backupFull")
+            status, output = self.backupServerObject.process(EXECUTE, ["SqlBackup"], "backupFull")
         else:
             print "#################################### BACKUP LOG "
-            status = self.backupServerObject.process(EXECUTE, ["SqlBackup"], "backupLog")
+            status, output = self.backupServerObject.process(EXECUTE, ["SqlBackup"], "backupLog")
         if status != OK:
             logger.error( "Backup failed on %s" % ( backupServerName ) )
         clearLock("%s-backup-lock" % backupServerName.replace('-',''))
@@ -303,7 +303,7 @@ class BombardierBackup:
 
             logger.info("Instructing server %s to restore..." % restoreServerName)
             print "#################################### RESTORE"
-            cmdstatus =  restoreObject.process(EXECUTE, ["SqlBackup"], "restore")
+            cmdstatus, output =  restoreObject.process(EXECUTE, ["SqlBackup"], "restore")
             clearLock(restoreServerName.replace('-','')+"-restore-lock")
 
             if cmdstatus == FAIL:
@@ -325,9 +325,9 @@ class BombardierBackup:
                 restoreObject.process(EXECUTE, ["SqlBackup"], "online")
                 print "#################################### CLEANUSERS "
                 logger.info("Instructing server %s to set proper user permission..." % restoreServerName)
-                if restoreObject.process(EXECUTE, ["DbAuthorization"], "cleanUsers") == OK:
+                if restoreObject.process(EXECUTE, ["DbAuthorization"], "cleanUsers")[0] == OK:
                     print "#################################### ADDUSERS "
-                    if restoreObject.process(EXECUTE, ["DbAuthorization"], "addUsers") == OK:
+                    if restoreObject.process(EXECUTE, ["DbAuthorization"], "addUsers")[0] == OK:
                         continue
                     else:
                         logger.error("Adding users back in failed")

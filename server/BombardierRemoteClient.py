@@ -197,7 +197,6 @@ class BombardierRemoteClient(RemoteClient):
             self.s.sendline(cmd)
             #print "==> Ran %s on the server" % cmd
             foundIndex = 0
-            status = OK
             while True:
                 foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=600)
                 if foundIndex == 1:
