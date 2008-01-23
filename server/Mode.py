@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
-import readline, socket, sys, os
+import readline, socket, sys, os, yaml
 from BombardierRemoteClient import BombardierRemoteClient
+
+CONFIG_FILE = "%s/.bomsh_config.yml" % os.environ.get("HOME")
 
 OK = 0
 FAIL = 1
@@ -25,6 +27,14 @@ FREE_TEXT = 100
 
 REPROMPT = 1
 
+class HostNotEnabledException(Exception):
+    def __init__(self, server):
+        e = Exception()
+        Exception.__init__(e)
+        self.server = server
+    def __repr__(self):
+        return "Host %s is not enabled for this user" % self.server
+
 class Mode:
     def __init__(self, state, prompt):
         self.state = [state]
@@ -42,6 +52,22 @@ class Mode:
         self.bomConnections = {}
         self.getTermInfo()
         self.debug = True
+        self.config = {}
+
+    def addConfigList(self, option, value):
+        if self.config.get(option):
+            self.config[option].append(value)
+        else:
+            self.config[option] = [value]
+        open(CONFIG_FILE, 'w').write(yaml.dump(self.config))
+
+    def writeConfig(self, option, value):
+        self.config[option] = value
+        open(CONFIG_FILE, 'w').write(yaml.dump(self.config))
+
+    def loadConfig(self):
+        if os.path.isfile(CONFIG_FILE):
+            self.config=yaml.load(open(CONFIG_FILE).read())
 
     def getTermInfo(self):
         try:
@@ -54,7 +80,9 @@ class Mode:
             self.termlen = 23
             self.termwidth = 80
 
-    def getBomConnection(self, hostName):
+    def getBomConnection(self, hostName, ignoreConfig=False):
+        if not ignoreConfig and not hostName in self.config["enabledSystems"]:
+            raise HostNotEnabledException(hostName)
         if not hostName in self.bomConnections:
             brc = BombardierRemoteClient(hostName, self.password)
             self.bomConnections[hostName] = brc

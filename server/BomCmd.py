@@ -6,6 +6,7 @@ import Client
 import PinshCmd
 import BomHostField, PackageField, ScriptField, LongList
 from commonUtil import *
+from Mode import HostNotEnabledException
 
 def ennumerate(configDictOrList, currentPath):
     configList = []
@@ -51,7 +52,10 @@ class BomCmd(PinshCmd.PinshCmd):
         if not mode.debug:
             sys.stdout.write("  Progress: ")
             sys.stdout.flush()
-        r = mode.getBomConnection(hostName)
+        try:
+            r = mode.getBomConnection(hostName)
+        except HostNotEnabledException:
+            return FAIL, ["Host not enabled for this user"]
         status, output = r.process(self.action, [], '', mode.debug)
         if status == FAIL:
             return FAIL, output
@@ -93,7 +97,7 @@ class PackageCommand(PinshCmd.PinshCmd):
         if mode.password != '':
             return OK
         client = Client.Client(serverName, '')
-        status = client.get()
+        client.get()
         encryptedDict = client.getEncryptedEntries()
         if encryptedDict:
             packageData = yaml.load(open("deploy/packages/packages.yml").read())
@@ -130,7 +134,10 @@ class PackageCommand(PinshCmd.PinshCmd):
             if not mode.debug:
                 sys.stdout.write("  Progress: ")
                 sys.stdout.flush()
-            r = mode.getBomConnection(self.hostName)
+            try:
+                r = mode.getBomConnection(self.hostName)
+            except HostNotEnabledException:
+                return FAIL, ["Host not enabled for this user."]
             status, output = self.processObject(r, packageName, tokens)
             if status == OK:
                 outputFile = "output/%s" % r.localFilename
@@ -146,7 +153,10 @@ class PackageCommand(PinshCmd.PinshCmd):
             if not mode.debug:
                 sys.stdout.write("  Progress: ")
                 sys.stdout.flush()
-            r = mode.getBomConnection(self.hostName)
+            try:
+                r = mode.getBomConnection(self.hostName)
+            except HostNotEnabledException:
+                return FAIL, ["Host not enabled for this user."]
             if self.requireDecryption and self.checkEncryption(self.hostName, packageNames) == FAIL:
                 return FAIL, ["This package requires sensitive data."]
             status, output = self.processObject(r, packageNames, tokens)

@@ -7,11 +7,11 @@ from commands import getstatusoutput
 import Mode
 
 mode = Mode.Mode(Mode.USER, '>')
+mode.loadConfig()
 
 DEBUG = 0
 
 HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
-PASSWORD_FILE = "%s/.bomsh/password" % (os.environ['HOME'])
 
 # RESULT CODES
 OK = 0

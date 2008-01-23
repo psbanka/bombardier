@@ -5,6 +5,7 @@ import PinshCmd
 import BomHostField, PackageField, ScriptField
 from commonUtil import *
 from commands import getstatusoutput
+from Mode import HostNotEnabledException
 
 class PushConfig(PinshCmd.PinshCmd):
     def __init__(self, name = "pushConfig"):
@@ -25,8 +26,10 @@ class PushConfig(PinshCmd.PinshCmd):
         if len(hostNames) > 1:
             return FAIL, ["Ambiguous host %s" % tokens[1]]
         hostName = hostNames[0]
-        r = mode.getBomConnection(hostName)
-
+        try:
+            r = mode.getBomConnection(hostName)
+        except HostNotEnabledException:
+            return FAIL, ["Host not enabled for this user."]
         if noFlag:
             status, output = r.runCmd("shred -uf config.yml")
             if status == FAIL:

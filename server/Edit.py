@@ -28,11 +28,6 @@ class Edit(PinshCmd.PinshCmd):
             else:
                 names = [tokens[1]]
         fileName = "deploy/%s" % names[0]
-        editor = "/usr/bin/vim"
-        configFile = ("%s/.bomsh/editor" % os.environ.get("HOME"))
-        if os.path.isfile(configFile):
-            editor = open(configFile).read().strip()
-        if not os.path.isfile(editor):
-            editor = "vim"
+        editor = mode.config.get("editor", "/usr/bin/vim")
         os.system("%s %s" % (editor, fileName))
         return OK, []

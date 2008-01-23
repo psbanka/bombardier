@@ -33,7 +33,7 @@ def setPassword(slash):
     mode.myPassword = testPass1
     try:
         cipherMasterPass = libCipher.encrypt(mode.password, mode.myPassword)
-        open(PASSWORD_FILE, 'w').write(cipherMasterPass)
+        mode.writeConfig("password", cipherMasterPass)
     except:
         mode.password = ''
         mode.myPassword = ''

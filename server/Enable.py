@@ -19,13 +19,12 @@ class Enable(PinshCmd.PinshCmd):
     def enableUser(self, noFlag, slash):
         if noFlag:
             return self.exit(slash)
-        if not os.path.isfile(PASSWORD_FILE):
-            output = ['User Denied: "%s" doesn\'t exist' % (PASSWORD_FILE)]
-            output.append("Use the 'set password' command to authorize.")
+        if not mode.config.get("password"):
+            output = [ "User denied: Use the 'set password' command to authorize." ]
             return FAIL, output
         if mode.auth == ADMIN:
             return FAIL, ["Already in enable mode"]
-        cipherPass = open(PASSWORD_FILE).read().strip()
+        cipherPass = mode.config.get("password")
         mode.myPassword = libUi.pwdInput("password: ")
         try:
             padPassword = libCipher.pad(mode.myPassword)
@@ -67,10 +66,8 @@ class Enable(PinshCmd.PinshCmd):
             return FAIL, ["Invalid host name: %s" % tokens[2]]
         overallStatus = OK
         overallOutput = []
-        configFile = "%s/.bomsh/config.yml" % os.environ["HOME"]
-        config = yaml.load(open(configFile).read())
         for hostName in hostNames.split():
-            r = mode.getBomConnection(hostName)
+            r = mode.getBomConnection(hostName, ignoreConfig=True)
             r.password = mode.password
             r.sharedKey = False
             remoteKeyFile = "%s_id_dsa.pub" % os.environ["USER"]
@@ -79,11 +76,9 @@ class Enable(PinshCmd.PinshCmd):
             r.password = ''
             r.sharedKey = True
             if status == OK:
+                mode.addConfigList("enabledSystems", hostName)
                 overallOutput.append("Added key to %s" % hostName)
-                if not hostName in config["hosts"]:
-                    config["hosts"].append(hostName)
             else:
                 overallStatus = FAIL
                 overallOutput.append("Unable to add key to %s." % hostName)
-        open(configFile, 'w').write(yaml.dump(config))
         return overallStatus, overallOutput
