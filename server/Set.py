@@ -7,7 +7,7 @@ from commonUtil import *
 
 import Client, libCipher
 def setPassword(slash):
-    if not os.path.isfile(PASSWORD_FILE):
+    if not 'password' in mode.config: 
         masterPass = libUi.pwdInput("Enter master password to authorize this user: ")
         client = Client.Client("test", masterPass)
         client.downloadClient()
@@ -20,10 +20,6 @@ def setPassword(slash):
     else:
         if mode.auth != ADMIN:
             return FAIL, ["Must be done from enable mode"]
-    bomDir = '/'.join(PASSWORD_FILE.split('/')[:-1])
-    #bomDir = PASSWORD_FILE.rpartition('/')[0]
-    if not os.path.isdir(bomDir):
-        os.makedirs(bomDir)
     testPass1 = libUi.pwdInput("new password: ")
     if testPass1 == '':
         return FAIL, ["Aborted"]
