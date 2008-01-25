@@ -40,10 +40,12 @@ class UserAuth:
         self.vpnPass  = getPwd()
         self.safeCombo = getPwd()
         self.hostAccess = {}
-        self.environment = "salem"
-        self.webDir = '/D/www/pwsafe'
-        self.webUser = "www-data"
-        self.certDir = "CA/cgvpn"
+
+        config = yaml.load(open("serverConfig.yml").read())
+        self.environment = config["environment"]
+        self.webDir = config["webDir"]
+        self.webUser = config["webUser"]
+        self.certDir = config["certDir"]
 
     def buildHostAccess(self, rightsDict):
         for host in rightsDict:
