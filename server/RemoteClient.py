@@ -25,7 +25,7 @@ class ClientConfigurationException(Exception):
 
 def getClient(serverName):
     client = Client.Client(serverName, '')
-    status = client.downloadClient()
+    status = client.get()
     if status == FAIL:
         raise ClientConfigurationException(serverName)
     return client.data
@@ -45,11 +45,12 @@ class RemoteClient:
         self.debug        = True
         self.hostName     = hostName
         self.status       = DISCONNECTED
-        info = getClient(self.hostName)
-        self.username     = info["defaultUser"]
-        self.ipAddress    = info["ipAddress"]
-        self.platform     = info["platform"]
-        if 'sharedKeys' not in info:
+        self.info         = getClient(self.hostName)
+        self.username     = self.info["defaultUser"]
+        self.ipAddress    = self.info["ipAddress"]
+        self.platform     = self.info["platform"]
+        print self.info.keys()
+        if 'sharedKeys' not in self.info:
             if os.path.isfile("defaultPassword.b64"):
                 print "==> Using default password"
                 self.password = base64.decodestring(open(DEFAULT_PASSWORD).read())
