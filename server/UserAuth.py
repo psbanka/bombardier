@@ -46,6 +46,7 @@ class UserAuth:
         self.webDir = config["webDir"]
         self.webUser = config["webUser"]
         self.certDir = config["certDir"]
+        self.password = libUi.pwdInput('Input root password: ')
 
     def buildHostAccess(self, rightsDict):
         for host in rightsDict:
@@ -123,7 +124,7 @@ class UserAuth:
         print "bombardierUpdate"
         for host in self.hostAccess:
             print "HOST:", host
-            serverObject = BombardierRemoteClient(host, '')
+            serverObject = BombardierRemoteClient(host, self.password)
             status1, output = serverObject.process(EXECUTE, ["HostAuthorization"], "addUsers", True)
             if "DbAuthorization" in serverObject.info["packages"]:
                 status2, output = serverObject.process(EXECUTE, ["DbAuthorization"], "cleanUsers", True)
