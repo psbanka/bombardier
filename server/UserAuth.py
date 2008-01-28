@@ -103,17 +103,17 @@ class UserAuth:
             inputFile.write(self.createEntry("%s-%s" % (host, ipAddress), self.hostPass, notes)+'\n')
         inputFile.close()
         os.system("bash -c 'cat %s.pass | ./pw.sh' 2&> /dev/null" % self.name)
-        os.system("rm %s.pass %s.dat~" % (self.name, self.name))
+        #os.system("rm %s.pass %s.dat~" % (self.name, self.name))
         if os.path.isfile("%s.dat" % self.name):
             return OK
         return FAIL
 
     def prepareWebData(self):
-        status1 = os.system('mv %s.dat %s' % (self.name, self.webDir))
-        status2 = os.system('bash -c "mv %s/%s*.zip %s"' % (self.certDir, self.name, self.webDir))
+        status1 = os.system('mv -f %s.dat %s' % (self.name, self.webDir))
+        status2 = os.system('bash -c "mv -f %s/%s*.zip %s"' % (self.certDir, self.name, self.webDir))
         open("%s/%s.passwd" % (self.webDir, self.name), 'w').write(self.safeCombo)
-        status3 = os.system('bash -c "chown %s.%s %s/%s*"' % (self.webUser, self.webUser, self.webDir, self.name))
-        status4 = os.system('bash -c "chmod 600 %s/%s*"' % (self.webDir, self.name))
+        status3 = os.system('sudo bash -c "chown %s.%s %s/%s*"' % (self.webUser, self.webUser, self.webDir, self.name))
+        status4 = os.system('sudo bash -c "chmod 660 %s/%s*"' % (self.webDir, self.name))
         if [status1, status2, status3, status4] == [OK, OK, OK, OK]:
             return OK
 

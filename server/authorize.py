@@ -19,11 +19,15 @@ if __name__ == "__main__":
                       help="list the user's rights or all possible rights if no user is specified.")
     parser.add_option("-c", "--comment", dest="comment", default='',
                       help="Insert a comment about the user", metavar="COMMENT")
+    parser.add_option("-v", "--vpn-only", dest="vpnOnly",
+                      action="store_true", default=False,
+                      help="Set the user up for VPN access only")
     parser.add_option("-d", "--del", dest="delete",
                       action="store_true", default=False,
                       help="delete the user's rights")
 
     (options, args) = parser.parse_args()
+    rightsList = []
     if not args:
         if not options.list:
             print "ERROR: Must specify the name of a user"
@@ -35,22 +39,25 @@ if __name__ == "__main__":
     if options.delete:
         print "Delete not implemented yet."
         sys.exit(FAIL)
-    if len(args) < 2:
+    if len(args) < 2 and not options.vpnOnly:
         print "ERROR: Must specify at least one right"
         parser.print_help()
         sys.exit(FAIL)
+    else:
+        rightsList = args[1:]
     if options.list and options.delete:
         print "ERROR: List and delete are mutually exclusive"
         parser.print_help()
         sys.exit(FAIL)
 
     userName   = args[0]
-    rightsList = args[1:]
     user = UserAuth(userName, rightsList, options.comment, SYSTEM_INFO)
-    user.modifySystemInfo()
+    if not options.vpnOnly:
+        user.modifySystemInfo()
     user.createVpnCert()
     user.createPwsafe()
     user.prepareWebData()
-    user.bombardierUpdate()
+    if not options.vpnOnly:
+        user.bombardierUpdate()
 
     #^ make system name configurable as well as destination location
