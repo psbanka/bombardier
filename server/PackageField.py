@@ -148,10 +148,12 @@ if __name__ == "__main__":
     from libTest import *
     print os.getcwd()
     pField = InstallablePackageField()
+    puField = PurgablePackageField()
     status = OK
     startTest()
-    status = runTest(pField.match, [["bigdb", ""], 0], (PARTIAL, 1), status)
+    status = runTest(pField.match, [["bigdb", ""], 0], (INCOMPLETE, 1), status)
     status = runTest(pField.match, [["lilap", "foo"], 1], (INCOMPLETE, 1), status)
     status = runTest(pField.match, [["lilap", "CgApache"], 1], (INCOMPLETE, 1), status)
-    status = runTest(pField.match, [["foo"], 0], (PARTIAL, 1), status)
+    status = runTest(pField.match, [["foo"], 0], (INCOMPLETE, 1), status)
+    status = runTest(puField.name,  [["testdb", "Sql"], 1], ["SqlBackup-8"], status)
     endTest(status)

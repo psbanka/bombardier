@@ -44,6 +44,7 @@ class BomHostField(PinshCmd.PinshCmd):
         return COMPLETE, 1
 
 if __name__ == "__main__":
+    # A server must be enabled for the tests to work properly.
     from libTest import *
     hostField = BomHostField()
     status = OK
@@ -52,5 +53,5 @@ if __name__ == "__main__":
     status = runTest(hostField.match, [["bigsam"], 0], (COMPLETE, 1), status)
     status = runTest(hostField.match, [["foo"], 0], (NO_MATCH, 1), status)
     status = runTest(hostField.match, [[""], 0], (PARTIAL, 1), status)
-    status = runTest(hostField.name, [["big"], 0], ['bigap', 'bigsam', 'bigdb'], status)
+    status = runTest(hostField.name, [["big"], 0], ['bigap', 'bigdb', 'bigsam'], status)
     endTest(status)

@@ -247,6 +247,8 @@ class PinshCmd:
 
     # finds the correct object and runs a command
     def run(self, tokens, noFlag, mySlash):
+        if tokens[-1] == '':
+            tokens = tokens[:-1]
         if mode.state[-1] == Mode.F0:
             if tokens[0].lower() != 'end':
                 mode.commandBuffer[Mode.F0].append([tokens, noFlag, mySlash])
