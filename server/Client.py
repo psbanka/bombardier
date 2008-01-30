@@ -50,6 +50,8 @@ class Client:
             ymlDirectory = "include"
         filename   = "deploy/%s/%s.yml" % (ymlDirectory, configName)
         newData   = yaml.load( open(filename, 'r').read() )
+        if newData == None:
+            newData = {}
         self.data = miniUtility.addDictionaries(self.data, newData)
         newIncludes = self.findIncludeList(newData)
         self.loadIncludes(newIncludes)
