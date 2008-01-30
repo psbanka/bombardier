@@ -49,7 +49,6 @@ class RemoteClient:
         self.username     = self.info["defaultUser"]
         self.ipAddress    = self.info["ipAddress"]
         self.platform     = self.info["platform"]
-        print self.info.keys()
         if 'sharedKeys' not in self.info:
             if os.path.isfile("defaultPassword.b64"):
                 print "==> Using default password"

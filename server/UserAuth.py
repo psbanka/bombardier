@@ -3,6 +3,7 @@ from commonUtil import *
 import yaml, random, time
 from commands import getstatusoutput
 from bcs import BombardierRemoteClient, EXECUTE
+import libCipher
 import pexpect
 
 def showAllRights():
@@ -31,22 +32,28 @@ class BadRightException(Exception):
 
 class UserAuth:
 
-    def __init__(self, name, rightsList, comment, systemInfoFile):
-        self.systemInfoFile = systemInfoFile
-        self.name = name
-        self.rightsList = rightsList
-        self.comment = comment
-        self.hostPass = getPwd()
-        self.vpnPass  = getPwd()
-        self.safeCombo = getPwd()
-        self.hostAccess = {}
+    def __init__(self, name, rightsList, comment, systemInfoFile, autoConfirm, password=''):
+        self.systemInfoFile  = systemInfoFile
+        self.autoConfirm     = autoConfirm
+        self.name            = name
+        self.userName        = self.name.replace('.', ' ')
+        self.rightsList      = [ right.upper() for right in rightsList ]
+        self.comment         = comment
+        self.hostPass        = getPwd()
+        self.vpnPass         = getPwd()
+        self.safeCombo       = getPwd()
+        self.hostAccess      = {}
+        self.modifiedSystems = set()
 
         config = yaml.load(open("serverConfig.yml").read())
         self.environment = config["environment"]
         self.webDir = config["webDir"]
         self.webUser = config["webUser"]
         self.certDir = config["certDir"]
-        self.password = libUi.pwdInput('Input root password: ')
+        if password:
+            self.password = password
+        else:
+            self.password = libUi.pwdInput('Input root password: ')
 
     def buildHostAccess(self, rightsDict):
         for host in rightsDict:
@@ -54,24 +61,56 @@ class UserAuth:
                 self.hostAccess[host] = set()
             self.hostAccess[host] = self.hostAccess[host].union(set(rightsDict[host]))
 
-    def modifySystemInfo(self):
-        systemInfo = yaml.load(open(self.systemInfoFile).read())
-        systemRights = systemInfo["system"]["rights"]
+    def noteChangedSystems(self, rightsDict):
+        for host in rightsDict:
+            self.modifiedSystems = self.modifiedSystems.union([host])
 
-        if self.name.lower() in [ name.lower() for name in systemInfo["system"]["users"]]:
-            #print "modifying rights..."
-            return FAIL
+    def modifySystemInfo(self):
+        systemInfo      = yaml.load(open(self.systemInfoFile).read())
+        systemRights    = systemInfo["system"]["rights"]
+        foundUser       = False
+
+        for userName in systemInfo["system"]["users"]:
+            if self.userName.lower() == userName.lower():
+                foundUser     = True
+                userDict      = libCipher.decrypt(systemInfo["system"]["users"][userName], self.password)
+                self.hostPass = userDict["password"]
+                del userDict["password"]
+                oldRightsList = userDict["rights"]
+                delRightsList = list(set(oldRightsList) - set(self.rightsList))
+                addRightsList = list(set(self.rightsList) - set(oldRightsList))
+                userDict["rights"] = self.rightsList
+                for right in list(set(delRightsList+addRightsList)):
+                    if right not in systemRights:
+                        raise BadRightException(right)
+                if not self.comment:
+                    self.comment = userDict.get("comment")
+                else:
+                    userDict["comment"] = self.comment
+                break
+        if not foundUser:
+            addRightsList   = self.rightsList
+            delRightsList   = []
+            userDict        = {"rights": self.rightsList, "comment": self.comment}
             
-        userDict = {"password": '', "rights": [], "comment": ''}
-        for right in self.rightsList:
-            if right not in systemRights:
-                return FAIL
-            userDict["rights"].append(right)
-            self.buildHostAccess(systemRights[right])
-        userDict["password"] = self.hostPass
-        userDict["comment"]  = self.comment
-        systemInfo["system"]["users"][self.name] = userDict
-        open(self.systemInfoFile, 'w').write(yaml.dump(systemInfo))
+        if delRightsList:
+            print "Removing rights: %s" % delRightsList
+            if self.autoConfirm or libUi.askYesNo("Are you sure"):
+                for right in delRightsList:
+                    self.noteChangedSystems(systemRights[right])
+            else:
+                print "Not removing any rights..."
+
+        if addRightsList:
+            print "Adding rights: %s" % addRightsList
+            for right in addRightsList:
+                self.buildHostAccess(systemRights[right])
+                self.noteChangedSystems(systemRights[right])
+
+        if addRightsList or delRightsList:
+            userDict["enc_password"] = libCipher.encrypt(self.hostPass, self.password)
+            systemInfo["system"]["users"][self.userName] = userDict
+            open(self.systemInfoFile, 'w').write(yaml.dump(systemInfo))
         return OK
 
     def createVpnCert(self):
@@ -94,7 +133,7 @@ class UserAuth:
         return "%s %s %s %s %s %s %s" % (self.name, self.safeCombo, entry, self.name, self.environment, password, notes)
 
     def createPwsafe(self):
-        os.system('rm -f %s.dat' % self.name)
+        getstatusoutput('rm -f %s.dat' % self.name)
         inputFile = open("%s.pass" % self.name, 'w')
         inputFile.write(self.createEntry("VPN_certificate", self.vpnPass, "This will unlock your VPN certificate")+'\n')
         for host in self.hostAccess:
@@ -102,18 +141,18 @@ class UserAuth:
             ipAddress = yaml.load(open("deploy/client/%s.yml" % host).read())["ipAddress"]
             inputFile.write(self.createEntry("%s-%s" % (host, ipAddress), self.hostPass, notes)+'\n')
         inputFile.close()
-        os.system("bash -c 'cat %s.pass | ./pw.sh' 2&> /dev/null" % self.name)
-        #os.system("rm %s.pass %s.dat~" % (self.name, self.name))
+        getstatusoutput("bash -c 'cat %s.pass | ./pw.sh' 2&> /dev/null" % self.name)
+        getstatusoutput("rm %s.pass %s.dat~" % (self.name, self.name))
         if os.path.isfile("%s.dat" % self.name):
             return OK
         return FAIL
 
     def prepareWebData(self):
-        status1 = os.system('mv -f %s.dat %s' % (self.name, self.webDir))
-        status2 = os.system('bash -c "mv -f %s/%s*.zip %s"' % (self.certDir, self.name, self.webDir))
+        status1, output = getstatusoutput('mv %s.dat %s' % (self.name, self.webDir))
+        status2, output = getstatusoutput('bash -c "mv %s/%s*.zip %s"' % (self.certDir, self.name, self.webDir))
         open("%s/%s.passwd" % (self.webDir, self.name), 'w').write(self.safeCombo)
-        status3 = os.system('sudo bash -c "chown %s.%s %s/%s*"' % (self.webUser, self.webUser, self.webDir, self.name))
-        status4 = os.system('sudo bash -c "chmod 660 %s/%s*"' % (self.webDir, self.name))
+        status3, output = getstatusoutput('sudo bash -c "chown %s.%s %s/%s*"' % (self.webUser, self.webUser, self.webDir, self.name))
+        status4, output = getstatusoutput('sudo bash -c "chmod 600 %s/%s*"' % (self.webDir, self.name))
         if [status1, status2, status3, status4] == [OK, OK, OK, OK]:
             return OK
 
@@ -121,40 +160,46 @@ class UserAuth:
     
     def bombardierUpdate(self):
         overallStatus = OK
-        print "bombardierUpdate"
-        for host in self.hostAccess:
+        for host in self.modifiedSystems:
             print "HOST:", host
             serverObject = BombardierRemoteClient(host, self.password)
             status1, output = serverObject.process(EXECUTE, ["HostAuthorization"], "addUsers", True)
             if "DbAuthorization" in serverObject.info["packages"]:
-                status2, output = serverObject.process(EXECUTE, ["DbAuthorization"], "cleanUsers", True)
-                status3, output = serverObject.process(EXECUTE, ["DbAuthorization"], "addUsers", True)
+                status2, output = serverObject.process(EXECUTE, ["DbAuthorization"], "setUsers", True)
             else:
-                status2, status3 = OK, OK
-            if FAIL in [status1, status2, status3]:
+                status2 = OK
+            if FAIL in [status1, status2]:
                 overallStatus = FAIL
         return overallStatus
 
 if __name__ == "__main__":
+
+    def getData():
+        return yaml.load(open("testSystemInfo.yml").read())
+
     from libTest import *
-    os.system("cp testSystemInfo.yml.bak testSystemInfo.yml")
-    os.system('bash -c "rm -f CA/cgvpn/joe*"')
-    os.system("rm -f joe.pass")
-    os.system('bash -c "rm -f /D/www/pwsafe/joe*"')
+    getstatusoutput("cp testSystemInfo.yml.bak testSystemInfo.yml")
+    getstatusoutput('bash -c "rm -f CA/salem/joe*"')
+    getstatusoutput("rm -f joe.pass")
+    getstatusoutput('bash -c "rm -f /D/www/pwsafe/joe*"')
     status = OK
-    userAuth = UserAuth("joe", ["DB_READER"], "joe is a nice guy", "testSystemInfo.yml")
+    userAuth = UserAuth("joe", ["DB_READER"], "joe is a nice guy", "testSystemInfo.yml", True, 'abc')
     startTest()
     assert not "joe" in open("testSystemInfo.yml").read()
-    assert not os.path.isfile("CA/cgvpn/joe-salem-outside.zip")
+    assert not os.path.isfile("CA/salem/joe-salem-outside.zip")
     assert not os.path.isfile("/D/www/pwsafe/joe-salem-outside.zip")
     status = runTest(userAuth.modifySystemInfo, [], OK, status)
-    status = runTest(userAuth.createVpnCert, [], OK, status)
-    assert os.path.isfile("CA/cgvpn/joe-salem-outside.zip")
-    status = runTest(userAuth.createPwsafe, [], OK, status)
-    status = runTest(userAuth.prepareWebData, [], OK, status)
-    assert os.path.isfile("/D/www/pwsafe/joe-salem-outside.zip")
-    assert userAuth.hostAccess['lildb'] == set(['casDB', 'uhrDB', 'rmsDB'])
-    assert "joe" in open("testSystemInfo.yml").read()
-    userAuth = UserAuth("joe", ["DB-READER"], "joe is a nice guy", "testSystemInfo.yml")
-    status = runTest(userAuth.modifySystemInfo, [], FAIL, status)
+    userAuth = UserAuth("joe", ["SVCNET"], "joe is a nice guy", "testSystemInfo.yml", True, 'abc')
+    status = runTest(userAuth.modifySystemInfo, [], OK, status)
+    data = getData()
+    assert data["system"]["users"]["joe"]["rights"] == ["SVCNET"]
+    #status = runTest(userAuth.createVpnCert, [], OK, status)
+    #assert os.path.isfile("CA/salem/joe-salem-outside.zip")
+    #status = runTest(userAuth.createPwsafe, [], OK, status)
+    #status = runTest(userAuth.prepareWebData, [], OK, status)
+    #assert os.path.isfile("/D/www/pwsafe/joe-salem-outside.zip")
+    #assert userAuth.newHostAccess['lildb'] == set(['casDB', 'uhrDB', 'rmsDB'])
+    #assert "joe" in open("testSystemInfo.yml").read()
+    #userAuth = UserAuth("joe", ["DB_ADMIN"], "joe is a nice guy", "testSystemInfo.yml", True, 'abc')
+    #status = runTest(userAuth.modifySystemInfo, [], OK, status)
     endTest(status)
