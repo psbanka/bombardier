@@ -53,7 +53,7 @@ class UserAuth:
         self.password = password
         if not self.password:
             self.password = config.get("password")
-            if not self.pasword:
+            if not self.password:
                 self.password = libUi.pwdInput('Input root password: ')
 
     def buildHostAccess(self, rightsDict):

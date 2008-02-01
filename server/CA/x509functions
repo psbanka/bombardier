@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 export PASS=test1234 country=US company=WellTemperedComputers division=TCE state=Oregon city=Portland
 
 function makeconfig() {
@@ -123,7 +123,7 @@ function _opt2var() {
     while [ -n "$*" ] 
       do
       [[ $1 =~ "^-.*" ]] && { 
-	  n=$1;shift;v+="${n#-}=$1 " ; } ; shift; done; 
+	  n=$1;shift;v="$v""${n#-}=$1 " ; } ; shift; done; 
     echo $v
 }
 
@@ -162,7 +162,7 @@ function _x509_sign() {
     message=" ${csr}.csr does not exist" && [  -f "${csr}.csr" ] && 
     message=""
     [ -n "$message" ] && echo $message && return
-    openssl x509 -req  -in ${csr}.csr -days 120  \
+    openssl x509 -req  -in ${csr}.csr -days 3600  \
     -CA ${ca}-CA.crt -CAkey ${ca}-CA.key -CAcreateserial -out ${csr}.crt
     x509 issuer -crt $csr
 }
@@ -371,31 +371,31 @@ function _x509_complete() {
     }
 
     [ "$cmd" = "sign" ] && [ "$COMP_CWORD" -ge "2" ] && {
-	[[ !  $COMP_LINE =~ -csr ]] && s+="-csr "
-	[[ !  $COMP_LINE =~ -ca ]] && s+="-ca "
+	[[ !  $COMP_LINE =~ -csr ]] && s="$s""-csr "
+	[[ !  $COMP_LINE =~ -ca ]] && s="$s""-ca "
 	COMPREPLY=( $(compgen -W "$s"  -- $cur   ))
 	return 0
     }
 
     [ "$cmd" = "createCA" ] && [ "$COMP_CWORD" -ge "2" ] && {
-	[[ !  $COMP_LINE =~ -name ]] && s+="-name "
-	[[ !  $COMP_LINE =~ -email ]] && s+="-email "
+	[[ !  $COMP_LINE =~ -name ]] && s="$s""-name "
+	[[ !  $COMP_LINE =~ -email ]] && s="$s""-email "
 	COMPREPLY=( $(compgen -W "$s"  -- $cur   ))
 	return 0
     }
 
 
     [ "$cmd" = "request" ] && [ "$COMP_CWORD" -ge "2" ] && {
-	[[ !  $COMP_LINE =~ -name ]] && s+="-name "
-	[[ !  $COMP_LINE =~ -email ]] && s+="-email "
+	[[ !  $COMP_LINE =~ -name ]] && s="$s""-name "
+	[[ !  $COMP_LINE =~ -email ]] && s="$s""-email "
 	COMPREPLY=( $(compgen -W "$s"  -- $cur   ))
 	return 0
     }
 
     [ "$cmd" = "buildopenvpnzip" ] && [ "$COMP_CWORD" -ge "2" ] && {
-	[[ !  $COMP_LINE =~ -crt ]] && s+="-crt "
-	[[ !  $COMP_LINE =~ -ca ]] && s+="-ca "
-	[[ !  $COMP_LINE =~ -server ]] && s+="-server "
+	[[ !  $COMP_LINE =~ -crt ]] && s="$s""-crt "
+	[[ !  $COMP_LINE =~ -ca ]] && s="$s""-ca "
+	[[ !  $COMP_LINE =~ -server ]] && s="$s""-server "
 	COMPREPLY=( $(compgen -W "$s"  -- $cur   ))
 	return 0
     }

@@ -237,15 +237,14 @@ class BombardierBackup:
 
     def runBackup(self):
         if setLock("%s-backup-lock" % self.backupServerName.replace('-','')) == FAIL:
-            logger.error("Unable to proceed with backup. Lock is set.")
             return FAIL
         status = OK
         if self.fullBackup:
             print "#################################### BACKUP FULL "
-            status, output = self.backupServerObject.process(EXECUTE, ["SqlBackup"], "backupFull")
+            status, output = self.backupServerObject.process(EXECUTE, ["SqlBackup"], "backupFull", True)
         else:
             print "#################################### BACKUP LOG "
-            status, output = self.backupServerObject.process(EXECUTE, ["SqlBackup"], "backupLog")
+            status, output = self.backupServerObject.process(EXECUTE, ["SqlBackup"], "backupLog", True)
         if status != OK:
             logger.error( "Backup failed on %s" % ( backupServerName ) )
         clearLock("%s-backup-lock" % backupServerName.replace('-',''))
@@ -303,7 +302,7 @@ class BombardierBackup:
 
             logger.info("Instructing server %s to restore..." % restoreServerName)
             print "#################################### RESTORE"
-            cmdstatus, output =  restoreObject.process(EXECUTE, ["SqlBackup"], "restore")
+            cmdstatus, output =  restoreObject.process(EXECUTE, ["SqlBackup"], "restore", True)
             clearLock(restoreServerName.replace('-','')+"-restore-lock")
 
             if cmdstatus == FAIL:
@@ -322,12 +321,12 @@ class BombardierBackup:
             if role == "rw_secondary" and self.fullBackup:
                 print "#################################### ONLINE "
                 logger.info("Instructing server %s to come online..." % restoreServerName)
-                restoreObject.process(EXECUTE, ["SqlBackup"], "online")
+                restoreObject.process(EXECUTE, ["SqlBackup"], "online", True)
                 print "#################################### CLEANUSERS "
                 logger.info("Instructing server %s to set proper user permission..." % restoreServerName)
-                if restoreObject.process(EXECUTE, ["DbAuthorization"], "cleanUsers")[0] == OK:
+                if restoreObject.process(EXECUTE, ["DbAuthorization"], "cleanUsers", True)[0] == OK:
                     print "#################################### ADDUSERS "
-                    if restoreObject.process(EXECUTE, ["DbAuthorization"], "addUsers")[0] == OK:
+                    if restoreObject.process(EXECUTE, ["DbAuthorization"], "addUsers", True)[0] == OK:
                         continue
                     else:
                         logger.error("Adding users back in failed")
@@ -458,17 +457,18 @@ if __name__ == "__main__":
         if PERFORM_BACKUP in OPTIONS:
             status = backup.runBackup()
             report['backup'] = status
-        if status == OK:
-            if RSYNC_PULL in OPTIONS:
-                report['pull'] = pullFiles(backupServerName, clientConfig, localArchive)
-            if ARCHIVE_MAINT in OPTIONS:
-                archiveMaint(clientConfig, databases, "%s/%s" % (localArchive, backupServerName.replace('-','')))
-            if RSYNC_PUSH in OPTIONS:
-                report['push'] = backup.sync(localNetwork, localArchive)
-            if PERFORM_RESTORE in OPTIONS :
-                report['restore'] = backup.restore()
-            if RESTORE_USERS in OPTIONS:
-                report['online'] = backup.online()
+        if status != OK:
+            sys.exit(0)
+        if RSYNC_PULL in OPTIONS:
+            report['pull'] = pullFiles(backupServerName, clientConfig, localArchive)
+        if ARCHIVE_MAINT in OPTIONS:
+            archiveMaint(clientConfig, databases, "%s/%s" % (localArchive, backupServerName.replace('-','')))
+        if RSYNC_PUSH in OPTIONS:
+            report['push'] = backup.sync(localNetwork, localArchive)
+        if PERFORM_RESTORE in OPTIONS :
+            report['restore'] = backup.restore()
+        if RESTORE_USERS in OPTIONS:
+            report['online'] = backup.online()
         if REPORT_OUT in OPTIONS:
             addDictionaries(report, dbReport(restoreServerNames, backupServerName, databases, options.full, clientConfig) )
             wrapup(report, backupServerName, clientConfig)
