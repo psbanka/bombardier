@@ -50,10 +50,11 @@ class UserAuth:
         self.environment = config["environment"]
         self.webDir = config["webDir"]
         self.webUser = config["webUser"]
-        if password:
-            self.password = password
-        else:
-            self.password = libUi.pwdInput('Input root password: ')
+        self.password = password
+        if not self.password:
+            self.password = config.get("password")
+            if not self.pasword:
+                self.password = libUi.pwdInput('Input root password: ')
 
     def buildHostAccess(self, rightsDict):
         for host in rightsDict:
