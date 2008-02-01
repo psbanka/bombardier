@@ -40,7 +40,7 @@ if __name__ == "__main__":
     rightsList = []
     if options.list:
         if args > 0:
-            userName = args[0]
+            userName = args[0].lower()
             showAllRights(userName)
         else:
             showAllRights()
@@ -62,14 +62,15 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(FAIL)
 
-    userName   = args[0]
+    userName   = args[0].lower()
     user = UserAuth(userName, rightsList, options.comment, SYSTEM_INFO, options.autoConfirm)
     if not options.vpnOnly:
         user.modifySystemInfo()
-    user.createVpnCert()
-    user.createPwsafe()
-    user.prepareWebData()
+    if options.delete:
+        user.removeCredentials()
+    else:
+        user.createVpnCert()
+        user.createPwsafe()
+        user.prepareWebData()
     if not options.vpnOnly:
         user.bombardierUpdate()
-
-    #^ make system name configurable as well as destination location

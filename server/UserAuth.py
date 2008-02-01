@@ -147,6 +147,11 @@ class UserAuth:
             return OK
         return FAIL
 
+    def removeCredentials(self):
+        #^ FIXME: INVALIDATE CERTS
+        status, output = getstatusoutput('bash -c "rm -f %s/%s*"' % (self.webDir, self.name))
+        return status
+
     def prepareWebData(self):
         status1, output = getstatusoutput('mv %s.dat %s' % (self.name, self.webDir))
         status2, output = getstatusoutput('bash -c "mv %s/%s*.zip %s"' % (self.certDir, self.name, self.webDir))
@@ -163,7 +168,7 @@ class UserAuth:
         for host in self.modifiedSystems:
             print "HOST:", host
             serverObject = BombardierRemoteClient(host, self.password)
-            status1, output = serverObject.process(EXECUTE, ["HostAuthorization"], "addUsers", True)
+            status1, output = serverObject.process(EXECUTE, ["HostAuthorization"], "setUsers", True)
             if "DbAuthorization" in serverObject.info["packages"]:
                 status2, output = serverObject.process(EXECUTE, ["DbAuthorization"], "setUsers", True)
             else:
