@@ -1,0 +1,485 @@
+#! /bin/sh
+export PASS=test1234 country=US company=WellTemperedComputers division=TCE state=Oregon city=Portland
+
+function makeconfig() {
+cat> config  <<'EOF'
+# TCE OpenSSL Configuration File
+prompt=no
+HOME			= .
+RANDFILE		= $ENV::HOME/.rnd
+
+# Extra OBJECT IDENTIFIER info:
+#oid_file		= $ENV::HOME/.oid
+oid_section		= new_oids
+[ new_oids ]
+
+####################################################################
+[ ca ]
+default_ca	= CA_default		# The default ca section
+
+####################################################################
+[ CA_default ]
+
+dir		= .		# Where everything is kept
+certs		= $dir/certs		# Where the issued certs are kept
+crl_dir		= $dir/crl		# Where the issued crl are kept
+database	= $dir/index.txt	# database index file.
+#unique_subject	= no			# Set to 'no' to allow creation of
+					# several ctificates with same subject.
+new_certs_dir	= $dir/newcerts		# default place for new certs.
+
+certificate	= $dir/testinf-ca.crt 	# The CA certificate
+serial		= $dir/serial 		# The current serial number
+#crlnumber	= $dir/crlnumber	# the current crl number must be
+					# commented out to leave a V1 CRL
+crl		= $dir/crl.pem 		# The current CRL
+private_key	= $dir/testing-ca.key   # The private key
+RANDFILE	= $dir/private/.rand	# private random number file
+
+x509_extensions	= usr_cert		# The extentions to add to the cert
+name_opt 	= ca_default		# Subject Name options
+cert_opt 	= ca_default		# Certificate field options
+
+default_days	= 365			# how long to certify for
+default_crl_days= 365			# how long before next CRL
+default_md	= md5			# which md to use.
+preserve	= no			# keep passed DN ordering
+
+policy		= policy_match
+
+[ policy_match ]
+countryName		= match
+stateOrProvinceName	= match
+organizationName	= match
+organizationalUnitName	= optional
+commonName		= supplied
+emailAddress		= optional
+
+
+[ policy_anything ]
+countryName		= optional
+stateOrProvinceName	= optional
+localityName		= optional
+organizationName	= optional
+organizationalUnitName	= optional
+commonName		= supplied
+emailAddress		= optional
+
+####################################################################
+[ req ]
+default_bits		= 1024
+default_keyfile 	= privkey.pem
+distinguished_name	= req_distinguished_name
+attributes		= req_attributes
+x509_extensions	= v3_ca	# The extentions to add to the self signed cert
+
+# Passwords for private keys if not present they will be prompted for
+# input_password = secret
+# output_password = secret
+string_mask = nombstr
+[ req_distinguished_name ]
+C                      = $ENV::country
+ST                     = $ENV::state
+L                      = $ENV::city
+O                      = $ENV::company
+OU                     = $ENV::division
+CN                     = $ENV::name
+emailAddress           = $ENV::email
+
+[ req_attributes ]
+challengePassword		= A challenge password
+#challengePassword_min		= 4
+#challengePassword_max		= 20
+unstructuredName		= An optional company name
+
+[ usr_cert ]
+basicConstraints=CA:FALSE
+
+nsComment			= "OpenSSL Generated Certificate"
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer:always
+[ v3_req ]
+
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+
+[ v3_ca ]
+
+subjectKeyIdentifier=hash
+
+authorityKeyIdentifier=keyid:always,issuer:always
+basicConstraints = CA:true
+
+[ crl_ext ]
+
+authorityKeyIdentifier=keyid:always,issuer:always
+EOF
+
+}
+
+
+function _opt2var() {
+    local v n
+    while [ -n "$*" ] 
+      do
+      [[ $1 =~ "^-.*" ]] && { 
+	  n=$1;shift;v+="${n#-}=$1 " ; } ; shift; done; 
+    echo $v
+}
+
+function _x509_request() {
+ #create a request
+    declare -x $(_opt2var $*)
+#    [ -n "$*" ] && declare -x $*
+    message="no country!" && [ -n "$country" ] && 
+    message="no company!" && [ -n "$company" ] && 
+    message="noDivision"  && [ -n "$division" ] &&  
+    message="nostate"     && [ -n "$state" ] && 
+    message="noname"      && [ -n "$name" ] && 
+    message="no email"    && [ -n "$email" ]  && 
+    message="" 
+    [ -n "$message" ] && echo $message && return
+    export password
+    openssl req -config config \
+	-days 3650 \
+	-nodes -new -keyout \
+	$name.key -out $name.csr
+    export password=
+}
+
+
+function _x509_sign() {
+    declare -x $(_opt2var $*)
+    #[ -n "$*" ] && declare -x   $*
+    message="no ca!" && [ -n "$ca" ] && 
+    message="no csr!" && [ -n "$csr" ] &&
+    message=""
+    [ -n "$message" ] && echo $message && return
+    ca=${ca/.crt}
+    ca=${ca/-CA}
+    csr=${csr/.csr}
+    message=" ${ca}-CA.crt does not exist" && [  -f "${ca}-CA.crt" ] && 
+    message=" ${csr}.csr does not exist" && [  -f "${csr}.csr" ] && 
+    message=""
+    [ -n "$message" ] && echo $message && return
+    openssl x509 -req  -in ${csr}.csr -days 120  \
+    -CA ${ca}-CA.crt -CAkey ${ca}-CA.key -CAcreateserial -out ${csr}.crt
+    x509 issuer -crt $csr
+}
+
+function _x509_show_request() {
+    declare -x $(_opt2var $*)
+    #[ -n "$*" ] && declare -x   $*
+    message="no csr!" && [ -n "$csr" ] &&
+    message=""
+    [ -n "$message" ] && echo $message && return
+    csr=${csr/.csr}
+    message=" ${csr}.csr does not exist" && [  -f "${csr}.csr" ] && 
+    message=""
+    [ -n "$message" ] && echo $message && return
+    openssl req -in ${csr}.csr -text -verify -noout
+}
+
+
+
+
+
+
+
+
+function _x509_createCA() {
+    declare -x $(_opt2var $*)
+    #[ -n "$*" ] && declare -x  $*
+    message="no country!" && [ -n "$country" ] &&
+    message="no company!" && [ -n "$company" ] &&
+    message="no division!" && [ -n "$division" ] && 
+    message="no state!"    && [ -n "$state" ] &&
+    message="no name!"     && [ -n "$name" ] &&
+    message="no email!"    && [ -n "$email" ]  && message=""
+    [ -n "$message" ] && echo $message && return
+    fname=${name}-CA
+    [ -f ${fname}.crt ] && {
+	    echo $fname already exists 
+	    return
+	}
+    [ -f ${fname}.key  ] && {
+	    echo $fname already exists 
+	    return
+	}
+    [ -f config ] || makeconfig
+    openssl req -config config -x509 \
+	-days 3650 -nodes -new \
+	-keyout ${fname}.key -out ${fname}.crt
+    chmod 600 ${fname}.key
+    
+}
+
+function _x509_show() {
+    declare -x  $(_opt2var $*)
+    #[ -n "$*" ] && declare $*
+    crt=${crt/.crt}.crt
+    [  -f "${crt}" ] || { echo  "${crt}.crt does not exist" ; return; }
+    openssl x509 -in $crt -noout -text
+    }
+function _x509_issuer() {
+    declare -x $(_opt2var $*)
+    #[ -n "$*" ] && declare $*
+    crt=${crt/.crt}
+    [  -f "${crt}.crt" ] || { echo  "${crt}.crt does not exist" ; return; }
+    openssl x509 -in ${crt}.crt -noout -issuer
+    }
+function _x509_subject() {
+    declare -x $(_opt2var $*)
+    #[ -n "$*" ] && declare $*
+    crt=${crt/.crt}
+    [  -f "${crt}.crt" ] || { echo  "${crt}.crt does not exist" ; return; }
+    openssl x509 -in ${crt}.crt -noout -subject
+    }
+function _x509_serial() {
+    declare -x $(_opt2var $*)
+    #[ -n "$*" ] && declare $*
+    crt=${crt/.crt}
+    [  -f "${crt}.crt" ] || { echo  "${crt}.crt does not exist" ; return; }
+    openssl x509 -in ${crt}.crt -noout -serial
+    }
+function _x509_enddate() {
+    declare -x $(_opt2var $*)
+    #[ -n "$*" ] && declare $*
+    crt=${crt/.crt}
+    [  -f "${crt}.crt" ] || { echo  "${crt}.crt does not exist" ; return; }
+    openssl x509 -in ${crt}.crt -noout -enddate
+    }
+function _x509_startdate() {
+    declare -x $(_opt2var $*)
+    #[ -n "$*" ] && declare $*
+    crt=${crt/.crt}
+    [  -f "${crt}.crt" ] || { echo  "${crt}.crt does not exist" ; return; }
+    openssl x509 -in ${crt}.crt -noout -startdate
+    }
+
+function _x509_key_password() {
+    declare -x $(_opt2var $*)
+    key=${key/.key}
+
+    [  -f ${key}.key ] || { echo key ${key}.key does not exist, trying CA; 
+    key=$key-CA ; }
+    [  -f ${key}.key ] || { echo key ${key}.key does not either; return; }
+    key=${key}.key
+    echo saving current ${key}
+    backup=${key}.backup.$(date +%d-%m-%y@%H.%M.%S)
+    cp -v  ${key}  ${backup}
+    mv  ${key}  ${key}.original
+    openssl rsa -des3 -in  ${key}.original -out  ${key}
+    [ $? = 0 ] || {
+	cp   ${key}.original $key
+	echo $failed
+	}
+
+    }
+
+function _x509 {
+local cur
+    cur=${COMP_WORDS[COMP_CWORD]}
+    prev=${COMP_WORDS[COMP_CWORD-1]}
+    x=$COMPREPLY
+    COMPREPLY=()
+    
+    COMPREPLY=( $(compgen  -W "x509_CA x509_req X509_sign X509_key_password" -S '=' -- $cur ))
+
+}
+
+
+[ -f /etc/x509.conf ] && . /etc/x509.conf
+
+function _x509_complete() {
+    local curw cur prev
+    cmd=${COMP_WORDS[1]}
+    cur=${COMP_WORDS[COMP_CWORD]}
+    prev=${COMP_WORDS[COMP_CWORD-1]}
+    COMPREPLY=()
+    s=
+    [ "$COMP_CWORD" = "1" ] && {
+	commands="createCA request sign show key_password \
+	    docs issuer serial subject show_request buildopenvpnzip"
+	COMPREPLY=( $(compgen   -W "$commands" -- $cur ))
+	return 0
+    }
+
+    [[ "$prev" =~ "^-csr" ]] &&   {
+	COMPREPLY=( $(compgen  -f -X '!*.csr' --  "$cur" )) 
+	return 0
+    }
+
+    [[ "$prev" =~ "^-ca" ]] &&   {
+	COMPREPLY=( $(compgen  -f -X '!*-CA.crt' --  "$cur" )) 
+	return 0
+    }
+
+    [[ "$prev" =~ "^-crt" ]] &&   {
+	COMPREPLY=( $(compgen  -f -X '!*.crt' --  "$cur" ))
+	return 0
+    }
+
+    [[ "$prev" =~ "^-key" ]] &&   {
+   	COMPREPLY=( $(compgen  -f -X '!*.key' --  "$cur" ))    
+	return 0
+    }
+
+    [[ "$prev" =~ "^-email" ]] &&   {
+	COMPREPLY=( $(compgen  -W "$(grep -o '\-email [^ ]*@[^ ]*' ~/.bash_history|cut -d' ' -f2|uniq)" "$cur"))
+	return 0
+    }
+    [[ "$prev" =~ "^-name" ]] &&   {
+	COMPREPLY=( $(compgen  -W "$(grep -o '\-name *[^ ]*' ~/.bash_history|cut -d' ' -f2|uniq)" "$cur"))
+	return 0
+    }
+
+
+    [[ "$prev" =~ "^-password" ]] &&   {
+	COMPREPLY=( $(compgen  -W "$(pwgen)"))
+	return 0
+    }
+
+
+    
+    [ "$cmd" = "show" ] && { 
+	[ "$COMP_CWORD" = "2" ] && COMPREPLY=( $(compgen -W '-crt' ))
+	return 0
+    }
+
+    [ "$cmd" = "show_request" ] && { 
+	[ "$COMP_CWORD" = "2" ] && COMPREPLY=( $(compgen -W '-csr' ))
+	return 0
+    }
+
+    [ "$cmd" = "issuer" ] && { 
+	[ "$COMP_CWORD" = "2" ] && COMPREPLY=( $(compgen -W '-crt' ))
+	return 0
+    }
+    [ "$cmd" = "serial" ] && { 
+	[ "$COMP_CWORD" = "2" ] && COMPREPLY=( $(compgen -W '-crt' ))
+	return 0
+    }
+
+    [ "$cmd" = "subject" ] && { 
+	[ "$COMP_CWORD" = "2" ] && COMPREPLY=( $(compgen -W '-crt' ))
+	return 0
+    }
+    [ "$cmd" = "key_password" ] && { 
+	[ "$COMP_CWORD" = "2" ] && COMPREPLY=( $(compgen -W '-key' ))
+	return 0
+    }
+
+    [ "$cmd" = "sign" ] && [ "$COMP_CWORD" -ge "2" ] && {
+	[[ !  $COMP_LINE =~ -csr ]] && s+="-csr "
+	[[ !  $COMP_LINE =~ -ca ]] && s+="-ca "
+	COMPREPLY=( $(compgen -W "$s"  -- $cur   ))
+	return 0
+    }
+
+    [ "$cmd" = "createCA" ] && [ "$COMP_CWORD" -ge "2" ] && {
+	[[ !  $COMP_LINE =~ -name ]] && s+="-name "
+	[[ !  $COMP_LINE =~ -email ]] && s+="-email "
+	COMPREPLY=( $(compgen -W "$s"  -- $cur   ))
+	return 0
+    }
+
+
+    [ "$cmd" = "request" ] && [ "$COMP_CWORD" -ge "2" ] && {
+	[[ !  $COMP_LINE =~ -name ]] && s+="-name "
+	[[ !  $COMP_LINE =~ -email ]] && s+="-email "
+	COMPREPLY=( $(compgen -W "$s"  -- $cur   ))
+	return 0
+    }
+
+    [ "$cmd" = "buildopenvpnzip" ] && [ "$COMP_CWORD" -ge "2" ] && {
+	[[ !  $COMP_LINE =~ -crt ]] && s+="-crt "
+	[[ !  $COMP_LINE =~ -ca ]] && s+="-ca "
+	[[ !  $COMP_LINE =~ -server ]] && s+="-server "
+	COMPREPLY=( $(compgen -W "$s"  -- $cur   ))
+	return 0
+    }
+
+
+}
+
+function _x509_cgvpn_all() {
+    declare -x $(_opt2var $*)
+    #[ -n "$*" ] && declare -x   $*
+    message="no name!" && [ -n "$name" ] && 
+    message="no email!" && [ -n "$email" ] && 
+    message="no ca!" && [ -n "$ca" ] &&
+    message="no server!" && [ -n "$server" ] &&
+    message=""
+    [ -n "$message" ] && echo $message && return
+    _x509_request -name $name -email -email
+    _x509_request -sign -csr $csr -ca cgvpn-CA.crt
+}
+
+
+function _x509_buildopenvpnzip() {
+    declare -x $(_opt2var $*)
+    #[ -n "$*" ] && declare -x   $*
+    message="no ca!" && [ -n "$ca" ] && 
+    message="no crt!" && [ -n "$crt" ] &&
+    message="no server!" && [ -n "$server" ] &&
+    message=""
+    [ -n "$message" ] && echo $message && return
+    ca=${ca/.crt}
+    ca=${ca/-CA}
+    user=${crt/.crt}
+    message=" ${ca}-CA.crt does not exist" && [  -f "${ca}-CA.crt" ] && 
+    message=" ${crt}.crt does not exist" && [  -f "${crt}.crt" ] && 
+    message=" no server!" && [ -n "$server" ] &&     message=""
+    [ -n "$message" ] && echo $message && return
+    {
+	echo "remote ${server}"
+	echo "ca ${ca}-CA.crt"
+	echo "cert ${user}.crt"
+	echo "key ${user}.key"
+	echo "client"
+	echo "dev tap"
+	echo "proto udp"
+	echo "resolv-retry infinite"
+	echo "nobind"
+	echo "persist-key"
+	echo "persist-tun"
+	echo "verb 2"
+	echo "float"
+	echo "dev-node \"MyTAP\""
+    } > /tmp/${server}.ovpn
+    unix2dos  /tmp/${server}.ovpn
+    zipfile=/tmp/${user}-${ca}.zip
+    rm $zipfile
+    zip -uj $zipfile  /tmp/${server}.ovpn
+    zip -u  $zipfile  ${user}.crt
+    zip -u  $zipfile  ${user}.key
+    zip -u  $zipfile ${ca}-CA.crt 
+
+}
+
+
+
+function docs() {
+echo create a Certificate Authority
+echo x509 createCA -email bozo@localhost  -name my 
+
+echo create a Certificate request
+echo x509 request -email bonzo@localhost -name bonzo 
+
+echo sign  a Certificate request
+x509 sign -ca my -csr bonzo
+}
+
+
+complete -F  _x509_complete  x509
+
+function x509() {
+    [ -f config ] || makeconfig
+    ( _x509_$1 $* )
+}
+[ -d /etc/x509functions ] && . /etc/509functions
+
+#$1 $2 $3 $4 $5 $6 $7 $8 $9
+
+
