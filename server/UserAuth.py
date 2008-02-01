@@ -6,6 +6,7 @@ from bcs import BombardierRemoteClient, EXECUTE
 import libCipher
 import pexpect
 
+
 def showAllRights():
     userData = yaml.load(open("deploy/include/systemInfo.yml").read())
     print yaml.dump(userData["system"]["rights"], default_flow_style=False)
@@ -49,7 +50,7 @@ class UserAuth:
         self.environment = config["environment"]
         self.webDir = config["webDir"]
         self.webUser = config["webUser"]
-        self.certDir = config["certDir"]
+        self.vpnName = config["vpnName"]
         if password:
             self.password = password
         else:
@@ -115,8 +116,8 @@ class UserAuth:
 
     def createVpnCert(self):
         start = os.getcwd()
-        os.chdir(self.certDir)
-        s = pexpect.spawn("bash mkpkg.sh %s" % self.name)
+        os.chdir("CA")
+        s = pexpect.spawn("bash mkpkg.sh %s %s" % (self.name, self.vpnName))
         s.expect("Enter PEM pass phrase:")
         s.sendline(self.vpnPass)
         s.expect("Verifying - Enter PEM pass phrase:")
@@ -124,8 +125,8 @@ class UserAuth:
         time.sleep(1)
         s.close()
         os.chdir(start)
-        if os.path.isfile("%s/%s-%s-outside.zip" % (self.certDir, self.name, self.environment)):
-            if os.path.isfile("%s/%s-%s-inside.zip" % (self.certDir, self.name, self.environment)):
+        if os.path.isfile("%s/%s-%s-outside.zip" % ("CA", self.name, self.environment)):
+            if os.path.isfile("%s/%s-%s-inside.zip" % ("CA", self.name, self.environment)):
                 return OK
         return FAIL
 
@@ -154,7 +155,7 @@ class UserAuth:
 
     def prepareWebData(self):
         status1, output = getstatusoutput('mv %s.dat %s' % (self.name, self.webDir))
-        status2, output = getstatusoutput('bash -c "mv %s/%s*.zip %s"' % (self.certDir, self.name, self.webDir))
+        status2, output = getstatusoutput('bash -c "mv CA/%s*.zip %s"' % (self.name, self.webDir))
         open("%s/%s.passwd" % (self.webDir, self.name), 'w').write(self.safeCombo)
         status3, output = getstatusoutput('sudo bash -c "chown %s.%s %s/%s*"' % (self.webUser, self.webUser, self.webDir, self.name))
         status4, output = getstatusoutput('sudo bash -c "chmod 600 %s/%s*"' % (self.webDir, self.name))
