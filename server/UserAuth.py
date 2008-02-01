@@ -50,7 +50,6 @@ class UserAuth:
         self.environment = config["environment"]
         self.webDir = config["webDir"]
         self.webUser = config["webUser"]
-        self.vpnName = config["vpnName"]
         if password:
             self.password = password
         else:
@@ -117,7 +116,7 @@ class UserAuth:
     def createVpnCert(self):
         start = os.getcwd()
         os.chdir("CA")
-        s = pexpect.spawn("bash mkpkg.sh %s %s" % (self.name, self.vpnName))
+        s = pexpect.spawn("bash mkpkg.sh %s %s" % (self.name, self.environment))
         s.expect("Enter PEM pass phrase:")
         s.sendline(self.vpnPass)
         s.expect("Verifying - Enter PEM pass phrase:")
