@@ -65,12 +65,18 @@ if __name__ == "__main__":
     userName   = args[0].lower()
     user = UserAuth(userName, rightsList, options.comment, SYSTEM_INFO, options.autoConfirm)
     if not options.vpnOnly:
+        print "Modifying systemInfo.yml..."
         user.modifySystemInfo()
     if options.delete:
+        print "Cleaning out web directory for this user..."
         user.removeCredentials()
     else:
+        print "Creating certificate..."
         user.createVpnCert()
+        print "Creating password safe..."
         user.createPwsafe()
+        print "Making data downloadable..."
         user.prepareWebData()
     if not options.vpnOnly:
+        print "Pushing configuration out to servers..."
         user.bombardierUpdate()

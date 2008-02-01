@@ -89,7 +89,11 @@ class UserAuth:
                 else:
                     userDict["comment"] = self.comment
                 break
+            else:
+                pass
+                #print "%s != %s" % (userName.lower(), self.userName.lower())
         if not foundUser:
+            print "==> User not found in current configuration"
             addRightsList   = self.rightsList
             delRightsList   = []
             userDict        = {"rights": self.rightsList, "comment": self.comment}
