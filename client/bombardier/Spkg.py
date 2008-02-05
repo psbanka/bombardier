@@ -17,9 +17,9 @@ class SpkgException( Exception ):
         e = Exception()
         Exception.__init__(e)
     def __str__(self):
-        print self.errorMessage
+        return self.errorMessage
     def __repr__(self):
-        print self.errorMessage
+        return self.errorMessage
 
 def getConfig():
     import bombardier.Config as Config
