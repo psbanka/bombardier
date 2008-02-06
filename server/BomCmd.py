@@ -133,12 +133,11 @@ class PackageCommand(PinshCmd.PinshCmd):
             except HostNotEnabledException:
                 return FAIL, ["Host not enabled for this user."]
             status, output = self.processObject(r, packageName, tokens)
-            if status == OK:
-                outputFile = "output/%s" % r.localFilename
-                if os.path.isfile(outputFile):
-                    output = ['\n', yaml.load(open(outputFile).read())]
-                else:
-                    output = ["Output file (%s) does not exist." % outputFile]
+            outputFile = "output/%s" % r.localFilename
+            if os.path.isfile(outputFile):
+                output = ['\n', yaml.load(open(outputFile).read())]
+            else:
+                output = ["Output file (%s) does not exist." % outputFile]
         else:
             try:
                 packageNames = self.packageList.name(tokens, 2)[0]
@@ -152,6 +151,8 @@ class PackageCommand(PinshCmd.PinshCmd):
                 return FAIL, ["This package requires sensitive data."]
             status, output = self.processObject(r, packageNames, tokens)
         if status == FAIL:
+            if not output:
+                output = ["Command failed."]
             return FAIL, output
         else:
             if output == []:

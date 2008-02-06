@@ -244,13 +244,10 @@ class BombardierRemoteClient(RemoteClient):
             msg.append( ermsg )
             print
             return FAIL, msg
-        if returnCode == OK:
-            self.getStatusYml()
-            if action == EXECUTE:
-                self.getScriptOutput(scriptName)
-        else:
-            if debug:
-                print "Skipping status file collection due to error."
+
+        self.getStatusYml()
+        if action == EXECUTE:
+            self.getScriptOutput(scriptName)
         print
         return returnCode, msg
 

@@ -41,7 +41,10 @@ def decryptLoop(dict, passwd):
                 dict[newKey] = CENSORED
             del dict[key]
         elif t == type({}):
-            decryptLoop(dict[key], passwd)
+            try:
+                decryptLoop(dict[key], passwd)
+            except DecryptionException, e:
+                raise InvalidData(key, dict[key], "Unable to decrypt")
     
 def decryptString(b64CipherB64Str, passwd):
     #print "b64CipherB64Str: (%s)"%b64CipherB64Str
@@ -63,6 +66,21 @@ def decryptString(b64CipherB64Str, passwd):
     if not isValidString(plainStr):
         raise DecryptionException(b64CipherB64Str, "Invalid characters in the decrypted text 2")
     return plainStr
+
+class InvalidData(Exception):
+    def __init__(self, key, dictionary, explanation = ''):
+        e= Exception()
+        Exception.__init__(e)
+        self.key = key
+        self.dictionary = dictionary
+        if not explanation:
+            self.explanation = "Invalid data"
+        else:
+            self.explanation = explanation
+    def __str__(self):
+        return "%s: [key: (%s), value: (%s)]" % (self.explanation, self.key, self.dictionary)
+    def __repr__(self):
+        return "%s: [key: (%s), value: (%s)]" % (self.explanation, self.key, self.dictionary)
 
 class DecryptionException(Exception):
     def __init__(self, b64Text, reason):
