@@ -31,7 +31,7 @@ class LongList(PinshCmd.PinshCmd):
             if len(tokenNames) > 1:
                 base = ' '.join(output)
                 if base:
-                    return [ "%s %s" % (base, x) for x in tokenNames]
+                    return [ "%s %s" % (base, x) for x in tokenNames if x != base]
                 else:
                     return tokenNames
         if not output:
@@ -73,9 +73,11 @@ if __name__ == "__main__":
         status = runTest(ll.name, [[""], 0], "", status)
         status = runTest(ll.match, [[""], 0], (NO_MATCH, 1), status)
         status = runTest(ll.match, [["1", "2", "3"], 0], (COMPLETE, 3), status)
-        bhf = BomHostField.BomHostField()
-        ll3 = LongList(bhf, unique=True)
-        status = runTest(ll3.name, [["lilap", "biga"], 0], ["lilap bigap"], status)
+    bhf = BomHostField.BomHostField()
+    ll3 = LongList(bhf, unique=True)
+    status = runTest(ll3.name, [["lilap", "biga"], 0], ["lilap bigap"], status)
+    status = runTest(ll3.name, [["lilap", ""], 0], ["lilap bigap"], status)
+    status = runTest(ll3.name, [['enable', 'lildb', ''], 1], ["lildb bigap"], status)
 
     pf = PackageField.PurgablePackageField()
     ll2 = LongList(pf, unique=True)
