@@ -172,7 +172,10 @@ class BombardierRemoteClient(RemoteClient):
         data = re.compile("NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'").findall(tString)
         if data:
             print "==> ERROR IN CONFIGURATION"
-            print "==> Need option '%s' in section '%s'." % (data[0], data[1])
+            if len(data) == 2:
+                print "==> Need option '%s' in section '%s'." % (data[0], data[1])
+            else:
+                print "==> Need options", data
         data = re.compile("NoSectionError\: No section\: \'(\w+)\'").findall(tString)
         if data:
             print "==> ERROR IN CONFIGURATION"
