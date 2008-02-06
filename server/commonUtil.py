@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os, sys, re, termios, tty, time, select, popen2, logging, libUi
+import syslog
 import exceptions
 from commands import getstatusoutput
 
@@ -55,6 +56,7 @@ formatter = logging.Formatter('%(asctime)-15s|%(message)s')
 fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(logging.DEBUG)
+syslog.openlog("bomsh", syslog.LOG_PID, syslog.LOG_USER)
 
 def log(noFlag, tokens, cmdStatus, cmdOutput):
     command = ' '.join(tokens)
@@ -65,7 +67,8 @@ def log(noFlag, tokens, cmdStatus, cmdOutput):
     outputString = ':'.join(cmdOutput)
     statusDict = {OK: "OK", FAIL:"FAIL"}
     logMessage = "%-15s|STATUS:%4s|CMD:%s|OUTPUT:%s"
-    logMessage = logMessage % (os.environ["USER"], command, statusDict[cmdStatus], outputString)
+    logMessage = logMessage % (mode.username, command, statusDict[cmdStatus], outputString)
+    syslog.syslog(logMessage)
     logger.info(logMessage)
     return command
 
@@ -85,7 +88,8 @@ def makeComment(comment=''):
     mode.commentCommands = []
 
 def logComment(comment=None):
-    logger.info("%-15s|COMMENT: %s" % (os.environ["USER"], comment))
+    syslog.syslog("%-15s|COMMENT: %s" % (mode.username, comment))
+    logger.info("%-15s|COMMENT: %s" % (mode.username, comment))
 
 if __name__ == "__main__":
     from libTest import *

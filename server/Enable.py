@@ -7,6 +7,20 @@ import PinshCmd, Mode, BomHostField, LongList
 from RemoteClient import ClientUnavailableException
 from commonUtil import *
 
+def performEnable(slash):
+    cipherPass = mode.config.get("password")
+    mode.myPassword = libUi.pwdInput("password: ")
+    try:
+        padPassword = libCipher.pad(mode.myPassword)
+        mode.password = libCipher.decryptString(cipherPass, padPassword)
+    except:
+        mode.password = ''
+        mode.myPassword = ''
+        return FAIL, ["Invalid password"]
+    mode.auth = ADMIN
+    mode.pushPrompt(slash, "#", Mode.ENABLE)
+    return OK, []
+
 class Enable(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "enable", "enable\tmake all priveleged commands available")
@@ -25,19 +39,7 @@ class Enable(PinshCmd.PinshCmd):
             return FAIL, output
         if mode.auth == ADMIN:
             return FAIL, ["Already in enable mode"]
-        cipherPass = mode.config.get("password")
-        mode.myPassword = libUi.pwdInput("password: ")
-        try:
-            padPassword = libCipher.pad(mode.myPassword)
-            mode.password = libCipher.decryptString(cipherPass, padPassword)
-        except:
-            mode.password = ''
-            mode.myPassword = ''
-            return FAIL, ["Invalid password"]
-        mode.auth = ADMIN
-        mode.pushPrompt(slash, "#", Mode.ENABLE)
-        mode.exitMethods.append(self.exit)
-        return OK, []
+        return performEnable(slash)
 
     def exit(self, slash):
         mode.password = ''

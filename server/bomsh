@@ -56,19 +56,13 @@ class Slash(PinshCmd.PinshCmd):
 ## 2. add the class to the following vector of command or add it to
 ##    the Configure.py class
     
-import Bash, Ping, Telnet, Ssh, Terminal, Exit, BomCmd, Enable, Show
+import Bash, Ping, Telnet, Ssh, Terminal, Exit, Package, Enable, Show
 import For, Echo, UpdateClient, Set, Run, PushConfig, Edit, Debug
-
-bomCommands = [ BomCmd.Status(), BomCmd.Uninstall(), 
-                BomCmd.Verify(), BomCmd.Configure(), BomCmd.Install(), 
-                BomCmd.Execute(), BomCmd.Purge(), BomCmd.Fix(), 
-                BomCmd.Reconcile()]
 
 commands = [Echo.Comment(), Set.Set(), Terminal.Terminal(), Show.Show(), Ping.Ping(), Debug.Debug(),
             Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(), Run.Run(), PushConfig.PushConfig(), Edit.Edit(), Echo.Pause(),
-            UpdateClient.UpdateClient(), Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo()]
-
-slash = Slash(commands + bomCommands)
+            UpdateClient.UpdateClient(), Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo(), Package.Package()]
+slash = Slash(commands)
 
 ##########################################################################
 
@@ -95,18 +89,15 @@ if __name__ == "__main__":
                 status = cmdStatus
         sys.exit(status)
     else:
-        if os.environ["USER"] == "root":
-            try:
-                logComment(raw_input("Provide a reason for logging in as root: "))
-            except:
-                print "(Good man.)"
-                sys.exit(0)
         if os.path.isfile(HISTORY_FILE):
             try:
                 readline.read_history_file(HISTORY_FILE)
             except:
                 print "%% Unable to read history file %s" % HISTORY_FILE
         clean = False
+        logComment("User %s STARTED an interactive session" % mode.username)
+        if mode.autoEnable:
+            Enable.performEnable(slash)
         while True:
             try:
                 mode.setPrompt()
@@ -127,6 +118,7 @@ if __name__ == "__main__":
                     readline.write_history_file(HISTORY_FILE)
                     if mode.commentCommands:
                         makeComment()
+                    logComment("User %s ENDED an interactive session" % mode.username)
                     sys.exit(0)
                 mode.cleanMode(mode.state[-1])
                 print

@@ -116,6 +116,8 @@ class PackageCommand(PinshCmd.PinshCmd):
         if slash: pass # pychecker
         if noFlag:
             return FAIL, []
+        if tokens[0].startswith("pac"):
+            tokens = tokens[1:]
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
         hostName = tokens[1]
@@ -137,7 +139,7 @@ class PackageCommand(PinshCmd.PinshCmd):
             if os.path.isfile(outputFile):
                 output = ['\n', yaml.load(open(outputFile).read())]
             else:
-                output = ["Output file (%s) does not exist." % outputFile]
+                output = ["No output"]
         else:
             try:
                 packageNames = self.packageList.name(tokens, 2)[0]
@@ -235,10 +237,10 @@ class Execute(PackageCommand):
         scriptNames = self.scriptField.name(tokens, 3)
         if len(scriptNames) != 1:
             print "%% Invalid scriptName"
-            return FAIL
+            return FAIL, []
         if self.checkEncryption(self.hostName, packageName) == FAIL:
             print "%% This pacakge requires sensitive data."
-            return FAIL
+            return FAIL, []
         status, output = r.process(self.action, [packageName], scriptNames[0], mode.debug)
         return status, output
 

@@ -43,7 +43,6 @@ class Mode:
         self.commandBuffer = {F0:[], F1:[], F2:[]}
         self.variables = {F0:[], F1:[], F2:[]}
         self.globals = {}
-        self.setPrompt()
         self.newClasses = []
         self.auth = USER
         self.fullPrompt = ""
@@ -53,6 +52,14 @@ class Mode:
         self.getTermInfo()
         self.debug = True
         self.config = {}
+        self.username = os.environ["USER"]
+        self.autoEnable = False
+        if self.username == "root":
+            try:
+                self.username = raw_input("Logging in as common user account. \nPlease provide your user name: ")
+            except:
+                sys.exit(0)
+        self.setPrompt()
 
     def addConfigList(self, option, value):
         if self.config.get(option):
@@ -74,6 +81,7 @@ class Mode:
             #print "  Setting debugging to %s" % self.debug
         if not self.config.has_key("enabledSystems"):
             self.config["enabledSystems"] = []
+        self.autoEnable = self.config.get("autoEnable")
 
     def getTermInfo(self):
         try:
@@ -112,9 +120,10 @@ class Mode:
         self.commandBuffer[state] = []
         self.variables[state] = []
         self.exitMethods = self.exitMethods[:-1]
+
     def setPrompt(self):
         if self.currentState() != FREE_TEXT:
-            self.fullPrompt = "%s (%s)%s " %(socket.gethostname(),os.environ["USER"], self.prompt[-1])
+            self.fullPrompt = "%s (%s)%s " %(socket.gethostname(),self.username, self.prompt[-1])
         else:
             self.fullPrompt = ''
 
