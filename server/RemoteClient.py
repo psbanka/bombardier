@@ -51,38 +51,50 @@ class RemoteClient:
         self.platform     = self.info["platform"]
         if 'sharedKeys' not in self.info:
             if os.path.isfile("defaultPassword.b64"):
-                print "==> Using default password"
+                self.debugOutput("Using default password")
                 self.password = base64.decodestring(open(DEFAULT_PASSWORD).read())
             else:
                 self.password  = getpass.getpass( "Enter password for %s: "% self.username )
         else:
             self.password = ''
         self.connectTime = 0
+        self.cursorPosition = 0
+    
+    def templateOutput(self, template, debugText, noDebugText='.'):
+        output = ''
+        if self.debug:
+            output = template % debugText
+        else:
+            if noDebugText != '.':
+                print "\n  ",
+            output = noDebugText
+        sys.stdout.write(output)
+        sys.stdout.flush()
+
+    def debugOutput(self, debugText, noDebugText='.'):
+        self.templateOutput("==> %s\n", debugText, noDebugText)
+
+    def fromOutput(self, fromText):
+        template = "==> [From %s]: " % self.hostName
+        self.templateOutput(template + "%s\n", fromText)
 
     def connect(self):
         self.s = pxssh.pxssh()
         self.s.timeout = 6000
-        self.outputMsg("Connecting to %s..." %self.hostName)
+        self.debugOutput("Connecting to %s..." %self.hostName)
         try:
             if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):
                 raise Exception
             self.s.sendline('stty -echo')
             self.s.prompt()
         except:
-            print "==> SSH session failed on login."
-            print str(self.s)
+            message = "SSH session failed on login."
+            self.debugOutput(message, message)
             self.status = BROKEN
             return FAIL
         self.status = CONNECTED
         self.connectTime = time.time()
         return OK
-
-    def outputMsg(self, text):
-        if self.debug:
-            print "==> %s" % text
-        else:
-            sys.stdout.write('.')
-            sys.stdout.flush()
 
     def connectRsync(self, direction, localPath, remotePath, dryRun = True):
         cmd = "bash -c 'rsync --progress -a "
@@ -93,7 +105,7 @@ class RemoteClient:
         else:
             cmd += "%s@%s:%s/* %s/" % (self.username, self.ipAddress, remotePath, localPath)
         cmd += "'"
-        self.outputMsg("EXECUTING: %s" % cmd)
+        self.debugOutput("EXECUTING: %s" % cmd)
         stdout, stdin = os.popen4(cmd)
         s = pexpect.spawn(cmd, timeout=5000)
         sshNewkey = 'Are you sure you want to continue connecting'
@@ -139,9 +151,9 @@ class RemoteClient:
         del s
         numberOfFiles = float(len(files))
         if direction == "PUSH":
-            self.outputMsg( "%d files to push..." % numberOfFiles)
+            self.debugOutput( "%d files to push..." % numberOfFiles)
         else:
-            self.outputMsg( "%d files to pull..." % numberOfFiles)
+            self.debugOutput( "%d files to pull..." % numberOfFiles)
         if numberOfFiles == 0:
             return OK
         s = self.connectRsync(direction, localPath, remotePath, False)
@@ -156,7 +168,7 @@ class RemoteClient:
                     current = float(len(files))
                     startTime = time.time()
                     value = 100.0 * (numberOfFiles - current) / numberOfFiles
-                    self.outputMsg( "%3.1f%% done...(%s)" % (value, line))
+                    self.debugOutput( "%3.1f%% done...(%s)" % (value, line))
         s.expect(pexpect.EOF)
         s.close()
         del s
@@ -170,7 +182,7 @@ class RemoteClient:
             if self.status == CONNECTED:
                 msg = "Assuming our connection to %s is stale after "\
                       "%4.2f minutes. Reconnecting..." % (self.hostName, connectionAge / 60.0)
-                self.outputMsg(msg)
+                self.debugOutput(msg)
                 self.disconnect()
             if self.connect() != OK:
                 return FAIL
@@ -183,7 +195,7 @@ class RemoteClient:
             dead = True
 
         if dead:
-            self.outputMsg("Our connection handle is dead. Reconnecting...")
+            self.debugOutput("Our connection handle is dead. Reconnecting...")
             try:
                 self.disconnect()
             except:
@@ -207,20 +219,18 @@ class RemoteClient:
         if i == 2:
             s.sendline(self.password)
         if i == 3:
-            #print '==> Used shared key for authentication.'
             pass
         s.expect(pexpect.EOF)
         s.close()
-        #print "Sent %s to %s:%s" % (source, self.hostName, dest)
         return OK
 
     def get(self, destFile):
-        self.outputMsg( "getting %s" % destFile)
+        self.debugOutput( "getting %s" % destFile)
         s = pexpect.spawn('scp -v %s@%s:%s .' % (self.username, self.ipAddress, destFile), timeout=30)
         return self.processScp(s)
 
     def scp(self, source, dest):
-        self.outputMsg("sending %s to %s:%s" % (source, self.ipAddress, dest))
+        self.debugOutput("sending %s to %s:%s" % (source, self.ipAddress, dest))
         s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest), timeout=50)
         sshNewkey = 'Are you sure you want to continue connecting'
         i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=50)
@@ -238,18 +248,12 @@ class RemoteClient:
                 raise ClientUnavailableException(dest, errMsg)
             s.sendline(self.password)
         if i == 2:
-            if self.debug:
-                print '==> Using password authentication'
-            else:
-                sys.stdout.write('.')
-                sys.stdout.flush()
+            self.debugOutput('Using password authentication')
             s.sendline(self.password)
         if i == 3:
-            #print '==> Used shared key for authentication.'
             pass
         s.expect(pexpect.EOF)
         s.close()
-        #print "Sent %s to %s:%s" % (source, self.hostName, dest)
         return OK
 
     def disconnect(self):

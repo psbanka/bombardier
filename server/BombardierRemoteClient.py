@@ -7,7 +7,7 @@ import Client
 from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
 import StringIO
 import traceback
-from RemoteClient import RemoteClient
+from RemoteClient import RemoteClient, ClientConfigurationException
 
 
 TMP_FILE = "tmp.yml"
@@ -29,6 +29,7 @@ ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i',
                EXECUTE: '-x', FIX: '-f', PURGE: '-p'}
 
 RETURN_DICT = {OK: 'OK', FAIL: 'FAIL', REBOOT: 'REBOOT', PREBOOT: 'PREBOOT'}
+DEBUG_OUTPUT_TEMPLATE = '\n==> ' + ''.join('='*50) + "\n==> %s\n==> " + ''.join('='*50) + '\n'
 
 class BombardierRemoteClient(RemoteClient):
 
@@ -53,21 +54,19 @@ class BombardierRemoteClient(RemoteClient):
 
     def actionResult(self, data):
         action, packageName, result = data
-        print "============================================="
-        print "%s %s: %s" %(action.upper(), RETURN_DICT[int(result)], packageName)
-        print "============================================="
+        message = "%s %s: %s" % (action.lower(), RETURN_DICT[int(result)], packageName)
+        self.templateOutput(DEBUG_OUTPUT_TEMPLATE, message, message)
 
     def install(self, packageName):
-        print 
-        print "============================================="
-        print " %s INSTALLING %s" %(self.hostName, packageName)
-        print "============================================="
+        message = "%s installing %s" %(self.hostName, packageName)
+        self.templateOutput(DEBUG_OUTPUT_TEMPLATE, message, message)
 
     def sendPackage(self, data):
         package, path = data
         filename = "deploy/packages/"+package
         if not os.path.isfile(filename):
-            print "Client requested a file that is not on this server: %s" % filename
+            message = "Client requested a file that is not on this server: %s" % filename
+            self.debugOutput(message, message)
             self.s.send(`FAIL`)
         self.scp(filename, path)
         self.s.send("OK\n")
@@ -85,11 +84,10 @@ class BombardierRemoteClient(RemoteClient):
         lines = 0
         totalLines = os.stat(filename+".b64")[6] / BLK_SIZE
         printFrequency = totalLines / DOT_LENGTH
-        if self.debug:
-            if filename == "tmp.yml":
-                print "==> Sending configuration:",
-            else:
-                print "==> Sending "+filename+": ",
+        if filename == "tmp.yml":
+            self.templateOutput("==> %s", "Sending configuration:")
+        else:
+            self.templateOutput("==> %s", "Sending "+filename+": ")
         if printFrequency < 1:
             printFrequency = 1
         while True:
@@ -106,9 +104,9 @@ class BombardierRemoteClient(RemoteClient):
                 sys.stdout.write('.')
                 sys.stdout.flush()
             self.s.send(chunk)
-        if self.debug:
+        if self.debug: 
             print
-            print "==> Configuration sent in : %3.2f seconds" %(time.time() - start)
+        self.debugOutput("Configuration sent in : %3.2f seconds" %(time.time() - start))
 
     def sendClient(self, data):
         if data:
@@ -117,8 +115,9 @@ class BombardierRemoteClient(RemoteClient):
         status = client.get()
         client.decryptConfig()
         if status == FAIL:
-            print "==> Could not find valid configuration data for this host. Exiting."
-            sys.exit()
+            message = "Could not find valid configuration data for this host. Exiting."
+            self.debugOutput(message, message)
+            raise ClientConfigurationException(self.hostName)
         open(TMP_FILE, 'w').write(yaml.dump( client.data ))
         self.streamData(TMP_FILE)
         os.unlink(TMP_FILE)
@@ -126,8 +125,9 @@ class BombardierRemoteClient(RemoteClient):
     def sendBom(self, data):
         filename = "deploy/bom/%s.yml" % data
         if not os.path.isfile(filename):
-            print "==> Could not find valid bom data for this %s. Exiting." % filename
-            sys.exit()
+            message = "Could not find valid bom data for this %s. Exiting." % filename
+            self.debugOutput(message, message)
+            raise ClientConfigurationException(self.hostName)
         self.streamData(filename)
 
     def processMessage(self, message):
@@ -142,7 +142,8 @@ class BombardierRemoteClient(RemoteClient):
 
     def runCmd(self, commandString):
         if self.freshen() != OK:
-            print "==> UNABLE TO CONNECT TO %s. No actions are available." % self.hostName
+            message = "UNABLE TO CONNECT TO %s. No actions are available." % self.hostName
+            self.debugOutput(message, message)
             return FAIL, ''
         returnCode = OK
         self.s.sendline ('cd %s' %self.spkgDir)
@@ -157,8 +158,8 @@ class BombardierRemoteClient(RemoteClient):
             returnCode = int(str(self.s.before.split()[0].strip()))
             return returnCode, output
         except Exception, e:
-            print e
-            print "==> invalid returncode: ('%s')" % self.s.before
+            self.debugOutput(str(e))
+            self.debugOutput("invalid returncode: ('%s')" % self.s.before)
             return FAIL, output
 
     def dumpTrace(self):
@@ -171,26 +172,33 @@ class BombardierRemoteClient(RemoteClient):
 
         data = re.compile("NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'").findall(tString)
         if data:
-            print "==> ERROR IN CONFIGURATION"
+            message1 = "Error in configuration"
+            self.debugOutput(message1, message1)
             if len(data) == 2:
-                print "==> Need option '%s' in section '%s'." % (data[0], data[1])
+                message2 = "Need option '%s' in section '%s'." % (data[0], data[1])
             else:
-                print "==> Need options", data
+                message2 = "Need options", data
+            self.debugOutput(message2, message2)
         data = re.compile("NoSectionError\: No section\: \'(\w+)\'").findall(tString)
         if data:
-            print "==> ERROR IN CONFIGURATION"
-            print "==> Need section '%s'." % (data[0])
+            message1 = "Error in configuration"
+            self.debugOutput(message1, message1)
+            message2 = "Need section '%s'." % (data[0])
+            self.debugOutput(message2, message2)
         else:
             for line in traceback:
-                print "==> CLIENT TRACEBACK: ", line
+                message = "CLIENT TRACEBACK: %s" % line
+                self.debugOutput(message, message)
 
     def process(self, action, packageNames, scriptName, debug):
-        msg = []
+        self.debug = debug
+        self.debugOutput("", "Progress: ")
         if action == EXECUTE:
             self.clearScriptOutput(scriptName)
         if self.freshen() != OK:
-            msg.append("==> UNABLE TO CONNECT TO %s. No actions are available." % self.hostName)
-            return FAIL, msg
+            message = "UNABLE TO CONNECT TO %s. No actions are available." % self.hostName
+            self.debugOutput(message, message)
+            return FAIL, []
         returnCode = OK
         try:
             self.s.sendline ('cd %s' %self.spkgDir)
@@ -208,34 +216,28 @@ class BombardierRemoteClient(RemoteClient):
                     returnCode = FAIL
                     break
                 if foundIndex == 0:
-                    if debug:
-                        print "==> BOMBARDIER HAS EXITED"
-                        if self.s.before.strip():
-                            print "==> Remaining output: %s" % self.s.before.strip()
+                    self.debugOutput("BOMBARDIER HAS EXITED")
+                    if self.s.before.strip():
+                        self.debugOutput("Remaining output: %s" % self.s.before.strip())
                     self.s.setecho(False)
                     self.s.sendline("echo $?")
                     self.s.prompt()
                     try:
                         returnCode = int(str(self.s.before.split()[0].strip()))
-                        if debug:
-                            print "\n\n==> RETURN CODE: %s\n" % RETURN_DICT[returnCode]
+                        self.debugOutput("RETURN CODE: %s" % RETURN_DICT[returnCode])
                     except Exception, e:
-                        msg.append( str(e) )
-                        msg.append( "invalid returncode: ('%s')" % self.s.before)
+                        self.debugOutput( str(e) )
+                        self.debugOutput( "invalid returncode: ('%s')" % self.s.before)
                         returnCode = FAIL
                     break
                 messageType, message = self.s.match.groups()
                 if messageType == "DEBUG":
-                    if DEBUG and debug:
-                        print "[FROM %s]: %s" % (self.hostName, message)
+                    if DEBUG:
+                        self.fromOutput(message)
                     continue
                 message=message.strip()
                 if not self.processMessage(message):
-                    if debug:
-                        print "[FROM %s]: %s" % (self.hostName, message)
-                    else:
-                        sys.stdout.write('.')
-                        sys.stdout.flush()
+                    self.fromOutput(message)
         except Exception, e:
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
@@ -243,16 +245,15 @@ class BombardierRemoteClient(RemoteClient):
             data = e.read()
             ermsg = ''
             for line in data.split('\n'):
-                ermsg += "\n||>>>%s" % line
-            msg.append( ermsg )
+                ermsg = "\n||>>>%s" % line
+                self.debugOutput(ermsg, ermsg)
             print
-            return FAIL, msg
+            return FAIL, []
 
         self.getStatusYml()
         if action == EXECUTE:
             self.getScriptOutput(scriptName)
-        print
-        return returnCode, msg
+        return returnCode, []
 
     def clearScriptOutput(self, scriptName):
         localFilename  = "%s-%s.yml" % (self.hostName, scriptName)
@@ -279,7 +280,7 @@ class BombardierRemoteClient(RemoteClient):
         try:
             yaml.load(statusYml)
         except:
-            print "==> status.yml could not be parsed (writing to error.yml)"
+            self.debugOutput("status.yml could not be parsed (writing to error.yml)")
             open( "%s/error.yml" %(statusDir), 'w' ).write(statusYml)
             return
         open( "%s/%s.yml" %(statusDir, self.hostName), 'w' ).write(statusYml)

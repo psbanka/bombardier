@@ -57,7 +57,7 @@ class BomCmd(PinshCmd.PinshCmd):
         if status == FAIL:
             return FAIL, output
         else:
-            return OK, ['Command took %4.2f seconds' % (time.time() - start)]
+            return OK, ['', 'Command took %5.2f seconds' % (time.time() - start)]
 
 class Status(BomCmd):
     def __init__(self):
@@ -159,7 +159,7 @@ class PackageCommand(PinshCmd.PinshCmd):
             return FAIL, output
         else:
             if output == []:
-                output.append('Command took %4.2f seconds' % (time.time() - start))
+                output = ['', 'Command took %4.2f seconds' % (time.time() - start)]
             return OK, output
 
 class Install(PackageCommand):

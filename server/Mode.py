@@ -97,9 +97,6 @@ class Mode:
     def getBomConnection(self, hostName, ignoreConfig=False):
         if not ignoreConfig and not hostName in self.config["enabledSystems"]:
             raise HostNotEnabledException(hostName)
-        if not self.debug:
-            sys.stdout.write("  Progress: ")
-            sys.stdout.flush()
         if not hostName in self.bomConnections:
             brc = BombardierRemoteClient(hostName, self.password)
             self.bomConnections[hostName] = brc
