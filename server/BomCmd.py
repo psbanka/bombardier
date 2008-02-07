@@ -70,6 +70,7 @@ class Reconcile(BomCmd):
         BomCmd.__init__(self, "reconcile")
         self.helpText = "reconcile\treconcile a host with its bill of materials"
         self.action = RECONCILE
+        self.logCommand = True
         #self.auth = ADMIN
 
 class PackageCommand(PinshCmd.PinshCmd):
