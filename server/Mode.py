@@ -3,7 +3,7 @@
 import readline, socket, sys, os, yaml
 from BombardierRemoteClient import BombardierRemoteClient
 
-CONFIG_FILE = "%s/.bomsh_config.yml" % os.environ.get("HOME")
+CONFIG_FILE = "%s/.bomsh_config" % os.environ.get("HOME")
 
 OK = 0
 FAIL = 1
@@ -73,6 +73,8 @@ class Mode:
         open(CONFIG_FILE, 'w').write(yaml.dump(self.config))
 
     def loadConfig(self):
+        if os.path.isfile(CONFIG_FILE+".yml"):
+            print "%% Configuration file should be called %s, not %s.yml. Please rename it." % (CONFIG_FILE, CONFIG_FILE)
         if os.path.isfile(CONFIG_FILE):
             self.config=yaml.load(open(CONFIG_FILE).read())
         debug = self.config.get("debug")

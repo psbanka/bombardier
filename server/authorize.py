@@ -39,11 +39,11 @@ if __name__ == "__main__":
     (options, args) = parser.parse_args()
     rightsList = []
     if options.list:
-        if args > 0:
+        if len(args) > 0:
             userName = args[0].lower()
-            showAllRights(userName)
         else:
-            showAllRights()
+            userName = ''
+        showAllRights(userName)
         sys.exit(OK)
     if not args:
         print "ERROR: Must specify the name of a user"
