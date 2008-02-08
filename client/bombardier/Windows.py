@@ -382,6 +382,22 @@ class Windows(OperatingSystem.OperatingSystem):
                 return FAIL
         return OK
 
+    def setGroups(self, userid, rights):
+        groupList = win32net.NetUserGetLocalGroups("localhost", userid) 
+        rightsMapping = {"admin": u"Administrators", "rdp": u"Remote Desktop Users"}
+        for right in rights:
+            if right not in rightsMapping:
+                print "Unknown right: %s" % right
+                continue
+            if right in rights:
+                if not rightsMapping[right] in groupList:
+                    win32net.NetLocalGroupAddMembers(None, rightsMapping[right], 3, [{"domainandname":userid}])
+                    print "Adding user membership to %s" % rightsMapping[right]
+            else:
+                if rightsMapping[right] in groupList:
+                    win32net.NetLocalGroupDelMembers(None, rightsMapping[right], [userid])
+                    print "removing user membership from %s" % rightsMapping[right]
+            
     def changeLocalUserPassword(self, user, password):
         try:
             ads = win32com.client.GetObject("ADs:")
