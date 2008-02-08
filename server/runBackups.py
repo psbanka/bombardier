@@ -27,6 +27,7 @@ RESTORE_USERS   = 64
 REPORT_OUT      = 132
 #OPTIONS = [PERFORM_BACKUP, RSYNC_PULL, ARCHIVE_MAINT, RSYNC_PUSH, PERFORM_RESTORE, RESTORE_USERS, REPORT_OUT]
 OPTIONS = [PERFORM_BACKUP, RSYNC_PULL, ARCHIVE_MAINT, RSYNC_PUSH, PERFORM_RESTORE, RESTORE_USERS, REPORT_OUT]
+#OPTIONS = [CLEAR_LOCKS, RESTORE_USERS, PERFORM_RESTORE]
 ####################################################
 
 
@@ -322,16 +323,13 @@ class BombardierBackup:
                 print "#################################### ONLINE "
                 logger.info("Instructing server %s to come online..." % restoreServerName)
                 restoreObject.process(EXECUTE, ["SqlBackup"], "online", True)
+                # NEED A DIFFERENT ROUTINE
                 print "#################################### CLEANUSERS "
                 logger.info("Instructing server %s to set proper user permission..." % restoreServerName)
-                if restoreObject.process(EXECUTE, ["DbAuthorization"], "cleanUsers", True)[0] == OK:
-                    print "#################################### ADDUSERS "
-                    if restoreObject.process(EXECUTE, ["DbAuthorization"], "addUsers", True)[0] == OK:
-                        continue
-                    else:
-                        logger.error("Adding users back in failed")
+                if restoreObject.process(EXECUTE, ["DbAuthorization"], "recreateUsers", True)[0] == OK:
+                    continue
                 else:
-                    logger.error("Cleaning users out failed")
+                    logger.error("Re-creating users failed.")
                 status = FAIL
         return status
 
@@ -454,6 +452,7 @@ if __name__ == "__main__":
     backup = BombardierBackup(backupServerName, restoreServers, options.full)
 
     try:
+        status = OK
         if PERFORM_BACKUP in OPTIONS:
             status = backup.runBackup()
             report['backup'] = status
