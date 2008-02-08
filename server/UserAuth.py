@@ -82,7 +82,8 @@ class UserAuth:
                 addRightsList = list(set(self.rightsList) - set(oldRightsList))
                 userDict["rights"] = self.rightsList
                 for right in list(set(delRightsList+addRightsList)):
-                    if right not in systemRights:
+                    if right not in systemRights.keys():
+                        print "(%s) not in (%s)" % (right, systemRights.keys())
                         raise BadRightException(right)
                 if not self.comment:
                     self.comment = userDict.get("comment")

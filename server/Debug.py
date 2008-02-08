@@ -18,9 +18,13 @@ class Debug(PinshCmd.PinshCmd):
         if noFlag:
             if mode.debug == True:
                 output =["Debugging turned off."] 
+            else:
+                output =["Debugging already off."] 
             mode.debug = False
             return OK, output
         if mode.debug == False:
             output =["Debugging turned on."] 
+        else:
+            output =["Debugging already on."] 
         mode.debug = True
         return OK, output
