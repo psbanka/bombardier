@@ -39,6 +39,8 @@ class BomCmd(PinshCmd.PinshCmd):
         start = time.time()
         if noFlag:
             return FAIL, []
+        if tokens[0].startswith("pac"):
+            tokens = tokens[1:]
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
         hostNames = self.bomHostField.name(tokens, 1)

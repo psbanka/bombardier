@@ -245,7 +245,7 @@ class BombardierRemoteClient(RemoteClient):
             data = e.read()
             ermsg = ''
             for line in data.split('\n'):
-                ermsg = "\n||>>>%s" % line
+                ermsg = "%% %s" % line
                 self.debugOutput(ermsg, ermsg)
             print
             return FAIL, []
