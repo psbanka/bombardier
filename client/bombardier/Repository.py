@@ -37,11 +37,6 @@ class Repository:
         self.filesystem = filesystem
         self.packages   = {}
 
-    def getPackageData(self):
-        filename = self.server.packageRequest(PACKAGE_DB)
-        if filename != '':
-            self.packages = yaml.load(self.filesystem.open(filename).read())
-
     # TESTED
     def getFullPackageNames(self):
         output = []
@@ -51,6 +46,8 @@ class Repository:
 
     # TESTED
     def getMetaData(self, name):
+        if not name in self.packages:
+            self.packages[name] = self.server.packageInfoRequest(name)
         pkgData = self.packages.get(name)
         return MetaData.MetaData(pkgData)
 

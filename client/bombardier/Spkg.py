@@ -64,7 +64,10 @@ def dumpReport(report, config, logger):
         os.makedirs(outputPath)
     scriptName = sys.argv[-1].split(".py")[0]
     outputFile = "%s-output.yml" % scriptName
-    open(os.path.join(outputPath, outputFile), 'w').write(yaml.dump(report))
+    yamlString = yaml.dump(report)
+    open(os.path.join(outputPath, outputFile), 'w').write(yamlString)
+    for line in yamlString.split('\n'):
+        logger.info("==REPORT==:%s" % line)
 
 class Spkg:
 

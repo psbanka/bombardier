@@ -89,6 +89,10 @@ class Server:
             return filepath
         raise Exceptions.FileNotFound(filepath, "did not receive from the server")
 
+    def packageInfoRequest(self, packageName):
+        config = self.dataRequest("==REQUEST-PKGINFO==:%s" % (packageName))
+        return config
+
     def configRequest( self ):
         config = self.dataRequest("==REQUEST-CONFIG==")
         return config

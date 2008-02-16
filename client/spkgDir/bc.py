@@ -122,7 +122,6 @@ def getBc():
         operatingSystem = bombardier.Windows.Windows()
 
     repository = bombardier.Repository.Repository(config, filesystem, server)
-    repository.getPackageData()
     bc = bombardier.BombardierClass.Bombardier(repository, config,
                                                filesystem, server,
                                                operatingSystem)
