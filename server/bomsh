@@ -83,6 +83,7 @@ if __name__ == "__main__":
         status = OK
         filename = sys.argv[-1]
         lines = open(filename, 'r').readlines()
+        mode.batch = True
         for line in lines:
             cmdStatus, cmdOutput = slash.processCommand(line.strip())
             if status == OK:

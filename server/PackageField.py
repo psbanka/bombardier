@@ -58,7 +58,11 @@ class PackageField(PinshCmd.PinshCmd):
         if len(hostNames) != 1:
             return ''
         hostName = hostNames[0]
-        possibleMatches = self.possiblePackageNames(hostName, tokens[index])
+        try:
+            possibleMatches = self.possiblePackageNames(hostName, tokens[index])
+        except AttributeError:
+            print "%% Invalid status data. Perform a package status command."
+            return ''
         if possibleMatches:
             return possibleMatches
         return ''

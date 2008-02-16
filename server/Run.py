@@ -27,9 +27,11 @@ class Run(PinshCmd.PinshCmd):
             fileName = fileNames[0]
         lines = open(fileName).readlines()
         status = OK
+        mode.batch = True
         for line in lines:
             cmdStatus, cmdOutput = slash.processCommand(line.strip())
             if status == OK:
                 status = cmdStatus
+        mode.batch = False
         return status, ['Script complete']
 

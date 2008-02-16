@@ -37,6 +37,7 @@ class HostNotEnabledException(Exception):
 
 class Mode:
     def __init__(self, state, prompt):
+        self.batch = False
         self.state = [state]
         self.exitMethods = []
         self.prompt = [prompt]

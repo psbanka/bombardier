@@ -37,8 +37,11 @@ class BombardierRemoteClient(RemoteClient):
         RemoteClient.__init__(self, hostName)
         self.configPasswd = configPasswd
         self.localFilename = ''
+        self.reportInfo = []
         self.stateMachine = []
+        self.stateMachine.append([re.compile("\=\=REPORT\=\=:(.+)"), self.getReport])
         self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendClient])
+        self.stateMachine.append([re.compile("\=\=REQUEST-PKGINFO\=\=:(.+)"), self.sendPkgInfo])
         self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)"), self.sendBom])
         self.stateMachine.append([re.compile("\=\=REQUEST-PACKAGE\=\=:(.+):(.+)"), self.sendPackage])
         self.stateMachine.append([re.compile("Beginning installation of \((\S+)\)"), self.install])
@@ -51,6 +54,9 @@ class BombardierRemoteClient(RemoteClient):
         else:
             self.python  = '/usr/local/bin/python2.4'
             self.spkgDir = '/opt/spkg'
+        self.debugOutput("Loading packages.yml...", '')
+        self.packageData = yaml.load(open("deploy/packages/packages.yml").read())
+        self.debugOutput("Loaded.", '')
 
     def actionResult(self, data):
         action, packageName, result = data
@@ -71,23 +77,21 @@ class BombardierRemoteClient(RemoteClient):
         self.scp(filename, path)
         self.s.send("OK\n")
 
-    def streamData(self, filename):
+    def streamFile(self, filename):
+        plainText = open(filename, 'rb').read()
+        return self.streamData(plainText)
+        
+    def streamData(self, plainText):
         start = time.time()
         import zlib
-        plain = open(filename, 'rb').read()
-        compressed = zlib.compress(plain)
-        open(filename+".z", 'wb').write(compressed)
-        base64.encode(open(filename+".z", 'rb'), open(filename+".b64", 'w'))
+        compressed = zlib.compress(plainText)
+        encoded    = base64.encodestring(compressed)
         self.s.setecho(False)
-        handle = open(filename+'.b64', 'r')
+        handle = StringIO.StringIO(encoded)
         BLK_SIZE = 77
         lines = 0
-        totalLines = os.stat(filename+".b64")[6] / BLK_SIZE
+        totalLines = len(encoded.split()) / BLK_SIZE
         printFrequency = totalLines / DOT_LENGTH
-        if filename == "tmp.yml":
-            self.templateOutput("==> %s", "Sending configuration:")
-        else:
-            self.templateOutput("==> %s", "Sending "+filename+": ")
         if printFrequency < 1:
             printFrequency = 1
         while True:
@@ -106,7 +110,6 @@ class BombardierRemoteClient(RemoteClient):
             self.s.send(chunk)
         if self.debug: 
             print
-        self.debugOutput("Configuration sent in : %3.2f seconds" %(time.time() - start))
 
     def sendClient(self, data):
         if data:
@@ -119,8 +122,20 @@ class BombardierRemoteClient(RemoteClient):
             self.debugOutput(message, message)
             raise ClientConfigurationException(self.hostName)
         open(TMP_FILE, 'w').write(yaml.dump( client.data ))
-        self.streamData(TMP_FILE)
+        self.streamFile(TMP_FILE)
         os.unlink(TMP_FILE)
+
+    def getReport(self, yamlLine):
+        self.reportInfo.append(yamlLine)
+        print "GETTING REPORT: %s" % self.reportInfo
+
+    def sendPkgInfo(self, packageName):
+        thisPackageData = self.packageData.get(packageName) 
+        if not thisPackageData:
+            message = "Could not find package data for %s." % packageName
+            self.debugOutput(message, message)
+            raise ClientConfigurationException(self.hostName)
+        self.streamData(yaml.dump(thisPackageData))
 
     def sendBom(self, data):
         filename = "deploy/bom/%s.yml" % data
@@ -128,7 +143,7 @@ class BombardierRemoteClient(RemoteClient):
             message = "Could not find valid bom data for this %s. Exiting." % filename
             self.debugOutput(message, message)
             raise ClientConfigurationException(self.hostName)
-        self.streamData(filename)
+        self.streamFile(filename)
 
     def processMessage(self, message):
         for state in self.stateMachine:
@@ -141,6 +156,7 @@ class BombardierRemoteClient(RemoteClient):
         return False
 
     def runCmd(self, commandString):
+        self.reportInfo = []
         if self.freshen() != OK:
             message = "UNABLE TO CONNECT TO %s. No actions are available." % self.hostName
             self.debugOutput(message, message)
@@ -206,7 +222,6 @@ class BombardierRemoteClient(RemoteClient):
             packageString = ' '.join(packageNames)
             cmd = '%s bc.py %s %s %s' % (self.python, ACTION_DICT[action], packageString, scriptName)
             self.s.sendline(cmd)
-            #print "==> Ran %s on the server" % cmd
             foundIndex = 0
             while True:
                 foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=600)
@@ -252,7 +267,11 @@ class BombardierRemoteClient(RemoteClient):
 
         self.getStatusYml()
         if action == EXECUTE:
-            self.getScriptOutput(scriptName)
+            if self.reportInfo:
+                fileName = "output/%s-%s.yml" % (self.hostName, scriptName)
+                open(fileName, 'w').write('\n'.join(self.reportInfo))
+            else:
+                self.getScriptOutput(scriptName)
         return returnCode, []
 
     def clearScriptOutput(self, scriptName):
