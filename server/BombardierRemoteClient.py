@@ -92,6 +92,7 @@ class BombardierRemoteClient(RemoteClient):
         lines = 0
         totalLines = len(encoded.split()) / BLK_SIZE
         printFrequency = totalLines / DOT_LENGTH
+        self.debugOutput("Sending configuration information:", '')
         if printFrequency < 1:
             printFrequency = 1
         while True:
@@ -193,7 +194,7 @@ class BombardierRemoteClient(RemoteClient):
             if len(data) == 2:
                 message2 = "Need option '%s' in section '%s'." % (data[0], data[1])
             else:
-                message2 = "Need options", data
+                message2 = "Need options: %s" % data
             self.debugOutput(message2, message2)
         data = re.compile("NoSectionError\: No section\: \'(\w+)\'").findall(tString)
         if data:

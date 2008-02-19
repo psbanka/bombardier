@@ -63,7 +63,13 @@ class RemoteClient:
     def templateOutput(self, template, debugText, noDebugText='.'):
         output = ''
         if self.debug:
-            output = template % debugText
+            try:
+                output = template % debugText
+            except TypeError:
+                print "ERROR IN DEBUG COMMAND:"
+                print "TEMPLATE: ",template
+                print "DEBUGTEXT: ", debugText
+                raise Exception
         else:
             if noDebugText != '.':
                 print "\n  ",
