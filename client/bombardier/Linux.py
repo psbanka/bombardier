@@ -84,34 +84,20 @@ def getUserAliases(data):
     groups = c.findall(data)
     for group in groups:
         groupName = group[0]
-        output[groupName] = set([ x.strip() for x in group[1].split(',') ])
+        output[groupName] = set([ x.strip() for x in group[1].split(',') if x != ''])
     return output
 
 def setUserAliases(data, aliases):
     c = re.compile("User_Alias (\S+) += *(.+)")
     output = []
-    for groupName in aliases:
-        output.append("User_Alias %s = %s" % (groupName, ', '.join(aliases[groupName])))
+    if aliases:
+        for groupName in aliases:
+            output.append("User_Alias %s = %s" % (groupName, ', '.join(aliases[groupName])))
     for line in data.split('\n'):
         groups = c.findall(line)
         if not groups:
             output.append(line)
     return output
-
-def modifySudoers(username, type, filename="/etc/sudoers", remove=False):
-    data = open(filename).read()
-    aliases = getUserAliases(data)
-    Logger.info("This user is of type (%s)" % type)
-    if remove:
-        for groupName in aliases:
-            if username in aliases[groupName]:
-                aliases[groupName].remove(username)
-    else:
-        if type == ADMIN_USER:
-            aliases["ADMINS"].add(username)
-        if type == DEV_USER:
-            aliases["DEVS"].add(username)
-    open(filename, 'w').write('\n'.join(setUserAliases(data, aliases)))
 
 
 class Linux(OperatingSystem.OperatingSystem):
@@ -135,6 +121,39 @@ class Linux(OperatingSystem.OperatingSystem):
                               workingDirectory = workingDirectory, captureOutput = True)
         return status
     
+    def modifySudoers(self, username, userType, filename="/etc/sudoers", remove=False):
+        '''This thing is supposed to look at username and if it's the right type, 
+        add it to the sudoers file in the proper section '''
+        data = open(filename).read()
+        currentAliases = getUserAliases(data)
+        if remove:
+            for groupName in currentAliases:
+                if username in currentAliases[groupName]:
+                    currentAliases[groupName].remove(username)
+        else:
+            if userType == ADMIN_USER:
+                currentAliases["ADMINS"].add(username)
+            if userType == DEV_USER:
+                currentAliases["DEVS"].add(username)
+        open(filename, 'w').write('\n'.join(setUserAliases(data, currentAliases)))
+
+    def setGroups(self, userid, rights):
+        status, output = getstatusoutput("/usr/bin/groups %s" % userid)
+        groupsList = output.split(':')[1].strip().split(' ')
+        rightsMapping = {"admin": u"wheel", "dev": u"tomcat"} # FIXME: shouldn't hard-code this group
+        for right in rights:
+            if right not in rightsMapping:
+                Logger.warning( "Unknown right: %s" % right )
+                continue
+            if right in rights:
+                if not rightsMapping[right] in groupsList:
+                    status, output = getstatusoutput("/usr/bin/gpasswd -a %s %s" % (userid, rightsMapping[right]))
+                    Logger.info( "Added user membership to %s (%s)" % (rightsMapping[right], output ))
+            else:
+                if rightsMapping[right] in groupsList:
+                    status, output = getstatusoutput("/usr/bin/gpasswd -d %s %s" % (userid, rightsMapping[right]))
+                    Logger.info( "Removing user membership to %s (%s)" % (rightsMapping[right], output ))
+
     def listAllUsers(self):
         status, output = getstatusoutput( "getent passwd | awk -F : '{print$1}'" )
         if status != OK:
@@ -142,15 +161,15 @@ class Linux(OperatingSystem.OperatingSystem):
         return output.split( '\n' )
         
     def removeUser(self, username):
-        modifySudoers(username, type=0, remove=True)
+        self.modifySudoers(username, userType=0, remove=True)
         status,output = getstatusoutput('userdel %s 2>&1' %username )
         if status != OK:
             raise Exception( "Error deleting %s: %s" %(username, output) )
         return status
 
-    def createUser(self, username, password, type, comment=''):
+    def createUser(self, username, password, userType, comment=''):
         md5Pass = md5crypt(password)
-        if type not in [SSH_USER, ADMIN_USER, DEV_USER]:
+        if userType not in [SSH_USER, ADMIN_USER, DEV_USER]:
             shell = "/bin/false"
         else:
             shell = "/bin/bash"
@@ -158,7 +177,6 @@ class Linux(OperatingSystem.OperatingSystem):
         status,output = getstatusoutput(cmd)
         if status != OK:
             raise Exception( "Error creating %s: %s" %(username, output) )
-        modifySudoers(username, type)
         return status
    
     def changeLocalUserPassword(self, username, password):
