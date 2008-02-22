@@ -37,9 +37,9 @@ class BombardierRemoteClient(RemoteClient):
         RemoteClient.__init__(self, hostName)
         self.configPasswd = configPasswd
         self.localFilename = ''
-        self.reportInfo = []
+        self.reportInfo = ''
         self.stateMachine = []
-        self.stateMachine.append([re.compile("\=\=REPORT\=\=:(.+)"), self.getReport])
+        self.stateMachine.append([re.compile("\=\=REPORT\=\=:(.*)"), self.getReport])
         self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendClient])
         self.stateMachine.append([re.compile("\=\=REQUEST-PKGINFO\=\=:(.+)"), self.sendPkgInfo])
         self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)"), self.sendBom])
@@ -92,7 +92,9 @@ class BombardierRemoteClient(RemoteClient):
         lines = 0
         totalLines = len(encoded.split()) / BLK_SIZE
         printFrequency = totalLines / DOT_LENGTH
-        self.debugOutput("Sending configuration information:", '')
+        if self.debug:
+            sys.stdout.write("==> Sending configuration information:")
+            sys.stdout.flush()
         if printFrequency < 1:
             printFrequency = 1
         while True:
@@ -127,8 +129,7 @@ class BombardierRemoteClient(RemoteClient):
         os.unlink(TMP_FILE)
 
     def getReport(self, yamlLine):
-        self.reportInfo.append(yamlLine)
-        print "GETTING REPORT: %s" % self.reportInfo
+        self.reportInfo += yamlLine + "\n"
 
     def sendPkgInfo(self, packageName):
         thisPackageData = self.packageData.get(packageName) 
@@ -157,7 +158,7 @@ class BombardierRemoteClient(RemoteClient):
         return False
 
     def runCmd(self, commandString):
-        self.reportInfo = []
+        self.reportInfo = ''
         if self.freshen() != OK:
             message = "UNABLE TO CONNECT TO %s. No actions are available." % self.hostName
             self.debugOutput(message, message)
@@ -270,9 +271,10 @@ class BombardierRemoteClient(RemoteClient):
         if action == EXECUTE:
             if self.reportInfo:
                 fileName = "output/%s-%s.yml" % (self.hostName, scriptName)
-                open(fileName, 'w').write('\n'.join(self.reportInfo))
+                open(fileName, 'w').write(self.reportInfo)
             else:
                 self.getScriptOutput(scriptName)
+            return returnCode, yaml.load(self.reportInfo)
         return returnCode, []
 
     def clearScriptOutput(self, scriptName):
@@ -287,6 +289,7 @@ class BombardierRemoteClient(RemoteClient):
         self.get("%s/output/%s" % (self.spkgDir, remoteFilename))
         if os.path.isfile(remoteFilename):
             os.system("mv -f %s output/%s" % (remoteFilename, self.localFilename) )
+            self.reportInfo = yaml.load(open("output/%s" % self.localFilename).read())
         return 
 
     def getStatusYml(self):

@@ -64,10 +64,10 @@ def log(noFlag, tokens, cmdStatus, cmdOutput):
         command = "no %s" % command
     if type(cmdOutput) != type('string'):
         cmdOutput = str(cmdOutput)
-    outputString = ':'.join(cmdOutput)
+    cmdOutput = cmdOutput.replace('\n',':')
     statusDict = {OK: "OK", FAIL:"FAIL"}
     logMessage = "%-15s|STATUS:%4s|CMD:%s|OUTPUT:%s"
-    logMessage = logMessage % (mode.username, command, statusDict[cmdStatus], outputString)
+    logMessage = logMessage % (mode.username, command, statusDict[cmdStatus], cmdOutput)
     syslog.syslog(logMessage)
     logger.info(logMessage)
     return command

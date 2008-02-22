@@ -138,11 +138,6 @@ class PackageCommand(PinshCmd.PinshCmd):
             except HostNotEnabledException:
                 return FAIL, ["Host not enabled for this user."]
             status, output = self.processObject(r, packageName, tokens)
-            outputFile = "output/%s" % r.localFilename
-            if os.path.isfile(outputFile):
-                output = ['\n', yaml.load(open(outputFile).read())]
-            else:
-                output = ["No output"]
         else:
             try:
                 packageNames = self.packageList.name(tokens, 2)[0]

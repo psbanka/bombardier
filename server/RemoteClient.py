@@ -63,6 +63,8 @@ class RemoteClient:
     def templateOutput(self, template, debugText, noDebugText='.'):
         output = ''
         if self.debug:
+            if not debugText:
+                return
             try:
                 output = template % debugText
             except TypeError:
