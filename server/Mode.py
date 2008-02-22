@@ -74,6 +74,13 @@ class Mode:
         open(CONFIG_FILE, 'w').write(yaml.dump(self.config))
 
     def loadConfig(self):
+        import os
+        import stat
+        st = os.stat(CONFIG_FILE)
+        mode = st[stat.ST_MODE]
+        permission = stat.S_IMODE(mode)
+        if mode & stat.S_IRWXG or mode & stat.S_IRWXO:
+            print "%% The permissions on your configuration file (%s) are too liberal (%d)" % (CONFIG_FILE, permission)
         if os.path.isfile(CONFIG_FILE+".yml"):
             print "%% Configuration file should be called %s, not %s.yml. Please rename it." % (CONFIG_FILE, CONFIG_FILE)
         if os.path.isfile(CONFIG_FILE):

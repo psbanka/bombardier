@@ -30,7 +30,7 @@ class ScriptField(PinshCmd.PinshCmd):
         self.cmdOwner = 0
 
     def possibleScriptNames(self, packageName, scriptName):
-        packageName = '-'.join(packageName.split('-')[:-1])
+        #packageName = '-'.join(packageName.split('-')[:-1])
         data = getSubsection(packageName)
         scriptNames = data[packageName].get("executables", [])
         possibleCompletions = []

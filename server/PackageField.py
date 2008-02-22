@@ -119,7 +119,7 @@ class InstalledPackageField(PackageField):
 
     def possiblePackageNames(self, hostName, packageName):
         possibleMatches = []
-        for i in getInstalledPackageNames(hostName):
+        for i in getInstalledPackageNames(hostName, stripped=True):
             if i.lower().startswith( packageName.lower() ):
                 possibleMatches.append( i )
         return possibleMatches

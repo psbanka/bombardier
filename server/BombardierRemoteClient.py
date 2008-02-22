@@ -126,7 +126,8 @@ class BombardierRemoteClient(RemoteClient):
             raise ClientConfigurationException(self.hostName)
         open(TMP_FILE, 'w').write(yaml.dump( client.data ))
         self.streamFile(TMP_FILE)
-        os.unlink(TMP_FILE)
+        if os.path.isfile(TMP_FILE):
+            os.unlink(TMP_FILE)
 
     def getReport(self, yamlLine):
         self.reportInfo += yamlLine + "\n"

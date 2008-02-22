@@ -124,7 +124,10 @@ class Set(PinshCmd.PinshCmd):
             return FAIL, ["%s is not in the current list of values." % newValue]
         newValue = makeSameType(currentValue, newValue)
         currentValue.append(newValue)
-        fieldObject.setValue(tokens, 2, currentValue)
+        try:
+            fieldObject.setValue(tokens, 2, currentValue)
+        except:
+            return FAIL, ["Unable to set. Check your configuration path."]
         return OK, ["%s appended to list" % newValue]
 
     def modifyScalar(self, noFlag, tokens, newValue, fieldObject):
@@ -132,7 +135,7 @@ class Set(PinshCmd.PinshCmd):
             fieldObject.setValue(tokens, 2, '')
             return OK, ["Value removed."]
         fieldObject.setValue(tokens, 2, newValue)
-        return OK, []
+        return OK, ["Value set."]
 
     def cmd(self, tokens, noFlag, slash):
         if tokens[1].lower().startswith('p'):
@@ -147,4 +150,6 @@ class Set(PinshCmd.PinshCmd):
         if type(currentValue) == type(['list']):
             return self.modifyList(noFlag, tokens, currentValue, newValue, fieldObject)
         elif type(currentValue) in [type('string'), type(1), type(True)]:
+            if currentValue == newValue:
+                return FAIL, ["New value and old value are identical."] 
             return self.modifyScalar(noFlag, tokens, newValue, fieldObject)

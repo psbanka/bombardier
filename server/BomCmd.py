@@ -230,6 +230,7 @@ class Execute(PackageCommand):
         self.action = EXECUTE
         self.logCommand = True
         self.requireDecryption = True
+        self.removeVersion = False
 
     def processObject(self, r, packageName, tokens):
         scriptNames = self.scriptField.name(tokens, 3)
