@@ -80,13 +80,15 @@ class PinshCmd:
             return [self], index
         if tokens[index] == '':
             if len(self.children) > 0:
-                return self.children, index+1
+                return [ child for child in self.children if child.auth <= mode.auth ], index+1
             returnError = 0
         completionObjects = []
         incompleteObjects = []
         matchLen = 0
         if DEBUG: print "CHILDREN: ", self.children
         for child in self.children:
+            if child.auth > mode.auth:
+                continue
             matchValue, length = child.match(tokens, index)
             if matchValue == INCOMPLETE:
                 if DEBUG: print "findcompletions INCOMPLETE : matchValue:",matchValue, "length:",length

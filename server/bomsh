@@ -57,9 +57,9 @@ class Slash(PinshCmd.PinshCmd):
 ##    the Configure.py class
     
 import Bash, Ping, Telnet, Ssh, Terminal, Exit, Package, Enable, Show
-import For, Echo, UpdateClient, Set, Run, PushConfig, Edit, Debug
+import For, Echo, UpdateClient, Set, Run, PushConfig, Edit, Debug, Scheduler
 
-commands = [Echo.Comment(), Set.Set(), Terminal.Terminal(), Show.Show(), Ping.Ping(), Debug.Debug(),
+commands = [Echo.Comment(), Set.Set(), Terminal.Terminal(), Show.Show(), Ping.Ping(), Debug.Debug(), Scheduler.Scheduler(),
             Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(), Run.Run(), PushConfig.PushConfig(), Edit.Edit(), Echo.Pause(),
             UpdateClient.UpdateClient(), Exit.Exit(), Enable.Enable(), For.For(), Echo.Echo(), Package.Package()]
 slash = Slash(commands)

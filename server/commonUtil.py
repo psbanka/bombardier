@@ -59,6 +59,9 @@ def logComment(comment=None):
     syslog.syslog("%-15s|COMMENT: %s" % (mode.username, comment))
     logger.info("%-15s|COMMENT: %s" % (mode.username, comment))
 
+def pyChucker(*args, **kwargs):
+    pass
+
 if __name__ == "__main__":
     from libTest import *
     status = OK

@@ -2,7 +2,7 @@
 
 import sys
 
-import PinshCmd, Mode, libUi, ConfigField, Expression, Variable, Integer, MultipleChoice
+import PinshCmd, Mode, libUi, ConfigField, Expression, JobNameField, Integer, MultipleChoice
 import SecureCommSocket
 from commonUtil import *
 
@@ -59,6 +59,18 @@ def makeSameType(currentValue, newValue):
         return int(newValue)
     raise UnsupportedTypeException(currentValue[0])
 
+def delJob(jobName):
+    c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
+    jobDictStart = c.sendSecure(TB_SHOW, [])
+    if jobName in jobDictStart[0]:
+        c.sendSecure(TB_DEL, [jobName])
+    else:
+        return FAIL, ["Job %s does not exist in the job list" % jobName]
+    jobDictEnd = c.sendSecure(TB_SHOW, [])
+    if jobName in jobDictEnd[0]:
+        return FAIL, ["Could not remove job %s" % jobName]
+    return OK, ["Job removed"]
+
 def setJob(jobName, freq):
     bomshCmd = raw_input("Enter the command to schedule> ")
     if bomshCmd == '':
@@ -77,6 +89,7 @@ class Set(PinshCmd.PinshCmd):
         self.include = PinshCmd.PinshCmd("include","include\tchange an include file")
         self.password = PinshCmd.PinshCmd("password","password\tset your password")
         self.job = PinshCmd.PinshCmd("job", "job\nset up a new batch job")
+        self.job.auth = ADMIN
         self.children = [self.client, self.bom, self.include, self.password, self.job]
 
         # CLIENT
@@ -96,14 +109,14 @@ class Set(PinshCmd.PinshCmd):
         self.bomConfigField.children = [expression]
 
         # JOB
-        variable = Variable.Variable()
+        self.jobNameField = JobNameField.JobNameField()
         freq = Integer.Integer(min = 1, max = 1000, name = "number of minutes, hours, or days between each time the job is run")
         timespan = MultipleChoice.MultipleChoice(choices = ["minute", "hour", "day", "week"], 
                                          helpText = ["measure by minutes", "measure by hours", "measure by days", "measure by weeks"])
         
-        self.job.children = [variable]
-        variable.children = [freq]
-        freq.children     = [timespan]
+        self.job.children = [self.jobNameField]
+        self.jobNameField.children = [freq]
+        freq.children = [timespan]
 
         self.cmdOwner = 1
 
@@ -160,22 +173,22 @@ class Set(PinshCmd.PinshCmd):
 
     def cmd(self, tokens, noFlag, slash):
         if tokens[1].lower().startswith('j'):
-            print "hello"
             if not tokens[2]:
                 return FAIL, ["Need a name for the job"]
             jobName = tokens[2]
+            if noFlag:
+                return delJob(jobName)
             if not tokens[3]:
                 return FAIL, ["Need a frequency with which to run the job"]
             interval = int(tokens[3])
             multiplier = 1
-            if tokens[4]:
+            if len(tokens) > 4:
                 if tokens[4].startswith('h'):
                     multiplier = multiplier * 60
                 elif tokens[4].startswith('d'):
                     multiplier = multiplier * 60 * 24
                 elif tokens[4].startswith('w'):
                     multiplier = multiplier * 60 * 24 * 7
-            print "Hello"
             return setJob(jobName, interval * multiplier)
         if tokens[1].lower().startswith('p'):
             return setPassword(slash)

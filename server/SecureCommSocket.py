@@ -19,6 +19,7 @@ END_CONST   = "DONE"
 END_RESPONSE = "***"
 FIELD_DELIMITER = ":::"
 MESSAGE_DELIMITER = "|||"
+CLIENT_TIMEOUT = 10
 
 DIZEBUG=0
 
@@ -71,12 +72,30 @@ class SecureServer:
                 debugger( "Dude screwed up the password" )
                 return EMPTY_RETURN
             return command, message.split(MESSAGE_DELIMITER), clientAddress
-            
+
+    def cleanup(self):
+        for clientAddress in self.clientSockets:
+            self.disconnectClient(clientAddress)
 
     def disconnectClient(self, clientAddress):
         if not clientAddress:
             return
-        self.clientSockets[clientAddress].send(END_CONST+MESSAGE_DELIMITER)
+        clientSocket = self.clientSockets[clientAddress]
+        clientSocket.send(END_CONST+MESSAGE_DELIMITER)
+        now = time.time()
+        while True:
+            debugger("Waiting for graceful disconnect")
+            readable, writable, errored = select([clientSocket], [], [], 1)
+            if readable:
+                clientData = readable[0].recv(1024)
+                if clientData != '':
+                    debugger("Client still thinks it wants to talk to us: %s" % clientData)
+                else:
+                    break
+            if time.time() - now > CLIENT_TIMEOUT:
+                debugger("UNGracefully disconnecting client")
+                clientSocket.close()
+                break
         debugger( "Disconnected client: %s" %clientAddress )
         
     def sendClient(self, clientAddress, object):

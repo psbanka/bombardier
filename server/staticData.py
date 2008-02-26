@@ -1,12 +1,12 @@
 TB_CTRL_PORT = 7000
-TB_CHECK = "C"
-TB_KILL = "K"
-TB_WAIT = "W"
-TB_ADD  = "A"
-TB_DEL  = "D"
-TB_SHOW = "S"
-TB_SAVE = "V"
-TB_LOAD = "L"
+TB_RUN_JOB = "R"
+TB_KILL    = "K"
+TB_WAIT    = "W"
+TB_ADD     = "A"
+TB_DEL     = "D"
+TB_SHOW    = "S"
+TB_SAVE    = "V"
+TB_LOAD    = "L"
 
 DEBUG = 0
 

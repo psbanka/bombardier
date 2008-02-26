@@ -3,7 +3,7 @@
 import sys, readline
 import yaml
 import Client
-import PinshCmd, ConfigField, Integer, BomHostField, PackageField
+import PinshCmd, ConfigField, Integer, BomHostField, PackageField, JobNameField
 from commonUtil import *
 import SecureCommSocket
 
@@ -16,6 +16,7 @@ class ShowCommand(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash)
         if noFlag:
             return FAIL, []
         if len(tokens) < 3:
@@ -57,6 +58,7 @@ class History(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(noFlag, slash)
         if len(tokens) == 2 or tokens[-1].strip()=='':
             number = 20
         else:
@@ -82,6 +84,7 @@ class Package(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(noFlag, slash)
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
         packageNames = self.packageField.name(tokens, 2)
@@ -91,7 +94,7 @@ class Package(PinshCmd.PinshCmd):
             return FAIL, ["Ambiguous package %s" % tokens[2]]
         packageName = packageNames[0]
         pkgData = yaml.load(open("deploy/packages/packages.yml").read())
-        output = yaml.dump(pkgData.get(packageName), default_flow_style=False)
+        #output = yaml.dump(pkgData.get(packageName), default_flow_style=False)
         #print `output`
         return OK, ['', packageName, "========================", '', [pkgData.get(packageName)]]
 
@@ -101,7 +104,7 @@ def printify(inputObject):
     output = []
     if not textList:
         return []
-    maxLength = max( [ len(x) for x in textList ] )
+    maxLength = max( [ len(t) for t in textList ] )
     columns = (mode.termwidth - TERM_OVERCOUNT) / maxLength
     for i in range(0, len(textList), columns):
         newLine = ''
@@ -120,6 +123,7 @@ class Status(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash)
         if noFlag:
             return FAIL, []
         if len(tokens) < 3:
@@ -163,17 +167,34 @@ class Jobs(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "jobs")
         self.helpText = "jobs\tdisplay jobs"
+        self.jobNameField = JobNameField.JobNameField()
+        self.children = [self.jobNameField]
         self.level = 0
         self.cmdOwner = 1
+        self.auth = ADMIN
         
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash)
+        jobName = ''
         if noFlag:
             return FAIL, []
-
         if mode.auth != ADMIN:
             return FAIL, ["Must be enabled"]
+        if len(tokens) > 2:
+            jobNames = self.jobNameField.name(tokens, 2)
+            if len(jobNames) < 1:
+                return FAIL, ["Unknown job: %s" % tokens[2]]
+            elif len(jobNames) > 1:
+                if tokens[2] in jobNames:
+                    jobName = tokens[2]
+                else:
+                    return FAIL, ["Ambiguous job name: %s" % tokens[2]]
+            else:
+                jobName = jobNames[0]
         c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
         jobs = c.sendSecure(TB_SHOW, [])
+        if jobName:
+            return OK, jobs[jobName]
         return OK, jobs
     
 
