@@ -5,6 +5,7 @@ import yaml
 import Client
 import PinshCmd, ConfigField, Integer, BomHostField, PackageField
 from commonUtil import *
+import SecureCommSocket
 
 TERM_OVERCOUNT = 8 # For some reason, the term width seems too long...
 
@@ -158,6 +159,24 @@ class Status(PinshCmd.PinshCmd):
             output += ["Not Installed:",[["NONE"]]]
         return OK, output
 
+class Jobs(PinshCmd.PinshCmd):
+    def __init__(self):
+        PinshCmd.PinshCmd.__init__(self, "jobs")
+        self.helpText = "jobs\tdisplay jobs"
+        self.level = 0
+        self.cmdOwner = 1
+        
+    def cmd(self, tokens, noFlag, slash):
+        if noFlag:
+            return FAIL, []
+
+        if mode.auth != ADMIN:
+            return FAIL, ["Must be enabled"]
+        c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
+        jobs = c.sendSecure(TB_SHOW, [])
+        return OK, jobs
+    
+
 class Show(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "show")
@@ -169,7 +188,8 @@ class Show(PinshCmd.PinshCmd):
         status = Status()
         package = Package()
         bom = Bom()
-        self.children = [merged, client, include, bom, history, status, package]
+        jobs = Jobs()
+        self.children = [merged, client, include, bom, history, status, package, jobs]
         self.level = 0
         self.cmdOwner = 1
 

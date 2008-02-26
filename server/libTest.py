@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, os, shutil, libUi
+import sys, os, shutil#, libUi
 from commonUtil import *
 
 #####################################################
@@ -14,15 +14,15 @@ def startTest(restoreFiles = 1):
             if not os.path.isdir("scratch"):
                 os.makedirs("scratch")
             files = os.listdir("scratch")
-            for file in files:
+            for filename in files:
                 try:
-                    os.unlink("scratch/"+file)
+                    os.unlink("scratch/"+filename)
                 except:
                     pass
             files = os.listdir("testfiles")
-            for file in files:
+            for filename in files:
                 try:
-                    shutil.copyfile("testfiles/"+file, "scratch/"+file)
+                    shutil.copyfile("testfiles/"+filename, "scratch/"+filename)
                 except:
                     pass
     from time import localtime, strftime
@@ -30,7 +30,7 @@ def startTest(restoreFiles = 1):
     print "================== TESTING STARTED: ",now,"\n\n"
     return OK
 
-def runTest(function, args, expectation, status, verbose = 0):
+def runTest(function, args, expectation, status):
     output = apply(function,args)
 
     if output == expectation:

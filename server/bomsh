@@ -99,6 +99,11 @@ if __name__ == "__main__":
         logComment("User %s STARTED an interactive session" % mode.username)
         if mode.autoEnable:
             Enable.performEnable(slash)
+        if mode.username == "root":
+            try:
+                mode.username = raw_input("Logging in as common user account. \nPlease provide your user name: ")
+            except:
+                sys.exit(0)
         while True:
             try:
                 mode.setPrompt()

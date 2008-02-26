@@ -55,11 +55,6 @@ class Mode:
         self.config = {}
         self.username = os.environ["USER"]
         self.autoEnable = False
-        if self.username == "root":
-            try:
-                self.username = raw_input("Logging in as common user account. \nPlease provide your user name: ")
-            except:
-                sys.exit(0)
         self.setPrompt()
 
     def addConfigList(self, option, value):

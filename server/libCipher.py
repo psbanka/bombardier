@@ -8,11 +8,12 @@ VALID_CHARS = [ chr(x) for x in range(ord(' '), ord('~')+1) ]
 def pad(str):
     return str + '=' * (16 - len(str) % 16)
 
-def isValidString(str):
+def getInvalidChars(str, validChars):
+    invalidChars = []
     for c in str:
-        if c not in VALID_CHARS:
-            return False
-    return True
+        if c not in validChars:
+            invalidChars.append( c )
+    return invalidChars
 
 def encrypt(plainStr, passwd):
     passwd = pad(passwd)
@@ -46,8 +47,10 @@ def decryptLoop(dict, passwd):
             except DecryptionException, e:
                 raise InvalidData(key, dict[key], "Unable to decrypt")
     
-def decryptString(b64CipherB64Str, passwd):
+def decryptString(b64CipherB64Str, passwd, validChars=VALID_CHARS):
     #print "b64CipherB64Str: (%s)"%b64CipherB64Str
+    if len(passwd) % 16:
+        passwd = pad(passwd)
     try:
         cipherB64Str = base64.decodestring(b64CipherB64Str).strip()
         #print "cipherB64Str: (%s)" %cipherB64Str
@@ -63,8 +66,10 @@ def decryptString(b64CipherB64Str, passwd):
         raise DecryptionException(b64CipherB64Str, "Invalid characters in the decrypted text 0")
     except ValueError:
         raise DecryptionException(b64CipherB64Str, "Invalid characters in the decrypted text 1")
-    if not isValidString(plainStr):
-        raise DecryptionException(b64CipherB64Str, "Invalid characters in the decrypted text 2")
+    invalidChars = getInvalidChars( plainStr, validChars )
+    if invalidChars:
+        print "Invalid characters in the decrypted text: %s" %invalidChars
+        raise DecryptionException(b64CipherB64Str, "HOLYCRAP")
     return plainStr
 
 class InvalidData(Exception):

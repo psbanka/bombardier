@@ -1,8 +1,9 @@
 #!/usr/bin/python
 
-import os, sys
+import sys
 
-import PinshCmd, Mode, libUi, ConfigField, Expression
+import PinshCmd, Mode, libUi, ConfigField, Expression, Variable, Integer, MultipleChoice
+import SecureCommSocket
 from commonUtil import *
 
 import Client, libCipher
@@ -12,7 +13,7 @@ def setPassword(slash):
         client = Client.Client("test", masterPass)
         client.downloadClient()
         try:
-            status = client.decryptConfig()
+            client.decryptConfig()
         except:
             return FAIL, ['Incorrect master password']
         mode.password = masterPass
@@ -47,7 +48,7 @@ class UnsupportedTypeException(Exception):
     def __str__(self):
         return "Cannot support conversion to type %s." % (self.badType)
     def __repr__(self):
-        return "Lock file %s has been locked for too long (%s)" % (self.filename, `self.elapsedMin`)
+        return "Cannot support conversion to type %s." % (self.badType)
 
 def makeSameType(currentValue, newValue):
     if len(currentValue) == 0:
@@ -57,6 +58,15 @@ def makeSameType(currentValue, newValue):
     if type(currentValue[0]) == type(1):
         return int(newValue)
     raise UnsupportedTypeException(currentValue[0])
+
+def setJob(jobName, freq):
+    bomshCmd = raw_input("Enter the command to schedule> ")
+    if bomshCmd == '':
+        return FAIL, ["Abort"]
+    c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
+    c.sendSecure(TB_ADD, [bomshCmd, freq, jobName, mode.username])
+    return OK, ["Job submitted"]
+    
     
 class Set(PinshCmd.PinshCmd):
     def __init__(self):
@@ -66,7 +76,8 @@ class Set(PinshCmd.PinshCmd):
         self.bom = PinshCmd.PinshCmd("bom","bom\tchange a bill of materials")
         self.include = PinshCmd.PinshCmd("include","include\tchange an include file")
         self.password = PinshCmd.PinshCmd("password","password\tset your password")
-        self.children = [self.client, self.bom, self.include, self.password]
+        self.job = PinshCmd.PinshCmd("job", "job\nset up a new batch job")
+        self.children = [self.client, self.bom, self.include, self.password, self.job]
 
         # CLIENT
         self.clientConfigField = ConfigField.ConfigField(dataType=ConfigField.CLIENT)
@@ -83,6 +94,16 @@ class Set(PinshCmd.PinshCmd):
         self.bomConfigField = ConfigField.ConfigField(dataType=ConfigField.BOM)
         self.bom.children += [self.bomConfigField]
         self.bomConfigField.children = [expression]
+
+        # JOB
+        variable = Variable.Variable()
+        freq = Integer.Integer(min = 1, max = 1000, name = "number of minutes, hours, or days between each time the job is run")
+        timespan = MultipleChoice.MultipleChoice(choices = ["minute", "hour", "day", "week"], 
+                                         helpText = ["measure by minutes", "measure by hours", "measure by days", "measure by weeks"])
+        
+        self.job.children = [variable]
+        variable.children = [freq]
+        freq.children     = [timespan]
 
         self.cmdOwner = 1
 
@@ -138,13 +159,31 @@ class Set(PinshCmd.PinshCmd):
         return OK, ["Value set."]
 
     def cmd(self, tokens, noFlag, slash):
+        if tokens[1].lower().startswith('j'):
+            print "hello"
+            if not tokens[2]:
+                return FAIL, ["Need a name for the job"]
+            jobName = tokens[2]
+            if not tokens[3]:
+                return FAIL, ["Need a frequency with which to run the job"]
+            interval = int(tokens[3])
+            multiplier = 1
+            if tokens[4]:
+                if tokens[4].startswith('h'):
+                    multiplier = multiplier * 60
+                elif tokens[4].startswith('d'):
+                    multiplier = multiplier * 60 * 24
+                elif tokens[4].startswith('w'):
+                    multiplier = multiplier * 60 * 24 * 7
+            print "Hello"
+            return setJob(jobName, interval * multiplier)
         if tokens[1].lower().startswith('p'):
             return setPassword(slash)
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
         fieldObject = self.getFieldObject(tokens)
         if not fieldObject:
-            return FAIL, ["Unknown command: %s" % configType]
+            return FAIL, ["Unknown command: %s" % tokens[1]]
         currentValue = fieldObject.getSpecificData(tokens, 2)
         newValue = self.getNewValue(noFlag, tokens)
         if type(currentValue) == type(['list']):
