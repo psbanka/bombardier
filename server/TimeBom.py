@@ -1,4 +1,4 @@
-#!/cygdrive/c/Python24/python.exe
+#!/cygdrive/c/Python25/python.exe
 
 import time
 import SecureCommSocket
@@ -22,6 +22,7 @@ class JobNotFoundException(Exception):
     pass
 
 syslog.openlog("timebom", syslog.LOG_PID, syslog.LOG_USER)
+syslog.LOG_UPTO(syslog.LOG_INFO)
 
 
 class Logger:
@@ -88,6 +89,7 @@ class JobCollection(Logger):
 
     def getTimeOfNextJob(self):
         now = time.time()
+        self.timeOfNextJob = time.time() * 2 
         for jobName in self.jobDict:
             job = self.jobDict[jobName]
             if job.nextRun < self.timeOfNextJob:
@@ -119,20 +121,22 @@ class JobCollection(Logger):
     def clear(self):
         self.delJobs(self.jobDict.keys())
 
-    def run(self, jobList):
-        self.info("run: %s" % str(jobList))
+    def run(self, jobList, timeout=5):
+        self.checkRunning()
         for jobName in jobList:
             if jobName in self.jobDict.keys():
                 job = self.jobDict[jobName]
-                self.info("Spawning job %s (%s)" % (jobName, self.nextProcessNumber))
+                self.info("Spawning job -- name:%s process: %s command: %s" % (jobName, self.nextProcessNumber, job.bomshCmd))
                 job.spawn(self.nextProcessNumber)
                 self.nextProcessNumber += 1
                 now = time.time()            
                 while not job.running:
                     time.sleep(.1)
-                    if time.time() - now > 5:
+                    if time.time() - now > timeout:
+                        self.error("Timed out waiting for job %s to start..." % jobName)
                         break
-                self.info("...done")
+                self.debug("Started job %s" %jobName)
+        self.getTimeOfNextJob()
 
     def killJobs(self, jobNames, timeout=10):
         status = OK
@@ -149,6 +153,7 @@ class JobCollection(Logger):
             while job.running:
                 self.info("Waiting for job %s to die..." % jobName)
                 if (time.time() - now) > timeout:
+                    self.error("Timed out waiting for job %s to die..." % jobName)
                     status = FAIL
                     break
                 time.sleep(1)
@@ -182,7 +187,7 @@ class JobThread(Thread, Logger):
         if self.to.testStop():
             self.fro.sendStop()
             return
-        self.info("Running %s..." % self.bomshCmd)
+        self.debug("Running %s..." % self.bomshCmd)
         cmdStatus, cmdOutput = slash.processCommand(self.bomshCmd.strip())
         self.fro.sendStop()
 
@@ -223,9 +228,10 @@ class Job(Logger):
         self.to = jt.to 
         jt.fro = CommSocket.CommSocket()
         self.fro = jt.fro 
-        jt.start()
         self.lastRun = time.time()
         self.nextRun = self.lastRun + self.freq
+        self.debug("spawn: lastRun: %s nextRun: %s" %(self.lastRun, self.nextRun))
+        jt.start()
         self.running = True
         return OK
 
@@ -300,10 +306,12 @@ class TimeBom(Thread):
     ################################
 
     def checkTimers(self):
-        if time.time() > self.jobs.timeOfNextJob:
-            self.logger.info("Time for job run")
+        now = time.time()
+        self.logger.debug("checkTimers: next: %s : current: %s" %(self.jobs.timeOfNextJob, now))
+        if now > self.jobs.timeOfNextJob:
+            self.logger.debug("Time for job run")
             runnableJobs = self.getRunnableJobs()
-            return TB_RUN_JOB, [runnableJobs]
+            return TB_RUN_JOB, runnableJobs
         return TB_WAIT, []
 
     def run(self):
@@ -319,7 +327,8 @@ class TimeBom(Thread):
                 self.logger.debug(str(messageList))
                 if not command:
                     command, messageList = self.checkTimers()
-                self.logger.info("COMMAND: (%s)" % command)
+                if command != TB_WAIT:
+                    self.logger.debug("COMMAND: (%s)" % command)
                 if command == TB_KILL:
                     self.controlSocket.disconnectClient(clientAddress)
                     break
@@ -385,7 +394,7 @@ def test():
     tb.jobs.addJob(name="sleepTest", bomshCmd="sleep 2", freq=5, user="shawn")
     status = runTest(tb.getRunnableJobs, [], ["sleepTest"], status)
     testJob = tb.jobs.jobDict['sleepTest']
-    status = runTest(testJob.spawn, [23], OK, status)
+    status = runTest(testJob.spawn, [24], OK, status)
     status = runTest(testJob.spawn, [23], FAIL, status)
     status = runTest(testJob.killThread, [], OK, status)
     assert testJob.running == False
@@ -430,11 +439,21 @@ def test():
     status = runTest(tb.getRunningJobs, [], [], status)
 
     #^ TEST SCHEDULING A JOB TO RUN ON ITS OWN
-    time.sleep(1)
+
+    tb.clearJobs()
+    tb.jobs.addJob(name="sleepTest", bomshCmd="sleep 3", freq=5, user="shawn")
     status = runTest(tb.getRunningJobs, [], [], status)
-    time.sleep(1)
-    status = runTest(tb.getRunningJobs, [], [], status)
+    time.sleep(2)
+    status = runTest(tb.getRunningJobs, [], ["sleepTest"], status)
     
+    time.sleep(3.5)
+    status = runTest(tb.getRunningJobs, [], [], status)
+
+    # BY NOW sleepTest SHOULD BE RUNNING AGAIN
+   
+    time.sleep(3.5)
+    status = runTest(tb.getRunningJobs, [], ["sleepTest"], status)
+
     status = runTest(c.sendSecure, [TB_KILL,[ "kill"]], [], status)
 
     endTest(status)
@@ -479,7 +498,7 @@ def startService(passwd):
     tb.run()
 
 if __name__ == "__main__":
-    #test()
+    test()
     from getpass import getpass
     import sys
     passwd = getpass("Server password: ")
