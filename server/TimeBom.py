@@ -9,8 +9,9 @@ import os, yaml
 from libCipher import encrypt, decryptString, pad
 from threading import Thread
 from staticData import *
+from Slash import *
 
-DIZEBUG = 1
+DIZEBUG = 0
 TB_CHECK_INTERVAL = 300
 TB_JOB_FILE = "jobs.yml"
 
@@ -46,8 +47,9 @@ class Logger:
         else:
             syslog.syslog(level, "%-15s|timebom: %s" % (self.user, message))
 
-class JobCollection:
+class JobCollection(Logger):
     def __init__(self, jobFile, password):
+        Logger.__init__(self, 'root', 0)
         self.jobFile = jobFile
         self.password = password
         self.jobDict = {}
@@ -55,20 +57,20 @@ class JobCollection:
         self.nextProcessNumber = 1
 
     def load(self):
-        if 1 == 1:
-        #try:
+        #if 1 == 1:
+        try:
             if os.path.isfile(self.jobFile):
                 cipherText = open(self.jobFile).read()
                 plainText  = decryptString(cipherText, self.password, YAML_CHARS)
                 tmpDict = yaml.load(plainText)
                 for jobName in tmpDict:
                     tmpDict[jobName]['name'] = jobName
-                    self.jobDict[jobName] = Job()
+                    self.jobDict[jobName] = Job(self.password)
                     self.jobDict[jobName].initDict(tmpDict[jobName])
                 self.getTimeOfNextJob()
             return OK
-        else:
-        #except:
+        #else:
+        except:
             return FAIL
 
     def save(self):
@@ -103,7 +105,7 @@ class JobCollection:
         return jobList
 
     def addJob(self, bomshCmd, freq, name, user):
-        self.jobDict[name] = Job()
+        self.jobDict[name] = Job(self.password)
         self.jobDict[name].initArgs( name, bomshCmd, freq, user )
         self.getTimeOfNextJob()
 
@@ -136,46 +138,54 @@ class JobCollection:
                 raise JobNotFoundException
             job = self.jobDict[jobName]
             if job.running:
-                job.c.sendStop()
+                job.killThread()
         
         for jobName in jobNames:
             now = time.time()
+            job = self.jobDict[jobName]
             while job.running:
-                print "WAITING FOR JOB %s TO DIE" % jobName
+                self.info("Waiting for job %s to die..." % jobName)
                 if (time.time() - now) > timeout:
                     status = FAIL
-                    continue
+                    break
                 time.sleep(1)
         return status
 
     def killAll(self, timeout=10):
         return self.killJobs(self.jobDict.keys(), timeout)
 
-    def running(self):
+    def checkRunning(self):
         runningList = []
         for jobName in self.jobDict:
             job = self.jobDict[jobName]
+            job.checkThread()
             if job.running:
-                if not job.c.testStop():
-                    runningList.append(jobName)
+                runningList.append(jobName)
         return runningList
 
 class JobThread(Thread, Logger):
-    def __init__(self, user, process):
+    def __init__(self, user, process, bomshCmd, password, timeout=100):
         Thread.__init__(self)
         Logger.__init__(self, user, process)
+        self.bomshCmd = bomshCmd
+        self.timeout = timeout
+        self.password = password
+
     def run(self): 
-        self.running = True
-        while True:
-            if self.c.testStop():
-                break
-            self.warning("foo")
-            time.sleep(.5)
-        self.running = False
-        
+        now = time.time()
+        mode.auth = ADMIN
+        mode.batch = True
+        mode.password = self.password
+        if self.to.testStop():
+            self.fro.sendStop()
+            return
+        self.info("Running %s..." % self.bomshCmd)
+        cmdStatus, cmdOutput = slash.processCommand(self.bomshCmd.strip())
+        self.fro.sendStop()
 
 class Job(Logger):
-    def __init__(self):
+    def __init__(self, password):
+        self.password = password
         self.freq = None
         self.bomshCmd = None
         self.user = None
@@ -202,36 +212,39 @@ class Job(Logger):
                  "lastRun": self.lastRun, "bomshCmd" : self.bomshCmd }
 
     def spawn(self, process):
-        jt = JobThread(self.user, process)
-        jt.c = CommSocket.CommSocket()
-        self.c = jt.c 
+        if self.running:
+            self.error("Refusing to run %s; it is already running" % self.name)
+            return FAIL
+        jt = JobThread(self.user, process, self.bomshCmd, self.password)
+        jt.to = CommSocket.CommSocket()
+        self.to = jt.to 
+        jt.fro = CommSocket.CommSocket()
+        self.fro = jt.fro 
         jt.start()
+        self.lastRun = time.time()
+        self.nextRun = self.lastRun + self.freq
         self.running = True
+        return OK
+
+    def checkThread(self):
+        if not self.running:
+            return OK
+        if self.fro.testStop():
+            self.running = False
+        return OK
 
     def killThread(self):
-        self.c.sendStop()
-        self.running = False
-        
-        
-
-    def badrun(self):
-        #self.info("Job wants to run: %s" %self.name)
-        self.running = True
-        return
-        #self.info("Running %s [PROCESS ID: %s]" % (self.bomshCmd, self.process))
+        if not self.running:
+            return OK
+        self.to.sendStop()
         now = time.time()
-        while True:
-        #    self.info("Job is running...")
-            if self.commSocketToJob.testStop():
-        #        self.info("Server says I should stop.")
-                break
+        while not self.fro.testStop():
+            time.sleep(.1)
             if time.time() - now > 5:
-        #        self.info("Timeout")
-                break
-            time.sleep(1)
-        #self.info("Terminating myself...")
-        self.commSocketFromJob.sendStop()
+                self.info( "killThread: %s timeout" % self.name)
+                return FAIL
         self.running = False
+        return OK
 
 class TimeBom(Thread):
     def __init__(self, password, jobFile=TB_JOB_FILE, port=TB_CTRL_PORT):
@@ -279,7 +292,7 @@ class TimeBom(Thread):
         return self.jobs.killAll()
 
     def getRunningJobs(self):
-        return self.jobs.running()
+        return self.jobs.checkRunning()
 
     ################################
 
@@ -349,66 +362,69 @@ def test():
     status = OK
     TEST_PORT     = 2384
     TEST_JOB_FILE = "testJobFile.yml"
+    tb = TimeBom("fooman", TEST_JOB_FILE, TEST_PORT)
+    JOB_sleepTest = {'sleepTest': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}
+    JOB_checker  = {'checker': {'lastRun': 0, 'freq': 3600, 'bomshCmd': 'sho package sqlback', 'user': 'chawn'}}
+    combined = [{'checker': {'lastRun': 0, 'freq': 3600, 'bomshCmd': 'sho package sqlback', 'user': 'chawn'}, 
+                 'sleepTest': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}]
+    c = SecureCommSocket.SecureClient(TEST_PORT, "fooman")
+
     startTest()
 
-    tb = TimeBom("fooman", TEST_JOB_FILE, TEST_PORT)
-    #open( TEST_JOB_FILE, 'w').write("FLIFFY")
-    #status = runTest(tb.loadJobs, [], FAIL, status)
-    tb.jobs.addJob(name="statlilap", bomshCmd="sho stat lilap", freq=5, user="shawn")
-    testJob = tb.jobs.jobDict['statlilap']
-    testJob.spawn(23)
-    time.sleep(2)
-    testJob.killThread()
-    while testJob.running:
-        print "waiting for 23 to die."
-        time.sleep(.5)
+    # job file manipulation
+    open( TEST_JOB_FILE, 'w').write("FLIFFY")
+    status = runTest(tb.loadJobs, [], FAIL, status)
+    status = runTest(tb.saveJobs, [], OK, status)
+    tb.clearJobs()
+    status = runTest(tb.loadJobs, [], OK, status)
 
-    testJob.spawn(24)
-    time.sleep(2)
-    testJob.killThread()
-    while testJob.running:
-        print "waiting for 24 to die."
-        time.sleep(.5)
+    # Try spawning some jobs and killing them...
+    tb.jobs.addJob(name="sleepTest", bomshCmd="sleep 2", freq=5, user="shawn")
+    status = runTest(tb.getRunnableJobs, [], ["sleepTest"], status)
+    testJob = tb.jobs.jobDict['sleepTest']
+    status = runTest(testJob.spawn, [23], OK, status)
+    status = runTest(testJob.spawn, [23], FAIL, status)
+    status = runTest(testJob.killThread, [], OK, status)
+    assert testJob.running == False
 
-    #status = runTest(tb.saveJobs, [], OK, status)
-    #tb.clearJobs()
-    #status = runTest(tb.loadJobs, [], OK, status)
-    #status = runTest(tb.getRunnableJobs, [], ["statlilap"], status)
-    #status = runTest(tb.runJobs, [["statlilap"]], None, status)
-    #status = runTest(tb.getRunningJobs, [], ["statlilap"], status)
-    #status = runTest(tb.killAll, [], OK, status)
-    #status = runTest(tb.getRunningJobs, [], [], status)
+    # make sure a job can be spawned again...
+    status = runTest(testJob.spawn, [24], OK, status)
+    status = runTest(testJob.killThread, [], OK, status)
+    status = runTest(testJob.killThread, [], OK, status)
+    assert testJob.running == False
 
+    # higher-level job threading testing
+    status = runTest(tb.runJobs, [["sleepTest"]], None, status)
+    status = runTest(tb.getRunningJobs, [], ["sleepTest"], status)
+    status = runTest(tb.killJobs, [['sleepTest']], OK, status)
+    status = runTest(tb.killAll, [], OK, status)
+    status = runTest(tb.getRunningJobs, [], [], status)
 
-
-
-#    status = runTest(tb.runJobs, [["statlilap"]], None, status)
-#    status = runTest(tb.getRunningJobs, [], ["statlilap"], status)
-
-
-
-
-    #time.sleep(5)
-    #status = runTest(tb.getRunningJobs, [], [], status)
-    endTest(status)
-    sys.exit(0)
+    # make sure we can detect when a job dies
+    status = runTest(tb.runJobs, [["sleepTest"]], None, status)
+    status = runTest(tb.getRunningJobs, [], ["sleepTest"], status)
+    time.sleep(2.5)
+    status = runTest(tb.getRunningJobs, [], [], status)
     
+    # testing socket interaction with the server
+    JOB_sleepTest["sleepTest"]["lastRun"] = tb.jobs.jobDict['sleepTest'].lastRun
+    combined[0]["sleepTest"]["lastRun"] = tb.jobs.jobDict['sleepTest'].lastRun
     tb.start()
 
-    JOB_statlilap = {'statlilap': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sho stat lilap', 'user': 'shawn'}}
-    JOB_checker2  = {'checker': {'lastRun': 0, 'freq': 3600, 'bomshCmd': 'sho package sqlback', 'user': 'chawn'}}
-    combined = [{'checker': {'lastRun': 0, 'freq': 3600, 'bomshCmd': 'sho package sqlback', 'user': 'chawn'}, 'statlilap': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sho stat lilap', 'user': 'shawn'}}]
-    c = SecureCommSocket.SecureClient(TEST_PORT, "fooman")
-    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_statlilap], status)
-    status = runTest(c.sendSecure, [TB_SHOW, ["show"]], [JOB_statlilap], status)
+    status = runTest(tb.getRunningJobs, [], [], status)
+    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_sleepTest], status)
+    status = runTest(c.sendSecure, [TB_SHOW, ["show"]], [JOB_sleepTest], status)
     status = runTest(c.sendSecure, [TB_ADD, ["sho package sqlback", 3600, "checker", "chawn" ]], [], status)
     status = runTest(c.sendSecure, [TB_SHOW, []], combined, status)
-    status = runTest(c.sendSecure, [TB_DEL, ["statlilap"]], [], status)
-    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_checker2], status)
+    status = runTest(c.sendSecure, [TB_DEL, ["sleepTest"]], [], status)
+    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_checker], status)
+    status = runTest(tb.getRunningJobs, [], [], status)
     status = runTest(c.sendSecure, [TB_SAVE, []], [], status)
+    status = runTest(tb.getRunningJobs, [], [], status)
     tb.clearJobs()
     status = runTest(c.sendSecure, [TB_LOAD, []], [], status)
-    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_checker2], status)
+    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_checker], status)
+    status = runTest(tb.getRunningJobs, [], [], status)
     status = runTest(c.sendSecure, [TB_KILL,[ "kill"]], [], status)
     
     endTest(status)
