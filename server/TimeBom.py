@@ -120,9 +120,11 @@ class JobCollection(Logger):
         self.delJobs(self.jobDict.keys())
 
     def run(self, jobList):
+        self.info("run: %s" % str(jobList))
         for jobName in jobList:
-            if jobName in self.jobDict:
+            if jobName in self.jobDict.keys():
                 job = self.jobDict[jobName]
+                self.info("Spawning job %s (%s)" % (jobName, self.nextProcessNumber))
                 job.spawn(self.nextProcessNumber)
                 self.nextProcessNumber += 1
                 now = time.time()            
@@ -130,6 +132,7 @@ class JobCollection(Logger):
                     time.sleep(.1)
                     if time.time() - now > 5:
                         break
+                self.info("...done")
 
     def killJobs(self, jobNames, timeout=10):
         status = OK
@@ -315,7 +318,7 @@ class TimeBom(Thread):
                 self.logger.debug(command)
                 self.logger.debug(str(messageList))
                 if not command:
-                    command, message = self.checkTimers()
+                    command, messageList = self.checkTimers()
                 self.logger.info("COMMAND: (%s)" % command)
                 if command == TB_KILL:
                     self.controlSocket.disconnectClient(clientAddress)
@@ -364,8 +367,8 @@ def test():
     TEST_JOB_FILE = "testJobFile.yml"
     tb = TimeBom("fooman", TEST_JOB_FILE, TEST_PORT)
     JOB_sleepTest = {'sleepTest': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}
-    JOB_checker  = {'checker': {'lastRun': 0, 'freq': 3600, 'bomshCmd': 'sho package sqlback', 'user': 'chawn'}}
-    combined = [{'checker': {'lastRun': 0, 'freq': 3600, 'bomshCmd': 'sho package sqlback', 'user': 'chawn'}, 
+    JOB_echoTest  = {'echoTest': {'lastRun': 0, 'freq': 3600, 'bomshCmd': 'echo foo', 'user': 'chawn'}}
+    combined = [{'echoTest': {'lastRun': 0, 'freq': 3600, 'bomshCmd': 'echo foo', 'user': 'chawn'}, 
                  'sleepTest': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}]
     c = SecureCommSocket.SecureClient(TEST_PORT, "fooman")
 
@@ -414,19 +417,26 @@ def test():
     status = runTest(tb.getRunningJobs, [], [], status)
     status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_sleepTest], status)
     status = runTest(c.sendSecure, [TB_SHOW, ["show"]], [JOB_sleepTest], status)
-    status = runTest(c.sendSecure, [TB_ADD, ["sho package sqlback", 3600, "checker", "chawn" ]], [], status)
+    status = runTest(c.sendSecure, [TB_ADD, ["echo foo", 3600, "echoTest", "chawn" ]], [], status)
     status = runTest(c.sendSecure, [TB_SHOW, []], combined, status)
     status = runTest(c.sendSecure, [TB_DEL, ["sleepTest"]], [], status)
-    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_checker], status)
+    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_echoTest], status)
     status = runTest(tb.getRunningJobs, [], [], status)
     status = runTest(c.sendSecure, [TB_SAVE, []], [], status)
     status = runTest(tb.getRunningJobs, [], [], status)
     tb.clearJobs()
     status = runTest(c.sendSecure, [TB_LOAD, []], [], status)
-    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_checker], status)
+    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_echoTest], status)
     status = runTest(tb.getRunningJobs, [], [], status)
-    status = runTest(c.sendSecure, [TB_KILL,[ "kill"]], [], status)
+
+    #^ TEST SCHEDULING A JOB TO RUN ON ITS OWN
+    time.sleep(1)
+    status = runTest(tb.getRunningJobs, [], [], status)
+    time.sleep(1)
+    status = runTest(tb.getRunningJobs, [], [], status)
     
+    status = runTest(c.sendSecure, [TB_KILL,[ "kill"]], [], status)
+
     endTest(status)
     sys.exit(0)
 
@@ -469,7 +479,7 @@ def startService(passwd):
     tb.run()
 
 if __name__ == "__main__":
-    test()
+    #test()
     from getpass import getpass
     import sys
     passwd = getpass("Server password: ")
