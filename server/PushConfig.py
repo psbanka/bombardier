@@ -2,7 +2,7 @@ import sys, time, random
 from BombardierRemoteClient import *
 import Client
 import PinshCmd
-import BomHostField, PackageField, ScriptField
+import BomHostField
 from commonUtil import *
 from commands import getstatusoutput
 from Mode import HostNotEnabledException
@@ -17,6 +17,7 @@ class PushConfig(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash)
         start = time.time()
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
@@ -35,13 +36,13 @@ class PushConfig(PinshCmd.PinshCmd):
             if status == FAIL:
                 return FAIL, ["Unable to delete config.yml from %s. (%s)" % (hostName, output.strip().replace('\n', ' '))]
             return OK, ["Remote config file removed."]
-        client = Client.Client(hostName, mode.password)
+        client = Client.Client(hostName, mode.password, mode.dataPath)
         status = client.get()
         if status == FAIL:
             return FAIL ["Could not find valid configuration data for this host."]
         if mode.password:
             client.decryptConfig()
-        tmpFile = "%s.yml" % (''.join(random.sample("abcdefghijklmnopqrstuvwxyz", 10)))
+        tmpFile = mode.dataPath+"/%s.yml" % (''.join(random.sample("abcdefghijklmnopqrstuvwxyz", 10)))
         open(tmpFile, 'w').write(yaml.dump( client.data ))
         r.scp(tmpFile, r.spkgDir+"/config.yml")
         status, output = getstatusoutput("shred -uf %s" % tmpFile)

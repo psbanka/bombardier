@@ -13,7 +13,7 @@ class Slash(PinshCmd.PinshCmd):
         self.cmdOwner = 1
         self.helpText = ''
 
-    def processCommand(self, command):
+    def processCommand(self, command, fpOut=sys.stdout, fpErr=sys.stderr):
         try:
             if mode.currentState() != Mode.FREE_TEXT:
                 noFlag, helpFlag, tokens, comment = libUi.processInput(command)
@@ -24,17 +24,20 @@ class Slash(PinshCmd.PinshCmd):
                 if len(tokens) == 0:
                     return OK, []
                 else:
+                    self.fpOut = fpOut
                     status, output = self.run(tokens, noFlag, self)
+                    self.fpOut = ''
+                    del self.fpOut
                     if comment: 
                         makeComment(comment)
-            libUi.userOutput(output, status)
+            libUi.userOutput(output, status, fpOut, fpErr)
             return status, output
         except exceptions.SystemExit, e:
             if mode.commentCommands:
                 makeComment()
             sys.exit(0)
         except Exception, e:
-            sys.stderr.write("Error detected in %s (%s)." % (file, e))
+            fpErr.write( "Error detected in %s (%s)." % (file, e))
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
             e.seek(0)
@@ -42,8 +45,9 @@ class Slash(PinshCmd.PinshCmd):
             ermsg = ''
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
-            sys.stderr.write(ermsg)
-            sys.stderr.write("\n")
+            fpErr.write(ermsg)
+            fpErr.write("\n")
+        return FAIL,["processCommand Excepted"]
 
 
 ##########################################################################

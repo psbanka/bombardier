@@ -4,37 +4,19 @@ import pxssh, pexpect
 import sys, re, os, getpass, base64, time
 import yaml
 import Client
-from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
 import StringIO
 import traceback
 from RemoteClient import RemoteClient, ClientConfigurationException
+from staticData import *
 
 
 TMP_FILE = "tmp.yml"
 DOT_LENGTH = 20
 
-DEBUG     = False
-UNINSTALL = 0
-CONFIGURE = 1
-INSTALL   = 2
-VERIFY    = 3
-RECONCILE = 4
-STATUS    = 5
-EXECUTE   = 6
-FIX       = 7
-PURGE     = 8
-
-ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i', 
-               VERIFY: '-v', RECONCILE: '-r', STATUS: '-s', 
-               EXECUTE: '-x', FIX: '-f', PURGE: '-p'}
-
-RETURN_DICT = {OK: 'OK', FAIL: 'FAIL', REBOOT: 'REBOOT', PREBOOT: 'PREBOOT'}
-DEBUG_OUTPUT_TEMPLATE = '\n==> ' + ''.join('='*50) + "\n==> %s\n==> " + ''.join('='*50) + '\n'
-
 class BombardierRemoteClient(RemoteClient):
 
-    def __init__(self, hostName, configPasswd):
-        RemoteClient.__init__(self, hostName)
+    def __init__(self, hostName, configPasswd, dataPath, outputHandle=sys.stdout):
+        RemoteClient.__init__(self, hostName, dataPath, outputHandle)
         self.configPasswd = configPasswd
         self.localFilename = ''
         self.reportInfo = ''
@@ -55,7 +37,7 @@ class BombardierRemoteClient(RemoteClient):
             self.python  = '/usr/local/bin/python2.4'
             self.spkgDir = '/opt/spkg'
         self.debugOutput("Loading packages.yml...", '')
-        self.packageData = yaml.load(open("deploy/packages/packages.yml").read())
+        self.packageData = yaml.load(open(self.dataPath+"/deploy/packages/packages.yml").read())
         self.debugOutput("Loaded.", '')
 
     def actionResult(self, data):
@@ -69,7 +51,7 @@ class BombardierRemoteClient(RemoteClient):
 
     def sendPackage(self, data):
         package, path = data
-        filename = "deploy/packages/"+package
+        filename = self.dataPath+"/deploy/packages/"+package
         if not os.path.isfile(filename):
             message = "Client requested a file that is not on this server: %s" % filename
             self.debugOutput(message, message)
@@ -82,7 +64,6 @@ class BombardierRemoteClient(RemoteClient):
         return self.streamData(plainText)
         
     def streamData(self, plainText):
-        start = time.time()
         import zlib
         compressed = zlib.compress(plainText)
         encoded    = base64.encodestring(compressed)
@@ -93,8 +74,8 @@ class BombardierRemoteClient(RemoteClient):
         totalLines = len(encoded.split()) / BLK_SIZE
         printFrequency = totalLines / DOT_LENGTH
         if self.debug:
-            sys.stdout.write("==> Sending configuration information:")
-            sys.stdout.flush()
+            self.outputHandle.write("==> Sending configuration information:")
+            self.outputHandle.flush()
         if printFrequency < 1:
             printFrequency = 1
         while True:
@@ -108,26 +89,28 @@ class BombardierRemoteClient(RemoteClient):
                 pad = ' '*(BLK_SIZE-len(chunk))
                 chunk = chunk[:-1] + pad + '\n'
             if lines % printFrequency == 0:
-                sys.stdout.write('.')
-                sys.stdout.flush()
+                self.outputHandle.write('.')
+                self.outputHandle.flush()
             self.s.send(chunk)
-        if self.debug: 
-            print
+        if self.debug:
+            self.outputHandle.write('\n')
+            self.outputHandle.flush()
 
     def sendClient(self, data):
         if data:
             pass
-        client = Client.Client(self.hostName, self.configPasswd)
+        client = Client.Client(self.hostName, self.configPasswd, self.dataPath)
         status = client.get()
         client.decryptConfig()
         if status == FAIL:
             message = "Could not find valid configuration data for this host. Exiting."
             self.debugOutput(message, message)
             raise ClientConfigurationException(self.hostName)
-        open(TMP_FILE, 'w').write(yaml.dump( client.data ))
-        self.streamFile(TMP_FILE)
-        if os.path.isfile(TMP_FILE):
-            os.unlink(TMP_FILE)
+        tmpFilePath = self.dataPath+"/"+TMP_FILE
+        open(tmpFilePath, 'w').write(yaml.dump( client.data ))
+        self.streamFile(tmpFilePath)
+        if os.path.isfile(tmpFilePath):
+            os.unlink(tmpFilePath)
 
     def getReport(self, yamlLine):
         self.reportInfo += yamlLine + "\n"
@@ -141,7 +124,7 @@ class BombardierRemoteClient(RemoteClient):
         self.streamData(yaml.dump(thisPackageData))
 
     def sendBom(self, data):
-        filename = "deploy/bom/%s.yml" % data
+        filename = self.dataPath+"/deploy/bom/%s.yml" % data
         if not os.path.isfile(filename):
             message = "Could not find valid bom data for this %s. Exiting." % filename
             self.debugOutput(message, message)
@@ -215,9 +198,9 @@ class BombardierRemoteClient(RemoteClient):
         if action == EXECUTE:
             self.clearScriptOutput(scriptName)
         if self.freshen() != OK:
-            message = "UNABLE TO CONNECT TO %s. No actions are available." % self.hostName
-            self.debugOutput(message, message)
-            return FAIL, []
+            if not self.debug:
+                self.outputHandle.write('\n')
+            return FAIL, ["UNABLE TO CONNECT TO %s. No actions are available." % self.hostName]
         returnCode = OK
         try:
             self.s.sendline ('cd %s' %self.spkgDir)
@@ -262,16 +245,19 @@ class BombardierRemoteClient(RemoteClient):
             e.seek(0)
             data = e.read()
             ermsg = ''
+            if not self.debug:
+                self.outputHandle.write('\n')
             for line in data.split('\n'):
-                ermsg = "%% %s" % line
+                ermsg = "%% %s\n" % line
                 self.debugOutput(ermsg, ermsg)
-            print
             return FAIL, []
 
         self.getStatusYml()
+        if not self.debug:
+            self.outputHandle.write('\n')
         if action == EXECUTE:
             if self.reportInfo:
-                fileName = "output/%s-%s.yml" % (self.hostName, scriptName)
+                fileName = self.dataPath+"/output/%s-%s.yml" % (self.hostName, scriptName)
                 open(fileName, 'w').write(self.reportInfo)
             else:
                 self.getScriptOutput(scriptName)
@@ -290,7 +276,7 @@ class BombardierRemoteClient(RemoteClient):
         self.get("%s/output/%s" % (self.spkgDir, remoteFilename))
         if os.path.isfile(remoteFilename):
             os.system("mv -f %s output/%s" % (remoteFilename, self.localFilename) )
-            self.reportInfo = yaml.load(open("output/%s" % self.localFilename).read())
+            self.reportInfo = yaml.load(open(self.dataPath+"/output/%s" % self.localFilename).read())
         return 
 
     def getStatusYml(self):
@@ -305,7 +291,7 @@ class BombardierRemoteClient(RemoteClient):
             yaml.load(statusYml)
         except:
             self.debugOutput("status.yml could not be parsed (writing to error.yml)")
-            open( "%s/error.yml" %(statusDir), 'w' ).write(statusYml)
+            open( self.dataPath+"/%s/error.yml" %(statusDir), 'w' ).write(statusYml)
             return
-        open( "%s/%s.yml" %(statusDir, self.hostName), 'w' ).write(statusYml)
+        open( self.dataPath+"/%s/%s.yml" %(statusDir, self.hostName), 'w' ).write(statusYml)
 

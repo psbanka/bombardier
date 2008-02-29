@@ -1,11 +1,10 @@
 #!/usr/bin/python
 
-import readline, sys, os
+import readline, sys
 import Mode, libUi
 import StringIO
 import traceback
 from commonUtil import *
-import logging
 
 DEBUG    = 0
 NO_MATCH = 0
@@ -80,7 +79,8 @@ class PinshCmd:
             return [self], index
         if tokens[index] == '':
             if len(self.children) > 0:
-                return [ child for child in self.children if child.auth <= mode.auth ], index+1
+                output = [ child for child in self.children if child.auth <= mode.auth ]
+                return output, index+1
             returnError = 0
         completionObjects = []
         incompleteObjects = []

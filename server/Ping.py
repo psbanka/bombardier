@@ -2,7 +2,7 @@
 
 import sys
 
-import PinshCmd, BomHostField, libCmd, pexpect
+import PinshCmd, BomHostField, pexpect
 from commonUtil import *
 
 PING = "/bin/ping"
@@ -17,6 +17,7 @@ class Ping(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash)
         if noFlag:
             return FAIL, []
         if len(tokens) < 2:
@@ -36,6 +37,7 @@ class Ping(PinshCmd.PinshCmd):
         else:
             return FAIL, ["Error in ping command (%s)" % PING]
         for j in range(3):
+            pyChucker(j)
             i = s.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=1)
             if i == 1:
                 sys.stdout.write('.')

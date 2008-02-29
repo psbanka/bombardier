@@ -1,6 +1,6 @@
 #!/cygdrive/c/Python24/python.exe
 
-import socket, random, time, sys, yaml
+import socket, random, time, yaml
 from select import select
 from libCipher import encrypt, decryptString, pad
 from staticData import *
@@ -111,7 +111,10 @@ class SecureClient:
 
     def sendSecure(self, command, messageList):
         tmpsockObj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tmpsockObj.connect((IP, self.port))
+        try:
+            tmpsockObj.connect((IP, self.port))
+        except:
+            raise ConnectionRefusedException("Cannot connect to %s" % self.port)
         tmpsockObj.send(START_CONST)
         data = tmpsockObj.recv(1024)
         debugger( data )

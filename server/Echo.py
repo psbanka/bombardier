@@ -1,8 +1,6 @@
 #!/usr/bin/python
 
 import sys
-import yaml
-import time
 import PinshCmd, Expression
 import libUi
 from commonUtil import *
@@ -17,6 +15,7 @@ class Echo(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash)
         if noFlag:
             return FAIL, []
         return OK, [' '.join(tokens[1:]).strip()]
@@ -28,10 +27,14 @@ class Comment(Echo):
         self.helpText = "comment\tenter a comment into the bomsh log"
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash, noFlag)
         if len(tokens) < 2 or tokens[1] == '':
-            print "\n\nCOMMANDS:"
-            libUi.userOutput(mode.commentCommands, OK)
-            comment = raw_input("Enter a comment for this change:\n> ")
+            if not mode.batch:
+                print "\n\nCOMMANDS:"
+                libUi.userOutput(mode.commentCommands, OK)
+                comment = raw_input("Enter a comment for this change:\n> ")
+            else:
+                comment = ""
         else:
             comment = ' '.join(tokens[1:])
         logComment(comment)
@@ -44,5 +47,7 @@ class Pause(Echo):
         self.helpText = "pause\twait for a <return>"
 
     def cmd(self, tokens, noFlag, slash):
-        raw_input("Press Enter to continue\n")
+        pyChucker(tokens, noFlag, slash)
+        if not mode.batch:
+            raw_input("Press Enter to continue\n")
         

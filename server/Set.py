@@ -10,7 +10,7 @@ import Client, libCipher
 def setPassword(slash):
     if not 'password' in mode.config: 
         masterPass = libUi.pwdInput("Enter master password to authorize this user: ")
-        client = Client.Client("test", masterPass)
+        client = Client.Client("test", masterPass, mode.dataPath)
         client.downloadClient()
         try:
             client.decryptConfig()
@@ -61,7 +61,11 @@ def makeSameType(currentValue, newValue):
 
 def delJob(jobName):
     c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
-    jobDictStart = c.sendSecure(TB_SHOW, [])
+    try:
+        print "  Removing job..."
+        jobDictStart = c.sendSecure(TB_SHOW, [])
+    except ConnectionRefusedException:
+        return FAIL, ["Job server is not running. Use 'scheduler start' to start it."]
     if jobName in jobDictStart[0]:
         c.sendSecure(TB_DEL, [jobName])
     else:
@@ -71,12 +75,33 @@ def delJob(jobName):
         return FAIL, ["Could not remove job %s" % jobName]
     return OK, ["Job removed"]
 
-def setJob(jobName, freq):
+def setJob(tokens, noFlag):
+    if not tokens[2]:
+        return FAIL, ["Need a name for the job"]
+    jobName = tokens[2]
+    if noFlag:
+        return delJob(jobName)
+    if not tokens[3]:
+        return FAIL, ["Need a frequency with which to run the job"]
+    freq = int(tokens[3])
+    multiplier = 60
+    if len(tokens) > 4:
+        if tokens[4].startswith('h'):
+            multiplier = multiplier * 60
+        elif tokens[4].startswith('s'):
+            multiplier = 1
+        elif tokens[4].startswith('d'):
+            multiplier = multiplier * 60 * 24
+        elif tokens[4].startswith('w'):
+            multiplier = multiplier * 60 * 24 * 7
     bomshCmd = raw_input("Enter the command to schedule> ")
     if bomshCmd == '':
         return FAIL, ["Abort"]
     c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
-    c.sendSecure(TB_ADD, [bomshCmd, freq, jobName, mode.username])
+    try:
+        c.sendSecure(TB_ADD, [bomshCmd, freq * multiplier, jobName, mode.username])
+    except ConnectionRefusedException:
+        return FAIL, ["Job server is not running. Use 'scheduler start' to start it."]
     return OK, ["Job submitted"]
     
     
@@ -111,8 +136,8 @@ class Set(PinshCmd.PinshCmd):
         # JOB
         self.jobNameField = JobNameField.JobNameField()
         freq = Integer.Integer(min = 1, max = 1000, name = "number of minutes, hours, or days between each time the job is run")
-        timespan = MultipleChoice.MultipleChoice(choices = ["minute", "hour", "day", "week"], 
-                                         helpText = ["measure by minutes", "measure by hours", "measure by days", "measure by weeks"])
+        timespan = MultipleChoice.MultipleChoice(choices = ["seconds", "minute", "hour", "day", "week"], 
+        helpText = ["measure by seconds", "measure by minutes (default)", "measure by hours", "measure by days", "measure by weeks"])
         
         self.job.children = [self.jobNameField]
         self.jobNameField.children = [freq]
@@ -146,50 +171,34 @@ class Set(PinshCmd.PinshCmd):
         if noFlag:
             if newValue in currentValue:
                 currentValue.remove(newValue)
-                fieldObject.setValue(tokens, 2, currentValue)
-                return OK, ["%s removed from list" % newValue]
+                status, output = fieldObject.setValue(tokens, 2, currentValue)
+                return status, output + ["%s removed from list" % newValue]
             try:
                 if int(newValue) in currentValue:
                     currentValue.remove(int(newValue))
-                    fieldObject.setValue(tokens, 2, currentValue)
-                    return OK, ["%s removed from list" % newValue]
+                    status, output = fieldObject.setValue(tokens, 2, currentValue)
+                    return status, output + ["%s removed from list" % newValue]
             except:
                 pass
             return FAIL, ["%s is not in the current list of values." % newValue]
         newValue = makeSameType(currentValue, newValue)
         currentValue.append(newValue)
         try:
-            fieldObject.setValue(tokens, 2, currentValue)
+            status, output = fieldObject.setValue(tokens, 2, currentValue)
+            return status, output + ["%s appended to list" % newValue]
         except:
             return FAIL, ["Unable to set. Check your configuration path."]
-        return OK, ["%s appended to list" % newValue]
 
     def modifyScalar(self, noFlag, tokens, newValue, fieldObject):
         if noFlag:
             fieldObject.setValue(tokens, 2, '')
             return OK, ["Value removed."]
-        fieldObject.setValue(tokens, 2, newValue)
-        return OK, ["Value set."]
+        status, output = fieldObject.setValue(tokens, 2, newValue)
+        return status, output + ["Value set."]
 
     def cmd(self, tokens, noFlag, slash):
         if tokens[1].lower().startswith('j'):
-            if not tokens[2]:
-                return FAIL, ["Need a name for the job"]
-            jobName = tokens[2]
-            if noFlag:
-                return delJob(jobName)
-            if not tokens[3]:
-                return FAIL, ["Need a frequency with which to run the job"]
-            interval = int(tokens[3])
-            multiplier = 1
-            if len(tokens) > 4:
-                if tokens[4].startswith('h'):
-                    multiplier = multiplier * 60
-                elif tokens[4].startswith('d'):
-                    multiplier = multiplier * 60 * 24
-                elif tokens[4].startswith('w'):
-                    multiplier = multiplier * 60 * 24 * 7
-            return setJob(jobName, interval * multiplier)
+            return setJob(tokens, noFlag)
         if tokens[1].lower().startswith('p'):
             return setPassword(slash)
         if len(tokens) < 3:

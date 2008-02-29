@@ -2,19 +2,20 @@
 
 import sys, os
 
-import PinshCmd, FileNameField, pexpect
+import PinshCmd, FileNameField
 from commonUtil import *
 
 class Edit(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "edit")
         self.helpText = "edit\tedit a configuration file"
-        self.fileNameField = FileNameField.FileNameField("deploy")
+        self.fileNameField = FileNameField.FileNameField(mode.dataPath+"/deploy")
         self.children = [self.fileNameField]
         self.level = 0
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash)
         if noFlag:
             return FAIL, []
         if len(tokens) < 2:
@@ -27,7 +28,7 @@ class Edit(PinshCmd.PinshCmd):
                 return FAIL, ["Ambiguous filename: %s" % tokens[1]]
             else:
                 names = [tokens[1]]
-        fileName = "deploy/%s" % names[0]
+        fileName = mode.dataPath+"/deploy/%s" % names[0]
         editor = mode.config.get("editor", "/usr/bin/vim")
         os.system("%s %s" % (editor, fileName))
         return OK, []

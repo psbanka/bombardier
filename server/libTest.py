@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, os, shutil#, libUi
+import sys, os, shutil, re
 from commonUtil import *
 
 #####################################################
@@ -29,6 +29,12 @@ def startTest(restoreFiles = 1):
     now = strftime("%a, %d %b %Y %H:%M:%S", localtime())
     print "================== TESTING STARTED: ",now,"\n\n"
     return OK
+
+def assertOk(function, args, status):
+    return runTest(function, args, OK, status)
+
+def assertFail(function, args, status):
+    return runTest(function, args, FAIL, status)
 
 def runTest(function, args, expectation, status):
     output = apply(function,args)
@@ -72,28 +78,15 @@ def runTest2(function, args, expectedRegex, status):
     print "--------------------------------"
     return status + 1
 
-def testMe(object, command, expectedState, expectedString, status):
-    import PinshCmd
-    slash = PinshCmd.PinshCmd("slash")
-    slash.children = [object]
-    mode.state = [2]
-    mode.prompt = ["test>"]
-    noFlag, helpFlag, tokens = libUi.processInput(command)
-    if expectedString == '':
-        status = runTest(slash.run, [tokens, noFlag, slash], (expectedState, []), status)
-    else:
-        status = runTest(slash.run, [tokens, noFlag, slash], (expectedState, [expectedString]), status)
-    return status
-    
 def runObject(object, command, expectedState, expectedString, status):
     import PinshCmd
     slash = PinshCmd.PinshCmd("slash")
     slash.children = [object]
     noFlag, helpFlag, tokens = libUi.processInput(command)
     if expectedString == '':
-        status = runTest(slash.run, [tokens, noFlag, slash], (expectedState, []), status, 0)
+        status = runTest(slash.run, [tokens, noFlag, slash], (expectedState, []), status)
     else:
-        status = runTest(slash.run, [tokens, noFlag, slash], (expectedState, [expectedString]), status, 0)
+        status = runTest(slash.run, [tokens, noFlag, slash], (expectedState, [expectedString]), status)
     return status
 
 def huntForRegex(output, regex):
@@ -126,35 +119,6 @@ def runTest3(function, args, expectedRegex, status):
     print "--------------------------------"
     return status + 1
 
-#this is better, but everyone else is using the first one...
-def testMe2(object, command, expectedState, expectedRegex, status):
-    import Mode
-    import PinshCmd
-    slash = PinshCmd.PinshCmd("slash")
-    slash.children = [object]
-    mode = Mode.Mode(2, "test>")
-    noFlag, helpFlag, tokens = libUi.processInput(command)
-    newStatus, output = slash.run(tokens, noFlag, slash)
-    if newStatus == FAIL:
-        print "--------------------------------"
-        print "ERROR IN:",object, command
-        print "command indicated failure and returned:", output
-        print "--------------------------------"
-        return status + 1
-    c = re.compile(expectedRegex, re.M)
-    newStatus = huntForRegex(output, c)
-    if newStatus == OK:
-        sys.stdout.write("#")
-        sys.stdout.flush()
-        return status
-    print
-    print "--------------------------------"
-    print "ERROR IN::",object, command
-    print "expectedRegex:",`expectedRegex`
-    print "received:",`output`
-    print "--------------------------------"
-    return status + 1
-
 def endTest(status):
     if status == OK:
         print "\n---------------------------------------------------"
@@ -171,3 +135,4 @@ if __name__ == "__main__":
     status = runTest(huntForRegex, [[["def", "xyz"], ['feb', 'abcdef']], c], OK, status)
     status = runTest(huntForRegex, [[['feb', 'abcdef']], c], OK, status)
     endTest(status)
+

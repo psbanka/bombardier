@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import popen2, time, select, user, re, sys
 from commonUtil import *
 import os
 
@@ -152,10 +153,7 @@ def getAllFromProgram(regex, cmd):
     return ''
 
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, runTest, endTest
     status = startTest()
-    status = runTest(runcmd,["/usr/bin/which fping", 1],(OK, "/usr/sbin/fping"), status)
-    status = runTest(checkForText,["/bin/ls /", "root"],(OK,[]), status)
-    status = runTest(forkCmd,["/bin/echo", ["/bin/echo","'working'"]],None, status)
-    status = runTest(getAllFromProgram,['ESSID:\"([a-zA-Z\.0-9]+)\"',"/sbin/iwconfig"],"www.personaltelco.net",status) 
     endTest(status)
+

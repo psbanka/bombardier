@@ -14,18 +14,18 @@ class BomHostField(PinshCmd.PinshCmd):
 
     def possibleHostNames(self, hostName):
         if not self.enabled:
-            yamlFiles = glob.glob("deploy/client/*.yml")
+            yamlFiles = glob.glob(mode.dataPath+"/deploy/client/*.yml")
             allHostNames = []
             for filename in yamlFiles:
                 allHostNames.append(filename.split('/')[-1].split('.yml')[0])
             hostNames = list(set(allHostNames) - set(mode.config["enabledSystems"]))
         else:
             hostNames = mode.config["enabledSystems"]
-        possibleMatches = [ x for x in hostNames if x.lower().startswith(hostName.lower()) ]
+        possibleMatches = [ hn for hn in hostNames if hn.lower().startswith(hostName.lower()) ]
         return possibleMatches
 
     def ipAddress(self, hostName):
-        client = Client.Client(hostName, '')
+        client = Client.Client(hostName, '', mode.dataPath)
         client.downloadClient()
         return client.data.get("ipAddress")
 
@@ -33,7 +33,7 @@ class BomHostField(PinshCmd.PinshCmd):
         possibleMatches = self.possibleHostNames(tokens[index])
         if possibleMatches:
             return possibleMatches
-        return ''
+        return []
 
     def match(self, tokens, index):
         possibleMatches = self.name(tokens, index)
@@ -45,7 +45,7 @@ class BomHostField(PinshCmd.PinshCmd):
 
 if __name__ == "__main__":
     # A server must be enabled for the tests to work properly.
-    from libTest import *
+    from libTest import startTest, runTest, endTest
     hostField = BomHostField()
     status = OK
     startTest()

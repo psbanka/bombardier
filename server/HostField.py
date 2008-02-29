@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys,re
+import sys
 
 import PinshCmd
 from commonUtil import *
@@ -29,12 +29,12 @@ class HostField(PinshCmd.PinshCmd):
         return ""
 
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, runTest, endTest
     hostField = HostField()
     status = OK
     startTest()
-    runTest(hostField.match, [["foo"]], (COMPLETE, 1), status)
-    runTest(hostField.match, [["www.foo.com"]], (COMPLETE, 1), status)
-    runTest(hostField.match, [["a;sdjf#!"]], (NO_MATCH, 1), status)
-    runTest(hostField.match, [[""]], (NO_MATCH, 1), status)
+    runTest(hostField.match, [["foo"], 0], (COMPLETE, 1), status)
+    runTest(hostField.match, [["www.foo.com"], 0], (COMPLETE, 1), status)
+    runTest(hostField.match, [["a;sdjf#!"], 0], (NO_MATCH, 1), status)
+    runTest(hostField.match, [[""], 0], (NO_MATCH, 1), status)
     endTest(status)

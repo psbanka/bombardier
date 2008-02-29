@@ -1,12 +1,13 @@
 #!/usr/bin/python
 
 import sys, time
-from BombardierRemoteClient import *
+from staticData import *
 import Client
 import PinshCmd
 import BomHostField, PackageField, ScriptField, LongList
 from commonUtil import *
 from Mode import HostNotEnabledException
+import yaml
 
 def ennumerate(configDictOrList, currentPath):
     configList = []
@@ -36,6 +37,7 @@ class BomCmd(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash, tokens)
         start = time.time()
         if noFlag:
             return FAIL, []
@@ -52,7 +54,7 @@ class BomCmd(PinshCmd.PinshCmd):
         if self.action == RECONCILE and mode.password == '':
             return FAIL, ["Reconcile must be run in enable mode"]
         try:
-            r = mode.getBomConnection(hostName)
+            r = mode.getBomConnection(hostName, slash.fpOut)
         except HostNotEnabledException:
             return FAIL, ["Host not enabled for this user"]
         status, output = r.process(self.action, [], '', mode.debug)
@@ -90,19 +92,20 @@ class PackageCommand(PinshCmd.PinshCmd):
         self.removeVersion = True
 
     def processObject(self, r, packageNames, tokens):
+        pyChucker(tokens)
         status, output = r.process(self.action, packageNames.split(), '', mode.debug)
         return status, output
 
     def checkEncryption(self, serverName, packageNames):
         if mode.password != '':
             return OK
-        client = Client.Client(serverName, '')
+        client = Client.Client(serverName, '', mode.dataPath)
         client.get()
         encryptedDict = client.getEncryptedEntries()
         if encryptedDict:
-            packageData = yaml.load(open("deploy/packages/packages.yml").read())
+            packageData = yaml.load(open(mode.dataPath+"/deploy/packages/packages.yml").read())
             if self.removeVersion:
-                packageNames = [ '-'.join(x.split('-')[:-1]) for x in packageNames.split() ]
+                packageNames = [ '-'.join(pkgName.split('-')[:-1]) for pkgName in packageNames.split() ]
             else:
                 packageNames = packageNames.split()
             for packageName in packageNames:
@@ -134,17 +137,17 @@ class PackageCommand(PinshCmd.PinshCmd):
                 return FAIL, ["Invalid package: "+tokens[2]]
             packageName = self.packageField.name(tokens, 2)[0]
             try:
-                r = mode.getBomConnection(self.hostName)
+                r = mode.getBomConnection(self.hostName, slash.fpOut)
             except HostNotEnabledException:
                 return FAIL, ["Host not enabled for this user."]
             status, output = self.processObject(r, packageName, tokens)
         else:
             try:
-                packageNames = self.packageList.name(tokens, 2)[0]
+                packageNames = self.packageField.name(tokens, 2)[0]
             except:
                 return FAIL, ["Invalid package name: %s" % tokens[2]]
             try:
-                r = mode.getBomConnection(self.hostName)
+                r = mode.getBomConnection(self.hostName, slash.fpOut)
             except HostNotEnabledException:
                 return FAIL, ["Host not enabled for this user."]
             if self.requireDecryption and self.checkEncryption(self.hostName, packageNames) == FAIL:
@@ -235,11 +238,9 @@ class Execute(PackageCommand):
     def processObject(self, r, packageName, tokens):
         scriptNames = self.scriptField.name(tokens, 3)
         if len(scriptNames) != 1:
-            print "%% Invalid scriptName"
-            return FAIL, []
+            return FAIL, ["Invalid scriptName"]
         if self.checkEncryption(self.hostName, packageName) == FAIL:
-            print "%% This pacakge requires sensitive data."
-            return FAIL, []
+            return FAIL, ["This package requires sensitive data."]
         status, output = r.process(self.action, [packageName], scriptNames[0], mode.debug)
         return status, output
 

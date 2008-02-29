@@ -16,6 +16,7 @@ class UpdateClient(PinshCmd.PinshCmd):
         self.logCommand = True
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash)
         if noFlag:
             return FAIL, []
         if len(tokens) < 2:
@@ -26,7 +27,7 @@ class UpdateClient(PinshCmd.PinshCmd):
         if len(hostNames) > 1:
             return FAIL, ["Ambiguous host %s" % tokens[1]]
         hostName = hostNames[0]
-        r = UpdateRemoteClient(hostName)
+        r = UpdateRemoteClient(hostName, mode.dataPath)
         r.update()
         status = OK
         if status == FAIL:

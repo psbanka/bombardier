@@ -13,10 +13,12 @@ class Exit(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(tokens, noFlag)
         if len(mode.state) > 1:
             extraClasses = mode.newClasses[-1]
-            for i in range(0,extraClasses):
+            while extraClasses > 0:
                 slash.children.pop()
+                extraClasses -= 1
         if mode.popPrompt() == FAIL:
             mode.clearBomConnections()
             sys.exit(0)

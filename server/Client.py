@@ -3,17 +3,17 @@ import bombardier.miniUtility as miniUtility
 import os
 import yaml
 import getpass
-import base64
 import libCipher
 from Crypto.Cipher import AES
 from bombardier.staticData import OK, FAIL, CENSORED
 
 class Client:
 
-    def __init__(self, systemName, passwd):
+    def __init__(self, systemName, passwd, dataPath):
         self.data       = {}
         self.includes   = []
         self.systemName = systemName
+        self.dataPath   = dataPath
         if passwd:
             self.passwd = libCipher.pad(passwd)
         else:
@@ -48,8 +48,8 @@ class Client:
             configName = self.systemName
         else:
             ymlDirectory = "include"
-        filename   = "deploy/%s/%s.yml" % (ymlDirectory, configName)
-        newData   = yaml.load( open(filename, 'r').read() )
+        filename = self.dataPath+"/deploy/%s/%s.yml" % (ymlDirectory, configName)
+        newData = yaml.load( open(filename, 'r').read() )
         if newData == None:
             newData = {}
         self.data = miniUtility.addDictionaries(self.data, newData)
@@ -61,7 +61,7 @@ class Client:
         boms = self.data.get("bom", [])
         packages = set(self.data.get("packages", []))
         for bom in boms:
-            filename = "deploy/bom/%s.yml" % (bom)
+            filename = self.dataPath+"/deploy/bom/%s.yml" % (bom)
             if not os.path.isfile(filename):
                 print "%s does not exist" % filename
                 return FAIL
@@ -71,14 +71,8 @@ class Client:
             del self.data["bom"]
         return OK
 
-    def loadIncludes(self, newIncludes):
-        for includeName in newIncludes:
-            if includeName not in self.includes:
-                self.includes.append(includeName)
-                self.downloadClient(includeName)
-
     def checkEncryption(self):
-        return len(self.checkCryptDict(self.data))
+        return len(self.checkCryptDict(self.data, ''))
 
     def getEncryptedEntries(self):
         return self.checkCryptDict(self.data, '')
@@ -116,7 +110,7 @@ if __name__ == "__main__":
     passwd = ''
     if not options.insecure:
         passwd = getpass.getpass("Enter decryption password: ")
-    config = Client(client, passwd)
+    config = Client(client, passwd, os.getcwd())
     status = config.get()
     if status == FAIL:
         print "Bad config file."

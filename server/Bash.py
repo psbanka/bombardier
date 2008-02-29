@@ -19,6 +19,7 @@ class Bash(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(tokens, slash)
         if noFlag:
             return OK, []
         os.system(BASH)

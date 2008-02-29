@@ -29,23 +29,23 @@ class FileNameField(PinshCmd.PinshCmd):
         else:
             names = glob.glob("%s*" % tokens[index])
         if len(names) == 0:
-            return ''
+            return []
         return names
 
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, runTest, endTest
     fileNameField = FileNameField()
     status = OK
     startTest()
-    #status = runTest(fileNameField.match, [["PinshCmd.py"], 0], (PARTIAL, 1), status)
-    #status = runTest(fileNameField.match, [["PinshCmd.pyc"], 0], (COMPLETE, 1), status)
-    #status = runTest(fileNameField.match, [["bom"], 0], (PARTIAL, 1), status)
-    #status = runTest(fileNameField.match, [["a;sdjf#!"], 0], (NO_MATCH, 1), status)
-    #status = runTest(fileNameField.match, [[""], 0], (PARTIAL, 1), status)
-    #status = runTest(fileNameField.match, [["/bin/bas"], 0], (COMPLETE, 1), status)
-    #status = runTest(fileNameField.match, [["/bin/bash"], 0], (COMPLETE, 1), status)
+    status = runTest(fileNameField.match, [["PinshCmd.py"], 0], (PARTIAL, 1), status)
+    status = runTest(fileNameField.match, [["PinshCmd.pyc"], 0], (COMPLETE, 1), status)
+    status = runTest(fileNameField.match, [["bom"], 0], (PARTIAL, 1), status)
+    status = runTest(fileNameField.match, [["a;sdjf#!"], 0], (NO_MATCH, 1), status)
+    status = runTest(fileNameField.match, [[""], 0], (PARTIAL, 1), status)
+    status = runTest(fileNameField.match, [["/bin/bas"], 0], (COMPLETE, 1), status)
+    status = runTest(fileNameField.match, [["/bin/bash"], 0], (COMPLETE, 1), status)
     fnf2 = FileNameField(startDir="deploy")
-    #status = runTest(fnf2.match, [["include"], 0], (COMPLETE, 1), status)
-    #status = runTest(fnf2.match, [["include/test"], 0], (PARTIAL, 1), status)
+    status = runTest(fnf2.match, [["include"], 0], (COMPLETE, 1), status)
+    status = runTest(fnf2.match, [["include/test"], 0], (PARTIAL, 1), status)
     status = runTest(fnf2.name, [["include/testI"], 0], ["include/testInclude.yml"], status)
     endTest(status)

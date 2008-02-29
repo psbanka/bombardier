@@ -2,7 +2,7 @@
 
 import glob
 
-import PinshCmd, BomHostField, yaml, libCipher, libUi
+import PinshCmd, BomHostField, yaml, libCipher
 import Client
 from commonUtil import *
 from bombardier.staticData import CENSORED
@@ -21,11 +21,11 @@ class ConfigField(PinshCmd.PinshCmd):
         self.dataType = dataType
         self.cmdOwner = 0
         if dataType in [CLIENT, MERGED]:
-            self.directory = "deploy/client"
+            self.directory = mode.dataPath+"/deploy/client"
         if dataType == INCLUDE:
-            self.directory = "deploy/include"
+            self.directory = mode.dataPath+"/deploy/include"
         if dataType == BOM:
-            self.directory = "deploy/bom"
+            self.directory = mode.dataPath+"/deploy/bom"
 
     def getTopLevelData(self, tokens, index, decrypt):
         partialFirst = tokens[index].split('.')[0]
@@ -33,14 +33,14 @@ class ConfigField(PinshCmd.PinshCmd):
         fileNames = []
         for filename in yamlFiles:
             fileNames.append(filename.split('/')[-1].split('.yml')[0])
-        firstTokenNames = [ x for x in fileNames if x.lower().startswith(partialFirst.lower()) ]
+        firstTokenNames = [ fn for fn in fileNames if fn.lower().startswith(partialFirst.lower()) ]
         if len(firstTokenNames) == 0:
             return [], {}
         if len(firstTokenNames) > 1:
             return firstTokenNames, {}
         firstTokenName = firstTokenNames[0]
         if self.dataType == MERGED:
-            client = Client.Client(firstTokenName, '')
+            client = Client.Client(firstTokenName, '', mode.dataPath)
             client.get()
             data = client.data
         else:
@@ -60,6 +60,7 @@ class ConfigField(PinshCmd.PinshCmd):
         configName = self.name(tokens, index)
         cmd = "encData"
         currentDict = clearData
+        output = []
         if type(currentDict) == type(['list']):
             encData = newValue
         else:
@@ -68,10 +69,9 @@ class ConfigField(PinshCmd.PinshCmd):
                 if currentDict == CENSORED:
                     cmd += "['enc_%s']" % configValue
                     if not mode.password:
-                        libUi.userOutput(["Cannot encipher data except in enable mode"], FAIL)
-                        return FAIL
+                        return FAIL, ["Cannot encipher data except in enable mode"]
                     newValue = libCipher.encrypt(newValue, mode.password)
-                    libUi.userOutput(["Encrypted sensitive data"], OK)
+                    output = ["Encrypted sensitive data"]
                 else:
                     cmd += "['%s']" % configValue
                 if type(newValue) == type('string'):
@@ -81,7 +81,7 @@ class ConfigField(PinshCmd.PinshCmd):
             exec( thing )
         string = yaml.dump(encData, default_flow_style=False)
         open("%s/%s.yml" % (self.directory, firstTokenName), 'w').write(string)
-        return OK
+        return OK, output
 
     def getSpecificData(self, tokens, index):
         tokens[index] = tokens[index].replace('"', '')
@@ -109,7 +109,7 @@ class ConfigField(PinshCmd.PinshCmd):
         tokens[index] = tokens[index].replace('"', '')
         firstTokenNames, data = self.getTopLevelData(tokens, index, True)
         if len(firstTokenNames) == 0:
-            return ''
+            return []
         if len(firstTokenNames) > 1:
             return firstTokenNames
         firstTokenName = firstTokenNames[0]
@@ -144,7 +144,7 @@ class ConfigField(PinshCmd.PinshCmd):
         
         if possibleMatches:
             return possibleMatches
-        return ''
+        return []
 
     def match(self, tokens, index):
         possibleMatches = self.name(tokens, index)
@@ -155,7 +155,7 @@ class ConfigField(PinshCmd.PinshCmd):
         return COMPLETE, 1
 
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, runTest, endTest
     configField = ConfigField()
     status = OK
     startTest()
@@ -166,10 +166,10 @@ if __name__ == "__main__":
     status = runTest(configField.name, [["bigsam.ipAddress"], 0], ["bigsam.ipAddress"], status)
     status = runTest(configField.name, [["bigsam.ipAddress."], 0], ["bigsam.ipAddress"], status)
     status = runTest(configField.name, [["virtap.connectTest.connectionData.pro"], 0], ["virtap.connectTest.connectionData.proxy"], status)
-    status = runTest(configField.name, [["foo.foo"], 0], '', status)
+    status = runTest(configField.name, [["foo.foo"], 0], [], status)
     status = runTest(configField.name, [["bigsam.thingy.majig"], 0], ['bigsam.thingy'], status)
     status = runTest(configField.name, [["big"], 0], ["bigap", "bigsam", "bigdb"], status)
-    status = runTest(configField.name, [["sho","server","l"], 2], ["lilap", "lildb", "ltdb"], status)
+    status = runTest(configField.name, [["sho","server","l"], 2], ["lilap", "lildb", "ltdb", "ldapserver"], status)
     configField = ConfigField(dataType=CLIENT)
     status = runTest(configField.name, [["lilap.s"], 0], ["lilap.sharedKeys"], status)
     status = runTest(configField.setValue, [["lilap.sharedKeys"], 0, "yes"], OK, status)
@@ -183,8 +183,8 @@ if __name__ == "__main__":
     status = runTest(configField.match, [["lilap.ipAddress"], 0], (COMPLETE, 1), status)
     status = runTest(configField.match, [["foo"], 0], (NO_MATCH, 1), status)
     configField = ConfigField(dataType=INCLUDE)
-    status = runTest(configField.name, [["serviceNet.ca"], 0], ["serviceNet.cas"], OK, status)
-    status = runTest(configField.name, [["servicenet"], 0], ["serviceNet"], OK, status)
+    status = runTest(configField.name, [["serviceNet.ca"], 0], ["serviceNet.cas"], status)
+    status = runTest(configField.name, [["servicenet"], 0], ["serviceNet"], status)
     status = runTest(configField.getSpecificData, [["testInclude.thing1"], 0], '=== CENSORED ===', status)
     status = runTest(configField.setValue, [["testInclude.thing1"], 0, "foo"], FAIL, status)
     mode.password = "abcd1234"
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     status = runTest(configField.getSpecificData, [['testInclude."Thing With Spaces"."this is a thing"'], 0], "fuzz", status)
     status = runTest(configField.getSpecificData, [['"testInclude.Thing With Spaces.this is a thing"'], 0], "fuzz", status)
     configField = ConfigField(dataType=BOM)
-    status = runTest(configField.name, [["testB"], 0], ["testbom"], OK, status)
-    status = runTest(configField.name, [["testbom.DbAuth"], 0], ["testbom"], OK, status)
-    status = runTest(configField.name, [['sho', 'bom', 'tes'], 2], ["testbom"], OK, status)
+    status = runTest(configField.name, [["testB"], 0], ["testbom"], status)
+    status = runTest(configField.name, [["testbom.DbAuth"], 0], ["testbom"], status)
+    status = runTest(configField.name, [['sho', 'bom', 'testb'], 2], ["testbom"], status)
     endTest(status)

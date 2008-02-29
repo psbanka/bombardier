@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, re, termios, tty, time, select, popen2, logging, libUi
+import os, logging, libUi
 import syslog
 import exceptions
 from commands import getstatusoutput
@@ -12,12 +12,6 @@ HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
 mode = Mode.Mode(Mode.USER, '>')
 mode.loadConfig()
 
-def convertTokensToString(tokens, delimeter=' '):
-    retVal = ''
-    for token in tokens:
-        retVal += token+delimeter
-    return retVal[:-1]
-
 logger      = logging.getLogger('bomsh_changes')
 fileHandler = logging.FileHandler("changes.log")
 formatter = logging.Formatter('%(asctime)-15s|%(message)s')
@@ -25,6 +19,12 @@ fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(logging.DEBUG)
 syslog.openlog("bomsh", syslog.LOG_PID, syslog.LOG_USER)
+
+def convertTokensToString(tokens, delimeter=' '):
+    retVal = ''
+    for token in tokens:
+        retVal += token+delimeter
+    return retVal[:-1]
 
 def log(noFlag, tokens, cmdStatus, cmdOutput):
     command = ' '.join(tokens)
@@ -59,11 +59,8 @@ def logComment(comment=None):
     syslog.syslog("%-15s|COMMENT: %s" % (mode.username, comment))
     logger.info("%-15s|COMMENT: %s" % (mode.username, comment))
 
-def pyChucker(*args, **kwargs):
-    pass
-
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, endTest
     status = OK
     startTest()
     endTest(status)

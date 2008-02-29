@@ -1,3 +1,32 @@
+from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
+
+# RESULT CODES
+OK = 0
+FAIL = 1
+UNKNOWN = -1
+DEBUG     = False
+
+
+UNINSTALL = 0
+CONFIGURE = 1
+INSTALL   = 2
+VERIFY    = 3
+RECONCILE = 4
+STATUS    = 5
+EXECUTE   = 6
+FIX       = 7
+PURGE     = 8
+
+ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i', 
+               VERIFY: '-v', RECONCILE: '-r', STATUS: '-s', 
+               EXECUTE: '-x', FIX: '-f', PURGE: '-p'}
+
+RETURN_DICT = {OK: 'OK', FAIL: 'FAIL', REBOOT: 'REBOOT', PREBOOT: 'PREBOOT'}
+
+DEBUG_OUTPUT_TEMPLATE = '\n==> ' + ''.join('='*50) + "\n==> %s\n==> " + ''.join('='*50) + '\n'
+
+COMMAND_LOG_MARKER = '^^^'
+
 TB_CTRL_PORT = 7000
 TB_RUN_JOB = "R"
 TB_KILL    = "K"
@@ -8,14 +37,7 @@ TB_SHOW    = "S"
 TB_SAVE    = "V"
 TB_LOAD    = "L"
 
-DEBUG = 0
-
 YAML_CHARS = [ chr(x) for x in range(ord(' '), ord('~')+1) ] + [ '\n' ]
-
-# RESULT CODES
-OK = 0
-FAIL = 1
-UNKNOWN = -1
 
 ON = 1
 OFF = 0
@@ -39,3 +61,16 @@ ADMIN = 1
 NO_MATCH  = 0
 PARTIAL  = 1
 COMPLETE = 2
+
+def pyChucker(*args, **kwargs):
+    pass
+
+class ConnectionRefusedException(Exception):
+    def __init__(self, explanation):
+        e = Exception()
+        Exception.__init__(e)
+        self.explanation = explanation
+    def __repr__(self):
+        return self.explanation
+    def __str__(self):
+        return self.explanation

@@ -1,6 +1,6 @@
 #!/opt/python2.5/bin/python
 from commonUtil import *
-import yaml, sys, random
+import yaml, sys
 from commands import getstatusoutput
 from UserAuth import UserAuth
 

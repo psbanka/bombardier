@@ -17,6 +17,7 @@ class Terminal(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(noFlag, slash)
         if len(tokens) < 3:
             return OK, ["Current terminal length: "+`mode.termlen`]
         termlen = tokens[2]

@@ -2,7 +2,7 @@
 
 import sys
 
-import PinshCmd, BomHostField, libCmd, pexpect
+import PinshCmd
 from commonUtil import *
 
 class Debug(PinshCmd.PinshCmd):
@@ -14,15 +14,16 @@ class Debug(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash, tokens)
         output = []
         if noFlag:
-            if mode.debug == True:
+            if mode.debug:
                 output =["Debugging turned off."] 
             else:
                 output =["Debugging already off."] 
             mode.debug = False
             return OK, output
-        if mode.debug == False:
+        if not mode.debug:
             output =["Debugging turned on."] 
         else:
             output =["Debugging already on."] 

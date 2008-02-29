@@ -8,16 +8,16 @@ import pexpect
 
 
 def showAllRights():
-    userData = yaml.load(open("deploy/include/systemInfo.yml").read())
+    userData = yaml.load(open(mode.dataPath+"/deploy/include/systemInfo.yml").read())
     print yaml.dump(userData["system"]["rights"], default_flow_style=False)
 
 def getPwd():
-    lowercase = [ chr(x) for x in range(ord('a'),ord('z')) ]
-    uppercase = [ chr(x) for x in range(ord('A'),ord('Z')) ]
-    symbols   = [ chr(x) for x in range(ord('!'),ord('/')) ]
+    lowercase = [ chr(c) for c in range(ord('a'),ord('z')) ]
+    uppercase = [ chr(c) for c in range(ord('A'),ord('Z')) ]
+    symbols   = [ chr(c) for c in range(ord('!'),ord('/')) ]
     symbols.remove('"')
     symbols.remove("'")
-    numbers   = [ chr(x) for x in range(ord('0'),ord('9')) ]
+    numbers   = [ chr(c) for c in range(ord('0'),ord('9')) ]
     password  = random.sample(lowercase, 5) + random.sample(uppercase, 2) + \
                 random.sample(symbols, 1) + random.sample(numbers, 2)
     random.shuffle(password)
@@ -34,7 +34,7 @@ class BadRightException(Exception):
 class UserAuth:
 
     def __init__(self, name, rightsList, comment, systemInfoFile, autoConfirm, password=''):
-        self.systemInfoFile  = systemInfoFile
+        self.systemInfoFile  = mode.dataPath+'/'+systemInfoFile
         self.autoConfirm     = autoConfirm
         self.name            = name
         self.userName        = self.name.replace('.', ' ')
@@ -46,7 +46,7 @@ class UserAuth:
         self.hostAccess      = {}
         self.modifiedSystems = set()
 
-        config = yaml.load(open("serverConfig.yml").read())
+        config = yaml.load(open(self.systemInfoFile).read())
         self.environment = config["environment"]
         self.webDir = config["webDir"]
         self.webUser = config["webUser"]
@@ -67,7 +67,7 @@ class UserAuth:
             self.modifiedSystems = self.modifiedSystems.union([host])
 
     def modifySystemInfo(self):
-        systemInfo      = yaml.load(open(self.systemInfoFile).read())
+        systemInfo      = yaml.load(open(mode.dataPath+'/'+self.systemInfoFile).read())
         systemRights    = systemInfo["system"]["rights"]
         foundUser       = False
 
@@ -173,7 +173,7 @@ class UserAuth:
         overallStatus = OK
         for host in self.modifiedSystems:
             print "HOST:", host
-            serverObject = BombardierRemoteClient(host, self.password)
+            serverObject = BombardierRemoteClient(host, self.password, mode.dataPath)
             status1, output = serverObject.process(EXECUTE, ["HostAuthorization"], "setUsers", True)
             if "DbAuthorization" in serverObject.info["packages"]:
                 status2, output = serverObject.process(EXECUTE, ["DbAuthorization"], "setUsers", True)
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     def getData():
         return yaml.load(open("testSystemInfo.yml").read())
 
-    from libTest import *
+    from libTest import startTest, runTest, endTest
     getstatusoutput("cp testSystemInfo.yml.bak testSystemInfo.yml")
     getstatusoutput('bash -c "rm -f CA/salem/joe*"')
     getstatusoutput("rm -f joe.pass")

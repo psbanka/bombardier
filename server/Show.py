@@ -2,7 +2,6 @@
 
 import sys, readline
 import yaml
-import Client
 import PinshCmd, ConfigField, Integer, BomHostField, PackageField, JobNameField
 from commonUtil import *
 import SecureCommSocket
@@ -93,7 +92,7 @@ class Package(PinshCmd.PinshCmd):
         if len(packageNames) > 1:
             return FAIL, ["Ambiguous package %s" % tokens[2]]
         packageName = packageNames[0]
-        pkgData = yaml.load(open("deploy/packages/packages.yml").read())
+        pkgData = yaml.load(open(mode.dataPath+"/deploy/packages/packages.yml").read())
         #output = yaml.dump(pkgData.get(packageName), default_flow_style=False)
         #print `output`
         return OK, ['', packageName, "========================", '', [pkgData.get(packageName)]]
@@ -192,7 +191,10 @@ class Jobs(PinshCmd.PinshCmd):
             else:
                 jobName = jobNames[0]
         c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
-        jobs = c.sendSecure(TB_SHOW, [])
+        try:
+            jobs = c.sendSecure(TB_SHOW, [])
+        except ConnectionRefusedException:
+            return FAIL, ["Job server is not running. Use 'scheduler start' to start it."]
         if jobName:
             return OK, jobs[jobName]
         return OK, jobs

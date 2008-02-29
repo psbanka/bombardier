@@ -9,7 +9,7 @@ from Client import Client
 from bombardier.miniUtility import getInstalled, stripVersionFromKeys
 
 def getProgressData(hostName):
-    statusYml = "status/%s.yml"%(hostName)
+    statusYml = mode.dataPath + "/status/%s.yml"%(hostName)
     if not os.path.isfile(statusYml):
         print "\n\n %% Cannot retrieve status (NO FILE: %s)" %statusYml
         return None
@@ -34,7 +34,7 @@ def getBrokenPackageNames(hostName, stripped=False):
     return getNamesFromProgress(hostName, stripped)[1]  
 
 def getPackageNamesFromBom(hostName):
-    client = Client(hostName, mode.password)
+    client = Client(hostName, mode.password, mode.dataPath)
     status = client.get()
     if status == FAIL:
         print " %% Bad config file for %s." % hostName
@@ -50,22 +50,23 @@ class PackageField(PinshCmd.PinshCmd):
         self.cmdOwner = 0
 
     def possiblePackageNames(self, hostName, packageName):
+        pyChucker(hostName, packageName)
         print "VIRTUAL"
         return []
 
     def name(self, tokens, index):
         hostNames = self.bomHostField.name(tokens, index-1)
         if len(hostNames) != 1:
-            return ''
+            return []
         hostName = hostNames[0]
         try:
             possibleMatches = self.possiblePackageNames(hostName, tokens[index])
         except AttributeError:
             print "%% Invalid status data. Perform a package status command."
-            return ''
+            return []
         if possibleMatches:
             return possibleMatches
-        return ''
+        return []
 
     def match(self, tokens, index):
         possibleMatches = self.name(tokens, index)
@@ -81,10 +82,11 @@ class BasicPackageField(PackageField):
         PackageField.__init__(self, name)
 
     def possiblePackageNames(self, hostName, packageName):
+        pyChucker(hostName)
         r = re.compile('([\w\-]+)\-\d+')
-        files = glob.glob("deploy/packages/*.spkg")
-        clippedFiles = [ x.split('.spkg')[0].split('/')[-1] for x in files ]
-        pkgNames = [ r.findall(x)[0] for x in clippedFiles ]
+        files = glob.glob(mode.dataPath+"/deploy/packages/*.spkg")
+        clippedFiles = [ f.split('.spkg')[0].split('/')[-1] for f in files ]
+        pkgNames = [ r.findall(c)[0] for c in clippedFiles ]
         filteredNames = [ pkgName for pkgName in pkgNames if pkgName.lower().startswith(packageName.lower()) ]
         uniquePkgNames = list(set(filteredNames))
         return uniquePkgNames
@@ -93,14 +95,14 @@ class BasicPackageField(PackageField):
         possibleMatches = self.possiblePackageNames('', tokens[index])
         if possibleMatches:
             return possibleMatches
-        return ''
+        return [] 
 
 class InstallablePackageField(PackageField):
     def __init__(self, name = "installablePackageField"):
         PackageField.__init__(self, name)
 
     def possiblePackageNames(self, hostName, packageName):
-        client = Client(hostName, mode.password)
+        client = Client(hostName, mode.password, mode.dataPath)
         status = client.get()
         if status == FAIL:
             print "Bad config file for %s." % hostName
@@ -149,7 +151,7 @@ class FixablePackageField(PackageField):
         return possibleMatches
 
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, runTest, endTest
     print os.getcwd()
     pField = InstallablePackageField()
     puField = PurgablePackageField()
@@ -161,3 +163,4 @@ if __name__ == "__main__":
     status = runTest(pField.match, [["foo"], 0], (INCOMPLETE, 1), status)
     status = runTest(puField.name,  [["testdb", "Sql"], 1], ["SqlBackup-8"], status)
     endTest(status)
+

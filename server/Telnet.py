@@ -18,6 +18,7 @@ class Telnet(PinshCmd.PinshCmd):
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash)
         if noFlag:
             return FAIL, []
         if len(tokens) < 2:

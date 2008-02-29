@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, optparse, getpass
+import sys, optparse, getpass, os
 import Client
 from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
 from BombardierRemoteClient import *
@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
     encryptedItems = 0
     for serverName in serverNames:
-        client = Client.Client(serverName, '')
+        client = Client.Client(serverName, '', os.getcwd())
         status = client.get()
         encryptedItems += client.checkEncryption()
 
@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     status = OK
     for serverName in serverNames:
-        r = BombardierRemoteClient(serverName, configPasswd)
+        r = BombardierRemoteClient(serverName, configPasswd, os.getcwd())
         machineStatus, output = r.process(options.action, packageNames, scriptName, True)
         print output
         r.disconnect()

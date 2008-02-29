@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys,re
+import sys
 
 import PinshCmd
 from commonUtil import *
@@ -20,16 +20,17 @@ class List(PinshCmd.PinshCmd):
         return PARTIAL, len(tokens) - index
 
     def name(self, tokens, index):
+        pyChucker(index)
         return [tokens[-1], tokens[-1]]
 
 if __name__ == "__main__":
-    from libTest import *
-    list = List()
+    from libTest import startTest, runTest, endTest
+    listy = List()
     status = OK
     startTest()
-    runTest(list.match, [['[', "foo"], 0], (PARTIAL, 2), status)
-    runTest(list.match, [["cheeze"], 0], (NO_MATCH, 1), status)
-    runTest(list.match, [["[", 'a', 'b', 'c'], 0], (PARTIAL, 4), status)
-    runTest(list.match, [["[", 'a', 'b', 'c', ']'], 0], (COMPLETE, 5), status)
-    runTest(list.match, [["[", ']'], 0], (COMPLETE, 2), status)
+    runTest(listy.match, [['[', "foo"], 0], (PARTIAL, 2), status)
+    runTest(listy.match, [["cheeze"], 0], (NO_MATCH, 1), status)
+    runTest(listy.match, [["[", 'a', 'b', 'c'], 0], (PARTIAL, 4), status)
+    runTest(listy.match, [["[", 'a', 'b', 'c', ']'], 0], (COMPLETE, 5), status)
+    runTest(listy.match, [["[", ']'], 0], (COMPLETE, 2), status)
     endTest(status)

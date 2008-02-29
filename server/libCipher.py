@@ -1,7 +1,9 @@
 #!/opt/python2.5/bin/python
+
 import base64, binascii
 from Crypto.Cipher import AES
 from bombardier.staticData import CENSORED
+from staticData import *
 
 VALID_CHARS = [ chr(x) for x in range(ord(' '), ord('~')+1) ]
 
@@ -45,6 +47,7 @@ def decryptLoop(dict, passwd):
             try:
                 decryptLoop(dict[key], passwd)
             except DecryptionException, e:
+                pyChucker(e)
                 raise InvalidData(key, dict[key], "Unable to decrypt")
     
 def decryptString(b64CipherB64Str, passwd, validChars=VALID_CHARS):
@@ -94,12 +97,12 @@ class DecryptionException(Exception):
         self.b64Text = b64Text
         self.reason = reason
     def __str__(self):
-        return "Could not decrypt %s: %s" % (self.key, self.reason)
+        return "Could not decrypt %s: %s" % (self.b64Text, self.reason)
     def __repr__(self):
-        return "Could not decrypt %s: %s" % (self.key, self.reason)
+        return "Could not decrypt %s: %s" % (self.b64Text, self.reason)
 
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, endTest
     data = {"enc_thing1": "Ujlr68WRWt5tkfR/a0sE9g==", "thing2": "hello"}
     passwd = "abcd1234"
     newData = decrypt(data, passwd)

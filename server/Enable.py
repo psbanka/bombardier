@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import sys, os
-import yaml
 import libCipher, libUi
 import PinshCmd, Mode, BomHostField, LongList
 from RemoteClient import ClientUnavailableException
@@ -47,8 +46,9 @@ class Enable(PinshCmd.PinshCmd):
         mode.popPrompt()
         if mode.newClasses:
             extraClasses = mode.newClasses[-1]
-            for i in range(0,extraClasses):
+            while extraClasses > 0:
                 slash.children.pop()
+                extraClasses -= 1
         return OK, []
 
     def cmd(self, tokens, noFlag, slash):

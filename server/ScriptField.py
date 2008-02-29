@@ -5,7 +5,7 @@ import yaml
 from commonUtil import *
 
 def getSubsection(name):
-    d = open("deploy/packages/packages.yml").readlines()
+    d = open("%s/deploy/packages/packages.yml" %mode.dataPath).readlines()
     output = []
     collect = False
     for line in d:
@@ -64,7 +64,7 @@ class ScriptField(PinshCmd.PinshCmd):
         return COMPLETE, 1
 
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, runTest, endTest
     scriptField = ScriptField()
     status = OK
     startTest()

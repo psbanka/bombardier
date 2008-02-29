@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys,re
+import sys
 
 import PinshCmd
 from commonUtil import *
@@ -35,10 +35,10 @@ class Integer(PinshCmd.PinshCmd):
                 return [tokens[index]]
         except:
             pass
-        return ''
+        return []
 
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, runTest, endTest
     integer = Integer(10, 1000)
     status = OK
     startTest()

@@ -17,6 +17,7 @@ class Ssh(PinshCmd.PinshCmd):
         self.logCommand = True
 
     def cmd(self, tokens, noFlag, slash):
+        pyChucker(slash)
         if noFlag:
             return FAIL, []
         if len(tokens) < 2:
@@ -24,7 +25,7 @@ class Ssh(PinshCmd.PinshCmd):
         hostName = tokens[1] 
         if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
             return FAIL, ["Invalid destination: ", hostName]
-        client = Client.Client(hostName, '')
+        client = Client.Client(hostName, '', mode.dataPath)
         client.get()
         username = client.data.get("defaultUser")
         address  = client.data.get("ipAddress")

@@ -7,12 +7,9 @@ import logging
 import logging.handlers
 
 ## TODOS: 
-# 1. Centralize configs
-# 2. Implement PARTIAL_DB
-# 3. Factor text
-
 
 ####################################################
+DATA_PATH = os.getcwd()
 SYSTEM_LOCK_TIMEOUT = 900
 
 # OPTIONS
@@ -59,7 +56,7 @@ class DeadLockException(Exception):
 def setLock(lockFilename, sleepTime=0):
     time.sleep(sleepTime)
     maxTime    = SYSTEM_LOCK_TIMEOUT
-    lockPath   = "output/" + lockFilename
+    lockPath   = DATA_PATH+"/output/" + lockFilename
 
     if os.path.isfile(lockPath):
         timestr = open(lockPath).read().strip()
@@ -95,9 +92,9 @@ def clearLock(lockFilename):
 def dbReport(restoreServers, backupServer, databases, full, clientConfig):
     report = {}
     if full:
-        backupData = yaml.load(open("output/%s-backupFull.yml" % backupServer, 'r').read())
+        backupData = yaml.load(open(DATA_PATH+"/output/%s-backupFull.yml" % backupServer, 'r').read())
     else:
-        backupData = yaml.load(open("output/%s-backupLog.yml" % backupServer, 'r').read())
+        backupData = yaml.load(open(DATA_PATH+"/output/%s-backupLog.yml" % backupServer, 'r').read())
     startTime = backupData["startTime"]
     report["backupTime"] = startTime
     report["databases"] = {}
@@ -113,7 +110,7 @@ def dbReport(restoreServers, backupServer, databases, full, clientConfig):
     report["servers"] = {}
     for restoreServer in restoreServers:
         report["servers"][restoreServer] = {}
-        fileName = "output/%s-restore.yml" % restoreServer
+        fileName = DATA_PATH+"/output/%s-restore.yml" % restoreServer
         if not os.path.isfile(fileName):
             report["servers"][restoreServer] = "NO-OUTPUT"
             continue
@@ -231,7 +228,7 @@ def prettyReport(report):
 
 class BombardierBackup:
     def __init__(self, backupServerName, restoreServers, fullBackup):
-        self.backupServerObject = BombardierRemoteClient(backupServerName, '')
+        self.backupServerObject = BombardierRemoteClient(backupServerName, '', DATA_PATH)
         self.backupServerName   = backupServerName
         self.restoreServers     = restoreServers
         self.fullBackup         = fullBackup
@@ -382,7 +379,7 @@ def pullFiles(backupServer, clientConfig, localDir):
     #try: 
         logger.info("Transferring files from %s..." % (backupServer))
         backupCygPath = cygpath(backupPath)
-        r = BombardierRemoteClient(backupServer, '')
+        r = BombardierRemoteClient(backupServer, '', DATA_PATH)
         status = r.rsync(localReplica, backupCygPath, "PULL")
     else:
     #except:
@@ -412,7 +409,7 @@ if __name__ == "__main__":
         sys.exit(FAIL)
     backupServerName = args[0]
 
-    clientConfig       = Client.Client(backupServerName, '')
+    clientConfig       = Client.Client(backupServerName, '', DATA_PATH)
     clientConfig.downloadClient()
     databases          = clientConfig["sql"]["databases"]
     servers            = clientConfig["sql"]["servers"].keys()
@@ -424,17 +421,17 @@ if __name__ == "__main__":
         databases = [databases[0]]
         clientConfig["sql"]["databases"] = databases
         logger.info("Restricting databases to %s" % str(databases))
-        os.system('mv deploy/client/%s.yml %s.yml.bak' % (backupServerName, backupServerName))
-        open("deploy/client/%s.yml" % backupServerName, 'w').write(yaml.dump(clientConfig.data))
+        os.system('mv %s/deploy/client/%s.yml %s.yml.bak' % (DATA_PATH, backupServerName, backupServerName))
+        open(DATA_PATH+"/deploy/client/%s.yml" % backupServerName, 'w').write(yaml.dump(clientConfig.data))
 
     for restoreServerName in restoreServerNames:
-        clientConfig   = Client.Client(restoreServerName, '')
+        clientConfig   = Client.Client(restoreServerName, '', DATA_PATH)
         clientConfig.downloadClient()
         ipAddress      = clientConfig["ipAddress"]
         restorePath    = clientConfig["sql"]["servers"][restoreServerName]["restorePath"]
         restoreNetwork = clientConfig["sql"]["servers"][restoreServerName]["network"]
         role           = clientConfig["sql"]["servers"][restoreServerName]["role"]
-        restoreObject  = BombardierRemoteClient(restoreServerName, '')
+        restoreObject  = BombardierRemoteClient(restoreServerName, '', DATA_PATH)
         restoreServers[restoreServerName] = {"object":restoreObject, "ipAddress":ipAddress, "role":role,
                                              "restorePath":restorePath, "restoreNetwork":restoreNetwork}
 
@@ -471,13 +468,13 @@ if __name__ == "__main__":
         if REPORT_OUT in OPTIONS:
             addDictionaries(report, dbReport(restoreServerNames, backupServerName, databases, options.full, clientConfig) )
             wrapup(report, backupServerName, clientConfig)
-            open("output/backupReport.yml", 'w').write(yaml.dump(report))
+            open(DATA_PATH+"/output/backupReport.yml", 'w').write(yaml.dump(report))
     except DeadLockException, e:
         report["EXCEPTION"] = str(e)
         report["status"] = "FAIL"
         wrapup(report, backupServerName, clientConfig)
     if PARTIAL_DB in OPTIONS:
         logger.info("restoring database configuration...")
-        os.system('mv %s.yml.bak deploy/client/%s.yml' % (backupServerName, backupServerName))
+        os.system('mv %s/%s.yml.bak %s/deploy/client/%s.yml' % (DATA_PATH, backupServerName, DATA_PATH, backupServerName))
 
     prettyReport(report)

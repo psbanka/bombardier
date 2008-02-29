@@ -9,9 +9,11 @@ import os, yaml
 from libCipher import encrypt, decryptString, pad
 from threading import Thread
 from staticData import *
+from getpass import getpass
 from Slash import *
 
 DIZEBUG = 0
+OK_TO_PROMPT = True
 TB_CHECK_INTERVAL = 300
 TB_JOB_FILE = "jobs.yml"
 
@@ -34,6 +36,7 @@ class Logger:
         self.log(syslog.LOG_INFO, message)
 
     def debug(self, message):
+        #self.log(syslog.LOG_INFO, "reallyDEBUG " + message)
         self.log(syslog.LOG_DEBUG, message)
 
     def warning(self, message):
@@ -50,7 +53,7 @@ class Logger:
 
 class JobCollection(Logger):
     def __init__(self, jobFile, password):
-        Logger.__init__(self, 'root', 0)
+        Logger.__init__(self, 'scheduler', 0)
         self.jobFile = jobFile
         self.password = password
         self.jobDict = {}
@@ -115,6 +118,7 @@ class JobCollection(Logger):
         self.killJobs(jobNames)
         for jobName in jobNames:
             if jobName in self.jobDict:
+                self.info("Removing job %s" % jobName)
                 del self.jobDict[jobName]
         self.getTimeOfNextJob()
 
@@ -126,11 +130,11 @@ class JobCollection(Logger):
         for jobName in jobList:
             if jobName in self.jobDict.keys():
                 job = self.jobDict[jobName]
-                self.info("Spawning job -- name:%s process: %s command: %s" % (jobName, self.nextProcessNumber, job.bomshCmd))
+                self.debug("Spawning job -- name:%s process: %s command: %s" % (jobName, self.nextProcessNumber, job.bomshCmd))
                 job.spawn(self.nextProcessNumber)
                 self.nextProcessNumber += 1
                 now = time.time()            
-                while not job.running:
+                while not job.isRunning():
                     time.sleep(.1)
                     if time.time() - now > timeout:
                         self.error("Timed out waiting for job %s to start..." % jobName)
@@ -144,13 +148,13 @@ class JobCollection(Logger):
             if not jobName in self.jobDict:
                 raise JobNotFoundException
             job = self.jobDict[jobName]
-            if job.running:
+            if job.isRunning():
                 job.killThread()
         
         for jobName in jobNames:
             now = time.time()
             job = self.jobDict[jobName]
-            while job.running:
+            while job.isRunning():
                 self.info("Waiting for job %s to die..." % jobName)
                 if (time.time() - now) > timeout:
                     self.error("Timed out waiting for job %s to die..." % jobName)
@@ -166,8 +170,11 @@ class JobCollection(Logger):
         runningList = []
         for jobName in self.jobDict:
             job = self.jobDict[jobName]
-            job.checkThread()
-            if job.running:
+#            if job.jt and job.fro:
+#                infoStr = job.fro.read()
+#                if infoStr:
+#                    self.info( "Job %s buffer: %s" %(jobName, infoStr) )
+            if job.isRunning():
                 runningList.append(jobName)
         return runningList
 
@@ -178,18 +185,24 @@ class JobThread(Thread, Logger):
         self.bomshCmd = bomshCmd
         self.timeout = timeout
         self.password = password
+        self.to = None
+        self.fro = None
 
     def run(self): 
-        now = time.time()
         mode.auth = ADMIN
         mode.batch = True
         mode.password = self.password
         if self.to.testStop():
-            self.fro.sendStop()
             return
-        self.debug("Running %s..." % self.bomshCmd)
-        cmdStatus, cmdOutput = slash.processCommand(self.bomshCmd.strip())
-        self.fro.sendStop()
+        self.info("Running %s..." % self.bomshCmd)
+        try:
+            cmdStatus, cmdOutput = slash.processCommand(self.bomshCmd.strip(), self.fro, self.fro)
+            self.info("JobThread.run -- cmdStatus: %s" %cmdStatus)
+            self.info("JobThread.run -- cmdOutput: %s" %cmdOutput)
+            commandLog = self.fro.read()
+            [ self.info(logLine) for logLine in logLine.split( COMMAND_LOG_MARKER )] 
+        except:
+            self.error( "Failed to run %s" % self.bomshCmd )
 
 class Job(Logger):
     def __init__(self, password):
@@ -198,8 +211,16 @@ class Job(Logger):
         self.bomshCmd = None
         self.user = None
         self.lastRun = None
-        self.running = False
+        self.jt = None
+        self.to = None
+        self.fro = None
         Logger.__init__(self, self.user, 0)
+
+    def isRunning(self):
+        if self.jt:
+            if self.jt.isAlive():
+                return True
+        return False
 
     def initArgs(self, name, bomshCmd, freq, user, lastRun=0):
         self.name = name
@@ -216,58 +237,46 @@ class Job(Logger):
         self.initArgs(dict["name"], dict["bomshCmd"], dict["freq"], dict["user"], dict.get("lastRun"))
 
     def toDict(self):
-        return { "freq": self.freq, "user": self.user,
+        running = "No"
+        if self.isRunning():
+            running = "Yes"
+        return { "freq": self.freq, "user": self.user, "running":running,
                  "lastRun": self.lastRun, "bomshCmd" : self.bomshCmd }
 
     def spawn(self, process):
-        if self.running:
-            self.error("Refusing to run %s; it is already running" % self.name)
-            return FAIL
-        jt = JobThread(self.user, process, self.bomshCmd, self.password)
-        jt.to = CommSocket.CommSocket()
-        self.to = jt.to 
-        jt.fro = CommSocket.CommSocket()
-        self.fro = jt.fro 
         self.lastRun = time.time()
         self.nextRun = self.lastRun + self.freq
         self.debug("spawn: lastRun: %s nextRun: %s" %(self.lastRun, self.nextRun))
-        jt.start()
-        self.running = True
+        if self.isRunning():
+            self.error("Refusing to run %s; it is already running" % self.name)
+            return FAIL
+        self.jt = JobThread(self.user, process, self.bomshCmd, self.password)
+        self.jt.to = CommSocket.CommSocket()
+        self.jt.fro = CommSocket.CommSocket()
+        self.to = self.jt.to 
+        self.fro = self.jt.fro 
+        self.jt.start()
         return OK
 
-    def checkThread(self):
-        if not self.running:
-            return OK
-        if self.fro.testStop():
-            self.running = False
-        return OK
-
-    def killThread(self):
-        if not self.running:
+    def killThread(self, timeout=5):
+        if not self.isRunning():
             return OK
         self.to.sendStop()
-        now = time.time()
-        while not self.fro.testStop():
-            time.sleep(.1)
-            if time.time() - now > 5:
-                self.info( "killThread: %s timeout" % self.name)
-                return FAIL
-        self.running = False
+        self.jt.join(timeout)
         return OK
 
-class TimeBom(Thread):
-    def __init__(self, password, jobFile=TB_JOB_FILE, port=TB_CTRL_PORT):
+class TimeBom(Thread, Logger):
+    def __init__(self, password, dataPath, jobFile=TB_JOB_FILE, port=TB_CTRL_PORT):
         Thread.__init__(self)
+        Logger.__init__(self, "scheduler", 0)
         self.password          = password
-        self.jobFile           = jobFile
+        self.jobFile           = dataPath + '/' + jobFile
         self.commSocketToJob   = None
         self.commSocketFromJob = None
         self.jobThread         = None
         self.checkTime         = 0
         self.status            = OK
         self.timeOfNextJob     = time.time()+999999
-
-        self.logger = Logger("scheduler", 0)
         try:
             self.controlSocket = SecureCommSocket.SecureServer(port, self.password)
         except:
@@ -275,7 +284,6 @@ class TimeBom(Thread):
         self.jobs = JobCollection(jobFile, self.password)
 
     # PASS-Through methods ########
-
     def loadJobs(self):
         return self.jobs.load()
 
@@ -307,29 +315,30 @@ class TimeBom(Thread):
 
     def checkTimers(self):
         now = time.time()
-        self.logger.debug("checkTimers: next: %s : current: %s" %(self.jobs.timeOfNextJob, now))
+        self.debug("checkTimers: next: %s : current: %s" %(self.jobs.timeOfNextJob, now))
         if now > self.jobs.timeOfNextJob:
-            self.logger.debug("Time for job run")
+            self.debug("Time for job run")
             runnableJobs = self.getRunnableJobs()
             return TB_RUN_JOB, runnableJobs
         return TB_WAIT, []
 
     def run(self):
         if self.status == FAIL:
-            self.logger.error("CANNOT START. NO CONTROL SOCKET.")
+            self.error("CANNOT START. NO CONTROL SOCKET.")
             return FAIL
-        self.logger.info("Timebom starting...")
+        self.info("Timebom starting...")
         try:
             while True:
-                self.logger.debug("IM IN UR LOOP")
+                self.debug("IM IN UR LOOP")
                 command, messageList, clientAddress = self.controlSocket.getSecure()
-                self.logger.debug(command)
-                self.logger.debug(str(messageList))
+                self.debug(command)
+                self.debug(str(messageList))
                 if not command:
                     command, messageList = self.checkTimers()
                 if command != TB_WAIT:
-                    self.logger.debug("COMMAND: (%s)" % command)
+                    self.debug("COMMAND: (%s)" % command)
                 if command == TB_KILL:
+                    self.killAll()
                     self.controlSocket.disconnectClient(clientAddress)
                     break
                 elif command == TB_RUN_JOB:
@@ -345,17 +354,17 @@ class TimeBom(Thread):
                         bomshCmd, freq, name, user = messageList
                         self.jobs.addJob( bomshCmd=bomshCmd, freq=freq, name=name, user=user )
                     else:
-                        self.logger.error("Message list length error in addJob: expected 4, got %s" %len(messageList))
+                        self.error("Message list length error in addJob: expected 4, got %s" %len(messageList))
                 elif command == TB_DEL: 
                     self.jobs.delJobs(messageList)
                 elif command == TB_WAIT:
                     time.sleep(1)
                 else:
-                    self.logger.warning( "UNKNOWN COMMAND: %s" %command )
+                    self.warning( "UNKNOWN COMMAND: %s" %command )
                 self.controlSocket.disconnectClient(clientAddress)
                       
         except Exception, e:
-            self.logger.error("Error detected in %s (%s)." % (file, e))
+            self.error("Error detected in %s (%s)." % (file, e))
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
             e.seek(0)
@@ -363,23 +372,87 @@ class TimeBom(Thread):
             ermsg = ''
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
-            self.logger.error(ermsg)
-            self.logger.error("\n")
+            self.error(ermsg)
+            self.error("\n")
         time.sleep(2)
         self.controlSocket.cleanup()
-        self.logger.info("Exiting.")
-           
+        self.info("Exiting.")
+
+    def waitForJobStart(self, jobName, timeout=5):
+        jobList = self.getRunningJobs()
+        if jobName in jobList:
+            return OK
+        jobList.append(jobName)
+        return self.waitForJobList(jobList, timeout)
+
+    def waitForJobStop(self, jobName, timeout=5):
+        jobList = self.getRunningJobs()
+        if not jobName in jobList:
+            return OK
+        jobList.remove(jobName)
+        return self.waitForJobList(jobList, timeout)
+
+    def waitForJobList(self, targetJobList, timeout):
+        while timeout > 0: 
+            if set(self.getRunningJobs()) == set(targetJobList):
+                return OK
+            time.sleep(0.1)
+            timeout -= 0.1
+        return FAIL
+
+def areJobsEqual(j1, j2, ignoreProps = ['lastRun', 'running']):
+    if not set(j1.keys()) == set(j2.keys()):
+        return False
+    job1 = j1[j1.keys()[0]] 
+    job1['name'] = j1.keys()[0] 
+    job2 = j2[j2.keys()[0]] 
+    job2['name'] = j2.keys()[0] 
+    properties = set(job1.keys()) - set(ignoreProps)
+    for prop in properties:
+        if prop not in job2 or prop not in job1:
+            return False
+        prop1 = job1[prop]
+        prop2 = job2[prop]
+        if not prop1 == prop2:
+            return False
+    return True
+
+def areJobListsEqual( jobList1, jobList2, ignoreProps = ['lastRun', 'running'] ):
+    numJobs = len(jobList1)
+    if numJobs != len(jobList2):
+        return False
+    jobList1.sort()
+    jobList2.sort()           
+    for i in range(numJobs):
+        if not areJobsEqual(jobList1[i], jobList2[i], ignoreProps):
+            return False
+    return True
+
 def test():
-    from libTest import startTest, runTest, endTest 
+    from libTest import startTest, runTest, endTest, assertOk
+    os.chdir('/')
     status = OK
     TEST_PORT     = 2384
-    TEST_JOB_FILE = "testJobFile.yml"
-    tb = TimeBom("fooman", TEST_JOB_FILE, TEST_PORT)
+    TEST_JOB_FILE = mode.dataPath + "/testJobFile.yml"
+    TEST_PASSWORD = 'fooman'
+    password = TEST_PASSWORD
+    if OK_TO_PROMPT:
+        password = getpass("Gimme the password, fool: ")
+
+    if password == '':
+        password = TEST_PASSWORD
+
+    tb = TimeBom(password, '.', TEST_JOB_FILE, TEST_PORT)
     JOB_sleepTest = {'sleepTest': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}
+    JOB_sleepTestRunning = {'sleepTest': {'lastRun': 0, 'freq': 5, 'user': 'shawn', 'running': 'Yes', 'bomshCmd': 'sleep 2'}}
+    JOB_sleepTestNotRunning = {'sleepTest': {'lastRun': 0, 'freq': 5, 'user': 'shawn', 'running': 'No', 'bomshCmd': 'sleep 2'}}
     JOB_echoTest  = {'echoTest': {'lastRun': 0, 'freq': 3600, 'bomshCmd': 'echo foo', 'user': 'chawn'}}
     combined = [{'echoTest': {'lastRun': 0, 'freq': 3600, 'bomshCmd': 'echo foo', 'user': 'chawn'}, 
                  'sleepTest': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}]
-    c = SecureCommSocket.SecureClient(TEST_PORT, "fooman")
+    different = [{'echoTest': {'lastRun': 1, 'freq': 3600, 'bomshCmd': 'echo foo', 'user': 'chawn'}, 
+                 'sleepTest': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}]
+    pyChucker(JOB_sleepTest, JOB_sleepTestRunning, JOB_sleepTestNotRunning, JOB_echoTest, combined, different)
+    c = SecureCommSocket.SecureClient(TEST_PORT, password)
 
     startTest()
 
@@ -397,13 +470,13 @@ def test():
     status = runTest(testJob.spawn, [24], OK, status)
     status = runTest(testJob.spawn, [23], FAIL, status)
     status = runTest(testJob.killThread, [], OK, status)
-    assert testJob.running == False
+    assert not testJob.isRunning()
 
     # make sure a job can be spawned again...
     status = runTest(testJob.spawn, [24], OK, status)
     status = runTest(testJob.killThread, [], OK, status)
     status = runTest(testJob.killThread, [], OK, status)
-    assert testJob.running == False
+    assert not testJob.isRunning()
 
     # higher-level job threading testing
     status = runTest(tb.runJobs, [["sleepTest"]], None, status)
@@ -414,53 +487,58 @@ def test():
 
     # make sure we can detect when a job dies
     status = runTest(tb.runJobs, [["sleepTest"]], None, status)
-    status = runTest(tb.getRunningJobs, [], ["sleepTest"], status)
-    time.sleep(2.5)
-    status = runTest(tb.getRunningJobs, [], [], status)
-    
+    status = assertOk(tb.waitForJobStart, ["sleepTest"], status)
+    status = assertOk(tb.waitForJobStop, ["sleepTest"], status)
+
     # testing socket interaction with the server
     JOB_sleepTest["sleepTest"]["lastRun"] = tb.jobs.jobDict['sleepTest'].lastRun
     combined[0]["sleepTest"]["lastRun"] = tb.jobs.jobDict['sleepTest'].lastRun
     tb.start()
 
     status = runTest(tb.getRunningJobs, [], [], status)
-    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_sleepTest], status)
-    status = runTest(c.sendSecure, [TB_SHOW, ["show"]], [JOB_sleepTest], status)
+    assert( areJobListsEqual(c.sendSecure(TB_SHOW, [] ), [JOB_sleepTest]) ) 
+    assert( areJobListsEqual(c.sendSecure(TB_SHOW, ["show"] ), [JOB_sleepTest]) ) 
     status = runTest(c.sendSecure, [TB_ADD, ["echo foo", 3600, "echoTest", "chawn" ]], [], status)
-    status = runTest(c.sendSecure, [TB_SHOW, []], combined, status)
+    assert( areJobListsEqual(c.sendSecure(TB_SHOW, [] ), combined) ) 
     status = runTest(c.sendSecure, [TB_DEL, ["sleepTest"]], [], status)
-    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_echoTest], status)
+    assert( areJobListsEqual(c.sendSecure(TB_SHOW, [] ), [JOB_echoTest]) ) 
     status = runTest(tb.getRunningJobs, [], [], status)
     status = runTest(c.sendSecure, [TB_SAVE, []], [], status)
     status = runTest(tb.getRunningJobs, [], [], status)
     tb.clearJobs()
     status = runTest(c.sendSecure, [TB_LOAD, []], [], status)
-    status = runTest(c.sendSecure, [TB_SHOW, []], [JOB_echoTest], status)
+    assert( areJobListsEqual(c.sendSecure(TB_SHOW, [] ), [JOB_echoTest]) ) 
     status = runTest(tb.getRunningJobs, [], [], status)
 
-    #^ TEST SCHEDULING A JOB TO RUN ON ITS OWN
-
+    # TEST SCHEDULING A JOB TO RUN ON ITS OWN
     tb.clearJobs()
     tb.jobs.addJob(name="sleepTest", bomshCmd="sleep 3", freq=5, user="shawn")
-    status = runTest(tb.getRunningJobs, [], [], status)
-    time.sleep(2)
-    status = runTest(tb.getRunningJobs, [], ["sleepTest"], status)
-    
-    time.sleep(3.5)
+    status = assertOk(tb.waitForJobStart, ["sleepTest"], status)
+    status = assertOk(tb.waitForJobStop, ["sleepTest"], status)
     status = runTest(tb.getRunningJobs, [], [], status)
 
     # BY NOW sleepTest SHOULD BE RUNNING AGAIN
-   
-    time.sleep(3.5)
-    status = runTest(tb.getRunningJobs, [], ["sleepTest"], status)
+    status = assertOk(tb.waitForJobStart, ["sleepTest"], status)
 
+    # In-depth package test
+    if password != TEST_PASSWORD:
+        tb.clearJobs()
+        tb.jobs.addJob(name="mcsLiveTest", bomshCmd="package exec bigsam CargoMcs_R2AD-65366 testDb", freq=15, user="peter")
+        status = assertOk(tb.waitForJobStart, ["mcsLiveTest"], status)
+        status = assertOk(tb.waitForJobStop, ["mcsLiveTest", 25], status)
+        status = assertOk(tb.waitForJobStart, ["mcsLiveTest"], status)
+        status = assertOk(tb.waitForJobStop, ["mcsLiveTest", 15], status)
+
+    print "/////////////////////////////////////////////////////////////////////////"
+    print "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\" 
+    print "/////////////////////////////////////////////////////////////////////////"
     status = runTest(c.sendSecure, [TB_KILL,[ "kill"]], [], status)
-
     endTest(status)
     sys.exit(0)
 
 def startService(passwd):
-    tb = TimeBom(passwd, port=TB_CTRL_PORT)
+    dataPath = os.getcwd()
+    tb = TimeBom(passwd, dataPath, port=TB_CTRL_PORT)
     if tb.status == FAIL:
         print >>sys.stderr, "Unable to start: Address already in use."
         sys.exit(0)
@@ -499,7 +577,6 @@ def startService(passwd):
 
 if __name__ == "__main__":
     test()
-    from getpass import getpass
     import sys
     passwd = getpass("Server password: ")
     startService(passwd)

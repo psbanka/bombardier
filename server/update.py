@@ -6,8 +6,9 @@ from RemoteClient import RemoteClient
 
 class UpdateRemoteClient(RemoteClient):
 
-    def __init__(self, hostname, svnUser=''):
-        RemoteClient.__init__(self, hostname)
+    def __init__(self, hostname, dataPath, svnUser=''):
+        self.dataPath = dataPath
+        RemoteClient.__init__(self, hostname, dataPath)
         self.svnUser = svnUser
         if self.platform == 'win32':
             self.python  = '/cygdrive/c/Python25/python.exe'
@@ -43,7 +44,7 @@ class UpdateRemoteClient(RemoteClient):
 
     def prepareBombardierClient(self):
         cwd = os.getcwd()
-        os.chdir("../client")
+        os.chdir(self.dataPath+"/../client")
         #print "==> updating client"
         #userStr = ''
         #if self.svnUser:

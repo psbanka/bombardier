@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys,re
+import sys
 
 import PinshCmd
 from commonUtil import *
@@ -17,16 +17,17 @@ class Expression(PinshCmd.PinshCmd):
         return PARTIAL, len(tokens) - index
 
     def name(self, tokens, index):
+        pyChucker(index)
         #print tokens[-1],'\n'
         return [tokens[-1], tokens[-1]]
 
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, runTest, endTest
     exp = Expression()
     status = OK
     startTest()
-    runTest(exp.match, [[""]], (NO_MATCH, 1), status)
-    runTest(exp.match, [["abc"]], (PARTIAL, 1), status)
-    runTest(exp.match, [["~!%^&*"]], (PARTIAL, 1), status)
-    runTest(exp.match, [["kjd ;lkads jf"]], (PARTIAL, 1), status)
+    status = runTest(exp.match, [[""], 0], (PARTIAL, 1), status)
+    status = runTest(exp.match, [["abc"], 0], (PARTIAL, 1), status)
+    status = runTest(exp.match, [["~!%^&*"], 0], (PARTIAL, 1), status)
+    status = runTest(exp.match, [["kjd ;lkads jf"], 0], (PARTIAL, 1), status)
     endTest(status)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, termios, tty
+import sys, termios, tty
 from commands import getstatusoutput
 from commonUtil import *
 
@@ -21,7 +21,7 @@ def motd():
         l = f.readlines()
         for line in l:
             output.append(line.strip())
-        userOutput(output, OK)
+        userOutput(output, OK, sys.stdout, sys.stderr)
     except:
         pass
 
@@ -198,9 +198,9 @@ def askYesNo(prompt, default = NEUTRAL):
             result = NO
     return result
 
-def pageIt():
-    sys.stdout.write("--- more ---")
-    sys.stdout.flush()
+def pageIt(outputHandle):
+    outputHandle.write("--- more ---")
+    outputHandle.flush()
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     try:
@@ -208,8 +208,8 @@ def pageIt():
         ch = sys.stdin.read(1)
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    sys.stdout.write("\r                \r")
-    sys.stdout.flush()
+    outputHandle.write("\r                \r")
+    outputHandle.flush()
     if ch == chr(13):
         return ONE_LINE
     if ch == chr(113) or ch == chr(81):
@@ -218,7 +218,7 @@ def pageIt():
         return BACKUP
     return PAGE
 
-def pagerOut(printData):
+def pagerOut(printData, outputHandle, errHandle):
     if mode.termlen == 0:
         print printData
         return
@@ -227,12 +227,12 @@ def pagerOut(printData):
     backup = 0
     printData = printData.split("\n")
     while currentLine < len(printData):
-        sys.stdout.write(printData[currentLine]+"\n")
-        sys.stdout.flush()
+        outputHandle.write(printData[currentLine]+"\n")
+        outputHandle.flush()
         currentLine += 1
         pagerLine += 1
         if not mode.batch and pagerLine > mode.termlen:
-            action = pageIt()
+            action = pageIt(outputHandle)
             if action == QUIT:
                 break
             elif action == ONE_LINE:
@@ -242,8 +242,8 @@ def pagerOut(printData):
                 backupLen = (backup + 1) * mode.termlen + 1
                 if backupLen > currentLine:
                     backupLen = currentLine
-                sys.stdout.write("\n\n-- backing up %d lines -- \n\r" % backupLen)
-                sys.stdout.flush()
+                outputHandle.write("\n\n-- backing up %d lines -- \n\r" % backupLen)
+                outputHandle.flush()
                 currentLine -= backupLen
                 backup += 1
                 pagerLine = 0
@@ -276,7 +276,7 @@ def prepender(prepend, object, depth):
         printData += "%s%s%d\n" % (prepend, ' '*depth, object)
     return printData
             
-def userOutput(output, status, prepend = '', test=False):
+def userOutput(output, status, outputHandle=sys.stdout, errHandle=sys.stderr, prepend = '', test=False):
     if output == []:
         return
     if prepend == '':
@@ -286,7 +286,7 @@ def userOutput(output, status, prepend = '', test=False):
             prepend = ' '
     if test:
         return prepender(prepend, output, 0)
-    pagerOut(prepender(prepend, output, 0))
+    pagerOut(prepender(prepend, output, 0), outputHandle, errHandle)
     return
 
 def user(string):
@@ -296,7 +296,7 @@ def user(string):
 
 
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, runTest, endTest
     status = OK
     startTest()
     #status = runTest(user,["hello"],None, status)

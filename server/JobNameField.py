@@ -25,32 +25,27 @@ class JobNameField(PinshCmd.PinshCmd):
         c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
         jobs = c.sendSecure(TB_SHOW, [])[0]
         return [ job for job in jobs if job.startswith(tokens[index]) ]
-#        possibleJobNames = []
-#        for job in jobs:
-#            if job.startswith(tokens[index]):
-#                possibleJobNames.append(job)
-#        if possibleJobNames:
-#            return possibleJobNames
-#        return ''
 
 
 if __name__ == "__main__":
     from libTest import startTest, endTest, runTest
     import TimeBom
+    mode.auth = ADMIN
     jobNameField = JobNameField()
     status = OK
     TB_CTRL_PORT = 5423
     TEST_JOB_FILE = "testJobFile.yml"
 
     startTest()
-    tb = TimeBom.TimeBom("fooman", TEST_JOB_FILE, TB_CTRL_PORT)
-    tb.jobs = {'checker': {'lastRun': 0, 'freq': '3600', 'bomshCmd': 'sho package sqlback', 'user': 'chawn'}, 'statlilap': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sho stat lilap', 'user': 'shawn'}}
+    tb = TimeBom.TimeBom("fooman", '.', TEST_JOB_FILE, TB_CTRL_PORT)
+    tb.jobs.addJob(name='checker', bomshCmd='checkerCmd', freq=3600, user='chawn')
+    tb.jobs.addJob(name='statlilap', bomshCmd='statlilapCmd', freq=5, user='chawn')
     tb.start()
     mode.password = "fooman"
     
-    runTest(jobNameField.name, [[""], 0], ["checker", "statlilap"], status)
-    runTest(jobNameField.name, [["c"], 0], ["checker"], status)
-    runTest(jobNameField.name, [["w"], 0], [], status)
+    status = runTest(jobNameField.name, [[""], 0], ["checker", "statlilap"], status)
+    status = runTest(jobNameField.name, [["c"], 0], ["checker"], status)
+    status = runTest(jobNameField.name, [["w"], 0], [], status)
     c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
     c.sendSecure(TB_KILL, [])
     endTest(status)

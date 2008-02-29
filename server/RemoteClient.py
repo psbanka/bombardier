@@ -23,8 +23,8 @@ class ClientConfigurationException(Exception):
     def __repr__(self):
         return "Could not find valid configuration data for %s" % self.server
 
-def getClient(serverName):
-    client = Client.Client(serverName, '')
+def getClient(serverName, dataPath):
+    client = Client.Client(serverName, '', dataPath)
     status = client.get()
     if status == FAIL:
         raise ClientConfigurationException(serverName)
@@ -41,18 +41,20 @@ class ClientUnavailableException(Exception):
 
 class RemoteClient:
 
-    def __init__(self, hostName):
+    def __init__(self, hostName, dataPath, outputHandle=sys.stdout):
         self.debug        = True
         self.hostName     = hostName
+        self.dataPath     = dataPath
+        self.outputHandle = outputHandle 
         self.status       = DISCONNECTED
-        self.info         = getClient(self.hostName)
+        self.info         = getClient(self.hostName, dataPath)
         self.username     = self.info["defaultUser"]
         self.ipAddress    = self.info["ipAddress"]
         self.platform     = self.info["platform"]
         if 'sharedKeys' not in self.info:
             if os.path.isfile("defaultPassword.b64"):
                 self.debugOutput("Using default password")
-                self.password = base64.decodestring(open(DEFAULT_PASSWORD).read())
+                self.password = base64.decodestring(open(self.dataPath+"/"+DEFAULT_PASSWORD).read())
             else:
                 self.password  = getpass.getpass( "Enter password for %s: "% self.username )
         else:
@@ -68,16 +70,16 @@ class RemoteClient:
             try:
                 output = template % debugText
             except TypeError:
-                print "ERROR IN DEBUG COMMAND:"
-                print "TEMPLATE: ",template
-                print "DEBUGTEXT: ", debugText
+                self.outputHandle.write("ERROR IN DEBUG COMMAND:" )
+                self.outputHandle.write("TEMPLATE: " + template )
+                self.outputHandle.write("DEBUGTEXT: " + debugText )
                 raise Exception
         else:
             if noDebugText != '.':
-                print "\n  ",
+                self.outputHandle.write( "\n ")
             output = noDebugText
-        sys.stdout.write(output)
-        sys.stdout.flush()
+        self.outputHandle.write(output)
+        self.outputHandle.flush()
 
     def debugOutput(self, debugText, noDebugText='.'):
         self.templateOutput("==> %s\n", debugText, noDebugText)
@@ -183,10 +185,8 @@ class RemoteClient:
         return OK
 
     def freshen(self):
-        if self.status == BROKEN:
-            return FAIL
         connectionAge = time.time() - self.connectTime
-        if self.status == DISCONNECTED or connectionAge > CONNECTION_TIMEOUT:
+        if self.status == DISCONNECTED or connectionAge > CONNECTION_TIMEOUT or self.status == BROKEN:
             if self.status == CONNECTED:
                 msg = "Assuming our connection to %s is stale after "\
                       "%4.2f minutes. Reconnecting..." % (self.hostName, connectionAge / 60.0)

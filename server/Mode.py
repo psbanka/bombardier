@@ -56,6 +56,7 @@ class Mode:
         self.username = os.environ["USER"]
         self.autoEnable = False
         self.setPrompt()
+        self.dataPath = os.getcwd() #! FIXME!!
 
     def addConfigList(self, option, value):
         if self.config.get(option):
@@ -69,7 +70,6 @@ class Mode:
         open(CONFIG_FILE, 'w').write(yaml.dump(self.config))
 
     def loadConfig(self):
-        import os
         import stat
         st = os.stat(CONFIG_FILE)
         mode = st[stat.ST_MODE]
@@ -90,20 +90,20 @@ class Mode:
 
     def getTermInfo(self):
         try:
-            vars = os.environ["TERMCAP"].split(':')
-            co = [ x for x in vars if x.startswith("co") ][0]
+            varList = os.environ["TERMCAP"].split(':')
+            co = [ x for x in varList if x.startswith("co") ][0]
             self.termwidth = int(co.split("#")[-1])
-            li = [ x for x in vars if x.startswith("li") ][0]
+            li = [ x for x in varList if x.startswith("li") ][0]
             self.termlen = int(li.split("#")[-1]) - 4
         except:
             self.termlen = 23
             self.termwidth = 80
 
-    def getBomConnection(self, hostName, ignoreConfig=False):
+    def getBomConnection(self, hostName, outputHandle=sys.stdout, ignoreConfig=False):
         if not ignoreConfig and not hostName in self.config["enabledSystems"]:
             raise HostNotEnabledException(hostName)
         if not hostName in self.bomConnections:
-            brc = BombardierRemoteClient(hostName, self.password)
+            brc = BombardierRemoteClient(hostName, self.password, self.dataPath, outputHandle)
             self.bomConnections[hostName] = brc
         if self.password:
             self.bomConnections[hostName].configPasswd = self.password
@@ -140,8 +140,9 @@ class Mode:
         while self.state[-1]+1 > newState:
             if len(self.state) > 1:
                 extraClasses = self.newClasses[-1]
-                for i in range(0,extraClasses):
+                while extraClasses > 0:
                     slash.children.pop()
+                    extraClasses -= 1
             else:
                 self.state = [ENABLE]
                 break
@@ -170,20 +171,20 @@ class Mode:
         return self.state[-1]
     
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, runTest, endTest 
+    from Slash import slash
     status = OK
     startTest()
     mode = Mode(1,"#")
+    PROMPTY="vmwareserver (root)"
     
-    status = runTest(getPromptFile, [], "testing", status)
-    status = runTest(reprompt, [], None, status)
+    status = runTest(mode.reprompt, [], None, status)
     status = runTest(mode.setPrompt, [], None, status)
-    status = runTest(getPromptFile, [], "gruyere# ", status)
-    status = runTest(mode.getPrompt, [], "gruyere# ", status)
-    status = runTest(mode.pushPrompt, ["-->", 5], None, status)
-    status = runTest(mode.getPrompt, [], "gruyere--> ", status)
+    status = runTest(mode.getPrompt, [], PROMPTY + "# ", status)
+    status = runTest(mode.pushPrompt, [slash, "-->", 5], None, status)
+    status = runTest(mode.getPrompt, [], PROMPTY + "--> ", status)
     status = runTest(mode.popPrompt, [], OK, status)
-    status = runTest(mode.getPrompt, [], "gruyere# ", status)
+    status = runTest(mode.getPrompt, [], PROMPTY + "# ", status)
     status = runTest(mode.currentState, [], 1, status)
     
     endTest(status)

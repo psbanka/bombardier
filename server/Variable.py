@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys,re
+import sys
 
 import PinshCmd
 from commonUtil import *
@@ -23,10 +23,10 @@ class Variable(PinshCmd.PinshCmd):
     def name(self, tokens, index):
         if self.match(tokens, index) == (PARTIAL, 1):
             return [tokens[index]]
-        return ''
+        return []
 
 if __name__ == "__main__":
-    from libTest import *
+    from libTest import startTest, runTest, endTest
     variable = Variable()
     status = OK
     startTest()
