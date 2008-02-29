@@ -1,7 +1,7 @@
 #!/opt/python2.5/bin/python
 
 import exceptions
-import sys, os, readline
+import sys, os, readline, signal
 import libUi
 from commonUtil import *
 from Slash import *
@@ -61,6 +61,8 @@ if __name__ == "__main__":
                 else:
                     print
                     mode.clearBomConnections()
+                    while mode.childProcesses:
+                        os.kill(mode.childProcesses.pop(), signal.SIGTERM)
                     readline.write_history_file(HISTORY_FILE)
                     if mode.commentCommands:
                         makeComment()
