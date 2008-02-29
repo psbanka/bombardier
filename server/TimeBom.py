@@ -187,6 +187,9 @@ class JobThread(Thread, Logger):
         self.password = password
         self.to = None
         self.fro = None
+        self.checkMe = False
+        self.cmdStatus = None
+        self.cmdOutput = []
 
     def run(self): 
         mode.auth = ADMIN
@@ -196,11 +199,9 @@ class JobThread(Thread, Logger):
             return
         self.info("Running %s..." % self.bomshCmd)
         try:
-            cmdStatus, cmdOutput = slash.processCommand(self.bomshCmd.strip(), self.fro, self.fro)
-            self.info("JobThread.run -- cmdStatus: %s" %cmdStatus)
-            self.info("JobThread.run -- cmdOutput: %s" %cmdOutput)
-            commandLog = self.fro.read()
-            [ self.info(logLine) for logLine in logLine.split( COMMAND_LOG_MARKER )] 
+            self.checkMe = False
+            self.cmdStatus, self.cmdOutput = slash.processCommand(self.bomshCmd.strip(), self.fro, self.fro)
+            self.checkMe = True
         except:
             self.error( "Failed to run %s" % self.bomshCmd )
 
@@ -214,12 +215,20 @@ class Job(Logger):
         self.jt = None
         self.to = None
         self.fro = None
+        self.lastStatus = None
         Logger.__init__(self, self.user, 0)
 
     def isRunning(self):
         if self.jt:
             if self.jt.isAlive():
                 return True
+            if self.jt.checkMe:
+                self.info("%s -- status: %s" % (self.name, self.jt.cmdStatus))
+                self.info("%s -- cmdOutput: %s" %(self.name, self.jt.cmdOutput))
+                commandLog = self.fro.read()
+                [ self.info(logLine) for logLine in commandLog.split( COMMAND_LOG_MARKER )] 
+                self.jt.checkMe = False
+                self.lastStatus = RETURN_DICT[self.jt.cmdStatus]
         return False
 
     def initArgs(self, name, bomshCmd, freq, user, lastRun=0):
@@ -241,7 +250,7 @@ class Job(Logger):
         if self.isRunning():
             running = "Yes"
         return { "freq": self.freq, "user": self.user, "running":running,
-                 "lastRun": self.lastRun, "bomshCmd" : self.bomshCmd }
+                 "lastRun": self.lastRun, "bomshCmd" : self.bomshCmd, "lastStatus": self.lastStatus}
 
     def spawn(self, process):
         self.lastRun = time.time()
@@ -443,14 +452,14 @@ def test():
         password = TEST_PASSWORD
 
     tb = TimeBom(password, '.', TEST_JOB_FILE, TEST_PORT)
-    JOB_sleepTest = {'sleepTest': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}
-    JOB_sleepTestRunning = {'sleepTest': {'lastRun': 0, 'freq': 5, 'user': 'shawn', 'running': 'Yes', 'bomshCmd': 'sleep 2'}}
-    JOB_sleepTestNotRunning = {'sleepTest': {'lastRun': 0, 'freq': 5, 'user': 'shawn', 'running': 'No', 'bomshCmd': 'sleep 2'}}
-    JOB_echoTest  = {'echoTest': {'lastRun': 0, 'freq': 3600, 'bomshCmd': 'echo foo', 'user': 'chawn'}}
-    combined = [{'echoTest': {'lastRun': 0, 'freq': 3600, 'bomshCmd': 'echo foo', 'user': 'chawn'}, 
-                 'sleepTest': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}]
-    different = [{'echoTest': {'lastRun': 1, 'freq': 3600, 'bomshCmd': 'echo foo', 'user': 'chawn'}, 
-                 'sleepTest': {'lastRun': 0, 'freq': 5, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}]
+    JOB_sleepTest = {'sleepTest': {'lastRun': 0, 'lastStatus': None, 'freq': 5, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}
+    JOB_sleepTestRunning = {'sleepTest': {'lastRun': 0, 'lastStatus': None, 'freq': 5, 'user': 'shawn', 'running': 'Yes', 'bomshCmd': 'sleep 2'}}
+    JOB_sleepTestNotRunning = {'sleepTest': {'lastRun': 0, 'lastStatus': None, 'freq': 5, 'user': 'shawn', 'running': 'No', 'bomshCmd': 'sleep 2'}}
+    JOB_echoTest  = {'echoTest': {'lastRun': 0, 'freq': 3600, 'lastStatus': None, 'bomshCmd': 'echo foo', 'user': 'chawn'}}
+    combined = [{'echoTest': {'lastRun': 0, 'freq': 3600, 'lastStatus': None, 'bomshCmd': 'echo foo', 'user': 'chawn'}, 
+                 'sleepTest': {'lastRun': 0, 'freq': 5, 'lastStatus': None, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}]
+    different = [{'echoTest': {'lastRun': 1, 'freq': 3600, 'lastStatus': None, 'bomshCmd': 'echo foo', 'user': 'chawn'}, 
+                 'sleepTest': {'lastRun': 0, 'freq': 5, 'lastStatus': None, 'bomshCmd': 'sleep 2', 'user': 'shawn'}}]
     pyChucker(JOB_sleepTest, JOB_sleepTestRunning, JOB_sleepTestNotRunning, JOB_echoTest, combined, different)
     c = SecureCommSocket.SecureClient(TEST_PORT, password)
 
@@ -576,7 +585,7 @@ def startService(passwd):
     tb.run()
 
 if __name__ == "__main__":
-    test()
+    #test()
     import sys
     passwd = getpass("Server password: ")
     startService(passwd)

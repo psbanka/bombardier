@@ -57,6 +57,7 @@ class Mode:
         self.autoEnable = False
         self.setPrompt()
         self.dataPath = os.getcwd() #! FIXME!!
+        self.childProcesses = []
 
     def addConfigList(self, option, value):
         if self.config.get(option):

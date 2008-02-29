@@ -131,14 +131,14 @@ def forkCmd(cmd, cmdVector):
         pid = os.fork()
         if pid > 0:
             # exit first parent
-            return
+            return pid
     except OSError, e:
         print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)
-        return
+        return 0
     os.chdir("/")
     os.setsid()
     os.umask(0)
-    os.execv(cmd, cmdVector)
+    os.execvp(cmd, cmdVector)
 
 def getAllFromProgram(regex, cmd):
     "will open a file and parse through the whole thing, looking for matches to the provided regex"
