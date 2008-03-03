@@ -61,6 +61,7 @@ class RemoteClient:
             self.password = ''
         self.connectTime = 0
         self.cursorPosition = 0
+        self.savedDirectory = ''
     
     def templateOutput(self, template, debugText, noDebugText='.'):
         output = ''
@@ -91,7 +92,7 @@ class RemoteClient:
     def connect(self):
         self.s = pxssh.pxssh()
         self.s.timeout = 6000
-        self.debugOutput("Connecting to %s..." %self.hostName)
+        #self.debugOutput("Connecting to %s..." %self.hostName)
         try:
             if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):
                 raise Exception
@@ -106,21 +107,23 @@ class RemoteClient:
         self.connectTime = time.time()
         return OK
 
-    def connectRsync(self, direction, localPath, remotePath, dryRun = True):
+    def connectRsync(self, direction, localPath, remotePath, dryRun = True, deleteFlag = False):
         cmd = "bash -c 'rsync --progress -a "
         if dryRun:
             cmd += "--dry-run "
+        if deleteFlag:
+            cmd += "--delete "
         if direction == "PUSH":
-            cmd += "%s/* %s@%s:%s/" % (localPath, self.username, self.ipAddress, remotePath)
+            cmd += "%s %s@%s:%s" % (localPath, self.username, self.ipAddress, remotePath)
         else:
-            cmd += "%s@%s:%s/* %s/" % (self.username, self.ipAddress, remotePath, localPath)
+            cmd += "%s@%s:%s %s" % (self.username, self.ipAddress, remotePath, localPath)
         cmd += "'"
         self.debugOutput("EXECUTING: %s" % cmd)
         stdout, stdin = os.popen4(cmd)
         s = pexpect.spawn(cmd, timeout=5000)
         sshNewkey = 'Are you sure you want to continue connecting'
         expectedValues = [pexpect.TIMEOUT, sshNewkey, '[pP]assword: ',
-                          '(\d+) files to consider']
+                          '(\d+) files to consider', '(\d+) file to consider']
         while True:
             i = s.expect(expectedValues, timeout=30)
             if i == 0:
@@ -131,7 +134,7 @@ class RemoteClient:
             if i == 2:
                 s.sendline(self.password)
                 continue
-            if i == 3:
+            if i == 3 or i == 4:
                 break
         return s
 
@@ -148,7 +151,7 @@ class RemoteClient:
                 return ''
             return line
 
-    def rsync(self, localPath, remotePath, direction):
+    def rsync(self, localPath, remotePath, direction, deleteFlag = False):
         s = self.connectRsync(direction, localPath, remotePath, True)
         files = []
         while True:
@@ -166,7 +169,7 @@ class RemoteClient:
             self.debugOutput( "%d files to pull..." % numberOfFiles)
         if numberOfFiles == 0:
             return OK
-        s = self.connectRsync(direction, localPath, remotePath, False)
+        s = self.connectRsync(direction, localPath, remotePath, False, deleteFlag)
         startTime = 0
         while True:
             line = self.getRsyncLine(s)
@@ -263,6 +266,48 @@ class RemoteClient:
         s.expect(pexpect.EOF)
         s.close()
         return OK
+    
+    def checkResult(self):
+        self.s.setecho(False)
+        self.s.sendline("echo $?")
+        self.s.prompt()
+        returnCode = 0
+        try:
+            returnCode = int(str(self.s.before.split()[0].strip()))
+        except Exception:
+            return FAIL
+        return returnCode
+
+    def saveCwd(self):
+        self.s.setecho(False)
+        self.s.sendline("pwd")
+        self.s.prompt()
+        self.savedDirectory = self.s.before.split()[0]
+        
+    def returnToStart(self):
+        if self.savedDirectory:
+            self.s.setecho(False)
+            self.s.sendline("cd %s" % self.savedDirectory)
+            self.s.prompt()
+            self.s.sendline("pwd")
+            self.s.prompt()
+            cwd = self.s.before.split()[0]
+            if cwd != self.savedDirectory:
+                sys.exit(1)
+
+    def checkPossiblePaths(self, testPath):
+        while len(testPath):
+            self.s.sendline("ls --color=never -Fd1 %s*" %testPath)
+            self.s.prompt()
+            resultList = self.s.before.split()[:-1]
+            if self.checkResult() != OK:
+                testPath=testPath[:testPath.rfind('/')]
+                continue
+            output = [ result.replace('*', '') for result in resultList ]
+            if testPath.endswith('/'):
+                output.append(testPath)
+            return output
+        return [testPath]
 
     def disconnect(self):
         self.connectTime = 0
@@ -270,3 +315,16 @@ class RemoteClient:
             self.s.logout()
         finally:
             self.status = DISCONNECTED
+
+if __name__ == "__main__":
+    from libTest import startTest, runTest, endTest
+    passwd = getpass.getpass("root's password:")
+    r = RemoteClient('bigap', '.')
+    r.connect()
+    status = OK
+    status = runTest(r.checkPossiblePaths, ['/usr/l'], ['/usr/lib/', '/usr/libexec/', '/usr/local/'], status)
+    status = runTest(r.checkPossiblePaths, ['/usr/l'], ['/usr/lib/', '/usr/libexec/', '/usr/local/'], status)
+    status = runTest(r.checkPossiblePaths, ['/usr/x'], ['/usr/'], status)
+    status = runTest(r.checkPossiblePaths, ['/tmp/sudo'], ['/tmp/sudoers'], status)
+    status = runTest(r.checkPossiblePaths, ['/tmp/'], ['/tmp/'], status)
+    endTest(status)

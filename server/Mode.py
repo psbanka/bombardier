@@ -87,6 +87,8 @@ class Mode:
             #print "  Setting debugging to %s" % self.debug
         if not self.config.has_key("enabledSystems"):
             self.config["enabledSystems"] = []
+        if not self.config.has_key("tmpPath"):
+            self.config["tmpPath"] = "/tmp"
         self.autoEnable = self.config.get("autoEnable")
 
     def getTermInfo(self):

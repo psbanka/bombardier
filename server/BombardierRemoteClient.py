@@ -36,9 +36,9 @@ class BombardierRemoteClient(RemoteClient):
         else:
             self.python  = '/usr/local/bin/python2.4'
             self.spkgDir = '/opt/spkg'
-        self.debugOutput("Loading packages.yml...", '')
+        #self.debugOutput("Loading packages.yml...", '')
         self.packageData = yaml.load(open(self.dataPath+"/deploy/packages/packages.yml").read())
-        self.debugOutput("Loaded.", '')
+        #self.debugOutput("Loaded.", '')
 
     def actionResult(self, data):
         action, packageName, result = data

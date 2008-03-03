@@ -20,6 +20,15 @@ logger.addHandler(fileHandler)
 logger.setLevel(logging.DEBUG)
 syslog.openlog("bomsh", syslog.LOG_PID, syslog.LOG_USER)
 
+def traced(func):
+    def wrapper(*__args,**__kw):
+        print "entering", func
+        try:
+            return func(*__args,**__kw)
+        finally:
+            print "exiting", func
+    return wrapper
+
 def convertTokensToString(tokens, delimeter=' '):
     retVal = ''
     for token in tokens:
