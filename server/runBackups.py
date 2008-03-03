@@ -2,6 +2,7 @@ import commands, os, sys, yaml, glob, time
 from bombardier.staticData import *
 from bombardier.miniUtility import cygpath, addDictionaries
 from bcs import BombardierRemoteClient, EXECUTE
+from getpass import getpass
 import Client
 import logging
 import logging.handlers
@@ -21,9 +22,10 @@ RSYNC_PUSH      = 8
 PERFORM_RESTORE = 16
 PARTIAL_DB      = 32
 RESTORE_USERS   = 64
-REPORT_OUT      = 132
+REPORT_OUT      = 128
+PASSWORD        = 256
 #OPTIONS = [PERFORM_BACKUP, RSYNC_PULL, ARCHIVE_MAINT, RSYNC_PUSH, PERFORM_RESTORE, RESTORE_USERS, REPORT_OUT]
-OPTIONS = [PERFORM_BACKUP, RSYNC_PULL, ARCHIVE_MAINT, RSYNC_PUSH, PERFORM_RESTORE, RESTORE_USERS, REPORT_OUT]
+OPTIONS = [PASSWORD, PERFORM_BACKUP, RSYNC_PULL, ARCHIVE_MAINT, RSYNC_PUSH, PERFORM_RESTORE, RESTORE_USERS, REPORT_OUT]
 #OPTIONS = [CLEAR_LOCKS, RESTORE_USERS, PERFORM_RESTORE]
 ####################################################
 
@@ -227,11 +229,12 @@ def prettyReport(report):
 ########################
 
 class BombardierBackup:
-    def __init__(self, backupServerName, restoreServers, fullBackup):
-        self.backupServerObject = BombardierRemoteClient(backupServerName, '', DATA_PATH)
+    def __init__(self, backupServerName, restoreServers, fullBackup, password):
+        self.backupServerObject = BombardierRemoteClient(backupServerName, password, DATA_PATH)
         self.backupServerName   = backupServerName
         self.restoreServers     = restoreServers
         self.fullBackup         = fullBackup
+        self.password           = password
 
     def runBackup(self):
         if setLock("%s-backup-lock" % self.backupServerName.replace('-','')) == FAIL:
@@ -320,11 +323,15 @@ class BombardierBackup:
                 print "#################################### ONLINE "
                 logger.info("Instructing server %s to come online..." % restoreServerName)
                 restoreObject.process(EXECUTE, ["SqlBackup"], "online", True)
-                # NEED A DIFFERENT ROUTINE
                 print "#################################### CLEANUSERS "
                 logger.info("Instructing server %s to set proper user permission..." % restoreServerName)
                 if restoreObject.process(EXECUTE, ["DbAuthorization"], "recreateUsers", True)[0] == OK:
-                    continue
+                    print "#################################### RESTORE SCRIPTS "
+                    logger.info("Instructing server %s to run restore scripts..." % restoreServerName)
+                    if restoreObject.process(EXECUTE, ["SqlBackup"], "restoreScripts", True)[0] == OK:
+                        continue
+                    else:
+                        logger.error("Running restore scripts failed.")
                 else:
                     logger.error("Re-creating users failed.")
                 status = FAIL
@@ -368,7 +375,7 @@ def archiveMaint(clientConfig, databases, localArchive):
             logger.debug(cmd)
             os.system(cmd)
 
-def pullFiles(backupServer, clientConfig, localDir):
+def pullFiles(backupServer, clientConfig, localDir, password):
     if setLock("%s-pull-lock" % backupServer.replace('-','')) == FAIL:
         logger.error("Unable to proceed with backup. Lock is set.")
         return FAIL
@@ -379,7 +386,7 @@ def pullFiles(backupServer, clientConfig, localDir):
     #try: 
         logger.info("Transferring files from %s..." % (backupServer))
         backupCygPath = cygpath(backupPath)
-        r = BombardierRemoteClient(backupServer, '', DATA_PATH)
+        r = BombardierRemoteClient(backupServer, password, DATA_PATH)
         status = r.rsync(localReplica, backupCygPath, "PULL")
     else:
     #except:
@@ -402,6 +409,10 @@ if __name__ == "__main__":
                       action="store_true", default=False,
                       help="Turn on debugging")
 
+    password = ''
+    if PASSWORD in OPTIONS:
+        password = getpass("Please provide root password: ")
+
     (options, args) = parser.parse_args()
     if not args:
         print "ERROR: Must specify the name of a backup server"
@@ -409,7 +420,7 @@ if __name__ == "__main__":
         sys.exit(FAIL)
     backupServerName = args[0]
 
-    clientConfig       = Client.Client(backupServerName, '', DATA_PATH)
+    clientConfig       = Client.Client(backupServerName, password, DATA_PATH)
     clientConfig.downloadClient()
     databases          = clientConfig["sql"]["databases"]
     servers            = clientConfig["sql"]["servers"].keys()
@@ -425,13 +436,13 @@ if __name__ == "__main__":
         open(DATA_PATH+"/deploy/client/%s.yml" % backupServerName, 'w').write(yaml.dump(clientConfig.data))
 
     for restoreServerName in restoreServerNames:
-        clientConfig   = Client.Client(restoreServerName, '', DATA_PATH)
+        clientConfig   = Client.Client(restoreServerName, password, DATA_PATH)
         clientConfig.downloadClient()
         ipAddress      = clientConfig["ipAddress"]
         restorePath    = clientConfig["sql"]["servers"][restoreServerName]["restorePath"]
         restoreNetwork = clientConfig["sql"]["servers"][restoreServerName]["network"]
         role           = clientConfig["sql"]["servers"][restoreServerName]["role"]
-        restoreObject  = BombardierRemoteClient(restoreServerName, '', DATA_PATH)
+        restoreObject  = BombardierRemoteClient(restoreServerName, password, DATA_PATH)
         restoreServers[restoreServerName] = {"object":restoreObject, "ipAddress":ipAddress, "role":role,
                                              "restorePath":restorePath, "restoreNetwork":restoreNetwork}
 
@@ -446,25 +457,24 @@ if __name__ == "__main__":
         status = os.system('rm -f output/*lock')
         logger.info("Clearing all locks... (%s)" % status)
     
-    backup = BombardierBackup(backupServerName, restoreServers, options.full)
 
     try:
         status = OK
+        backup = BombardierBackup(backupServerName, restoreServers, options.full, password)
         if PERFORM_BACKUP in OPTIONS:
             status = backup.runBackup()
             report['backup'] = status
-        if status != OK:
-            sys.exit(0)
-        if RSYNC_PULL in OPTIONS:
-            report['pull'] = pullFiles(backupServerName, clientConfig, localArchive)
-        if ARCHIVE_MAINT in OPTIONS:
-            archiveMaint(clientConfig, databases, "%s/%s" % (localArchive, backupServerName.replace('-','')))
-        if RSYNC_PUSH in OPTIONS:
-            report['push'] = backup.sync(localNetwork, localArchive)
-        if PERFORM_RESTORE in OPTIONS :
-            report['restore'] = backup.restore()
-        if RESTORE_USERS in OPTIONS:
-            report['online'] = backup.online()
+        if status == OK:
+            if RSYNC_PULL in OPTIONS:
+                report['pull'] = pullFiles(backupServerName, clientConfig, localArchive, password)
+            if ARCHIVE_MAINT in OPTIONS:
+                archiveMaint(clientConfig, databases, "%s/%s" % (localArchive, backupServerName.replace('-','')))
+            if RSYNC_PUSH in OPTIONS:
+                report['push'] = backup.sync(localNetwork, localArchive)
+            if PERFORM_RESTORE in OPTIONS :
+                report['restore'] = backup.restore()
+            if RESTORE_USERS in OPTIONS:
+                report['online'] = backup.online()
         if REPORT_OUT in OPTIONS:
             addDictionaries(report, dbReport(restoreServerNames, backupServerName, databases, options.full, clientConfig) )
             wrapup(report, backupServerName, clientConfig)
