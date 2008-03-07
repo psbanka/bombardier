@@ -307,10 +307,14 @@ class Windows(OperatingSystem.OperatingSystem):
         return OK
 
     def removeUser(self, username):
-        win32net.NetUserDel(None, username)
+        try:
+            win32net.NetUserDel(None, username)
+        except:
+            return FAIL
         return OK
 
     def createUser(self, username, password, type, comment=''):
+        info, warnings, errors = [], [], []
         username = username.strip().replace(' ', '.')
         if comment == None:
             comment = ''
@@ -329,31 +333,24 @@ class Windows(OperatingSystem.OperatingSystem):
             win32net.NetUserAdd(None, 1, d)
         except pywintypes.error, e:
             if e[2] != "The account already exists.":
-                Logger.error("Unable to create user '%s'. [%s]" % (username, e[2]))
-                return FAIL
+                return [], [], "Unable to create user '%s'. [%s]" % (username, e[2])
         if type == ADMIN_USER:
-            Logger.info("Setting user %s as administrator" % username)
+            info.append("Setting user %s as administrator" % username)
             try:
                 win32net.NetLocalGroupAddMembers(None, 'administrators',
                                                  3, [{"domainandname":username}])
             except pywintypes.error, e:
                 if e[2].startswith('The specified account name is already'):
-                    ermsg = "Unable to assign proper permissions to "\
-                            "user %s [%s]", (username, e[2])
-                    Logger.error(ermsg)
-                    return FAIL
+                    errors.append( "Unable to assign proper permissions to user %s [%s]", (username, e[2]))
         if type == RDP_USER:
-            Logger.info("Setting user %s as rdp user..." % username)
+            info.append("Setting user %s as rdp user..." % username)
             try:
                 win32net.NetLocalGroupAddMembers(None, 'Remote Desktop Users',
                                                  3, [{"domainandname":username}])
             except pywintypes.error, e:
                 if e[2].startswith('The specified account name is already'):
-                    ermsg = "Unable to assign proper permissions to "\
-                            "user %s [%s]", (username, e[2])
-                    Logger.error(ermsg)
-                    return FAIL
-        return OK
+                    errors.append("Unable to assign proper permissions to user %s [%s]", (username, e[2]))
+        return info, warnings, errors
 
 
     def createScriptUser(self, username, password):
@@ -385,29 +382,33 @@ class Windows(OperatingSystem.OperatingSystem):
     def setGroups(self, userid, rights):
         groupList = win32net.NetUserGetLocalGroups("localhost", userid) 
         rightsMapping = {"admin": u"Administrators", "rdp": u"Remote Desktop Users"}
+        info, warnings, errors = [], [], []
         for right in rights:
             if right not in rightsMapping:
-                print "Unknown right: %s" % right
+                errors.append( "Unknown right: %s" % right )
                 continue
             if right in rights:
                 if not rightsMapping[right] in groupList:
                     win32net.NetLocalGroupAddMembers(None, rightsMapping[right], 3, [{"domainandname":userid}])
-                    print "Adding user membership to %s" % rightsMapping[right]
+                    info.append( "Adding user membership to %s" % rightsMapping[right] )
             else:
                 if rightsMapping[right] in groupList:
                     win32net.NetLocalGroupDelMembers(None, rightsMapping[right], [userid])
-                    print "removing user membership from %s" % rightsMapping[right]
+                    info.append( "removing user membership from %s" % rightsMapping[right] )
+        return info, warnings, errors
+
+    def modifySudoers(self, userid, userType=0, remove=True):
+        return
             
-    def changeLocalUserPassword(self, user, password):
+    def changeLocalUserPassword(self, userid, password):
         try:
             ads = win32com.client.GetObject("ADs:")
-            userObject = ads.GetObject('','WinNT://localhost/%s' %user)
+            userObject = ads.GetObject('','WinNT://localhost/%s' %userid)
             userObject.SetPassword(password)
             userObject.SetInfo()
         except:
-            Logger.error('Could not change password for user: %s' %user)
-            return FAIL
-        return OK
+            return [], [], ['Could not change password for user: %s' %userid]
+        return ["Reset password for user %s" % userid], [], []
         
     def checkLocalUserCredentials(self, username, password):
         if password in [ '', CENSORED ]:

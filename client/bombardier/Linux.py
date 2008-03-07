@@ -141,18 +141,20 @@ class Linux(OperatingSystem.OperatingSystem):
         status, output = getstatusoutput("/usr/bin/groups %s" % userid)
         groupsList = output.split(':')[1].strip().split(' ')
         rightsMapping = {"admin": u"wheel", "dev": u"tomcat"} # FIXME: shouldn't hard-code this group
+        info, warnings, errors = [], [], []
         for right in rights:
             if right not in rightsMapping:
-                Logger.warning( "Unknown right: %s" % right )
+                warnings.append( "Unknown right: %s" % right )
                 continue
             if right in rights:
                 if not rightsMapping[right] in groupsList:
                     status, output = getstatusoutput("/usr/bin/gpasswd -a %s %s" % (userid, rightsMapping[right]))
-                    Logger.info( "Added user membership to %s (%s)" % (rightsMapping[right], output ))
+                    info.append( "Added user membership to %s (%s)" % (rightsMapping[right], output ))
             else:
                 if rightsMapping[right] in groupsList:
                     status, output = getstatusoutput("/usr/bin/gpasswd -d %s %s" % (userid, rightsMapping[right]))
-                    Logger.info( "Removing user membership to %s (%s)" % (rightsMapping[right], output ))
+                    info.append( "Removing user membership to %s (%s)" % (rightsMapping[right], output ))
+        return info, warnings, errors
 
     def listAllUsers(self):
         status, output = getstatusoutput( "getent passwd | awk -F : '{print$1}'" )
@@ -169,15 +171,15 @@ class Linux(OperatingSystem.OperatingSystem):
 
     def createUser(self, username, password, userType, comment=''):
         md5Pass = md5crypt(password)
-        if userType not in [SSH_USER, ADMIN_USER, DEV_USER]:
+        info, warnings, errors = [], [], []
+        if userType not in [CONSOLE, SSH_USER, ADMIN_USER, DEV_USER]:
             shell = "/bin/false"
         else:
             shell = "/bin/bash"
         cmd = "useradd -p '%s' -s %s %s" % (md5Pass, shell, username)
         status,output = getstatusoutput(cmd)
-        if status != OK:
-            raise Exception( "Error creating %s: %s" %(username, output) )
-        return status
+        errors.append( "Error creating %s: %s" %(username, output) )
+        return info, warnings, errors
    
     def changeLocalUserPassword(self, username, password):
         if self.checkLocalUserCredentials(username, password) != OK:

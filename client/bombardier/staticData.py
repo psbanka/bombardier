@@ -34,11 +34,12 @@ General Public license version 2.""" % VERSION
 LAST_REPORT = "lastReport.yml"
 
 # AUTHORIZATION
-ADMIN_USER = 9
-SSH_USER   = 1
-RDP_USER   = 2
-SQL_USER   = 3
-DEV_USER   = 4
+ADMIN_USER   = 9
+SSH_USER     = 1
+RDP_USER     = 2
+SQL_USER     = 3
+DEV_USER     = 4
+CONSOLE_USER = 5
 
 MAX_CHAIN_DEPTH = 50
 STRUCTURE     = 1

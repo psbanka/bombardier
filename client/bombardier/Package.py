@@ -263,12 +263,22 @@ class Package:
                 random.shuffle(letters)
                 randString = ''.join(letters)
                 exec("import %s as %s" % (file, randString)) # FIXME
-                Logger.debug("This is package version %s" % self.packageVersion)
                 if self.packageVersion == 2:
                     exec("obj = %s.%s(self.config)" % (randString, file))
                 elif self.packageVersion == 3:
-                    cmdString = "obj = %s.%s(self.config, packageList, Logger.logger)"
-                    exec(cmdString % (randString, file))
+                    try:
+                        cmdString = "obj = %s.%s(self.config, packageList, Logger.logger)"
+                        exec(cmdString % (randString, file))
+                    except TypeError, e:
+                        Logger.error("What is going on here?")  
+                        Logger.error("CWD: %s" % os.getcwd())
+                        cmdString = cmdString % (randString, file)
+                        Logger.error("cmdString: %s" % cmdString)
+                        exec("output = dir(%s.%s)" % (randString, file))
+                        Logger.error("Info: %s" % output)
+                        cmdString = "obj = %s.%s(self.config)" % (randString, file)
+                        Logger.error("Trying this instead: %s" % cmdString)
+                        exec(cmdString)
                 else:
                     Logger.error("Unknown package version %s" % self.packageVersion)
                 fileFound = True
