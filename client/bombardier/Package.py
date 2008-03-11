@@ -247,14 +247,14 @@ class Package:
         return status
 
     def findCmd2(self, action, packageList=[]):
-        cwd = self.filesystem.getcwd() # FIXME
-        sys.path.append(self.scriptsDir)
+        cwd = self.filesystem.getcwd()
+        sys.path.insert(0, self.scriptsDir)
         self.filesystem.chdir(self.scriptsDir)
         files = glob.glob("*.py")
         files = [x.split('.py')[0] for x in files]
         status = FAIL
         fileFound = False
-        for file in files:  # FIXME this is stupid
+        for file in files:
             if file.split('.')[0] in ["installer", "verify", "uninstaller", "configure"]:
                 continue
             try:
@@ -262,7 +262,8 @@ class Package:
                 letters = [ chr( x ) for x in range(65, 91) ]
                 random.shuffle(letters)
                 randString = ''.join(letters)
-                exec("import %s as %s" % (file, randString)) # FIXME
+                #Logger.info("scriptsDir: %s // workingDir: %s [%s]" % (self.scriptsDir, self.workingDir, randString))
+                exec("import %s as %s" % (file, randString))
                 if self.packageVersion == 2:
                     exec("obj = %s.%s(self.config)" % (randString, file))
                 elif self.packageVersion == 3:
@@ -293,6 +294,12 @@ class Package:
                 else:
                     Logger.error("Invalid action specified: %s" % action)
                 del randString
+                if file in sys.modules:
+                    sys.modules.pop(file)
+                    #Logger.info("Popping %s. [%s]" % (file, str(sys.modules.keys())))
+                    #Logger.info("sys.path: [%s]" % (str(sys.path)))
+                while self.scriptsDir in sys.path:
+                    sys.path.remove(self.scriptsDir)
                 break
             except ImportError:
                 Logger.debug("File %s is not runnable. Looking for others" % file)
