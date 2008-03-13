@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, readline
+import sys, readline, time
 import yaml
 import PinshCmd, ConfigField, Integer, BomHostField, PackageField, JobNameField
 from commonUtil import *
@@ -192,12 +192,15 @@ class Jobs(PinshCmd.PinshCmd):
                 jobName = jobNames[0]
         c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
         try:
-            jobs = c.sendSecure(TB_SHOW, [])
+            jobs = c.sendSecure(TB_SHOW, [])[0]
+            for job in jobs:
+                if jobs[job].get("lastRun"):
+                    jobs[job]["lastRun"] = time.strftime("%c", time.localtime(float(jobs[job]["lastRun"])))
+            if jobName:
+                return OK, jobs[jobName]
+            return OK, jobs
         except ConnectionRefusedException:
             return FAIL, ["Job server is not running. Use 'scheduler start' to start it."]
-        if jobName:
-            return OK, jobs[jobName]
-        return OK, jobs
     
 
 class Show(PinshCmd.PinshCmd):

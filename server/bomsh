@@ -1,10 +1,16 @@
 #!/opt/python2.5/bin/python
 
+import yaml, os
+
+configFile = "/etc/serverConfig.yml"
+os.chdir(yaml.load(open(configFile).read()).get("dataPath"))
+
 import exceptions
 import sys, os, readline, signal
 import libUi
 from commonUtil import *
 from Slash import *
+import optparse
 
 mode.auth = USER
 
@@ -14,14 +20,18 @@ readline.parse_and_bind('C-z: "end\n"')
 #readline.parse_and_bind('?: "\C-v?\t\d"')
 readline.parse_and_bind('set bell-style none')
 readline.set_completer_delims(' ')
-# Print the message of the day
-if len(sys.argv) == 1:
-    libUi.motd()
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
+    parser = optparse.OptionParser("usage: %prog -u user-name <bomsh-script>")
+    parser.add_option("-u", "--user", dest="user", default=mode.username,
+                      help="set the username associated with this session")
+    (options, scripts) = parser.parse_args()
+    if options.user:
+        mode.username = options.user
+
+    if scripts:
         status = OK
-        filename = sys.argv[-1]
+        filename = scripts[0]
         lines = open(filename, 'r').readlines()
         mode.batch = True
         for line in lines:
@@ -30,6 +40,7 @@ if __name__ == "__main__":
                 status = cmdStatus
         sys.exit(status)
     else:
+        libUi.motd()
         if os.path.isfile(HISTORY_FILE):
             try:
                 readline.read_history_file(HISTORY_FILE)
@@ -73,3 +84,4 @@ if __name__ == "__main__":
             except exceptions.KeyboardInterrupt, key:
                 print
                 clean = True
+

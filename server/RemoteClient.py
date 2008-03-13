@@ -23,11 +23,13 @@ class ClientConfigurationException(Exception):
     def __repr__(self):
         return "Could not find valid configuration data for %s" % self.server
 
-def getClient(serverName, dataPath):
-    client = Client.Client(serverName, '', dataPath)
+def getClient(serverName, dataPath, password):
+    client = Client.Client(serverName, password, dataPath)
     status = client.get()
     if status == FAIL:
         raise ClientConfigurationException(serverName)
+    if password:
+        client.decryptConfig()
     return client.data
 
 class ClientUnavailableException(Exception):
@@ -41,13 +43,13 @@ class ClientUnavailableException(Exception):
 
 class RemoteClient:
 
-    def __init__(self, hostName, dataPath, outputHandle=sys.stdout):
+    def __init__(self, hostName, dataPath, outputHandle=sys.stdout, password=''):
         self.debug        = True
         self.hostName     = hostName
         self.dataPath     = dataPath
         self.outputHandle = outputHandle 
         self.status       = DISCONNECTED
-        self.info         = getClient(self.hostName, dataPath)
+        self.info         = getClient(self.hostName, dataPath, password)
         self.username     = self.info["defaultUser"]
         self.ipAddress    = self.info["ipAddress"]
         self.platform     = self.info["platform"]
@@ -242,9 +244,9 @@ class RemoteClient:
 
     def scp(self, source, dest):
         self.debugOutput("sending %s to %s:%s" % (source, self.ipAddress, dest))
-        s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest), timeout=50)
+        s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest), timeout=90)
         sshNewkey = 'Are you sure you want to continue connecting'
-        i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=50)
+        i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=90)
         if i == 0:
             raise ClientUnavailableException(dest, s.before+'|'+s.after)
         if i == 1:

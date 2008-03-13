@@ -36,6 +36,8 @@ TB_DEL     = "D"
 TB_SHOW    = "S"
 TB_SAVE    = "V"
 TB_LOAD    = "L"
+TB_ENABLE  = "E"
+TB_DISABLE = "X"
 
 YAML_CHARS = [ chr(x) for x in range(ord(' '), ord('~')+1) ] + [ '\n' ]
 

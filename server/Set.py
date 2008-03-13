@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
-import sys
+import sys, time
 
-import PinshCmd, Mode, libUi, ConfigField, Expression, JobNameField, Integer, MultipleChoice
+import PinshCmd, Mode, libUi, ConfigField, Expression, JobNameField, Integer, MultipleChoice, Variable
 import SecureCommSocket
 from commonUtil import *
 
@@ -59,6 +59,14 @@ def makeSameType(currentValue, newValue):
         return int(newValue)
     raise UnsupportedTypeException(currentValue[0])
 
+def sendMessage(command, messageList, successMessage):
+    c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
+    try:
+        c.sendSecure(command, messageList)
+        return OK, [successMessage]
+    except ConnectionRefusedException:
+        return FAIL, ["Job server is not running. Use 'scheduler start' to start it."]
+
 def delJob(jobName):
     c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
     try:
@@ -79,10 +87,16 @@ def setJob(tokens, noFlag):
     if not tokens[2]:
         return FAIL, ["Need a name for the job"]
     jobName = tokens[2]
-    if noFlag:
+    if len(tokens) < 4 and noFlag:
         return delJob(jobName)
     if not tokens[3]:
-        return FAIL, ["Need a frequency with which to run the job"]
+        return FAIL, ["Command incomplete"]
+    if tokens[3].startswith('e'):
+        if noFlag:
+            return sendMessage(TB_DISABLE, [jobName], "Job %s disabled." % jobName)
+        else:
+            return sendMessage(TB_ENABLE, [jobName], "Job %s enabled." % jobName)
+        
     freq = int(tokens[3])
     multiplier = 60
     if len(tokens) > 4:
@@ -97,13 +111,38 @@ def setJob(tokens, noFlag):
     bomshCmd = raw_input("Enter the command to schedule> ")
     if bomshCmd == '':
         return FAIL, ["Abort"]
-    c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
-    try:
-        c.sendSecure(TB_ADD, [bomshCmd, freq * multiplier, jobName, mode.username])
-    except ConnectionRefusedException:
-        return FAIL, ["Job server is not running. Use 'scheduler start' to start it."]
-    return OK, ["Job submitted"]
+    return sendMessage(TB_ADD, [bomshCmd, freq * multiplier, jobName, mode.username], "Job submitted.")
     
+def setLock(noFlag, lockName):
+    lockPath = "%s/%s" % (mode.config["tmpPath"], lockName)
+    if noFlag:
+        setTime = 0
+        if not os.path.isfile(lockPath):
+            return FAIL, ["Lock was not set."]
+        try:
+            setTime = float(open(lockPath).read().strip())
+        except ValueError:
+            pass
+        try:
+            os.unlink(lockPath)
+        except OSError:
+            return FAIL, ["Unable to remove lock file %s" % lockPath]
+        if setTime:
+            return OK, ["Lock %s removed (%4.1f seconds old)" % (lockName, time.time()-setTime)]
+        return OK, ["Lock %s removed." % lockName]
+
+    if os.path.isfile(lockPath):
+        setTime = 0
+        try:
+            setTime = float(open(lockPath).read().strip())
+            return FAIL, ["Lock %s is already set (%4.1f seconds old)" % (lockName, time.time()-setTime)]
+        except ValueError:
+            return FAIL, ["Lock %s is already set." % lockName]
+    try:
+        open(lockPath, 'w').write(str(time.time()))
+    except IOError, e:
+        return FAIL, ["Lock file %s cannot be set (%s)" % (lockName, str(e))]
+    return OK, ["Lock %s has been set." % lockName]
     
 class Set(PinshCmd.PinshCmd):
     def __init__(self):
@@ -115,7 +154,8 @@ class Set(PinshCmd.PinshCmd):
         self.password = PinshCmd.PinshCmd("password","password\tset your password")
         self.job = PinshCmd.PinshCmd("job", "job\nset up a new batch job")
         self.job.auth = ADMIN
-        self.children = [self.client, self.bom, self.include, self.password, self.job]
+        self.lock = PinshCmd.PinshCmd("lock", "lock\nset a lock")
+        self.children = [self.client, self.bom, self.include, self.password, self.job, self.lock]
 
         # CLIENT
         self.clientConfigField = ConfigField.ConfigField(dataType=ConfigField.CLIENT)
@@ -135,14 +175,18 @@ class Set(PinshCmd.PinshCmd):
 
         # JOB
         self.jobNameField = JobNameField.JobNameField()
+        enabled = PinshCmd.PinshCmd("enabled","enabled\tenable a job")
         freq = Integer.Integer(min = 1, max = 1000, name = "number of minutes, hours, or days between each time the job is run")
         timespan = MultipleChoice.MultipleChoice(choices = ["seconds", "minute", "hour", "day", "week"], 
         helpText = ["measure by seconds", "measure by minutes (default)", "measure by hours", "measure by days", "measure by weeks"])
-        
         self.job.children = [self.jobNameField]
-        self.jobNameField.children = [freq]
+        self.jobNameField.children = [freq, enabled]
         freq.children = [timespan]
 
+        # LOCK
+        self.lock.children = [Variable.Variable()]
+
+        self.level = 0
         self.cmdOwner = 1
 
     def getFieldObject(self, tokens):
@@ -197,6 +241,11 @@ class Set(PinshCmd.PinshCmd):
         return status, output + ["Value set."]
 
     def cmd(self, tokens, noFlag, slash):
+        if tokens[1].lower().startswith('l'):
+            if len(tokens) < 2:
+                return FAIL, ["Incomplete command; must provide lock name"]
+            lockName = tokens[2]
+            return setLock(noFlag, lockName)
         if tokens[1].lower().startswith('j'):
             return setJob(tokens, noFlag)
         if tokens[1].lower().startswith('p'):
@@ -214,3 +263,14 @@ class Set(PinshCmd.PinshCmd):
             if currentValue == newValue:
                 return FAIL, ["New value and old value are identical."] 
             return self.modifyScalar(noFlag, tokens, newValue, fieldObject)
+
+
+class Lock(PinshCmd.PinshCmd):
+    def __init__(self):
+        PinshCmd.PinshCmd.__init__(self, "lock")
+        self.helpText = "lock\tset a lock"
+        #self.children = [FileNameField.FileNameField(mode.config["tmpPath"], crusty=False)]
+        self.children = [Variable.Variable()]
+        self.level = 0
+        self.cmdOwner = 1
+

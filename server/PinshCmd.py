@@ -156,7 +156,9 @@ class PinshCmd:
                 if DEBUG: print "COMPLETE: names",self.names
                 if len(self.names) == 1:
                     return self.names[0] + completionObjects[0].tokenDelimiter
-                return self.names[0]
+                if self.names:
+                    return self.names[0]
+                return []
         except StandardError, e:
             sys.stderr.write("Error detected in %s (%s)." % (file, e))
             e = StringIO.StringIO()
@@ -169,7 +171,7 @@ class PinshCmd:
             sys.stderr.write(ermsg)
             sys.stderr.write("Error ocurred in %s" % file)
             print
-            return ''
+            return []
 
     # When complete is calling this, it wants help for all the 
     # possible arguments of the last token, which should be unambiguous.

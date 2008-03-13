@@ -15,8 +15,8 @@ DOT_LENGTH = 20
 
 class BombardierRemoteClient(RemoteClient):
 
-    def __init__(self, hostName, configPasswd, dataPath, outputHandle=sys.stdout):
-        RemoteClient.__init__(self, hostName, dataPath, outputHandle)
+    def __init__(self, hostName, configPasswd, dataPath, outputHandle=sys.stdout, packageData=None):
+        RemoteClient.__init__(self, hostName, dataPath, outputHandle, configPasswd)
         self.configPasswd = configPasswd
         self.localFilename = ''
         self.reportInfo = ''
@@ -36,9 +36,14 @@ class BombardierRemoteClient(RemoteClient):
         else:
             self.python  = '/usr/local/bin/python2.4'
             self.spkgDir = '/opt/spkg'
-        #self.debugOutput("Loading packages.yml...", '')
-        self.packageData = yaml.load(open(self.dataPath+"/deploy/packages/packages.yml").read())
-        #self.debugOutput("Loaded.", '')
+        if self.info.get("pythonPath"):
+            self.python = self.info.get("pythonPath")
+        if self.info.get("spkgPath"):
+            self.spkgDir = self.info.get("spkgPath")
+        if not packageData:
+            self.packageData = yaml.load(open(self.dataPath+"/deploy/packages/packages.yml").read())
+        else:
+            self.packageData = packageData
 
     def actionResult(self, data):
         action, packageName, result = data
@@ -99,15 +104,8 @@ class BombardierRemoteClient(RemoteClient):
     def sendClient(self, data):
         if data:
             pass
-        client = Client.Client(self.hostName, self.configPasswd, self.dataPath)
-        status = client.get()
-        client.decryptConfig()
-        if status == FAIL:
-            message = "Could not find valid configuration data for this host. Exiting."
-            self.debugOutput(message, message)
-            raise ClientConfigurationException(self.hostName)
         tmpFilePath = self.dataPath+"/"+TMP_FILE
-        open(tmpFilePath, 'w').write(yaml.dump( client.data ))
+        open(tmpFilePath, 'w').write(yaml.dump( self.info ))
         self.streamFile(tmpFilePath)
         if os.path.isfile(tmpFilePath):
             os.unlink(tmpFilePath)
@@ -170,7 +168,7 @@ class BombardierRemoteClient(RemoteClient):
         while foundIndex == 1:
             traceback.append(self.s.match.groups()[0])
             foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=600)
-        tString = '\n'.join(traceback)
+        tString = ''.join(traceback)
 
         data = re.compile("NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'").findall(tString)
         if data:
@@ -261,7 +259,11 @@ class BombardierRemoteClient(RemoteClient):
                 open(fileName, 'w').write(self.reportInfo)
             else:
                 self.getScriptOutput(scriptName)
-            return returnCode, yaml.load(self.reportInfo)
+            try:
+                reportData = yaml.load(self.reportInfo)
+            except:
+                return FAIL, ["Bad output from script:", self.reportInfo]
+            return returnCode, reportData
         return returnCode, []
 
     def clearScriptOutput(self, scriptName):
@@ -276,7 +278,7 @@ class BombardierRemoteClient(RemoteClient):
         self.get("%s/output/%s" % (self.spkgDir, remoteFilename))
         if os.path.isfile(remoteFilename):
             os.system("mv -f %s output/%s" % (remoteFilename, self.localFilename) )
-            self.reportInfo = yaml.load(open(self.dataPath+"/output/%s" % self.localFilename).read())
+            self.reportInfo = open(self.dataPath+"/output/%s" % self.localFilename).read()
         return 
 
     def getStatusYml(self):

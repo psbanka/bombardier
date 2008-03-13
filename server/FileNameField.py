@@ -6,11 +6,12 @@ import PinshCmd
 from commonUtil import *
 
 class FileNameField(PinshCmd.PinshCmd):
-    def __init__(self, startDir=''):
+    def __init__(self, startDir='', crusty = True):
         PinshCmd.PinshCmd.__init__(self, "fileNameField", tokenDelimiter = '')
         self.helpText = "<file>\tthe name of a file"
         self.startDir = startDir
         self.cmdOwner = 0
+        self.crusty   = crusty
 
     def match(self, tokens, index):
         names = self.name(tokens, index) 
@@ -23,13 +24,16 @@ class FileNameField(PinshCmd.PinshCmd):
 
     def name(self, tokens, index):
         if self.startDir:
-            names = glob.glob("%s/%s*" % (self.startDir, tokens[index]))
-            return [name.split(self.startDir+'/')[-1] for name in names]
+            names = [name.split(self.startDir+'/')[-1] for name in glob.glob("%s/%s*" % (self.startDir, tokens[index]))]
+            #return [name.split(self.startDir+'/')[-1] for name in names]
             #return [name.partition(self.startDir)[2][1:] for name in names]
         else:
             names = glob.glob("%s*" % tokens[index])
         if len(names) == 0:
-            return []
+            if self.crusty:
+                return []
+            else:
+                return tokens[index]
         return names
 
 if __name__ == "__main__":
