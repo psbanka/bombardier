@@ -195,17 +195,17 @@ class Config(dict):
         return output
 
     ### TESTED
-    def get(self, section, option, default=''):
+    def get(self, section, option, default='', optional=True):
         return str(self.get_raw(section, option, default))
 
-    def get_dict(self, section, option, default={}):
+    def get_dict(self, section, option, default={}, optional=True):
         result = self.get_raw(section, option, default)
         if result.__class__ == {}.__class__:
             return result
         else:
             raise TypeError
 
-    def get_raw(self, section, option, default=''):
+    def get_raw(self, section, option, default='', optional=True):
         if self.data.has_key(section):
             if self.data[section].has_key(option):
                 return self.data[section][option]

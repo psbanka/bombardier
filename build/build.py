@@ -41,6 +41,39 @@ def findClassName(scriptName):
                 return filename[:-3]
     return ''
 
+def extractOldSpkg(spkgPath, extractPath):
+    errors   = []
+    startDir = os.getcwd()
+    if os.path.isdir(extractPath):
+        print "removing directory %s..." % extractPath
+        shutil.rmtree(extractPath)
+    os.mkdir(extractPath)
+    os.chdir(extractPath)
+    entries = []
+    try:
+        tar = tarfile.open(spkgPath, mode="r:gz")
+        for tarinfo in tar:
+            if not "injector" in tarinfo.name:
+                continue
+            entries.append(tarinfo)
+            try:
+                tar.extract(tarinfo)
+            except tarfile.ExtractError, e:
+                errors.append("Error with package %s -- %s" % (tarinfo.name, e))
+        tar.close()
+    except tarfile.ReadError, e:
+        errors.append( "Cannot unzip uploaded file -- %s" % e )
+        os.chdir(startDir)
+        return FAIL, entries, errors
+    except Exception, e: # tarfile's exceptions are lame, like "error" -pbanka
+        errors.append( "Cannot untar uploaded file -- %s" % e )
+        os.chdir(startDir)
+        return FAIL, entries, errors
+    os.system( "mv %s/* . " % entries[0].name )
+    os.system( "rm -rf %s" % entries[0].name.partition('/')[0] )
+    os.chdir(startDir)
+    return OK, entries, errors
+
 def extractTar(tarPath, extractPath):
     errors   = []
     startDir = os.getcwd()
@@ -95,22 +128,25 @@ class MockConfig:
         self.requests = {}
         self.data = MockDict("/")
 
-    def get(self, section, option, default=""):
+    def get(self, section, option, default="", optional=False):
         if not self.requests.has_key(section):
             self.requests[section] = {}
-        self.requests[section][option] = default
+        if not optional:
+            self.requests[section][option] = default
         return default
 
-    def get_raw(self, section, option, default=''):
+    def get_raw(self, section, option, default='', optional=False):
         if not self.requests.has_key(section):
             self.requests[section] = {}
-        self.requests[section][option] = default
+        if not optional:
+            self.requests[section][option] = default
         return default
 
-    def get_dict(self, section, option, default={}):
+    def get_dict(self, section, option, default={}, optional=False):
         if not self.requests.has_key(section):
             self.requests[section] = {}
-        self.requests[section][option] = default
+        if not optional:
+            self.requests[section][option] = default
         return default
 
     def getRequests(self):
@@ -266,11 +302,13 @@ class TarCreator:
                     maxVersion = version
         return `maxVersion+1`
 
-
     def populateInjector(self):
         print  "copying injectors..."
         injectorDir = os.path.join(self.destDir, "injector")
-        status, entries, errors = extractTar(self.tarFilename, injectorDir)
+        if self.tarFilename.endswith(".spkg"):
+            status, entries, errors = extractOldSpkg(self.tarFilename, injectorDir)
+        else:
+            status, entries, errors = extractTar(self.tarFilename, injectorDir)
         if len(entries) == 0:
             errmsg = "There were no valid entries in the uploaded tarfile."
             self.warnings.append(errmsg)

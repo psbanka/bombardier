@@ -79,6 +79,8 @@ def updatePython():
         pythonPath = os.path.join(sys.prefix, "python.exe")
     else:
         pythonPath = os.path.join(sys.prefix, "bin", "python2.4")
+        if not os.path.isfile(pythonPath):
+            pythonPath = os.path.join(sys.prefix, "bin", "python")
 
     startDir = os.getcwd()
     updateSpkgDir(startDir, pythonPath)
