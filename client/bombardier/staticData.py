@@ -57,6 +57,9 @@ NO_BACKUP        = 3
 UPDATED          = 4
 REBOOT_AND_TRY_AGAIN = 5
 PREBOOT          = 6
+CRITICAL         = 99
+UNKNOWN          = 97
+
 
 DEFAULT       = '0'
 INSTALL       = '1'
