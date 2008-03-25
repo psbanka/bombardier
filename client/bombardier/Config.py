@@ -205,7 +205,7 @@ class Config(dict):
         else:
             raise TypeError
 
-    def get_raw(self, section, option, default='', optional=True):
+    def get_raw(self, section, option, default=None, optional=True):
         if self.data.has_key(section):
             if self.data[section].has_key(option):
                 return self.data[section][option]
@@ -215,7 +215,7 @@ class Config(dict):
                     for subkey in self.data[key].keys():
                         if subkey.lower() == option.lower():
                             return self.data[key][subkey]
-        if default:
+        if default != None:
             if not self.data.has_key(section):
                 self.data[section] = {}
             self.data[section][option] = default
