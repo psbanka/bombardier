@@ -26,7 +26,7 @@ REPORT_OUT      = 128
 PASSWORD        = 256
 #OPTIONS = [PERFORM_BACKUP, RSYNC_PULL, ARCHIVE_MAINT, RSYNC_PUSH, PERFORM_RESTORE, RESTORE_USERS, REPORT_OUT]
 OPTIONS = [PASSWORD, PERFORM_BACKUP, RSYNC_PULL, ARCHIVE_MAINT, RSYNC_PUSH, PERFORM_RESTORE, RESTORE_USERS, REPORT_OUT]
-#OPTIONS = [CLEAR_LOCKS, RESTORE_USERS, PERFORM_RESTORE]
+#OPTIONS = [CLEAR_LOCKS, RSYNC_PULL, RSYNC_PUSH, PERFORM_RESTORE, RESTORE_USERS]
 ####################################################
 
 
@@ -270,7 +270,7 @@ class BombardierBackup:
                     logger.info("Transferring files to %s..." % (restoreServerName))
                     if "\\" in restorePath or ':' in restorePath:
                         restorePath = cygpath(restorePath)
-                    status = restoreObject.rsync(localReplica, restorePath, "PUSH")
+                    status = restoreObject.rsync(localReplica+"/*", restorePath, "PUSH")
                     clearLock(restoreServerName.replace('-','')+"sync-push-lock")
                     if status != OK:
                         logger.error( "RSYNC failed.")
@@ -325,7 +325,7 @@ class BombardierBackup:
                 restoreObject.process(EXECUTE, ["SqlBackup"], "online", True)
                 print "#################################### CLEANUSERS "
                 logger.info("Instructing server %s to set proper user permission..." % restoreServerName)
-                if restoreObject.process(EXECUTE, ["DbAuthorization"], "recreateUsers", True)[0] == OK:
+                if restoreObject.process(EXECUTE, ["DbAuthorization"], "setUsers", True)[0] == OK:
                     print "#################################### RESTORE SCRIPTS "
                     logger.info("Instructing server %s to run restore scripts..." % restoreServerName)
                     if restoreObject.process(EXECUTE, ["SqlBackup"], "restoreScripts", True)[0] == OK:
@@ -387,7 +387,7 @@ def pullFiles(backupServer, clientConfig, localDir, password):
         logger.info("Transferring files from %s..." % (backupServer))
         backupCygPath = cygpath(backupPath)
         r = BombardierRemoteClient(backupServer, password, DATA_PATH)
-        status = r.rsync(localReplica, backupCygPath, "PULL")
+        status = r.rsync(localReplica, backupCygPath+'/*', "PULL")
     else:
     #except:
         logger.error("Exception caught in trying to rsync.")

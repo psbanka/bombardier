@@ -191,6 +191,7 @@ class BombardierRemoteClient(RemoteClient):
                 self.debugOutput(message, message)
 
     def process(self, action, packageNames, scriptName, debug):
+        self.reportInfo = ''
         self.debug = debug
         self.reportInfo = ''
         self.debugOutput("", "Progress: ")

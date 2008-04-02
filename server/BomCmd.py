@@ -237,8 +237,13 @@ class Execute(PackageCommand):
 
     def processObject(self, r, packageName, tokens):
         scriptNames = self.scriptField.name(tokens, 3)
-        if len(scriptNames) != 1:
+        if len(scriptNames) == 0:
             return FAIL, ["Invalid scriptName"]
+        elif len(scriptNames) > 1:
+            if tokens[3] in scriptNames:
+                scriptNames = [tokens[3]]
+            else:
+                return FAIL, ["Ambiguous scriptName"]
         if self.checkEncryption(self.hostName, packageName) == FAIL:
             return FAIL, ["This package requires sensitive data."]
         status, output = r.process(self.action, [packageName], scriptNames[0], mode.debug)
