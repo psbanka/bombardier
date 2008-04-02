@@ -192,6 +192,7 @@ class BombardierRemoteClient(RemoteClient):
 
     def process(self, action, packageNames, scriptName, debug):
         self.debug = debug
+        self.reportInfo = ''
         self.debugOutput("", "Progress: ")
         if action == EXECUTE:
             self.clearScriptOutput(scriptName)
@@ -267,9 +268,9 @@ class BombardierRemoteClient(RemoteClient):
         return returnCode, []
 
     def clearScriptOutput(self, scriptName):
-        localFilename  = "%s-%s.yml" % (self.hostName, scriptName)
-        if os.path.isfile(localFilename):
-            os.unlink(localFilename)
+        fileName = self.dataPath+"/output/%s-%s.yml" % (self.hostName, scriptName)
+        if os.path.isfile(fileName):
+            os.unlink(fileName)
         return 
 
     def getScriptOutput(self, scriptName):

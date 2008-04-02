@@ -6,7 +6,7 @@ import os, re, glob
 import yaml
 from commonUtil import *
 from Client import Client
-from bombardier.miniUtility import getInstalled, stripVersionFromKeys
+from bombardier.miniUtility import getInstalled, stripVersion
 
 def getProgressData(hostName):
     statusYml = mode.dataPath + "/status/%s.yml"%(hostName)
@@ -22,9 +22,13 @@ def getNamesFromProgress(hostName, stripped=False):
     if progressData == None:
          (installedPackageNames, brokenPackageNames) = ([],[])
     else:
+        unstrippedInstPkgs, unstrippedBrokenPkgs = getInstalled(progressData)
         if stripped:
-            progressData = stripVersionFromKeys(progressData)
-        installedPackageNames, brokenPackageNames = getInstalled(progressData)
+            installedPackageNames = [ stripVersion(x) for x in unstrippedInstPkgs]
+            brokenPackageNames    = [ stripVersion(x) for x in unstrippedBrokenPkgs]
+        else:
+            installedPackageNames = unstrippedInstPkgs
+            brokenPackageNames    = unstrippedBrokenPkgs
     return (set(installedPackageNames), set(brokenPackageNames))
 
 def getInstalledPackageNames(hostName, stripped=False):
