@@ -142,10 +142,7 @@ class PackageCommand(PinshCmd.PinshCmd):
                 return FAIL, ["Host not enabled for this user."]
             status, output = self.processObject(r, packageName, tokens)
         else:
-            try:
-                packageNames = self.packageField.name(tokens, 2)[0]
-            except:
-                return FAIL, ["Invalid package name: %s" % tokens[2]]
+            packageNames = self.packageList.name(tokens, 2)[0]
             try:
                 r = mode.getBomConnection(self.hostName, slash.fpOut)
             except HostNotEnabledException:
@@ -158,7 +155,7 @@ class PackageCommand(PinshCmd.PinshCmd):
                 output = ["Command failed."]
             return FAIL, output
         else:
-            if output == []:
+            if not output:
                 output = ['', 'Command took %4.2f seconds' % (time.time() - start)]
             return OK, output
 
