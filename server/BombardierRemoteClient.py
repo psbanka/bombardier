@@ -8,6 +8,10 @@ import StringIO
 import traceback
 from RemoteClient import RemoteClient, ClientConfigurationException
 from staticData import *
+try:
+    import syck
+except:
+    import yaml as syck
 
 
 TMP_FILE = "tmp.yml"
@@ -40,10 +44,10 @@ class BombardierRemoteClient(RemoteClient):
             self.python = self.info.get("pythonPath")
         if self.info.get("spkgPath"):
             self.spkgDir = self.info.get("spkgPath")
-        if not packageData:
-            self.packageData = yaml.load(open(self.dataPath+"/deploy/packages/packages.yml").read())
-        else:
-            self.packageData = packageData
+
+    def freshen(self):
+        self.packageData = syck.load(open(self.dataPath+"/deploy/packages/packages.yml").read())
+        return(RemoteClient.freshen(self))
 
     def actionResult(self, data):
         action, packageName, result = data

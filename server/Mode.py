@@ -58,7 +58,6 @@ class Mode:
         self.setPrompt()
         self.dataPath = os.getcwd() #! FIXME!!
         self.childProcesses = []
-        self.packageData = yaml.load(open(self.dataPath+"/deploy/packages/packages.yml").read())
 
     def addConfigList(self, option, value):
         if self.config.get(option):
@@ -107,7 +106,7 @@ class Mode:
         if not ignoreConfig and not hostName in self.config["enabledSystems"]:
             raise HostNotEnabledException(hostName)
         if not hostName in self.bomConnections:
-            brc = BombardierRemoteClient(hostName, self.password, self.dataPath, outputHandle, self.packageData)
+            brc = BombardierRemoteClient(hostName, self.password, self.dataPath, outputHandle)
             self.bomConnections[hostName] = brc
         if self.password:
             self.bomConnections[hostName].configPasswd = self.password
