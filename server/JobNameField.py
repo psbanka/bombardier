@@ -20,12 +20,15 @@ class JobNameField(PinshCmd.PinshCmd):
             return PARTIAL, 1
 
     def name(self, tokens, index):
+        userInput = [tokens[index]]
         if mode.auth != ADMIN:
-            return [tokens[index]]
+            return userInput
         c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
         jobs = c.sendSecure(TB_SHOW, [])[0]
-        return [ job for job in jobs if job.startswith(tokens[index]) ]
-
+        output = [ job for job in jobs if job.startswith(tokens[index]) ]
+        if userInput != ['']:
+            output += userInput
+        return output
 
 if __name__ == "__main__":
     from libTest import startTest, endTest, runTest
@@ -44,8 +47,8 @@ if __name__ == "__main__":
     mode.password = "fooman"
     
     status = runTest(jobNameField.name, [[""], 0], ["checker", "statlilap"], status)
-    status = runTest(jobNameField.name, [["c"], 0], ["checker"], status)
-    status = runTest(jobNameField.name, [["w"], 0], [], status)
+    status = runTest(jobNameField.name, [["c"], 0], ["checker", 'c'], status)
+    status = runTest(jobNameField.name, [["w"], 0], ['w'], status)
     c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
     c.sendSecure(TB_KILL, [])
     endTest(status)
