@@ -394,6 +394,7 @@ class TimeBom(Thread, Logger):
                 elif command == TB_DEL: 
                     self.jobs.delJobs(messageList)
                 elif command == TB_WAIT:
+                    self.getRunningJobs()
                     time.sleep(1)
                 else:
                     self.warning( "UNKNOWN COMMAND: %s" %command )
