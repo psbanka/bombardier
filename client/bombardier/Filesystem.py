@@ -25,6 +25,15 @@ import shutil, os, sys, tarfile, gzip, yaml, re, time, random
 import Exceptions, miniUtility, Logger
 from staticData import *
 
+class CopyException(Exception):
+    def __init__(self, message=""):
+        Exception.__init__(self)
+        self.message=message
+    def __repr__(self):
+        return self.message
+    def __str__(self):
+        return self.__repr__()
+
 def copyDirectory( _src, _dest ):
     try:
         if os.path.isdir(_dest):
@@ -33,20 +42,15 @@ def copyDirectory( _src, _dest ):
             os.unlink(_dest)
         shutil.copytree(_src, _dest)
     except Exception, e:
-        errString = "Error creating %s directory:\n%s" %(_dest, e)
-        miniUtility.consoleFail(errString)
+        raise CopyException("Error creating %s directory:\n%s" %(_dest, e))
             
 def copyFile( _src, _dest ):
     try:
         if os.path.isfile( _dest ):
             os.unlink( _dest )
         shutil.copy( _src, _dest )
-    except:
-        errString = "error copying from %s to %s" %( _src,  _dest ) 
-        if Logger != None:
-            miniUtility.consoleFail(errString)
-        else:
-            print errString
+    except Exception, e:
+        raise CopyException("error copying from %s to %s" %( _src,  _dest ))
 
 def makeDirWritable( dir ):
     WRITABLE_DIRECTORY_MODE = 16895

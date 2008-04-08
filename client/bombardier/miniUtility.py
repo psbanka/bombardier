@@ -434,20 +434,6 @@ def addDictionaries(dict1, dict2):
                     dict1[key] = addDictionaries(dict1[key], value)
     return dict1
 
-class Logger:
-    def info(self, string):
-        print "info:",string
-    def debug(self, string):
-        print "debug:",string
-    def warning(self, string):
-        print "warning:",string
-    def error(self, string):
-        print "error:",string
-    def critical(self, string):
-        print "critical:",string
-    def rmFileLogging(self):
-        pass
-
 def getLinuxConfig():
     data = open("/etc/bombardier.yml", 'r').read()
     config = yaml.load(data)
@@ -544,7 +530,7 @@ def consoleSync(status):
     f.close()
 
 def consoleFail( errorString="Failed, error unknown" ):
-    Logger.error( errorString )
+    print errorString
     consoleSync( FAIL )
     sys.exit(FAIL)
 
