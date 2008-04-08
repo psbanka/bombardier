@@ -212,7 +212,9 @@ class JobThread(Thread, Logger):
         self.info("Running %s..." % self.bomshCmd)
         try:
             self.checkMe = False
-            self.cmdStatus, self.cmdOutput = slash.processCommand(self.bomshCmd.strip(), self.fro, self.fro)
+            slash.setOutput(self.fro)
+            slash.setErr(self.fro)
+            self.cmdStatus, self.cmdOutput = slash.processCommand(self.bomshCmd.strip())
             self.checkMe = True
         except:
             self.error( "Failed to run %s" % self.bomshCmd )

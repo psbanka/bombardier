@@ -12,8 +12,15 @@ class Slash(PinshCmd.PinshCmd):
         self.children = children
         self.cmdOwner = 1
         self.helpText = ''
+        self.fpOut=sys.stdout
+        self.fpErr=sys.stderr
+    def setOutput(self, fpOut):
+        self.fpOut = fpOut
 
-    def processCommand(self, command, fpOut=sys.stdout, fpErr=sys.stderr):
+    def setErr(self, fpErr):
+        self.fpErr = fpErr
+
+    def processCommand(self, command):
         try:
             if mode.currentState() != Mode.FREE_TEXT:
                 noFlag, helpFlag, tokens, comment = libUi.processInput(command)
@@ -24,13 +31,10 @@ class Slash(PinshCmd.PinshCmd):
                 if len(tokens) == 0:
                     return OK, []
                 else:
-                    self.fpOut = fpOut
                     status, output = self.run(tokens, noFlag, self)
-                    self.fpOut = ''
-                    del self.fpOut
                     if comment: 
                         makeComment(comment)
-            libUi.userOutput(output, status, fpOut, fpErr)
+            libUi.userOutput(output, status, self.fpOut, self.fpErr)
             return status, output
         except exceptions.SystemExit, e:
             if mode.commentCommands:
