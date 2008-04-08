@@ -1,13 +1,13 @@
 #!/usr/bin/python
 
 import sys, pexpect
-import PinshCmd, SecureCommSocket
+import PinshCmd, SecureCommSocket, JobNameField
 from commonUtil import *
 
-def sendCommand(command):
+def sendCommand(command, args=[]):
     c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
     try:
-        c.sendSecure(command, [])
+        c.sendSecure(command, args)
     except:
         return FAIL, ["Command failed"]
     return OK, ["Command complete"]
@@ -20,7 +20,10 @@ class Scheduler(PinshCmd.PinshCmd):
         load  = PinshCmd.PinshCmd("load", "load\tload the saved configuration from disk")
         start = PinshCmd.PinshCmd("start", "start\tstart the bombardier job scheduler")
         stop  = PinshCmd.PinshCmd("stop", "stop\tstop the bombardier job scheduler")
-        self.children = [save, load, start, stop]
+        run   = PinshCmd.PinshCmd("run", "run\trun a particular job")
+        self.jobNameField = JobNameField.JobNameField()
+        run.children = [self.jobNameField]
+        self.children = [save, load, start, stop, run]
         self.auth = ADMIN
         self.level = 0
         self.cmdOwner = 1
@@ -35,6 +38,9 @@ class Scheduler(PinshCmd.PinshCmd):
         command = tokens[1]
         if command.startswith('sa'):
             return sendCommand(TB_SAVE)
+        elif command.startswith("r"):
+            jobName = tokens[2]
+            return sendCommand(TB_RUN_JOB, [jobName])
         elif command.startswith("l"):
             return sendCommand(TB_LOAD)
         elif command.startswith('sto'):

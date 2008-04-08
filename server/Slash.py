@@ -41,7 +41,7 @@ class Slash(PinshCmd.PinshCmd):
                 makeComment()
             sys.exit(0)
         except Exception, e:
-            fpErr.write( "Error detected in %s (%s)." % (file, e))
+            self.fpErr.write( "Error detected in %s (%s)." % (command, e))
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
             e.seek(0)
@@ -49,8 +49,8 @@ class Slash(PinshCmd.PinshCmd):
             ermsg = ''
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
-            fpErr.write(ermsg)
-            fpErr.write("\n")
+            self.fpErr.write(ermsg)
+            self.fpErr.write("\n")
         return FAIL,["processCommand Excepted"]
 
 

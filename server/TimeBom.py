@@ -369,8 +369,6 @@ class TimeBom(Thread, Logger):
                 self.debug(str(messageList))
                 if not command:
                     command, messageList = self.checkTimers()
-                if command != TB_WAIT:
-                    self.debug("COMMAND: (%s)" % command)
                 if command == TB_KILL:
                     self.killAll()
                     self.controlSocket.disconnectClient(clientAddress)
@@ -402,7 +400,7 @@ class TimeBom(Thread, Logger):
                 self.controlSocket.disconnectClient(clientAddress)
                       
         except Exception, e:
-            self.error("Error detected in %s (%s)." % (file, e))
+            self.error("Error detected (%s)." % (e))
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
             e.seek(0)

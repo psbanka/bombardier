@@ -283,7 +283,7 @@ class BombardierRemoteClient(RemoteClient):
         self.localFilename  = "%s-%s.yml" % (self.hostName, scriptName)
         self.get("%s/output/%s" % (self.spkgDir, remoteFilename))
         if os.path.isfile(remoteFilename):
-            os.system("mv -f %s output/%s" % (remoteFilename, self.localFilename) )
+            os.system("mv -f %s %s/output/%s" % (remoteFilename, self.dataPath, self.localFilename) )
             self.reportInfo = open(self.dataPath+"/output/%s" % self.localFilename).read()
         return 
 
