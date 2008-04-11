@@ -548,7 +548,6 @@ class Bombardier:
             raise Exceptions.BadBillOfMaterials(ermsg)
         self.writeSystemType(pkgGroups)
         if pkgGroups == []:
-            Logger.warning("No package groups configured for this system")
             return []
         packageNames = sets.Set([])
         for pkgGroup in pkgGroups:

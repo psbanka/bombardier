@@ -27,7 +27,8 @@ import ConfigParser, yaml
 from staticData import *
 import miniUtility, Logger
 import random
-
+from Exceptions import NoSectionError, InvalidConfigData
+            
 def generatePassword():
     random.seed()
     characters = [ chr(x) for x in range(33,122) ]
@@ -226,3 +227,35 @@ class Config(dict):
             else:
                 raise ConfigParser.NoSectionError(section)
 
+    def parseSection(self, sectionString, default, optional):
+        sections = sectionString.split('.')
+        d = self.data
+        for section in sections:
+            try:
+                d = d[section]
+            except:
+                d = None
+                break
+        if d == None:
+            if not optional:
+                raise NoSectionError(section, sectionString)
+            d = default
+        return d
+
+    def getobj(self, sectionString, default, expType, optional):
+        value = self.parseSection(sectionString, default, optional)        
+        if type(value) == type(expType):
+            return value
+        raise InvalidConfigData(sectionString, type(value), type(expType))
+
+    def listobj(self, sectionString, default=[], optional=True):
+        return self.getobj(sectionString, default, [], optional)
+
+    def string(self, sectionString, default='', optional=True):
+        return self.getobj(sectionString, default, "string", optional)
+
+    def integer(self, sectionString, default=1, optional=True):
+        return self.getobj(sectionString, default, 1, optional)
+
+    def dictionary(self, sectionString, default={}, optional=True):
+        return self.getobj(sectionString, default, {}, optional)
