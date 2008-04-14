@@ -123,10 +123,38 @@ class MockDict:
             output[key] = value
         return output
 
+def parseSection(dictionary, sectionString, default=''):
+    sections = sectionString.split('.')
+    currentSection = sections[0]
+    if len(sections) > 1:
+        if not dictionary.has_key(currentSection):
+            dictionary[currentSection] = {}
+        remainingSectionString = '.'.join(sections[1:])
+        dictionary[currentSection] = parseSection(dictionary[currentSection], remainingSectionString, default)
+    else:
+        dictionary[currentSection] = default
+    return dictionary
+
 class MockConfig:
     def __init__(self):
         self.requests = {}
         self.data = MockDict("/")
+
+    def string(self, section, default='', optional=False):
+        self.requests = parseSection(self.requests, section, default)
+        return default
+
+    def integer(self, section, default='', optional=False):
+        self.requests = parseSection(self.requests, section, default)
+        return default
+
+    def dictionary(self, section, default={}, optional=False):
+        self.requests = parseSection(self.requests, section, default)
+        return default
+
+    def listobj(self, section, default=[], optional=False):
+        self.requests = parseSection(self.requests, section, default)
+        return default
 
     def get(self, section, option, default="", optional=False):
         if not self.requests.has_key(section):
@@ -156,6 +184,7 @@ class MockConfig:
         for key in dataRequests.keys():
             requests[key] = dataRequests[key]
         return requests
+
 
 class TarCreator:
 
