@@ -31,11 +31,12 @@ FULL_NAME    = "fullName"
 
 class Repository:
 
-    def __init__(self, config, filesystem, server):
-        self.config     = config
-        self.server     = server
-        self.filesystem = filesystem
-        self.packages   = {}
+    def __init__(self, config, filesystem, server, instanceName):
+        self.config       = config
+        self.server       = server
+        self.filesystem   = filesystem
+        self.instanceName = instanceName
+        self.packages     = {}
 
     # TESTED
     def getFullPackageNames(self):
@@ -53,18 +54,18 @@ class Repository:
 
     # TESTED
     def getAndUnpack(self, fullPackageName, checksum):
-        packagePath = miniUtility.getPackagePath()
+        packagePath = miniUtility.getPackagePath(self.instanceName)
         pkgPath = os.path.join(packagePath, fullPackageName)
         try:
             shutil.rmtree(pkgPath)
         except OSError:
             pass
         if type(checksum) != type(["list"]):
-            filename = self.server.packageRequest(fullPackageName+".spkg")
+            filename = self.server.packageRequest(fullPackageName+".spkg", instanceName)
         return self.unpack(pkgPath, fullPackageName, True)
 
     def unpack(self, pkgPath, fullPackageName, removeSpkg = True):
-        packagePath = miniUtility.getPackagePath()
+        packagePath = miniUtility.getPackagePath(self.instanceName)
         if not self.filesystem.isfile(pkgPath+".spkg"):
             erstr = "No package file in %s." % (pkgPath+".spkg")
             Logger.error(erstr)
@@ -115,7 +116,7 @@ class Repository:
     # TESTED
     def getPackage(self, packageName, tries=3, checksum=''):
         # FIXME: for uninstall, this should find the directory in packages
-        packagePath = miniUtility.getPackagePath()
+        packagePath = miniUtility.getPackagePath(self.instanceName)
         try:
             fullPackageName = self.packages[packageName]['install'][FULL_NAME]
         except KeyError:

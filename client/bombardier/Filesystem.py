@@ -49,7 +49,7 @@ def copyFile( _src, _dest ):
         if os.path.isfile( _dest ):
             os.unlink( _dest )
         shutil.copy( _src, _dest )
-    except Exception, e:
+    except:
         raise CopyException("error copying from %s to %s" %( _src,  _dest ))
 
 def makeDirWritable( dir ):
@@ -236,8 +236,8 @@ class Filesystem:
                 return FAIL
         return OK
 
-    def loadCurrent(self):
-        statusPath = os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)
+    def loadCurrent(self, instanceName):
+        statusPath = miniUtility.getProgressPath(instanceName)
         try:
             rawData = open(statusPath, 'r').read()
             data = yaml.load(rawData)
@@ -245,17 +245,10 @@ class Filesystem:
             raise Exceptions.StatusException(statusPath)
         return data
 
-    def warningLog(self, message, server):
-        self.updateProgress({"warnings": {"%s-%s" % (time.time(), random.randint(1,500)):
-                                          message}}, server)
-        
-    def updateTimestampOnly(self, server):
-        self.updateProgress({}, server)
-
-    def updateProgress(self, dictionary, server, overwrite=False):
-        statusPath = os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)
+    def updateProgress(self, dictionary, instanceName, overwrite=False):
+        statusPath = miniUtility.getProgressPath(instanceName)
         tmpPath    = miniUtility.getTmpPath()
-        data = self.loadCurrent()
+        data = self.loadCurrent(instanceName)
         try:
             intData = miniUtility.integrate(data, dictionary, overwrite)
             yamlString = yaml.dump(intData, default_flow_style=False)
@@ -268,12 +261,6 @@ class Filesystem:
         except IOError, e:
             Logger.warning("Cannot update progress data: %s" % e)
             
-    def getCurrentAction(self):
-        data = self.loadCurrent()
-        if data.get("status"):
-            return data["status"].get("action")
-        return None
-
     def append(self, source, dest):
         fin = open(source, "rb")
         fout = open(dest, "ab")
@@ -285,8 +272,8 @@ class Filesystem:
         fout.flush()
         fout.close()
 
-    def getProgressData(self, stripVersionFromName = False):
-        filename = os.path.join(miniUtility.getSpkgPath(), STATUS_FILE)
+    def getProgressData(self, instanceName, stripVersionFromName = False):
+        filename = miniUtility.getProgressPath(instanceName)
         if not os.path.isfile(filename):
             return {}
         data = open(filename, 'r').read()

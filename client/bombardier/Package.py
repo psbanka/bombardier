@@ -36,12 +36,13 @@ class Package:
     the server."""
 
     ### TESTED
-    def __init__(self, name, repository, config, filesystem, server, operatingSystem):
+    def __init__(self, name, repository, config, filesystem, server, operatingSystem, instanceName):
         self.name         = name
         self.repository   = repository
         self.filesystem   = filesystem
         self.server       = server
         self.operatingSystem      = operatingSystem
+        self.instanceName = instanceName
         self.action       = INSTALL
         self.installed    = False
         self.dependencies = []
@@ -64,7 +65,6 @@ class Package:
     def invalidate(self):
         erstr = "INVALID PACKAGE: %s" % self.name
         Logger.error(erstr)
-        self.filesystem.warningLog(erstr, self.server)
         self.status = FAIL
         
     def getConfiguration(self):
@@ -151,10 +151,10 @@ class Package:
         self.gatherDependencies()
 
 
-    def injector(self):  
+    def injector(self):
         """ Expects a standard package to be extracted in the packages
         directory """
-        packagePath = miniUtility.getPackagePath()
+        packagePath = miniUtility.getPackagePath(self.instanceName)
         if not self.fullName:
             self.status = FAIL
             return FAIL
@@ -254,32 +254,27 @@ class Package:
         files = [x.split('.py')[0] for x in files]
         status = FAIL
         fileFound = False
-        for file in files:
-            if file.split('.')[0] in ["installer", "verify", "uninstaller", "configure"]:
+        for fileName in files:  # FIXME this is stupid
+            if fileName.split('.')[0] in ["installer", "verify", "uninstaller", "configure"]:
                 continue
             try:
                 self.filesystem.chdir(self.workingDir)
                 letters = [ chr( x ) for x in range(65, 91) ]
                 random.shuffle(letters)
                 randString = ''.join(letters)
-                #Logger.info("scriptsDir: %s // workingDir: %s [%s]" % (self.scriptsDir, self.workingDir, randString))
-                exec("import %s as %s" % (file, randString))
+                exec("import %s as %s" % (fileName, randString)) # FIXME
+                Logger.debug("This is package version %s" % self.packageVersion)
                 if self.packageVersion == 2:
-                    exec("obj = %s.%s(self.config)" % (randString, file))
+                    exec("obj = %s.%s(self.config)" % (randString, fileName))
                 elif self.packageVersion == 3:
-                    try:
-                        cmdString = "obj = %s.%s(self.config, packageList, Logger.logger)"
-                        exec(cmdString % (randString, file))
-                    except TypeError, e:
-                        Logger.error("What is going on here?")  
-                        Logger.error("CWD: %s" % os.getcwd())
-                        cmdString = cmdString % (randString, file)
-                        Logger.error("cmdString: %s" % cmdString)
-                        exec("output = dir(%s.%s)" % (randString, file))
-                        Logger.error("Info: %s" % output)
-                        cmdString = "obj = %s.%s(self.config)" % (randString, file)
-                        Logger.error("Trying this instead: %s" % cmdString)
-                        exec(cmdString)
+                    self.config["__INSTANCE__"] = self.instanceName
+                    cmdString = "obj = %s.%s(self.config, packageList, Logger.logger)"
+                    exec(cmdString % (randString, fileName))
+                elif self.packageVersion == 4:
+                    self.config["__FUTURE_PACKAGES__"] = packageList
+                    self.config["__INSTANCE__"] = self.instanceName
+                    cmdString = "obj = %s.%s(self.config, Logger.logger)"
+                    exec(cmdString % (randString, fileName))
                 else:
                     Logger.error("Unknown package version %s" % self.packageVersion)
                 fileFound = True
@@ -294,15 +289,13 @@ class Package:
                 else:
                     Logger.error("Invalid action specified: %s" % action)
                 del randString
-                if file in sys.modules:
-                    sys.modules.pop(file)
-                    #Logger.info("Popping %s. [%s]" % (file, str(sys.modules.keys())))
-                    #Logger.info("sys.path: [%s]" % (str(sys.path)))
+                if fileName in sys.modules:
+                    sys.modules.pop(fileName)
                 while self.scriptsDir in sys.path:
                     sys.path.remove(self.scriptsDir)
                 break
             except ImportError:
-                Logger.debug("File %s is not runnable. Looking for others" % file)
+                Logger.debug("File %s is not runnable. Looking for others" % fileName)
                 continue
             except SystemExit, e:
                 if e.code:
@@ -316,7 +309,7 @@ class Package:
                 Logger.error("Keyboard interrupt detected. Exiting...")
                 sys.exit(10)
             except StandardError, e:
-                Logger.error("Error detected in %s (%s)." % (file, e))
+                Logger.error("Error detected in %s (%s)." % (fileName, e))
                 e = StringIO.StringIO()
                 traceback.print_exc(file=e)
                 e.seek(0)
@@ -325,7 +318,7 @@ class Package:
                 for line in data.split('\n'):
                     ermsg += "\n||>>>%s" % line
                 Logger.error(ermsg)
-                Logger.error("Error ocurred in %s" % file)
+                Logger.error("Error ocurred in %s" % fileName)
                 fileFound = True
                 status = FAIL
                 del randString
@@ -355,8 +348,7 @@ class Package:
             status = self.repository.getPackage(self.name, checksum=self.checksum)
             if status == FAIL:
                 self.status = FAIL
-                self.filesystem.warningLog("Problems downloading package %s" % self.name,
-                                           self.server)
+                Logger.error("Problems downloading package %s" % self.name)
                 return FAIL
             status = self.injector()
             self.downloaded = True
@@ -369,7 +361,6 @@ class Package:
             erstr = "Package %s is corrupt or could not be "\
                     "downloaded." % self.fullName
             Logger.error(erstr)
-            self.filesystem.warningLog(erstr, self.server)
             return FAIL
         if self.action == INSTALL:
             if self.autoReboot:
@@ -490,34 +481,10 @@ class Package:
         self.fullName = selection
         return OK
 
-    def mkInstallSummary(self, progressData):
-        installed, uninstalled, brokenInstalled, brokenUninstalled = miniUtility.getInstalledUninstalledTimes(progressData)
-        output = []
-        for package in installed:
-            output.append("%25s: %s" % (package[0], package[1]))
-        if uninstalled:
-            output.append("===============================")
-            for package in uninstalled:
-                output.append("(%25s: %s)" % (package[0], package[1]))
-        if brokenInstalled:
-            output.append("BROKEN:========================")
-            for package in brokenInstalled:
-                output.append("- %25s" % (package[0]))
-        progressPath = miniUtility.getProgressPath2()
-
-        fh = self.filesystem.open(progressPath, 'wb')
-        try:
-            fh.write('\n'.join(output))
-        except UnicodeEncodeError:
-            Logger.error("Could not encode data: %s" % output)
-        fh.flush()
-        fh.close()
-        del fh
-
     ### TESTED
     def writeProgress(self):
         timeString = time.ctime()
-        progressData = self.filesystem.getProgressData()
+        progressData = self.filesystem.getProgressData(self.instanceName)
         if not progressData.has_key(self.fullName):
             progressData[self.fullName] = {"INSTALLED": "NA", "UNINSTALLED": "NA", "VERIFIED": "NA"}
         if self.action == INSTALL:
@@ -549,8 +516,6 @@ class Package:
 
         elif self.action == VERIFY:
             progressData[self.fullName]['VERIFIED'] = timeString
-        self.filesystem.updateProgress({"install-progress":progressData},
-                                       self.server, overwrite=True)
+        self.filesystem.updateProgress({"install-progress":progressData}, overwrite=True)
         # gc.collect() # just try removing these and see if the unit tests pass -pbanka
-        self.mkInstallSummary(progressData)
         return OK

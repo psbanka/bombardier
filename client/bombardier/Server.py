@@ -61,23 +61,8 @@ class Server:
     def clearCache(self):
         self.cache = {}
 
-    def getServerData(self):
-        serverDataPath = os.path.join(miniUtility.getSpkgPath(), SERVERDATA_FILE)
-        try:
-            serverDataDirectory = self.filesystem.loadYaml(serverDataPath)
-        except:
-            Logger.error("The %s file is corrupt" % serverDataPath)
-            return
-        if not serverDataDirectory:
-            Logger.error("The %s file is empty" % serverDataPath)
-            return
-        serverName = serverDataDirectory.keys()[0]
-        #Logger.info("Using server %s because it is the only one" % serverName)
-        self.serverData = serverDataDirectory[serverName]
-        return
-
-    def packageRequest(self, filename):
-        dosPath = miniUtility.getPackagePath()
+    def packageRequest(self, filename, instanceName):
+        dosPath = miniUtility.getPackagePath(instanceName)
         cygPath = miniUtility.cygpath(dosPath)
         Logger.info("==REQUEST-PACKAGE==:%s:%s" % (filename, cygPath))
         response = sys.stdin.read(3)

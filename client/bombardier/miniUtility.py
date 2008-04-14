@@ -463,25 +463,12 @@ def getPythonPath():
     return os.path.join(sys.prefix, "python.exe")
 
 # NOT WORTH TESTING
-def getPackagePath():
-    return os.path.join(getSpkgPath(), PACKAGES)
-
-# NOT WORTH TESTING
-def getDropPath():
-    return os.path.join(getSpkgPath(), DROP_PATH)
-
-# NOT WORTH TESTING
-def getBombardierPath():
-    return os.path.join(getSpkgPath(), BOMBARDIER)
+def getPackagePath(instanceName):
+    return os.path.join(getSpkgPath(), instanceName, PACKAGES)
 
 # TESTED
-def getProgressPath():
-    newPath = os.path.join(getSpkgPath(), STATUS_FILE)
-    return newPath
-
-# TESTED
-def getProgressPath2():
-    newPath = os.path.join(getSpkgPath(), PROGRESS_FILE2)
+def getProgressPath(instanceName):
+    newPath = os.path.join(getSpkgPath(), instanceName, STATUS_FILE)
     return newPath
 
 #### TESTED
@@ -511,13 +498,12 @@ def connectString(server, instance, port):
         dataSource += ","+port
     return dataSource
 
-
 def getConnectString(config):
     server = config.get('sql', 'server')
     instance = config.get('sql', 'instance')
     port = config.get('sql', 'port')
     return connectString(server, instance, port)
-    
+
 def consoleSync(status):
     consoleFile = os.path.join(getSpkgPath(),CONSOLE_MONITOR)
     f = open(consoleFile, 'w')

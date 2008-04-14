@@ -132,14 +132,8 @@ if sys.platform == "win32":
    ATTRIB    = os.path.join(WINDIR, "SYSTEM32", "ATTRIB")
 INSTALL_LOCK  = "lockfile"
 DIRLIST       = "dirlist.txt"
-PROGRESS_FILE2 = "install-progress.txt"
-ERRORS_FILE   = "errors.log"
-BOM_FILE      = "BOM.txt"
-SERVERDATA_FILE = "repositoryDirectory.yml"
 BOM_DEPS      = "dependency-errors.ini"
-BOMBARDIER    = "BombardierUI.py" 
 PACKAGES      = "packages"
-DROP_PATH     = "drop"
 PYTHON        = "python.exe"
 RUN_KEY_NAME  = 'Software\\Microsoft\\Windows\\CurrentVersion\\Run'
 SYSTEM_TYPE_FILE       = "systemtype.txt"
@@ -148,17 +142,6 @@ MD5_CHECKFILE          = "bombardier.md5"
 TEST_MD5_CHECKFILE     = "testbombardier.md5"
 UPDATE_TARBALL         = "bombardier.tar.gz"
 TEST_UPDATE_TARBALL    = "testbombardier.tar.gz"
-
-SECURITY_TARBALL       = "secure.tar.gz"
-SECURITY_STATUS        = "securityStatus"
-SECURITY_PATH          = "C:\\secure"
-SECURE_BATCH           = "secure.bat"
-UNSECURE_BATCH         = "unsecure.bat"
-SECURITY_CHECKFILE     = "secure.md5"
-SECURITY_NONE          = 0
-SECURITY_LOW           = 3
-SECURITY_HIGH          = 10
-SECURITY_PARANOID      = 100
 
 SCRATCH_DIR            = "scratch"
 BOMBARDIER_CLIENT_FILE = "BombardierClientService.py"
@@ -169,25 +152,13 @@ DEFAULT_DOMAIN         = "."
 
 # ================================================== SYSTEM INFORMATION
 
-## User interface constants
-
 STATUS_FILE = "status.yml"
-
-IDLE       = "idle"
-INSTALLING = "installing"
-ERROR      = "error"
-WARNING    = "warning"
-OFFLINE    = "offline"
-VERIFYING  = "Verifying"
-
-UPDATE_FREQ = 1
-FLASH_MOD   = 3
-DEAD_TIME   = 600
 
 # ================================================= COMM SOCKET INFO
 
 STOP = "STOP"
 GO   = "GO"
 
+def pyChucker(*args, **kwargs):
+    pass
 
-#  Nagios Data
