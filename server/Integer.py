@@ -28,7 +28,7 @@ class Integer(PinshCmd.PinshCmd):
             pass
         return NO_MATCH, 1
 
-    def name(self, tokens, index):
+    def preferredNames(self, tokens, index):
         try:
             value = int(tokens[index])
             if value >= self.min and value <= self.max:
@@ -43,8 +43,8 @@ if __name__ == "__main__":
     status = OK
     startTest()
     #status = runTest(integer.name, [["a"], 0], '', status)
-    status = runTest(integer.name, [["11"], 0], ['11'], status)
-    status = runTest(integer.name, [["10"], 0], ['10'], status)
+    status = runTest(integer.preferredNames, [["11"], 0], ['11'], status)
+    status = runTest(integer.preferredNames, [["10"], 0], ['10'], status)
     status = runTest(integer.match, [[""], 0], (NO_MATCH, 1), status)
     status = runTest(integer.match, [["1"], 0], (PARTIAL, 1), status)
     status = runTest(integer.match, [["100"], 0], (COMPLETE, 1), status)

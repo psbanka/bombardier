@@ -29,7 +29,7 @@ class For(PinshCmd.PinshCmd):
             if newMode > Mode.F2:
                 return FAIL, ["Too many layers of nesting"]
 
-        variableNames = self.variable.name(tokens, 1)
+        variableNames = self.variable.preferredNames(tokens, 1)
         if len(variableNames) != 1:
             return FAIL, ["Invalid variable name. Must contain alphanumeric and underscore characters only"]
         variableName = variableNames[0]
@@ -40,7 +40,7 @@ class For(PinshCmd.PinshCmd):
         if status == COMPLETE:
             values = tokens[4:-1]
         else:
-            configFieldNames = self.configField.name(tokens, 3)
+            configFieldNames = self.configField.preferredNames(tokens, 3)
             if len(configFieldNames) == 0:
                 return FAIL, ["%s is not a valid config entry." % tokens[-1]]
             values = self.configField.getConfigData(tokens, 3)

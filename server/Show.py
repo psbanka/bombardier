@@ -86,15 +86,8 @@ class Package(PinshCmd.PinshCmd):
         pyChucker(noFlag, slash)
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
-        packageNames = self.packageField.name(tokens, 2)
-        if len(packageNames) == 0:
-            return FAIL, ["Unknown package %s" % tokens[2]]
-        if len(packageNames) > 1:
-            return FAIL, ["Ambiguous package %s" % tokens[2]]
-        packageName = packageNames[0]
+        packageName = tokens[1]
         pkgData = yaml.load(open(mode.dataPath+"/deploy/packages/packages.yml").read())
-        #output = yaml.dump(pkgData.get(packageName), default_flow_style=False)
-        #print `output`
         return OK, ['', packageName, "========================", '', [pkgData.get(packageName)]]
 
 def printify(inputObject):
@@ -127,12 +120,7 @@ class Status(PinshCmd.PinshCmd):
             return FAIL, []
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
-        hostNames = self.bomHostField.name(tokens, 2)
-        if len(hostNames) == 0:
-            return FAIL, ["Unknown host %s" % tokens[2]]
-        if len(hostNames) > 1:
-            return FAIL, ["Ambiguous host %s" % tokens[2]]
-        hostName = hostNames[0]
+        hostName = tokens[2]
         statusFile = "status/%s.yml" % hostName
         if not os.path.isfile(statusFile):
             return FAIL, ["No status on file (%s)" % statusFile]
@@ -180,16 +168,7 @@ class Jobs(PinshCmd.PinshCmd):
         if mode.auth != ADMIN:
             return FAIL, ["Must be enabled"]
         if len(tokens) > 2:
-            jobNames = self.jobNameField.name(tokens, 2)
-            if len(jobNames) < 1:
-                return FAIL, ["Unknown job: %s" % tokens[2]]
-            elif len(jobNames) > 1:
-                if tokens[2] in jobNames:
-                    jobName = tokens[2]
-                else:
-                    return FAIL, ["Ambiguous job name: %s" % tokens[2]]
-            else:
-                jobName = jobNames[0]
+            jobName = tokens[2]
         c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
         try:
             jobs = c.sendSecure(TB_SHOW, [])[0]

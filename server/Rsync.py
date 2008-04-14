@@ -17,7 +17,7 @@ class Rsync(PinshCmd.PinshCmd):
         self.logCommand = True
 
     def getCleanPath(self, path):
-        possibleNames = self.scpHostField.name([path], 0)
+        possibleNames = self.scpHostField.preferredNames([path], 0)
         if len(possibleNames) < 1:
             return '', NO_MATCH
         elif len(possibleNames) > 1:

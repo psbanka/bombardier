@@ -15,13 +15,37 @@ class LongList(PinshCmd.PinshCmd):
         self.unique = unique
         self.cmdOwner = 0
 
-    def name(self, tokens, index):
+    def workingNames(self, tokens, index):
+        output = []
+        previousTokens = tokens[0:index]
+        for i in range(index, len(tokens)):
+            glob = False
+            if tokens[i].endswith('*'):
+                glob = True
+                tokens[i] = tokens[i][:-1]
+            newTokens = previousTokens + [tokens[i]]
+            tokenNames = self.item.preferredNames(newTokens, index)
+            if len(tokenNames) > 1 and not glob:
+                if tokens[i] in tokenNames:
+                    output.append(tokens[i])
+                    continue
+                else:
+                    print "ACCEPTABLE NAMES SHOULDN'T HAVE ALLOWED %s" % tokens[i]
+                    return ''
+            for tokenName in tokenNames:
+                if self.unique:
+                    if tokenName in output:
+                        continue
+                output.append(tokenName)
+        return ' '.join(output)
+
+    def preferredNames(self, tokens, index):
         #print "\nN>",tokens, index
         output = []
         previousTokens = tokens[0:index]
         for i in range(index, len(tokens)):
             newTokens = previousTokens + [tokens[i]]
-            tokenNames = self.item.name(newTokens, index)
+            tokenNames = self.item.acceptableNames(newTokens, index)
             if len(tokenNames) == 1:
                 if tokenNames[0] in output and self.unique:
                     break
@@ -44,7 +68,7 @@ class LongList(PinshCmd.PinshCmd):
 
     def match(self, tokens, index):
         #print "\nM>",tokens, index
-        names = self.name(tokens, index)
+        names = self.preferredNames(tokens, index)
         if names == []:
             return NO_MATCH, 1
         lengthOfMatch = len(names[0].split(' '))
@@ -65,40 +89,40 @@ if __name__ == "__main__":
     ll = LongList(i)
     status = OK
     startTest()
-    status = runTest(ll.name, [["1"], 0], ["1"], status)
-    status = runTest(ll.name, [["1", "1", "1"], 0], ["1 1 1"], status)
-    status = runTest(ll.name, [["1", "2", "3"], 0], ["1 2 3"], status)
-    status = runTest(ll.name, [["1", "2", "a"], 0], ["1 2"], status)
-    status = runTest(ll.name, [["1", "a", "2"], 0], ["1"], status)
-    status = runTest(ll.name, [[""], 0], [], status)
+    status = runTest(ll.preferredNames, [["1"], 0], ["1"], status)
+    status = runTest(ll.preferredNames, [["1", "1", "1"], 0], ["1 1 1"], status)
+    status = runTest(ll.preferredNames, [["1", "2", "3"], 0], ["1 2 3"], status)
+    status = runTest(ll.preferredNames, [["1", "2", "a"], 0], ["1 2"], status)
+    status = runTest(ll.preferredNames, [["1", "a", "2"], 0], ["1"], status)
+    status = runTest(ll.preferredNames, [[""], 0], [], status)
     status = runTest(ll.match, [[""], 0], (NO_MATCH, 1), status)
     status = runTest(ll.match, [["1", "2", "3"], 0], (COMPLETE, 3), status)
     bhf = BomHostField.BomHostField()
     ll3 = LongList(bhf, unique=True)
-    status = runTest(ll3.name, [["lilap", "biga"], 0], ["lilap bigap"], status)
+    status = runTest(ll3.preferredNames, [["lilap", "biga"], 0], ["lilap bigap"], status)
     mode.config["enabledSystems"] = [ "lilap", "bigap" ]
-    status = runTest(ll3.name, [["lilap", ""], 0], [ "lilap bigap" ], status)
+    status = runTest(ll3.preferredNames, [["lilap", ""], 0], [ "lilap bigap" ], status)
 
     pf = PackageField.PurgablePackageField()
     ll2 = LongList(pf, unique=True)
     mode.config["enabledSystems"] += [ "testdb" ]
-    status = runTest(ll2.name, [["testdb", "Sql"], 1], ["SqlBackup-8"], status)
+    status = runTest(ll2.preferredNames, [["testdb", "Sql"], 1], ["SqlBackup-8"], status)
     output2 = [ o for o in output if o.startswith("uhrDB") ]
     sqlPlusOutput = ["SqlBackup-8 "+o for o in output if o != "SqlBackup-8" ]
     uhrPlusOutput = ["uhrDB-patch-R3AB_7-4 "+o for o in output2 if o != "uhrDB-patch-R3AB_7-4"]
     
-    status = runTest(ll2.name, [["testdb", "Sql", ""], 1], sqlPlusOutput, status)
-    status = runTest(ll2.name, [["testdb", "SqlBackup-8", ""], 1], sqlPlusOutput, status)
+    status = runTest(ll2.preferredNames, [["testdb", "Sql", ""], 1], sqlPlusOutput, status)
+    status = runTest(ll2.preferredNames, [["testdb", "SqlBackup-8", ""], 1], sqlPlusOutput, status)
     status = runTest(ll2.match, [["testdb", "Sql"], 1], (PARTIAL, 1), status)
     status = runTest(ll2.match, [["testdb", "Sql", "Hos"], 1], (PARTIAL, 2), status)
     status = runTest(ll2.match, [["testdb", "Sql", "Sql"], 1], (PARTIAL, 1), status)
 
-    outputNames = ll2.name(['purge', 'testdb', 'uhrDB-patch-R3AB_7', 'uhrDB'], 2)
+    outputNames = ll2.preferredNames(['purge', 'testdb', 'uhrDB-patch-R3AB_7', 'uhrDB'], 2)
     differenceNames = set(outputNames) - set(uhrPlusOutput)
     assert differenceNames == set([]), differenceNames
 
-    status = runTest(ll2.name, [['purge', 'testdb', 'uhrDB-patch-R3AB_7', 'uhrDB'], 2], uhrPlusOutput, status)
-    status = runTest(ll2.name, [['purge', 'testdb', 'uhrDB-patch-R3AB_7', 'uhrDB-patch-R3N'], 2], ["uhrDB-patch-R3AB_7-4 uhrDB-patch-R3N-7"], status)
+    status = runTest(ll2.preferredNames, [['purge', 'testdb', 'uhrDB-patch-R3AB_7', 'uhrDB'], 2], uhrPlusOutput, status)
+    status = runTest(ll2.preferredNames, [['purge', 'testdb', 'uhrDB-patch-R3AB_7', 'uhrDB-patch-R3N'], 2], ["uhrDB-patch-R3AB_7-4 uhrDB-patch-R3N-7"], status)
     status = runTest(ll2.match, [['purge', 'testdb', 'uhrDB-patch-R3AB_7', 'uhrDB'], 2], (PARTIAL, 2), status)
 
     endTest(status)

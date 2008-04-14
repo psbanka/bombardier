@@ -51,13 +51,13 @@ class ConfigField(PinshCmd.PinshCmd):
 
     def setValue(self, tokens, index, newValue):
         if self.dataType == MERGED:
-            return FAIL
+            return FAIL, []
         firstTokenNames, clearData = self.getTopLevelData(tokens, index, True)
         firstTokenNames, encData = self.getTopLevelData(tokens, index, False)
         if not clearData:
-            return FAIL
+            return FAIL, []
         firstTokenName = firstTokenNames[0]
-        configName = self.name(tokens, index)
+        configName = self.preferredNames(tokens, index)
         cmd = "encData"
         currentDict = clearData
         output = []
@@ -89,7 +89,7 @@ class ConfigField(PinshCmd.PinshCmd):
         if len(firstTokenNames) != 1:
             return []
         if len(tokens[index].split('.')) > 1:
-            configName = self.name(tokens, index)
+            configName = self.preferredNames(tokens, index)
             if len(configName) == 0:
                 return []
             if len(configName) > 1:
@@ -105,7 +105,7 @@ class ConfigField(PinshCmd.PinshCmd):
             currentDict = data
         return currentDict
 
-    def name(self, tokens, index):
+    def preferredNames(self, tokens, index):
         tokens[index] = tokens[index].replace('"', '')
         firstTokenNames, data = self.getTopLevelData(tokens, index, True)
         if len(firstTokenNames) == 0:
@@ -147,7 +147,7 @@ class ConfigField(PinshCmd.PinshCmd):
         return []
 
     def match(self, tokens, index):
-        possibleMatches = self.name(tokens, index)
+        possibleMatches = self.acceptableNames(tokens, index)
         if not possibleMatches:
             return NO_MATCH, 1
         if len(possibleMatches) > 1:
@@ -159,23 +159,23 @@ if __name__ == "__main__":
     configField = ConfigField()
     status = OK
     startTest()
-    status = runTest(configField.name, [["lila"], 0], ["lilap"], status)
-    status = runTest(configField.name, [["bigdb.sql.servers"], 0], ["bigdb.sql.servers"], status)
-    status = runTest(configField.name, [["bigdb.sq"], 0], ["bigdb.sql"], status)
-    status = runTest(configField.name, [["bigdb.sql"], 0], ["bigdb.sql"], status)
-    status = runTest(configField.name, [["bigsam.ipAddress"], 0], ["bigsam.ipAddress"], status)
-    status = runTest(configField.name, [["bigsam.ipAddress."], 0], ["bigsam.ipAddress"], status)
-    status = runTest(configField.name, [["virtap.connectTest.connectionData.pro"], 0], ["virtap.connectTest.connectionData.proxy"], status)
-    status = runTest(configField.name, [["foo.foo"], 0], [], status)
-    status = runTest(configField.name, [["bigsam.thingy.majig"], 0], ['bigsam.thingy'], status)
-    status = runTest(configField.name, [["big"], 0], ["bigap", "bigsam", "bigdb"], status)
-    status = runTest(configField.name, [["sho","server","l"], 2], ["lilap", "lildb", "ltdb", "ldapserver"], status)
+    status = runTest(configField.preferredNames, [["lila"], 0], ["lilap"], status)
+    status = runTest(configField.preferredNames, [["bigdb.sql.servers"], 0], ["bigdb.sql.servers"], status)
+    status = runTest(configField.preferredNames, [["bigdb.sq"], 0], ["bigdb.sql"], status)
+    status = runTest(configField.preferredNames, [["bigdb.sql"], 0], ["bigdb.sql"], status)
+    status = runTest(configField.preferredNames, [["bigsam.ipAddress"], 0], ["bigsam.ipAddress"], status)
+    status = runTest(configField.preferredNames, [["bigsam.ipAddress."], 0], ["bigsam.ipAddress"], status)
+    status = runTest(configField.preferredNames, [["virtap.connectTest.connectionData.pro"], 0], ["virtap.connectTest.connectionData.proxy"], status)
+    status = runTest(configField.preferredNames, [["foo.foo"], 0], [], status)
+    status = runTest(configField.preferredNames, [["bigsam.thingy.majig"], 0], ['bigsam.thingy'], status)
+    status = runTest(configField.preferredNames, [["big"], 0], ["bigap", "bigsam", "bigdb"], status)
+    status = runTest(configField.preferredNames, [["sho","server","l"], 2], ["lilap", "lildb", "ltdb", "ldapserver"], status)
     configField = ConfigField(dataType=CLIENT)
-    status = runTest(configField.name, [["lilap.s"], 0], ["lilap.sharedKeys"], status)
-    status = runTest(configField.setValue, [["lilap.sharedKeys"], 0, "yes"], OK, status)
+    status = runTest(configField.preferredNames, [["lilap.s"], 0], ["lilap.sharedKeys"], status)
+    status = runTest(configField.setValue, [["lilap.sharedKeys"], 0, "yes"], (OK, []), status)
     status = runTest(configField.getSpecificData, [["lilap.sharedKeys"], 0], "yes", status)
-    status = runTest(configField.setValue, [["bigdb.sharedKeys"], 0, "yup"], OK, status)
-    status = runTest(configField.name, [["lilap"], 0], ["lilap"], status)
+    status = runTest(configField.setValue, [["bigdb.sharedKeys"], 0, "yup"], (OK, []), status)
+    status = runTest(configField.preferredNames, [["lilap"], 0], ["lilap"], status)
     status = runTest(configField.match, [["bigd"], 0], (COMPLETE, 1), status)
     status = runTest(configField.match, [["bigdb", ""], 0], (COMPLETE, 1), status)
     status = runTest(configField.match, [["lilap.foo"], 0], (NO_MATCH, 1), status)
@@ -183,22 +183,22 @@ if __name__ == "__main__":
     status = runTest(configField.match, [["lilap.ipAddress"], 0], (COMPLETE, 1), status)
     status = runTest(configField.match, [["foo"], 0], (NO_MATCH, 1), status)
     configField = ConfigField(dataType=INCLUDE)
-    status = runTest(configField.name, [["serviceNet.ca"], 0], ["serviceNet.cas"], status)
-    status = runTest(configField.name, [["servicenet"], 0], ["serviceNet"], status)
+    status = runTest(configField.preferredNames, [["serviceNet.ca"], 0], ["serviceNet.cas"], status)
+    status = runTest(configField.preferredNames, [["servicenet"], 0], ["serviceNet"], status)
     status = runTest(configField.getSpecificData, [["testInclude.thing1"], 0], '=== CENSORED ===', status)
-    status = runTest(configField.setValue, [["testInclude.thing1"], 0, "foo"], FAIL, status)
+    status = runTest(configField.setValue, [["testInclude.thing1"], 0, "foo"], (FAIL, ['Cannot encipher data except in enable mode']), status)
     mode.password = "abcd1234"
-    status = runTest(configField.setValue, [["testInclude.thing1"], 0, "foo"], OK, status)
+    status = runTest(configField.setValue, [["testInclude.thing1"], 0, "foo"], (OK, ['Encrypted sensitive data']), status)
     status = runTest(configField.getSpecificData, [["testInclude.thing1"], 0], '=== CENSORED ===', status)
     status = runTest(configField.getSpecificData, [["testInclude.platform"], 0], "win32", status)
-    status = runTest(configField.setValue, [["testInclude.platform"], 0, "foo"], OK, status)
+    status = runTest(configField.setValue, [["testInclude.platform"], 0, "foo"], (OK, []), status)
     status = runTest(configField.getSpecificData, [["testInclude.platform"], 0], "foo", status)
-    status = runTest(configField.setValue, [["testInclude.platform"], 0, "win32"], OK, status)
+    status = runTest(configField.setValue, [["testInclude.platform"], 0, "win32"], (OK, []), status)
     status = runTest(configField.getSpecificData, [["testInclude.platform"], 0], "win32", status)
     status = runTest(configField.getSpecificData, [["testInclude.sql.databases"], 0], ['casDB', 'mcsDB', 'rmsDB', 'uhrDB'], status)
-    status = runTest(configField.setValue, [["testInclude.sql.databases"], 0, ['casDB', 'mcsDB', 'rmsDB', 'uhrDB', 'foo']], OK, status)
+    status = runTest(configField.setValue, [["testInclude.sql.databases"], 0, ['casDB', 'mcsDB', 'rmsDB', 'uhrDB', 'foo']], (OK, []), status)
     status = runTest(configField.getSpecificData, [["testInclude.sql.databases"], 0], ['casDB', 'mcsDB', 'rmsDB', 'uhrDB', 'foo'], status)
-    status = runTest(configField.setValue, [["testInclude.sql.databases"], 0, ['casDB', 'mcsDB', 'rmsDB', 'uhrDB']], OK, status)
+    status = runTest(configField.setValue, [["testInclude.sql.databases"], 0, ['casDB', 'mcsDB', 'rmsDB', 'uhrDB']], (OK, []), status)
     status = runTest(configField.getSpecificData, [["testInclude.sql.databases"], 0], ['casDB', 'mcsDB', 'rmsDB', 'uhrDB'], status)
     status = runTest(configField.getSpecificData, [["testInclude.platform"], 0], "win32", status)
     status = runTest(configField.getSpecificData, [['testInclude.thingWithoutSpaces.thisIsAThing'], 0], "wuzz", status)
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     status = runTest(configField.getSpecificData, [['testInclude."Thing With Spaces"."this is a thing"'], 0], "fuzz", status)
     status = runTest(configField.getSpecificData, [['"testInclude.Thing With Spaces.this is a thing"'], 0], "fuzz", status)
     configField = ConfigField(dataType=BOM)
-    status = runTest(configField.name, [["testB"], 0], ["testbom"], status)
-    status = runTest(configField.name, [["testbom.DbAuth"], 0], ["testbom"], status)
-    status = runTest(configField.name, [['sho', 'bom', 'testb'], 2], ["testbom"], status)
+    status = runTest(configField.preferredNames, [["testB"], 0], ["testbom"], status)
+    status = runTest(configField.preferredNames, [["testbom.DbAuth"], 0], ["testbom"], status)
+    status = runTest(configField.preferredNames, [['sho', 'bom', 'testb'], 2], ["testbom"], status)
     endTest(status)

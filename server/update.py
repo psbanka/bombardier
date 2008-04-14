@@ -6,8 +6,8 @@ from BombardierRemoteClient import BombardierRemoteClient
 
 class UpdateRemoteClient(BombardierRemoteClient):
 
-    def __init__(self, hostName, password, dataPath, outputHandle, packageData, svnPath = '', svnUser=''):
-        BombardierRemoteClient.__init__(self, hostName, password, dataPath, outputHandle, packageData)
+    def __init__(self, hostName, password, dataPath, outputHandle, svnPath = '', svnUser=''):
+        BombardierRemoteClient.__init__(self, hostName, password, dataPath, outputHandle)
         self.svnUser = svnUser
         if svnPath:
             self.svnPath = svnPath

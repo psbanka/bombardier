@@ -91,6 +91,13 @@ class RemoteClient:
         template = "==> [From %s]: " % self.hostName
         self.templateOutput(template + "%s\n", fromText)
 
+    def terminate(self):
+        result = self.s.terminate()
+        if result:
+            self.status = DISCONNECTED
+            return OK
+        return FAIL
+
     def connect(self):
         self.s = pxssh.pxssh()
         self.s.timeout = 6000

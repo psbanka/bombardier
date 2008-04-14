@@ -6,15 +6,15 @@ import PinshCmd
 from commonUtil import *
 
 class FileNameField(PinshCmd.PinshCmd):
-    def __init__(self, startDir='', crusty = True):
+    def __init__(self, startDir='', allowAny = False):
         PinshCmd.PinshCmd.__init__(self, "fileNameField", tokenDelimiter = '')
         self.helpText = "<file>\tthe name of a file"
         self.startDir = startDir
         self.cmdOwner = 0
-        self.crusty   = crusty
+        self.allowAny = allowAny
 
     def match(self, tokens, index):
-        names = self.name(tokens, index) 
+        names = self.acceptableNames(tokens, index) 
         if len(names) == 0:
             return NO_MATCH, 1
         if len(names) > 1:
@@ -22,18 +22,18 @@ class FileNameField(PinshCmd.PinshCmd):
         else:
             return COMPLETE, 1
 
-    def name(self, tokens, index):
+    def preferredNames(self, tokens, index):
         if self.startDir:
             names = [name.split(self.startDir+'/')[-1] for name in glob.glob("%s/%s*" % (self.startDir, tokens[index]))]
-            #return [name.split(self.startDir+'/')[-1] for name in names]
-            #return [name.partition(self.startDir)[2][1:] for name in names]
         else:
             names = glob.glob("%s*" % tokens[index])
-        if len(names) == 0:
-            if self.crusty:
-                return []
-            else:
-                return tokens[index]
+        return names
+
+    def acceptableNames(self, tokens, index):
+        names = self.preferredNames(tokens, index)
+        if self.allowAny:
+            if tokens[index] not in names:
+                names.insert(0, tokens[index])
         return names
 
 if __name__ == "__main__":
@@ -51,5 +51,5 @@ if __name__ == "__main__":
     fnf2 = FileNameField(startDir="deploy")
     status = runTest(fnf2.match, [["include"], 0], (COMPLETE, 1), status)
     status = runTest(fnf2.match, [["include/test"], 0], (PARTIAL, 1), status)
-    status = runTest(fnf2.name, [["include/testI"], 0], ["include/testInclude.yml"], status)
+    status = runTest(fnf2.preferredNames, [["include/testI"], 0], ["include/testInclude.yml"], status)
     endTest(status)

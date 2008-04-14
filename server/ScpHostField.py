@@ -31,10 +31,10 @@ class ScpHostField(PinshCmd.PinshCmd):
             target = dest.split(':')[0]
         else:
             target = dest
-        possibleHostNames = self.bomHostField.name([target], 0)
+        possibleHostNames = self.bomHostField.preferredNames([target], 0)
         return possibleHostNames
 
-    def name(self, tokens, index):
+    def preferredNames(self, tokens, index):
         dest = tokens[index]
         hostNames = self.getPossibleHostNames(dest)
         if ':' in dest:
@@ -58,7 +58,7 @@ class ScpHostField(PinshCmd.PinshCmd):
         return []
 
     def match(self, tokens, index):
-        possibleMatches = self.name(tokens, index)
+        possibleMatches = self.preferredNames(tokens, index)
         if not possibleMatches:
             return NO_MATCH, 1
         if len(possibleMatches) > 1:
@@ -71,11 +71,11 @@ if __name__ == "__main__":
     hostField = ScpHostField()
     status = OK
     startTest()
-    status = runTest(hostField.name, [["bigap:/usr/l"], 0], ['bigap:/usr/lib/', 'bigap:/usr/libexec/', 'bigap:/usr/local/'], status)
-    status = runTest(hostField.name, [["biga"], 0], ['bigap'], status)
-    status = runTest(hostField.name, [["/usr/l"], 0], ['/usr/lib', '/usr/lib64', '/usr/local'], status)
-    status = runTest(hostField.name, [["/tmp/2.ovpn"], 0], ['/tmp/2.ovpn'], status)
-    status = runTest(hostField.name, [["bigap:/tmp/"], 0], ['bigap:/tmp/sudoers', 'bigap:/tmp/'], status)
-    #status = runTest(hostField.name, [["/tmp/"], 0], ['/tmp/'], status)
+    status = runTest(hostField.preferredNames, [["bigap:/usr/l"], 0], ['bigap:/usr/lib/', 'bigap:/usr/libexec/', 'bigap:/usr/local/'], status)
+    status = runTest(hostField.preferredNames, [["biga"], 0], ['bigap'], status)
+    status = runTest(hostField.preferredNames, [["/usr/l"], 0], ['/usr/lib', '/usr/lib64', '/usr/local'], status)
+    status = runTest(hostField.preferredNames, [["/tmp/2.ovpn"], 0], ['/tmp/2.ovpn'], status)
+    status = runTest(hostField.preferredNames, [["bigap:/tmp/"], 0], ['bigap:/tmp/sudoers', 'bigap:/tmp/'], status)
+    #status = runTest(hostField.preferredNames, [["/tmp/"], 0], ['/tmp/'], status)
     endTest(status)
 

@@ -20,7 +20,7 @@ class Variable(PinshCmd.PinshCmd):
             return NO_MATCH, 1
         return PARTIAL, 1
 
-    def name(self, tokens, index):
+    def preferredNames(self, tokens, index):
         if self.match(tokens, index) == (PARTIAL, 1):
             return [tokens[index]]
         return []

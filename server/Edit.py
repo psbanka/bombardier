@@ -20,15 +20,7 @@ class Edit(PinshCmd.PinshCmd):
             return FAIL, []
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
-        names = self.fileNameField.name(tokens, 1)
-        if len(names) < 1:
-            return FAIL, ["Unknown filename: %s" % tokens[1]]
-        if len(names) > 1:
-            if not os.path.isfile("deploy/%s" % tokens[1]):
-                return FAIL, ["Ambiguous filename: %s" % tokens[1]]
-            else:
-                names = [tokens[1]]
-        fileName = mode.dataPath+"/deploy/%s" % names[0]
+        fileName = mode.dataPath+"/deploy/%s" % tokens[1]
         editor = mode.config.get("editor", "/usr/bin/vim")
         os.system("%s %s" % (editor, fileName))
         return OK, []

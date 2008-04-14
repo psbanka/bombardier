@@ -58,8 +58,8 @@ class PackageField(PinshCmd.PinshCmd):
         print "VIRTUAL"
         return []
 
-    def name(self, tokens, index):
-        hostNames = self.bomHostField.name(tokens, index-1)
+    def preferredNames(self, tokens, index):
+        hostNames = self.bomHostField.preferredNames(tokens, index-1)
         if len(hostNames) != 1:
             return []
         hostName = hostNames[0]
@@ -73,7 +73,7 @@ class PackageField(PinshCmd.PinshCmd):
         return []
 
     def match(self, tokens, index):
-        possibleMatches = self.name(tokens, index)
+        possibleMatches = self.preferredNames(tokens, index)
         if len(possibleMatches) == 0:
             return INCOMPLETE, 1
         elif len(possibleMatches) == 1:
@@ -95,7 +95,7 @@ class BasicPackageField(PackageField):
         uniquePkgNames = list(set(filteredNames))
         return uniquePkgNames
 
-    def name(self, tokens, index):
+    def preferredNames(self, tokens, index):
         possibleMatches = self.possiblePackageNames('', tokens[index])
         if possibleMatches:
             return possibleMatches
@@ -165,6 +165,6 @@ if __name__ == "__main__":
     status = runTest(pField.match, [["lilap", "foo"], 1], (INCOMPLETE, 1), status)
     status = runTest(pField.match, [["lilap", "CgApache"], 1], (INCOMPLETE, 1), status)
     status = runTest(pField.match, [["foo"], 0], (INCOMPLETE, 1), status)
-    status = runTest(puField.name,  [["testdb", "Sql"], 1], ["SqlBackup-8"], status)
+    status = runTest(puField.preferredNames,  [["testdb", "Sql"], 1], ["SqlBackup-8"], status)
     endTest(status)
 

@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
-import pxssh, pexpect
 import sys, re, os, getpass, base64, time
 import yaml
-import Client
 import StringIO
 import traceback
 from RemoteClient import RemoteClient, ClientConfigurationException
@@ -218,8 +216,7 @@ class BombardierRemoteClient(RemoteClient):
                 if foundIndex == 1:
                     self.dumpTrace()
                     self.s.prompt()
-                    returnCode = FAIL
-                    break
+                    return FAIL, ["Client raised an exception."]
                 if foundIndex == 0:
                     self.debugOutput("BOMBARDIER HAS EXITED")
                     if self.s.before.strip():
@@ -243,6 +240,14 @@ class BombardierRemoteClient(RemoteClient):
                 message=message.strip()
                 if not self.processMessage(message):
                     self.fromOutput(message)
+        except KeyboardInterrupt:
+            self.debugOutput("Cleaning up...", "\nCleaning up...")
+            if self.terminate() == OK:
+                self.debugOutput("Disconnected", "\nDisconnected")
+            else:
+                self.debugOutput("Could not disconnect", "\nCould not disconnect")
+            raise KeyboardInterrupt
+
         except Exception, e:
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
@@ -252,9 +257,9 @@ class BombardierRemoteClient(RemoteClient):
             if not self.debug:
                 self.outputHandle.write('\n')
             for line in data.split('\n'):
-                ermsg = "%% %s\n" % line
+                ermsg = "%% %s" % line
                 self.debugOutput(ermsg, ermsg)
-            return FAIL, []
+            return FAIL, ["Exception in client-handling code."]
 
         self.getStatusYml()
         if not self.debug:

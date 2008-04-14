@@ -269,11 +269,11 @@ class Job(Logger):
                  "lastRun": self.lastRun, "bomshCmd" : self.bomshCmd, "lastStatus": self.lastStatus}
 
     def spawn(self, process):
+        self.lastRun = time.time()
+        self.nextRun = self.lastRun + self.freq
         if self.enabled == "no":
             self.info("Not running job %s: it is disabled." % self.name)
             return FAIL
-        self.lastRun = time.time()
-        self.nextRun = self.lastRun + self.freq
         self.debug("spawn: lastRun: %s nextRun: %s" %(self.lastRun, self.nextRun))
         if self.isRunning():
             self.error("Refusing to run %s; it is already running" % self.name)

@@ -39,8 +39,8 @@ class ScriptField(PinshCmd.PinshCmd):
                 possibleCompletions.append(i)
         return possibleCompletions
 
-    def name(self, tokens, index):
-        hostNames = self.bomHostField.name(tokens, index-2)
+    def preferredNames(self, tokens, index):
+        hostNames = self.bomHostField.preferredNames(tokens, index-2)
         if len(hostNames) != 1:
             return ''
         hostName = hostNames[0]
@@ -56,7 +56,7 @@ class ScriptField(PinshCmd.PinshCmd):
         return ''
 
     def match(self, tokens, index):
-        possibleMatches = self.name(tokens, index)
+        possibleMatches = self.preferredNames(tokens, index)
         if not possibleMatches:
             return NO_MATCH, 1
         if len(possibleMatches) > 1:
@@ -68,9 +68,9 @@ if __name__ == "__main__":
     scriptField = ScriptField()
     status = OK
     startTest()
-    status = runTest(scriptField.name, [["bigap", "Conn", "conn"], 2], ["connectTest"], status)
-    status = runTest(scriptField.name, [["bigs", "con", "co"], 2], ["connectTest"], status)
-    status = runTest(scriptField.name, [["virtap", "a", "a"], 2], "", status)
-    status = runTest(scriptField.name, [["foo", "Conn", 'conn'], 2], '', status)
+    status = runTest(scriptField.preferredNames, [["bigap", "Conn", "conn"], 2], ["connectTest"], status)
+    status = runTest(scriptField.preferredNames, [["bigs", "con", "co"], 2], ["connectTest"], status)
+    status = runTest(scriptField.preferredNames, [["virtap", "a", "a"], 2], "", status)
+    status = runTest(scriptField.preferredNames, [["foo", "Conn", 'conn'], 2], '', status)
     endTest(status)
 

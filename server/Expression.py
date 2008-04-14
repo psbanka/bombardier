@@ -16,7 +16,7 @@ class Expression(PinshCmd.PinshCmd):
         #print "exp-match %s\n" % ( len(tokens) - index )
         return PARTIAL, len(tokens) - index
 
-    def name(self, tokens, index):
+    def preferredNames(self, tokens, index):
         pyChucker(index)
         #print tokens[-1],'\n'
         return [tokens[-1], tokens[-1]]

@@ -64,7 +64,7 @@ class Enable(PinshCmd.PinshCmd):
         if not os.path.isfile(pubKeyFile):
             return FAIL, ['You must generate a DSA ssh key with "ssh-keygen -t dsa"']
         try:
-            hostNames = self.hostList.name(tokens, 1)[0]
+            hostNames = self.hostList.preferredNames(tokens, 1)[0]
         except:
             return FAIL, ["Invalid host name: %s" % tokens[2]]
         overallStatus = OK

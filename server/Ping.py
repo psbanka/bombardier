@@ -12,6 +12,7 @@ class Ping(PinshCmd.PinshCmd):
         PinshCmd.PinshCmd.__init__(self, "ping")
         self.helpText = "ping\tping a host to determine connectivity"
         self.bomHostField = BomHostField.BomHostField()
+        self.bomHostField.allowAny = True
         self.children = [self.bomHostField]
         self.level = 0
         self.cmdOwner = 1
@@ -22,20 +23,17 @@ class Ping(PinshCmd.PinshCmd):
             return FAIL, []
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
-        hostNames = self.bomHostField.name(tokens, 1)
-        if len(hostNames) == 0:
-            return FAIL, ["Unknown host %s" % tokens[1]]
-        if len(hostNames) > 1:
-            return FAIL, ["Ambiguous host %s" % tokens[1]]
-        hostName = hostNames[0]
+        hostName = tokens[1]
         ipAddress = self.bomHostField.ipAddress(hostName)
         s = pexpect.spawn(PING+" -c 1 "+ipAddress, timeout=3)
-        i = s.expect([pexpect.TIMEOUT, "PING "], timeout=3)
+        i = s.expect([pexpect.TIMEOUT, "PING ", "ping: unknown host"], timeout=9)
         if i == 1:
             sys.stdout.write("pinging %s" % self.bomHostField.ipAddress(hostName))
             sys.stdout.flush()
+        elif i == 2:
+            return FAIL, ["Unknown host: %s" % ipAddress]
         else:
-            return FAIL, ["Error in ping command (%s)" % PING]
+            return FAIL, ["Error running %s" % PING]
         for j in range(3):
             pyChucker(j)
             i = s.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=1)

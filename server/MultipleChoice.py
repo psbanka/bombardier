@@ -32,7 +32,7 @@ class MultipleChoice(PinshCmd.PinshCmd):
             return PARTIAL, 1
         return NO_MATCH, 1
 
-    def name(self, tokens, index):
+    def preferredNames(self, tokens, index):
         possibleChoices = []
         if tokens[index] == '':
             return self.choices
@@ -49,5 +49,5 @@ if __name__ == "__main__":
     status = runTest(multipleChoice.match, [["g"], 0], (PARTIAL, 1), status)
     status = runTest(multipleChoice.match, [["le"], 0], (COMPLETE, 1), status)
     status = runTest(multipleChoice.match, [["foofy"], 0], (NO_MATCH, 1), status)
-    status = runTest(multipleChoice.name, [["l"], 0], ["lt", "le"], status)
+    status = runTest(multipleChoice.preferredNames, [["l"], 0], ["lt", "le"], status)
     endTest(status)

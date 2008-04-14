@@ -8,8 +8,9 @@ from commands import getstatusoutput
 from Mode import HostNotEnabledException
 
 class PushConfig(PinshCmd.PinshCmd):
-    def __init__(self, name = "pushConfig"):
+    def __init__(self, name = "push"):
         PinshCmd.PinshCmd.__init__(self, name)
+        self.helpText = "push\tcopy the client's configuration file to the client (use 'no' to remove)"
         self.bomHostField = BomHostField.BomHostField()
         self.children = [self.bomHostField]
         self.logCommand = True
@@ -21,12 +22,7 @@ class PushConfig(PinshCmd.PinshCmd):
         start = time.time()
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
-        hostNames = self.bomHostField.name(tokens, 1)
-        if len(hostNames) == 0:
-            return FAIL, ["Unknown host %s" % tokens[1]]
-        if len(hostNames) > 1:
-            return FAIL, ["Ambiguous host %s" % tokens[1]]
-        hostName = hostNames[0]
+        hostName = tokens[1]
         try:
             r = mode.getBomConnection(hostName)
         except HostNotEnabledException:

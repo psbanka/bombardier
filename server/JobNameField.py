@@ -11,7 +11,7 @@ class JobNameField(PinshCmd.PinshCmd):
         self.cmdOwner = 0
 
     def match(self, tokens, index):
-        possibleMatches = self.name(tokens, index)
+        possibleMatches = self.preferredNames(tokens, index)
         if len(possibleMatches) == 0:
             return INCOMPLETE, 1
         elif len(possibleMatches) == 1:
@@ -19,13 +19,18 @@ class JobNameField(PinshCmd.PinshCmd):
         else:
             return PARTIAL, 1
 
-    def name(self, tokens, index):
+    def preferredNames(self, tokens, index):
         userInput = [tokens[index]]
         if mode.auth != ADMIN:
             return userInput
         c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
         jobs = c.sendSecure(TB_SHOW, [])[0]
         output = [ job for job in jobs if job.startswith(tokens[index]) ]
+        return output
+
+    def acceptableNames(self, tokens, index):
+        userInput = [tokens[index]]
+        output = self.preferredNames(tokens, index)
         if userInput != ['']:
             output += userInput
         return output
@@ -46,9 +51,10 @@ if __name__ == "__main__":
     tb.start()
     mode.password = "fooman"
     
-    status = runTest(jobNameField.name, [[""], 0], ["checker", "statlilap"], status)
-    status = runTest(jobNameField.name, [["c"], 0], ["checker", 'c'], status)
-    status = runTest(jobNameField.name, [["w"], 0], ['w'], status)
+    status = runTest(jobNameField.preferredNames, [[""], 0], ["checker", "statlilap"], status)
+    status = runTest(jobNameField.preferredNames, [["c"], 0], ["checker"], status)
+    status = runTest(jobNameField.preferredNames, [["w"], 0], [], status)
+    status = runTest(jobNameField.acceptableNames, [["w"], 0], ['w'], status)
     c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
     c.sendSecure(TB_KILL, [])
     endTest(status)

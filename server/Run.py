@@ -16,15 +16,7 @@ class Run(PinshCmd.PinshCmd):
 
     def cmd(self, tokens, noFlag, slash):
         if noFlag: pass
-        fileNames = self.fileNameField.name(tokens, 1)
-        if len(fileNames) == 0:
-            return FAIL, ["invalid file: %s" % tokens[1]]
-        if len(fileNames) > 1:
-            if os.path.isfile(tokens[1]):
-                fileName = tokens[1]
-            return FAIL, ["Ambiguous file: %s" % tokens[1]]
-        else:
-            fileName = fileNames[0]
+        fileName = tokens[1]
         lines = open(fileName).readlines()
         status = OK
         mode.batch = True

@@ -19,7 +19,7 @@ class List(PinshCmd.PinshCmd):
             return COMPLETE, len(tokens) - index
         return PARTIAL, len(tokens) - index
 
-    def name(self, tokens, index):
+    def preferredNames(self, tokens, index):
         pyChucker(index)
         return [tokens[-1], tokens[-1]]
 

@@ -16,7 +16,7 @@ def getNames(objects, tokens, index):
     names = []
     for obj in objects:
         if DEBUG: print "(GET NAMES) obj.myName:",obj.myName
-        newName = obj.name(tokens, index)
+        newName = obj.preferredNames(tokens, index)
         if type(newName) == type("string"):
             names.append(newName)
         else:
@@ -40,9 +40,11 @@ class PinshCmd:
     def __repr__(self):
         return self.myName
 
-    def name(self, tokens, index):
-        if tokens or index: pass # pychecker
+    def preferredNames(self, tokens, index):
         return [self.myName]
+
+    def acceptableNames(self, tokens, index):
+        return self.preferredNames(tokens, index)
 
     def match(self, tokens, index):
         if self.auth > mode.auth:
@@ -100,17 +102,12 @@ class PinshCmd:
                 completionObjects.append(child)
             elif matchValue == COMPLETE: # go see if there are more tokens!
                 if DEBUG: print "findcompletions COMPLETE : matchValue:",matchValue, "length:",length
-                #print ">>>", child.name(tokens, index)
-                #print ">>>", child.name(tokens, index)[0]
-                #print ">>>", child.name(tokens, index)[0].split(' ')
-                #print ">>>", child.name(tokens, index)[0].split(' ')[-1]
-                tokens[index+length-1] = child.name(tokens, index)[0].split(' ')[-1]
-                #tokens[index] = child.name(tokens, index)[0]
+                tokens[index+length-1] = child.preferredNames(tokens, index)[0].split(' ')[-1]
                 if DEBUG: print "NEW TOKEN:", tokens[index]
                 return child.findCompletions(tokens, index+length)
         if len(completionObjects) == 1: # one partial match is as good as a complete match
-            if index+matchLen >= len(tokens):  # NOTE: HIGHLY EXPERIMENTAL CHANGE
-                return [completionObjects[0]], index+1  # NOTE: HIGHLY EXPERIMENTAL CHANGE
+            if index+matchLen >= len(tokens):
+                return [completionObjects[0]], index+1
             return completionObjects[0].findCompletions(tokens, index+matchLen)
         elif len(completionObjects) == 0: # No matches: go away.
             if len(incompleteObjects) > 0:
@@ -226,13 +223,7 @@ class PinshCmd:
                 else:
                     arguments.append(child)
             elif matchValue == COMPLETE:
-                #print ">>>", child.name(tokens, index)
-                #print ">>>", child.name(tokens, index)[0]
-                #print ">>>", child.name(tokens, index)[0].split(' ')
-                #print ">>>", child.name(tokens, index)[0].split(' ')[-1]
-                #tokens[index+length-1] = child.name(tokens, index)[0].split(' ')[-1]
-                tokens[index+length-1] = child.name(tokens, index)[0] # HIGHLY EXPERIMENTAL
-                #tokens[index] = child.name(tokens, index)[0]
+                tokens[index+length-1] = child.acceptableNames(tokens, index)[0]
                 if DEBUG: print "NEW TOKEN:", tokens[index]
                 if child.cmdOwner:
                     return child.findLastResponsibleChild(tokens, index+length)
