@@ -29,12 +29,11 @@ from staticData import *
 class PackageChain:
     def __init__(self, priority, startPackageName, packages,
                  installedPackageNames, brokenPackageNames, repository,
-                 config, filesystem, server, operatingSystem, instanceName):
+                 config, filesystem, operatingSystem, instanceName):
         self.depth       = 0
         self.priority    = priority
         self.packages    = packages
         self.filesystem  = filesystem
-        self.server      = server
         self.operatingSystem    = operatingSystem
         self.instanceName = instanceName
         self.chain       = [startPackageName]
@@ -114,7 +113,7 @@ class PackageChain:
 
     def getNewPackage( self, pkgName ):
         newPackage = Package.Package(pkgName, self.repository, self.config, self.filesystem, 
-                                     self.server, self.operatingSystem, self.instanceName) 
+                                     self.operatingSystem, self.instanceName) 
         newPackage.initialize()
         return newPackage
 
@@ -166,12 +165,10 @@ def findDifferences(packageConfig, configDiff, differences=[], chain=[]):
 
 class Bombardier:
 
-    def __init__(self, repository, config, 
-                 filesystem, server, operatingSystem, instanceName):
+    def __init__(self, repository, config, filesystem, operatingSystem, instanceName):
         self.repository = repository
         self.config     = config
         self.filesystem = filesystem
-        self.server     = server
         self.operatingSystem = operatingSystem
         self.instanceName    = instanceName
         self.addPackages = {}
@@ -303,7 +300,7 @@ class Bombardier:
                 newChain = PackageChain(chainPriority, packageName, packageDict,
                                         installedPackageNames, brokenPackageNames,
                                         self.repository, self.config, self.filesystem,
-                                        self.server, self.operatingSystem, self.instanceName)
+                                        self.operatingSystem, self.instanceName)
             except Exceptions.BadPackage, e:
                 errmsg = "Package %s will not be installed because it is "\
                          "dependent upon one or more broken packages" % packageName
@@ -456,10 +453,8 @@ class Bombardier:
         packages = {}
         for packageName in addPackageNames:
             try:
-                newPackage = Package.Package(packageName, self.repository,
-                                             self.config, self.filesystem,
-                                             self.server, self.operatingSystem, 
-                                             self.instanceName)
+                newPackage = Package.Package(packageName, self.repository, self.config, self.filesystem,
+                                             self.operatingSystem, self.instanceName)
                 newPackage.initialize()
                 if self.checkConfiguration(newPackage) == FAIL:
                     raise Exceptions.BadPackage(newPackage.name, "Bad Config")
@@ -476,10 +471,8 @@ class Bombardier:
                 Logger.info("Package %s is "\
                             "not on the bill of materials." % packageName)
             try:
-                newPackage = Package.Package(packageName, self.repository,
-                                             self.config, self.filesystem,
-                                             self.server, self.operatingSystem,
-                                             self.instanceName)
+                newPackage = Package.Package(packageName, self.repository, self.config, self.filesystem,
+                                             self.operatingSystem, self.instanceName)
                 newPackage.initialize()
             except Exceptions.BadPackage, e:
                 errmsg = "Skipping Bad package: %s" % `e`
@@ -501,9 +494,8 @@ class Bombardier:
                     Logger.debug("Package %s will already be deleted -- "\
                                  "ignoring" % packageName)
                     continue
-                package = Package.Package(packageName, self.repository, self.config, 
-                                          self.filesystem, self.server, self.operatingSystem,
-                                          self.instanceName)
+                package = Package.Package(packageName, self.repository, self.config, self.filesystem, 
+                                          self.operatingSystem, self.instanceName)
                 package.initialize()
                 package.action = UNINSTALL
                 for tombstonedPackageName in packageDict.keys():
@@ -532,32 +524,6 @@ class Bombardier:
                                                            installedPackageNames)
         return packageDict
 
-    ### TESTED
-    def downloadBom(self, pkgGroups):
-        Logger.info("configured for the following package groups: %s" % pkgGroups)
-        if type(pkgGroups) != type(["list"]):
-            ermsg = "Invalid input to function. Should be a list of strings, got: %s" % str(pkgGroups)
-            raise Exceptions.BadBillOfMaterials(ermsg)
-        if pkgGroups == []:
-            return []
-        packageNames = sets.Set([])
-        for pkgGroup in pkgGroups:
-            try:
-                newPackageNames = self.server.bomRequest(pkgGroup)
-            except Exceptions.FileNotFound:
-                Logger.warning("Package Group %s was not found on the server." % pkgGroup)
-                continue
-            if newPackageNames == []:
-                ermsg = "Package group %s does not exist on the repository (ignoring)" % pkgGroup
-                Logger.warning(ermsg)
-                continue
-            packageNames = packageNames.union(set(newPackageNames))
-        if len(list(packageNames)) == 0:
-            ermsg = "No packages configured for this system"
-            Logger.error(ermsg)
-            raise Exceptions.BadBillOfMaterials(ermsg)
-        return list(packageNames)
-
     def checkBom(self, bomPackageNames):
         """ Check through what should be installed on the system and what
         is installed on the system and determine what packages aren't
@@ -582,7 +548,6 @@ class Bombardier:
         return shouldBeInstalled, shouldntBeInstalled
 
     def verifySystem(self):
-        self.server.clearCache()
         progressData = self.filesystem.getProgressData()
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         testResults = {}
@@ -591,7 +556,7 @@ class Bombardier:
             try:
                 shortPackageName = miniUtility.stripVersion(fullPackageName)
                 package = Package.Package(shortPackageName, self.repository, self.config,
-                                          self.filesystem, self.server, self.operatingSystem,
+                                          self.filesystem, self.operatingSystem,
                                           self.instanceName)
                 package.initialize()
             except Exceptions.BadPackage, e:
@@ -617,7 +582,6 @@ class Bombardier:
     def checkInstallationStatus(self, packageNames = None):
         self.packageNames = packageNames
         spkgPath          = miniUtility.getSpkgPath()
-        self.server.clearCache()
         pkgGroups,individualPackageNames  = self.config.getPackageGroups()
         Logger.info("package groups: %s, individuals: %s" % (pkgGroups, individualPackageNames)) #FIXME
         if not self.inMaintenanceWindow():
@@ -627,8 +591,7 @@ class Bombardier:
         self.filesystem.chdir(spkgPath)
         if self.packageNames == None:
             Logger.info("Downloading Bill of Materials")
-            self.packageNames = self.downloadBom(pkgGroups)
-            self.packageNames += individualPackageNames
+            self.packageNames = individualPackageNames
         if self.packageNames == []:
             self.filesystem.clearLock()
             raise Exceptions.BadBillOfMaterials("Empty Bill of Materials")
@@ -683,8 +646,8 @@ class Bombardier:
             packageInfo["ok"].remove(packageName)
         for packageName in installedPackageNames:
             newPackage = Package.Package(packageName, self.repository, self.config, 
-                                         self.filesystem, self.server, self.operatingSystem,
-                                          self.instanceName) 
+                                         self.filesystem, self.operatingSystem,
+                                         self.instanceName) 
             newPackage.initialize()
             packageConfig = newPackage.getConfiguration()
             configHashPath = os.path.join(miniUtility.getSpkgPath(), "packages",
@@ -699,10 +662,8 @@ class Bombardier:
 
     def usePackage(self, packageName, action, scriptName=''):
         try:
-            package = Package.Package(packageName, self.repository,
-                                      self.config, self.filesystem,
-                                      self.server, self.operatingSystem,
-                                      self.instanceName)
+            package = Package.Package(packageName, self.repository, self.config, self.filesystem,
+                                      self.operatingSystem, self.instanceName)
             package.initialize()
             if action == 'install':
                 progressData = self.filesystem.getProgressData(stripVersionFromName = False)

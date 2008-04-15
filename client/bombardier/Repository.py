@@ -21,34 +21,100 @@
 # 02110-1301, USA.
 
 import os, tarfile, shutil
-import yaml
 from staticData import *
 import miniUtility, MetaData, Logger
-
+import md5, yaml, base64
+import Exceptions
 
 # PACKAGE FIELDS
 FULL_NAME    = "fullName"
 
+
+
 class Repository:
 
-    def __init__(self, config, filesystem, server, instanceName):
-        self.config       = config
-        self.server       = server
+    def __init__(self, filesystem, instanceName):
         self.filesystem   = filesystem
         self.instanceName = instanceName
         self.packages     = {}
 
-    # TESTED
-    def getFullPackageNames(self):
-        output = []
-        for packageName in self.packages.keys():
-            output.append(self.packages[packageName]['install'][FULL_NAME])
-        return output
+    @classmethod
+    def computeMd5(cls, filename, checksum):
+        if not checksum:
+            Logger.warning("No checksum provided for %s. Skipping check." % filename)
+            return OK, ''
+        mchk = md5.new()
+        fileHandle = open(filename, 'rb')
+        data = fileHandle.read(BLOCK_SIZE)
+        while data:
+            mchk.update(data)
+            data = fileHandle.read(BLOCK_SIZE)
+        fileHandle.flush()
+        fileHandle.close()
+        del fileHandle # necessary because the file may need to be moved before gc. -pbanka
+        computedMd5 = mchk.hexdigest()
+        if computedMd5 != checksum:
+            return FAIL, computedMd5
+        return OK, computedMd5
+
+    @classmethod
+    def packageRequest(cls, filename, instanceName, checksum):
+        dosPath = miniUtility.getPackagePath(instanceName)
+        cygPath = miniUtility.cygpath(dosPath)
+        Logger.info("==REQUEST-PACKAGE==:%s:%s" % (filename, cygPath))
+        response = sys.stdin.read(3)
+        if response.strip() != "OK":
+            Logger.error("Received an invalid response from the server")
+            raise Exceptions.FileNotFound(filename, "server told us that it didn't have our file.")
+        filepath = dosPath +'/'+filename
+        if os.path.isfile(filepath):
+            status, actualChecksum = cls.computeMd5(filepath, checksum)
+            if status != OK:
+                errmsg = "MD5Sum did not verify. Expected: (%s), got: (%s)" % (checksum, actualChecksum)
+                raise Exceptions.BadPackage(filename, errmsg)
+        raise Exceptions.FileNotFound(filepath, "did not receive from the server")
+
+    @classmethod
+    def packageInfoRequest(cls, packageName):
+        config = cls.dataRequest("==REQUEST-PKGINFO==:%s" % (packageName))
+        return config
+
+    @classmethod
+    def configRequest(cls):
+        config = cls.dataRequest("==REQUEST-CONFIG==")
+        return config
+
+    @classmethod
+    def dataRequest(cls, requestString):
+        import zlib
+        Logger.info(requestString)
+        STREAM_BLOCK_SIZE= 77
+        b64Data = []
+        while True:
+            chunk = sys.stdin.read(STREAM_BLOCK_SIZE)
+            if not chunk or chunk[0] == ' ':
+                break
+            b64Data.append(chunk)
+        yamlData = ''
+        yamlData = zlib.decompress(base64.decodestring(''.join(b64Data)))
+        Logger.debug("Received %s lines of yaml" % len(yamlData.split('\n')))
+
+        try:
+            config = yaml.load(yamlData)
+        except:
+            ermsg = "Received bad YAML: %s" % (repr(yamlData))
+            raise Exceptions.ServerUnavailable, ("config", ermsg)
+        if type(config) == type("string"):
+            Logger.error("Invalid Yaml on server: %s" % config)
+            raise Exceptions.ServerUnavailable, ("config", "invalid yaml")
+        if type(config) != type({}) and type(config) != type([]): # backwards comptible yaml
+            config = config.next()
+        return config
 
     # TESTED
     def getMetaData(self, name):
         if not name in self.packages:
-            self.packages[name] = self.server.packageInfoRequest(name)
+            self.packages[name] = self.packageInfoRequest(name)
         pkgData = self.packages.get(name)
         return MetaData.MetaData(pkgData)
 
@@ -60,8 +126,7 @@ class Repository:
             shutil.rmtree(pkgPath)
         except OSError:
             pass
-        if type(checksum) != type(["list"]):
-            filename = self.server.packageRequest(fullPackageName+".spkg", instanceName)
+        self.packageRequest(fullPackageName+".spkg", self.instanceName, checksum)
         return self.unpack(pkgPath, fullPackageName, True)
 
     def unpack(self, pkgPath, fullPackageName, removeSpkg = True):
@@ -131,3 +196,4 @@ class Repository:
                 return OK
             tries -= 1
         return FAIL
+

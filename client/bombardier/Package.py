@@ -32,15 +32,13 @@ class Package:
 
     """This class provides an abstraction for a downloadable,
     installable, verifiable, and uninstallable thing. Each
-    package is held in a database on the server and downloaded from
-    the server."""
+    package is held in the repository"""
 
     ### TESTED
-    def __init__(self, name, repository, config, filesystem, server, operatingSystem, instanceName):
+    def __init__(self, name, repository, config, filesystem, operatingSystem, instanceName):
         self.name         = name
         self.repository   = repository
         self.filesystem   = filesystem
-        self.server       = server
         self.operatingSystem      = operatingSystem
         self.instanceName = instanceName
         self.action       = INSTALL
@@ -463,23 +461,6 @@ class Package:
         d = datetime.datetime.today()
         dateString = "%d-%d-%d-%d-%d-%d" %(d.year, d.month, d.day, d.hour, d.minute, d.second ) 
         return( dateString )
-
-    def pickMostRecentPackage(self):
-        installablePackages = self.repository.getFullPackageNames()
-        targetPackages = []
-        for package in installablePackages:
-            if package.upper().startswith(self.name.upper()):
-                targetPackages.append(package)
-        if len(targetPackages) == 0:
-            return FAIL
-        selection = targetPackages[0]
-        for package in targetPackages:
-            newVersion = int(package[package.rfind('-')+1:])
-            currentVersion = int(selection[selection.rfind('-')+1:])
-            if newVersion > currentVersion:
-                selection = package
-        self.fullName = selection
-        return OK
 
     ### TESTED
     def writeProgress(self):

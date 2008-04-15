@@ -38,7 +38,6 @@ def cygpath(dospath):
 
 def cyghome():
     import RegistryDict
-    dosPath = ''
     a = RegistryDict.RegistryDict(r"SOFTWARE\Cygnus Solutions\Cygwin\mounts v2\/")
     cygwinRoot = a["native"].replace('\\', '/')
     return cygwinRoot
@@ -324,6 +323,7 @@ def convertFromSlashNotation(bits):
     if bits == 0: return 0L
     output = 0L
     for i in range(0,31):
+        pyChucker(i)
         if bits:
             output += 1
             bits -= 1

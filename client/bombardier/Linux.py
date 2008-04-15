@@ -108,6 +108,7 @@ class Linux(OperatingSystem.OperatingSystem):
         OperatingSystem.OperatingSystem.__init__(self)
 
     def run(self, fullCmd, abortIfTold, workingDirectory, console = False):
+        pyChucker(console)
         status = OK
         abortIfTold()
         if fullCmd.split(' ')[0].endswith(".py"):
@@ -170,9 +171,10 @@ class Linux(OperatingSystem.OperatingSystem):
         return status
 
     def createUser(self, username, password, userType, comment=''):
+        pyChucker(comment)
         md5Pass = md5crypt(password)
         info, warnings, errors = [], [], []
-        if userType not in [CONSOLE, SSH_USER, ADMIN_USER, DEV_USER]:
+        if userType not in [SSH_USER, ADMIN_USER, DEV_USER]:
             shell = "/bin/false"
         else:
             shell = "/bin/bash"

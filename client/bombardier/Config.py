@@ -2,7 +2,6 @@
 
 # Config.py: This class provides the functionality of providing
 # heirarchichal configuration data through either a dictionary
-# interface or a ConfigParser interface. It allows configuration
 # information to be stored either on the server or locally in the
 # config.yml file in the bombardier home directory.
 
@@ -23,11 +22,11 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import ConfigParser, yaml
+import yaml
 from staticData import *
 import miniUtility, Logger
 import random
-from Exceptions import NoSectionError, InvalidConfigData
+from Exceptions import InvalidConfigData
             
 def generatePassword():
     random.seed()
@@ -59,13 +58,11 @@ class Config(dict):
     single unified dictionary."""
     
     ### TESTED
-    def __init__(self, filesystem, server, windows):
+    def __init__(self, filesystem, repository, instanceName):
         self.filesystem = filesystem
-        self.server     = server
-        self.windows    = windows
-        self.repository = None
-        self.config     = ConfigParser.ConfigParser()
-        self.includes    = []
+        self.repository = repository
+        self.instanceName = instanceName
+        self.includes   = []
         self.automated  = False
         self.data       = {}
         self.username   = None
@@ -115,9 +112,11 @@ class Config(dict):
         return difference
 
     def readLocalConfig(self):
-        configPath = os.path.join(miniUtility.getSpkgPath(), CONFIG_FILE)
+        configPath = os.path.join(miniUtility.getSpkgPath(), self.instanceName, CONFIG_FILE)
         if not os.path.isfile(configPath):
             return FAIL
+        Logger.warning("THIS SYSTEM IS USING AN UNENCRYPTED LOCAL CONFIGURATION FILE.")
+        Logger.warning("CONFIGURATION ENTRIES ON THE SERVER WILL BE IGNORED.")
         fh = open(configPath, 'r')
         try:
             configData = fh.read()
@@ -130,8 +129,7 @@ class Config(dict):
         self.data = {}
         status = self.readLocalConfig()
         if status == FAIL:
-            self.data = self.server.configRequest()
-            self.makeConfigObject()
+            self.data = self.repository.configRequest()
         self.username = DEFAULT_USER
         self.password = generatePassword()
         self.domain   = DEFAULT_DOMAIN
@@ -147,18 +145,6 @@ class Config(dict):
                 self.domain = domain
         return OK
 
-    def makeConfigObject(self):
-        self.config = ConfigParser.ConfigParser()
-        for section in self.data.keys():
-            if not self.config.has_section(section):
-                self.config.add_section(section)
-            datum = self.data[section]
-            if type(datum) == type(dict()):
-                for option in datum.keys():
-                    value = datum[option]
-                    if type(value) != type(dict()):
-                        self.config.set(section, option, value)
-
     ### TESTED
     def set(self, section, option, value):
         if type(self.data.get(section)) != type(dict()):
@@ -167,7 +153,6 @@ class Config(dict):
                 Logger.warning(ermsg)
             self.data[section] = {}
         self.data[section][option] = value
-        self.makeConfigObject()
         return OK
 
     def has_section(self, sectionQuery):
@@ -187,19 +172,13 @@ class Config(dict):
                             return True
         return False
 
-    def options(self, section):
-        output = []
-        if self.config.has_section(section):
-            output = self.config.options(section)
-        for includeName in self.includes.keys():
-            output += self.includes[includeName].options(section)
-        return output
-
     ### TESTED
     def get(self, section, option, default='', optional=True):
+        pyChucker(optional)
         return str(self.get_raw(section, option, default))
 
     def get_dict(self, section, option, default={}, optional=True):
+        pyChucker(optional)
         result = self.get_raw(section, option, default)
         if result.__class__ == {}.__class__:
             return result
@@ -207,6 +186,7 @@ class Config(dict):
             raise TypeError
 
     def get_raw(self, section, option, default=None, optional=True):
+        pyChucker(optional)
         if self.data.has_key(section):
             if self.data[section].has_key(option):
                 return self.data[section][option]
@@ -223,9 +203,9 @@ class Config(dict):
             return default
         else:
             if self.data.has_key(section):
-                raise ConfigParser.NoOptionError(option, section)
+                raise InvalidConfigData("Option %s not found for section %s" % (option, section), None, None)
             else:
-                raise ConfigParser.NoSectionError(section)
+                raise InvalidConfigData("Section %s not found" % section, None, None)
 
     def parseSection(self, sectionString, default, optional):
         sections = sectionString.split('.')
@@ -238,7 +218,7 @@ class Config(dict):
                 break
         if d == None:
             if not optional:
-                raise NoSectionError(section, sectionString)
+                raise InvalidConfigData("Option %s not found" % sectionString, None, None)
             d = default
         return d
 

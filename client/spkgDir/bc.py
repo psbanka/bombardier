@@ -46,9 +46,15 @@ actionDict = { UNINSTALL:'uninstall', CONFIGURE:'configure',
                RECONCILE:'reconcile', STATUS:'status', 
                EXECUTE:'execute', FIX:'fix', PURGE:'purge' } 
 
+class NoInstanceError(Exception):
+    def __init__(self, instanceName):
+        Exception.__init__(self)
+        self.instanceName = instanceName
+    def __repr__(self):
+        return "Attempting operation on a non-existant instance: %s" % self.instanceName
 
-def findLikelyPackageName(packageName):
-    statusYml = yaml.load(open('status.yml').read())
+def findLikelyPackageName(instanceName, packageName):
+    statusYml = yaml.load(open(getProgressPath(instanceName)).read())
     packageNames = []
     statusPackages = statusYml['install-progress']
     for name in statusPackages:
@@ -67,8 +73,8 @@ def findLikelyPackageName(packageName):
         logger.info( 'Using %s' %packageName)
         return packageName
 
-def fixSpkg(packageName, action):
-    statusData = open(getProgressPath(), 'r').read()
+def fixSpkg(instanceName, packageName, action):
+    statusData = open(getProgressPath(instanceName), 'r').read()
     status = yaml.load(statusData)
     if status.get("install-progress") == None:
         logger.error( "Status file is empty." )
@@ -100,15 +106,15 @@ def fixSpkg(packageName, action):
             possibleNames = [x for x in packageNames if packageName in x]
             logger.info("Maybe you want one of these: %s" % str(possibleNames))
             return FAIL
-    open(getProgressPath(), 'w').write(yaml.dump(status))
+    open(getProgressPath(instanceName), 'w').write(yaml.dump(status))
     return OK
 
-def getBc():
+def getBc(instanceName):
     import bombardier.Filesystem, bombardier.Exceptions
     filesystem = bombardier.Filesystem.Filesystem()
     filesystem.clearLock()
-    server = bombardier.Server.Server(filesystem)
-    config = bombardier.Config.Config(filesystem, server, bombardier.OperatingSystem.OperatingSystem())
+    repository = bombardier.Repository.Repository(filesystem, instanceName)
+    config = bombardier.Config.Config(filesystem, repository)
     try:
         config.freshen()
     except bombardier.Exceptions.ServerUnavailable, e:
@@ -121,22 +127,32 @@ def getBc():
         import bombardier.Windows
         operatingSystem = bombardier.Windows.Windows()
 
-    repository = bombardier.Repository.Repository(config, filesystem, server)
-    bc = bombardier.BombardierClass.Bombardier(repository, config,
-                                               filesystem, server,
-                                               operatingSystem)
+    bc = bombardier.BombardierClass.Bombardier(repository, config, filesystem, 
+                                               operatingSystem, instanceName)
     return bc
 
-def processAction(action, packageName, scriptName):
+def instanceSetup(instanceName):
+    statusDct = {"status": {"newInstall": "True"}}
+    os.makedirs("%s/packages" % instanceName)
+    open(getProgressPath(instanceName), 'w').write(yaml.dump(statusDct))
+
+
+def processAction(action, instanceName, packageName, scriptName):
+    if not os.path.isdir(instanceName):
+        if action in [ INSTALL, RECONCILE ]:
+            instanceSetup(instanceName)
+        else:
+            raise NoInstanceError(instanceName)
+    
     if action in [ UNINSTALL, VERIFY, CONFIGURE, EXECUTE ]:
-        packageName = findLikelyPackageName(packageName)         
+        packageName = findLikelyPackageName(instanceName, packageName)
 
     status = FAIL
     try:
         if action in [ FIX, PURGE ]:
-            status = fixSpkg(packageName, action)
+            status = fixSpkg(instanceName, packageName, action)
             return status
-        bc = getBc()
+        bc = getBc(instanceName)
         if action == STATUS:
             statusDict = bc.checkSystem()
             if type(statusDict) == type({}):
@@ -169,10 +185,16 @@ if __name__ == "__main__":
     import optparse
     addStdErrLogging()
 
-    packageName = ""    
-    scriptName  = ""
-    
-    parser = optparse.OptionParser("usage: %prog [option] [package-name]")
+    usage  = ["usage: %prog { -s | -r } INSTANCE | "]
+    usage += ["       %prog { -c | -v | -i | -u } INSTANCE PACKAGE-NAME [ PACKAGE-NAME2 ... ] | "]
+    usage += ["       %prog { -f | -p } INSTANCE FULL-PACKAGE-NAME [FULL-PACKAGE-NAME2 ... ] | "]
+    usage += ["       %prog -x INSTANCE PACKAGE-NAME SCRIPT-NAME "]
+    usage += ['']
+    usage += ["INSTANCE := A complete bombardier client configuration"]
+    usage += ["PACKAGE-NAME := An individual software module"]
+    usage += ["FULL-PACKAGE-NAME := {PACKAGE-NAME}-{PACKAGE-REVISION}"]
+    usage += ["SCRIPT-NAME := The name of a maintenance script that resides in the package"]
+    parser = optparse.OptionParser('\n'.join(usage))
 
     parser.add_option("-s", "--status", dest="action",
                       action="store_const", const=STATUS,
@@ -203,25 +225,31 @@ if __name__ == "__main__":
                       help="Remove a package from the status")
 
     (options, args) = parser.parse_args()
-    if options.action not in [ RECONCILE, STATUS]:
-        if len(args) < 1:
+    if len(args) < 1:
+        print "This command requires an instance name."
+        parser.print_help()
+        sys.exit(1)
+    instanceName = args[1]
+
+    if options.action in [ RECONCILE, STATUS]:
+        status = processAction(options.action, instanceName, '', '')
+    else:
+        scriptName   = ""
+        if len(args) < 2:
             print "This command requires a package name as an argument."
             parser.print_help()
             sys.exit( 1 )
-        packageNames = args
+        packageNames = args[2:]
         if options.action == EXECUTE:
-            if len(args) != 2:
+            if len(args) != 3:
                 print "This command requires a package name and a script name."
                 parser.print_help()
                 sys.exit( 1 )
-            packageNames = args[:-1]
-            scriptName = args[-1]
+            packageNames = args[2]
+            scriptName = args[3]
 
         for packageName in packageNames:
-            status = processAction(options.action, packageName, scriptName)
+            status = processAction(options.action, instanceName, packageName, scriptName)
             if status != OK:
                  sys.exit(status)
-    else:
-        status = processAction(options.action, packageName, scriptName)
-    
     sys.exit(status)

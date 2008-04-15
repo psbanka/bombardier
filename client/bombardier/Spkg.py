@@ -21,16 +21,20 @@ class SpkgException( Exception ):
     def __repr__(self):
         return self.errorMessage
 
+def getInstance():
+    spkgPath = miniUtility.getSpkgPath()
+    instanceName = cwd.split(spkgPath)[1].split(os.path.sep)[0]
+    return instanceName
+
 def getConfig():
     import bombardier.Config as Config
     import bombardier.Filesystem as Filesystem
-    import bombardier.Server as Server
-    import bombardier.OperatingSystem as OperatingSystem
-
-    filesystem      = Filesystem.Filesystem()
-    server          = Server.Server()
-    operatingSystem = OperatingSystem.OperatingSystem()
-    config          = Config.Config(filesystem, server, operatingSystem)
+    import bombardier.Repository as Repository
+    cwd = os.getcwd()
+    instanceName = getInstance()
+    filesystem = Filesystem.Filesystem()
+    repository = bombardier.Repository.Repository(filesystem, instanceName)
+    config = Config.Config(filesystem, repository, instanceName)
     config.freshen()
     return config
 

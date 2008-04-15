@@ -20,6 +20,18 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
+class InvalidConfigData(Exception):
+    def __init__(self, section, t1, t2):
+        e = Exception()
+        Exception.__init__(e)
+        self.section = section
+        self.t1      = t1
+        self.t2      = t2
+    def __repr__(self):
+        return "Unable to read configuration data: %s. [expected %s, got %s]" % (self.section, self.t1, self.t2)
+    def __str__(self):
+        return "Unable to read configuration data: %s. [expected %s, got %s]" % (self.section, self.t1, self.t2)
+
 class FeatureRemovedException(Exception):
     def __init__(self, featureName):
         e = Exception()

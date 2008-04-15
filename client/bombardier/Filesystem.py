@@ -21,7 +21,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import shutil, os, sys, tarfile, gzip, yaml, re, time, random
+import shutil, os, sys, tarfile, gzip, yaml, re, time
 import Exceptions, miniUtility, Logger
 from staticData import *
 
@@ -74,6 +74,9 @@ def deleteDirectory( path ):
         makeWritableRecursive( path )
         shutil.rmtree( path )
 
+def removeDirectory(path):
+    deleteDirectory(path)
+
 def removeFile( path ):
     if os.path.isfile( path ):
         makeFileWritable(path)
@@ -118,6 +121,9 @@ def deleteDirectories( deletePaths ):
         return REBOOT
     else:
         return OK
+
+def removeDirectories( deletePaths ):
+    return deleteDirectories( deletePaths)
 
 class Filesystem:
 

@@ -73,49 +73,6 @@ def installFont(fontPath):
                              keyName, 0, winreg.KEY_SET_VALUE)
     winreg.SetValueEx(fontKey, "fontName", 0, winreg.REG_SZ, baseName)
 
-def consoleFail( errorString="Failed, error unknown" ):
-    Logger.error( errorString )
-    miniUtility.consoleSync( FAIL )
-    sys.exit(FAIL)
-
-def rmScheduledFile(filename):
-    if sys.platform == "linux2":
-        Logger("Removing a file in a scheduled manner is not necessary in Linux")
-        return
-    try:
-        win32api.MoveFileEx(filename, None,
-                            win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
-    except pywintypes.error, e:
-        Logger.error("Cannot remove file: %s (%s)" % (filename, e))
-
-def rmScheduledDir(path):
-        for root, dirs, files in os.walk(path):
-                for name in files:
-                        rmScheduledFile(os.path.join(root, name))
-                for name in dirs:
-                        rmScheduledFile(os.path.join(root, name))
-
-def removeDirectory( path ):
-    if os.path.isdir( path ):
-        makeWritableRecursive( path )
-        shutil.rmtree( path )
-
-def removeDirectories( deletePaths ):
-    reboot = False
-    for path in deletePaths:
-        if os.path.isdir(path):
-            Logger.info( "Attempting to remove %s" %(path) )
-            try:
-                removeDirectory(path)
-            except:
-                rmScheduledDir(path)
-                reboot = True
-    if reboot:
-        return REBOOT
-    else:
-        return OK
-
-
 # ================================================== Simple utilities
 def replaceInFile(regex, newData, filename, add = 1):
     """will open a file and parse through the whole thing, 
