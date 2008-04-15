@@ -1,6 +1,9 @@
 import re, os, yaml
-import Filesystem
 from staticData import *
+import miniUtility
+import sys
+import Config, Filesystem
+import Repository
 
 def doubleEscape(oldString):
     outString = ''
@@ -23,29 +26,26 @@ class SpkgException( Exception ):
 
 def getInstance():
     spkgPath = miniUtility.getSpkgPath()
-    instanceName = cwd.split(spkgPath)[1].split(os.path.sep)[0]
+    instanceName = os.getcwd().split(spkgPath)[1].split(os.path.sep)[0]
     return instanceName
 
 def getConfig():
-    import bombardier.Config as Config
-    import bombardier.Filesystem as Filesystem
-    import bombardier.Repository as Repository
-    cwd = os.getcwd()
     instanceName = getInstance()
     filesystem = Filesystem.Filesystem()
-    repository = bombardier.Repository.Repository(filesystem, instanceName)
+    repository = Repository.Repository(filesystem, instanceName)
     config = Config.Config(filesystem, repository, instanceName)
     config.freshen()
     return config
 
-def main(cls):
-    import sys
-    import bombardier.Logger as Logger
-    from bombardier.staticData import OK, FAIL
-    Logger.addStdErrLogging()
-
+def mainBody(pkgVersion, cls):
+    import Logger
     config = getConfig()
-    ha = cls(config, futurePackages = [], logger=Logger.logger)
+    ha = None
+    if pkgVersion < 4:
+        ha = cls(config, futurePackages = [], logger=Logger.logger)
+    else:
+        ha = cls(config, Logger.logger)
+    Logger.addStdErrLogging()
     action = sys.argv[-1].lower()
     status = OK
     if action == "install":
@@ -61,9 +61,15 @@ def main(cls):
         status = FAIL
     sys.exit(status)
 
-def dumpReport(report, config, logger):
-    import miniUtility
-    outputPath = os.path.join(miniUtility.getSpkgPath(), "output")
+def main(cls):
+    mainBody(3, cls)
+
+def mainV4(cls):
+    mainBody(4, cls)
+
+def dumpReportV4(report, logger):
+    instanceName = getInstance()
+    outputPath = os.path.join(miniUtility.getSpkgPath(), instanceName, "output")
     if not os.path.isdir(outputPath):
         os.makedirs(outputPath)
     scriptName = sys.argv[-1].split(".py")[0]
@@ -73,13 +79,20 @@ def dumpReport(report, config, logger):
     for line in yamlString.split('\n'):
         logger.info("==REPORT==:%s" % line)
 
-class Spkg:
+def dumpReport(report, config, logger):
+    pyChucker(config)
+    dumpReportV4(report, logger)
+    
+class SpkgV4:
 
-    def __init__(self, config, filesystem = Filesystem.Filesystem(), futurePackages = [], logger = None):
+    def __init__(self, config, logger = None, filesystem = Filesystem.Filesystem()):
+        pyChucker(config)
         self.thisPackagesName = self._getname()
         self.filesystem = filesystem
-        self.futurePackages = futurePackages
-        self.stderr = True
+        self.stderr   = True
+        self.server   = None
+        self.instance = None
+        self.port     = None
         if logger == None:
             import Logger
             self.logger = Logger.logger
@@ -156,6 +169,22 @@ class Spkg:
                     if port != '':
                         dataSource += ","+port
         return dataSource
+
+    def _abstracty(self):
+        self.error("Attempting to call an abstract method")
+        return FAIL
+
+    def configure(self):
+        return self._abstracty()
+
+    def verify(self):
+        return self._abstracty()
+
+    def installer(self):
+        return self._abstracty()
+
+    def uninstaller(self):
+        return self._abstracty()
     
     def modifyTemplate(self, inputFile, outputFile, encoding=None, processEscape = False):
         status = OK
@@ -198,3 +227,9 @@ class Spkg:
         self.info("Template: " + inputFile )
         self.info("Created: " + outputFile )
         return status
+
+class Spkg(SpkgV4):
+    def __init__(self, config, filesystem = Filesystem.Filesystem(), futurePackages = [], logger = None):
+        self.futurePackages = futurePackages
+        SpkgV4.__init__(self, config, logger, filesystem)
+

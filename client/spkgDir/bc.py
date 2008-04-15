@@ -31,20 +31,6 @@ import bombardier.Repository, bombardier.BombardierClass
 from bombardier.miniUtility import getProgressPath
 
 
-UNINSTALL = 0
-CONFIGURE = 1
-INSTALL   = 2
-VERIFY    = 3
-RECONCILE = 4
-STATUS    = 5
-EXECUTE   = 6
-FIX       = 7
-PURGE     = 8
-
-actionDict = { UNINSTALL:'uninstall', CONFIGURE:'configure', 
-               INSTALL:'install', VERIFY:'verify', 
-               RECONCILE:'reconcile', STATUS:'status', 
-               EXECUTE:'execute', FIX:'fix', PURGE:'purge' } 
 
 class NoInstanceError(Exception):
     def __init__(self, instanceName):
@@ -166,7 +152,7 @@ def processAction(action, instanceName, packageName, scriptName):
         elif action == RECONCILE:
             status = bc.reconcileSystem()
         else:
-            status = bc.usePackage(packageName, actionDict[action], scriptName)
+            status = bc.usePackage(packageName, action, scriptName)
 
         bc.filesystem.clearLock()
     except:
@@ -247,6 +233,7 @@ if __name__ == "__main__":
                 sys.exit( 1 )
             packageNames = [args[1]]
             scriptName = args[2]
+            
 
         for packageName in packageNames:
             status = processAction(options.action, instanceName, packageName, scriptName)

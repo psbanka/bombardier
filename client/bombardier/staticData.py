@@ -60,7 +60,6 @@ PREBOOT          = 6
 CRITICAL         = 99
 UNKNOWN          = 97
 
-
 DEFAULT       = '0'
 INSTALL       = '1'
 UNINSTALL     = '2'
@@ -71,6 +70,16 @@ AUTOMATED     = '6'
 KILL          = '7'
 CONFIGURE     = '8'
 SET_PASS      = '9'
+RECONCILE     = '10'
+EXECUTE       = '11'
+FIX           = '12'
+PURGE         = '13'
+STATUS        = '14'
+
+ACTION_DICT = { UNINSTALL:'uninstall', CONFIGURE:'configure', 
+                INSTALL:'install', VERIFY:'verify', 
+                RECONCILE:'reconcile', STATUS:'status', 
+                EXECUTE:'execute', FIX:'fix', PURGE:'purge' } 
 
 BLOCK_SIZE    = 10000
 

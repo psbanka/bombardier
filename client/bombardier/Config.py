@@ -68,7 +68,6 @@ class Config(dict):
         self.username   = None
         self.password   = None
         self.domain     = None
-        self.freshStart = True
 
     def __getitem__(self, key):
         return self.data[key]

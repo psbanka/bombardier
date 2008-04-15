@@ -22,10 +22,12 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, time, datetime, ConfigParser, glob, random
+import os, time, datetime, glob, random
 import sys, StringIO, traceback
 
-import miniUtility, MetaData, Exceptions, Logger
+import Spkg
+import miniUtility, MetaData, Logger
+from Exceptions import BadPackage, FeatureRemovedException, RebootRequiredException
 from staticData import *
 
 class Package:
@@ -48,8 +50,6 @@ class Package:
         self.console      = False
         self.fullName     = ''
         self.reboot       = False
-        self.preboot      = False
-        self.autoReboot   = False
         self.packageVersion = 0
         self.checksum     = ''
         self.config       = config
@@ -58,7 +58,9 @@ class Package:
         self.metaData     = MetaData.MetaData({})
         self.workingDir   = ''
         self.scriptsDir   = ''
+        self.maintDir     = ''
         self.downloaded   = False
+        self.dependencyErrors = []
 
     def invalidate(self):
         erstr = "INVALID PACKAGE: %s" % self.name
@@ -82,6 +84,11 @@ class Package:
             Logger.warning(errmsg)
             self.dependencies = []
     
+    def addDependencyError(self, dependencyName):
+        errmsg = "BOM file is incomplete: should contain %s" % dependencyName
+        Logger.warning(errmsg)
+        self.dependencyErrors.append(dependencyName)
+
     def evalPriority(self):
         self.priority = self.metaData.data["install"].get('priority')
         if not self.priority:
@@ -110,19 +117,19 @@ class Package:
                             return
                         else:
                             msg = "Package does not exist on the server"
-                            raise Exceptions.BadPackage, (self.name, msg)
+                            raise BadPackage, (self.name, msg)
                     else:
                         msg = "The server's record is completely corrupt"
-                        raise Exceptions.BadPackage, (self.name, msg)
+                        raise BadPackage, (self.name, msg)
                 else:
                     msg = "server record is corrupt: no 'install' section"
-                    raise Exceptions.BadPackage, (self.name, msg)
+                    raise BadPackage, (self.name, msg)
             else:
                 msg = "server record is corrupt: not a dictionary"
-                raise Exceptions.BadPackage, (self.name, msg)
+                raise BadPackage, (self.name, msg)
         else:
             msg = "No metadata found for this package"
-            raise Exceptions.BadPackage, (self.name, msg)
+            raise BadPackage, (self.name, msg)
 
     def initialize(self):
         self.metaData = self.repository.getMetaData(self.name)
@@ -138,10 +145,6 @@ class Package:
         self.console = miniUtility.evalBoolean(chk)
         chk = self.metaData.data["install"].get('reboot')
         self.reboot = miniUtility.evalBoolean(chk)
-        chk = self.metaData.data["install"].get('autoreboot')
-        self.autoReboot = miniUtility.evalBoolean(chk)
-        chk = self.metaData.data["install"].get('preboot')
-        self.preboot = miniUtility.evalBoolean(chk)
         chk = self.metaData.data.get("package-version")
         if type(chk) == type(1):
             self.packageVersion = chk
@@ -149,69 +152,31 @@ class Package:
         self.gatherDependencies()
 
 
-    def injector(self):
+    def initializeFromFilesystem(self):
         """ Expects a standard package to be extracted in the packages
         directory """
         packagePath = miniUtility.getPackagePath(self.instanceName)
         if not self.fullName:
-            self.status = FAIL
-            return FAIL
+            raise BadPackage(self.name, "Could not find full name.")
         newDir = os.path.join(packagePath, self.fullName)
         self.scriptsDir = os.path.join(newDir, "scripts")
+        if self.packageVersion > 3:
+            self.maintDir = os.path.join(newDir, "maint")
+        else:
+            self.maintDir = os.path.join(self.scriptsDir, "maint")
         if not self.filesystem.isdir(self.scriptsDir):
-            Logger.error("Scripts directory does not exist")
-            self.status = FAIL
-            return FAIL
+            errmsg = "Scripts directory does not exist"
+            raise BadPackage(self.name, errmsg)
         injectorDir = os.path.join(newDir, "injector")
         if self.filesystem.isdir(injectorDir):
             self.workingDir = injectorDir
-            return OK
         else:
-            Logger.error("The injector directory does not exist for [%s]" % self.fullName)
-            self.status = FAIL
-            return FAIL
-
-    def preload(self): ### TESTED
-
-        """Note that self.fullName is expected to be a 'dash-version' name.
-
-        This will download all directives into the current directory.
-        """
-        if not self.fullName:
-            return OK
-        downloads = 0
-        while 1 == 1:
-            try:
-                downloadUrl = self.metaData.get("install",
-                                                "download"+`downloads`)
-                downloadSource = downloadUrl[:downloadUrl.rfind("/")]
-                downloadFile   = downloadUrl[downloadUrl.rfind("/")+1:]
-                erstr = "Package contains download directives: "\
-                        "Downloading %s from %s..." % \
-                        (downloadFile, downloadSource)
-                Logger.info(erstr)
-                status = OK
-                if status == FAIL:
-                    Logger.error("Unable to download (%s) from %s, aborting"\
-                                      "package installation." % (downloadFile, downloadSource))
-                    for entry in self.repository.packages.keys():
-                        if entry.startswith(self.name[:len(self.name) / 2]):
-                            Logger.info("Possible completion: (%s)" % entry)
-                            Logger.info("Data: %s" % self.repository.packages[entry])
-                    return FAIL
-                downloads += 1
-            except ConfigParser.NoOptionError:
-                break
-            except ConfigParser.NoSectionError:
-                break
-        return OK
+            errmsg = "The injector directory does not exist for [%s]" % self.fullName
+            raise BadPackage(self.name, errmsg)
 
     def configure(self):
-        status = self.download()
-        if status == OK:
-            return self.findCmd(CONFIGURE)
-        else:
-            return FAIL
+        self.download()
+        return self.findCmd(CONFIGURE)
 
     def findCmd(self, action, packageList=[]):
         if self.packageVersion > 1:
@@ -226,8 +191,7 @@ class Package:
                 VERIFY: "verify", CONFIGURE: "configure" }
         cmd = cmds.get(action)
         if not cmd:
-            Logger.error("Unknown action: [%s]" % action)
-            return FAIL
+            raise FeatureRemovedException(action)
         for extension in extensions:
             testCmd = os.path.join(self.scriptsDir, cmd+extension)
             #Logger.debug( testCmd )
@@ -235,9 +199,8 @@ class Package:
                 fullCmd = testCmd
                 break
         if not fullCmd:
-            Logger.error("Could not find an appropriate script in %s." % self.scriptsDir)
-            return FAIL
-        status = OK
+            errMsg = "Could not find an appropriate script in %s." % self.scriptsDir
+            raise BadPackage( self.name, errMsg )
         if packageList:
             fullCmd += " %s" % ','.join(packageList)
 
@@ -256,6 +219,7 @@ class Package:
             if fileName.split('.')[0] in ["installer", "verify", "uninstaller", "configure"]:
                 continue
             try:
+                obj = Spkg.SpkgV4(self.config, Logger.logger)
                 self.filesystem.chdir(self.workingDir)
                 letters = [ chr( x ) for x in range(65, 91) ]
                 random.shuffle(letters)
@@ -274,7 +238,7 @@ class Package:
                     cmdString = "obj = %s.%s(self.config, Logger.logger)"
                     exec(cmdString % (randString, fileName))
                 else:
-                    Logger.error("Unknown package version %s" % self.packageVersion)
+                    raise BadPackage( self.name, "Unknown package version %s" % self.packageVersion )
                 fileFound = True
                 if action == INSTALL:
                     status = obj.installer()
@@ -285,7 +249,7 @@ class Package:
                 elif action == CONFIGURE:
                     status = obj.configure()
                 else:
-                    Logger.error("Invalid action specified: %s" % action)
+                    raise FeatureRemovedException(action)
                 del randString
                 if fileName in sys.modules:
                     sys.modules.pop(fileName)
@@ -323,18 +287,11 @@ class Package:
                 break
         self.filesystem.chdir(cwd)
         if not fileFound:
-            Logger.error("Unable to find a suitable script to install.")
-            return FAIL
+            raise BadPackage(self.name, "Unable to find a suitable script to install.")
         if status == None:
             status = OK
         if status == REBOOT:
-            erstr = "%s %s: indicated reboot action is necessary." % (self.fullName, status)
-            Logger.warning(erstr)
-            return REBOOT
-        if status == REBOOT_AND_TRY_AGAIN:
-            erstr = "%s %s: indicated reboot action is necessary before installing." % (self.fullName, status)
-            Logger.warning(erstr)
-            return PREBOOT
+            raise RebootRequiredException(self.name)
         if status != OK:
             erstr = "%s: failed with status %s" % (self.fullName, status)
             Logger.error(erstr)
@@ -343,39 +300,19 @@ class Package:
 
     def download(self):
         if not self.downloaded:
-            status = self.repository.getPackage(self.name, checksum=self.checksum)
-            if status == FAIL:
-                self.status = FAIL
-                Logger.error("Problems downloading package %s" % self.name)
-                return FAIL
-            status = self.injector()
+            self.repository.getPackage(self.name, checksum=self.checksum)
+            self.initializeFromFilesystem()
             self.downloaded = True
-        return OK
     
-    def process(self, packageList=[]):
+    def installAndVerify(self, packageList=[]):
         self.download()
-        if self.status == FAIL:
-            # FIXME: may be a good idea to re-download the package.
-            erstr = "Package %s is corrupt or could not be "\
-                    "downloaded." % self.fullName
-            Logger.error(erstr)
-            return FAIL
         if self.action == INSTALL:
-            if self.autoReboot:
-                Logger.info("This is an auto-reboot package. "\
-                                 "Assuming package installs successfully.")
-                self.operatingSystem.autoLogin(self.config)
-                self.operatingSystem.restartOnLogon()
-                self.writeProgress()
-            self.install(packageList)
-            if self.status == PREBOOT:
-                return PREBOOT
-            if self.status == OK:
-                self.verify()
+            status = self.install(packageList)
+            if status == OK:
+                status = self.verify()
             self.writeProgress()
-            return self.status
-        Logger.error("Unknown action: [%s]" % self.action)
-        return FAIL
+            return status
+        raise FeatureRemovedException(self.action)
 
     def chdir(self):
         self.cwd = os.getcwd()
@@ -404,7 +341,6 @@ class Package:
         self.download()
         message = "Beginning installation of (%s)" % self.fullName
         Logger.info(message)
-        self.preload()
         self.status = self.findCmd(INSTALL, packageList)
         Logger.info("Install result for %s : %s" % (self.fullName, self.status))
         return self.status
@@ -413,18 +349,18 @@ class Package:
         self.download()
         message = "Executing (%s) inside package (%s)" %(scriptName, self.fullName)
         Logger.info(message)
-        scriptDir = "%s/maint/" %(self.scriptsDir)
-        scriptPath = "%s/maint/%s.py" %(self.scriptsDir, scriptName)
+        scriptPath = "%s/%s.py" %(self.maintDir, scriptName)
         startDir = os.getcwd()
-        os.chdir(scriptDir)
+        os.chdir(self.maintDir)
         if not os.path.isfile(scriptPath):
             msg = "%s does not exist" %scriptPath
-            raise Exceptions.BadPackage, (self.name, msg)
-        sys.path.append("%s/maint" %self.scriptsDir )
+            raise BadPackage, (self.name, msg)
+        sys.path.append(self.maintDir )
         importString = 'import %s'%scriptName
         exec(importString)
+        status = FAIL # For PyChecker
         exec('status = %s.execute(self.config, Logger.logger)'%scriptName)
-        sys.path.remove("%s/maint" %self.scriptsDir )
+        sys.path.remove(self.maintDir)
         os.chdir(startDir)
         if status == None:
             status = OK
@@ -448,8 +384,6 @@ class Package:
     def uninstall(self):
         self.action = UNINSTALL
         self.download()
-        if self.status == FAIL:
-            return FAIL
         Logger.info("Uninstalling package %s" % self.name)
         self.status = self.findCmd(UNINSTALL)
         self.writeProgress()
@@ -467,9 +401,10 @@ class Package:
         timeString = time.ctime()
         progressData = self.filesystem.getProgressData(self.instanceName)
         if not progressData.has_key(self.fullName):
-            progressData[self.fullName] = {"INSTALLED": "NA", "UNINSTALLED": "NA", "VERIFIED": "NA"}
+            progressData[self.fullName] = {"INSTALLED": "NA", "UNINSTALLED": "NA", "VERIFIED": "NA", "DEPENDENCY_ERRORS": []}
         if self.action == INSTALL:
             if progressData.get(self.fullName) == None:
+                Logger.warning("UNREACHABLE CODE REACHED!")
                 progressData[self.fullName] = {}
             if self.fullName:
                 if self.status == OK:
@@ -477,6 +412,7 @@ class Package:
                     # FIXME: shouldn't this next line be 'NA'? -- pbanka
                     progressData[self.fullName]['VERIFIED']    = timeString 
                     progressData[self.fullName]['UNINSTALLED'] = 'NA'
+
                 else:
                     progressData[self.fullName]['INSTALLED']   = "BROKEN"
                     progressData[self.fullName]['VERIFIED']    = 'NA'
@@ -497,6 +433,6 @@ class Package:
 
         elif self.action == VERIFY:
             progressData[self.fullName]['VERIFIED'] = timeString
-        self.filesystem.updateProgress({"install-progress":progressData}, overwrite=True)
-        # gc.collect() # just try removing these and see if the unit tests pass -pbanka
+        progressData[self.fullName]['DEPENDENCY_ERRORS'] = self.dependencyErrors
+        self.filesystem.updateProgress({"install-progress":progressData}, self.instanceName, overwrite=True)
         return OK

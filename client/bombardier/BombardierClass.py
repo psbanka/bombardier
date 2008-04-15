@@ -22,7 +22,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import sets, os, time
-import ConfigParser
 import miniUtility, Package, Exceptions, Logger
 from staticData import *
 
@@ -54,35 +53,6 @@ class PackageChain:
                 break
         self.chain = self.chain[:pkgIndex+1]
 
-    ### TESTED
-    def addToDependencyErrors(self, packageName, dependencyName):
-        errmsg = "BOM file is incomplete: should contain %s" % dependencyName
-        Logger.warning(errmsg)
-        deps = ConfigParser.ConfigParser()
-        depsPath = os.path.join(miniUtility.getSpkgPath(), self.instanceName, BOM_DEPS)
-        try:
-            fh = self.filesystem.open(depsPath,"r")
-            deps.readfp(fh)
-        except IOError:
-            errmsg = "Creating file %s to keep track "\
-                     "of dependency errors" % BOM_DEPS
-            Logger.warning(errmsg)
-        if not deps.has_section(packageName):
-            deps.add_section(packageName)
-        index=0
-        while deps.has_option(packageName, "dep%s" % index):
-            if deps.get(packageName, "dep%s" % index) == dependencyName:
-                Logger.warning("We have already recorded that %s "\
-                               "depends on %s" % (packageName, dependencyName))
-                return OK
-            index += 1
-        deps.set(packageName, "dep%s" % index, dependencyName)
-        fh = self.filesystem.open(depsPath,"w")
-        deps.write(fh)
-        fh.flush()
-        fh.close()
-        return OK
-
     # TESTED
     def packageChain(self, pkgName):
         self.depth += 1
@@ -106,7 +76,7 @@ class PackageChain:
         if depName not in ( self.vPackages.resolveVPkgList( self.installedPackageNames ) + \
                             self.vPackages.resolveVPkgList( self.packages.keys() ) ):
             self.packages[depName] = self.getNewPackage( depName )
-            self.addToDependencyErrors(pkgName, depName)
+            self.packages[pkgName].addDependencyError( depName )
 
     def getActualPkgName( self, pkgName ):
         return( self.vPackages.getActualPkgName( pkgName, self.packages.keys() ) )
@@ -150,18 +120,19 @@ def nop():
     return False
 
 def findDifferences(packageConfig, configDiff, differences=[], chain=[]):
+    output = differences
     for key in packageConfig.keys():
         if type(packageConfig[key]) == type({}):
             if key not in configDiff:
                 continue
             newdif = findDifferences(packageConfig[key], configDiff[key],
-                                     differences, chain + [key])
+                                     output, chain + [key])
             pyChucker( newdif ) #FIXME!
             continue
         if key in configDiff.keys():
-            differences.append("%s/%s" % ('/'.join(chain), key))
+            output.append("%s/%s" % ('/'.join(chain), key))
             continue
-    return differences
+    return output
 
 class Bombardier:
 
@@ -171,30 +142,20 @@ class Bombardier:
         self.filesystem = filesystem
         self.operatingSystem = operatingSystem
         self.instanceName    = instanceName
-        self.addPackages = {}
-        self.delPackages = {}
         
     ### TESTED
-    def dependenciesInstalled(self, bomPackageNames):
-        installedDependencies = []
-        deps = ConfigParser.ConfigParser()
-        try:
-            depsPath = os.path.join(miniUtility.getSpkgPath(), self.instanceName, BOM_DEPS)
-            fh = self.filesystem.open(depsPath,"r")
-            deps.readfp(fh)
-        except IOError:
-            return []
-        for predecessorPackageName in deps.sections():
-            if predecessorPackageName in bomPackageNames:
-                index=0
-                while deps.has_option(predecessorPackageName, "dep%s" % index):
-                    installedDependencies.append(deps.get(predecessorPackageName,
-                                                          "dep%s" % index))
-                    index += 1
-        return installedDependencies
+    def getDependencyErrors(self, bomPackageNames, progressData):
+        dependencyNames = set([])
+        installProgress = progressData.get('install-progress', {})
+        for packageName in installProgress:
+            packageDict = installProgress[ packageName ]
+            depErrors = set(packageDict.get('DEPENDENCY_ERRORS',[]))
+            dependencyNames = dependencyNames.union(depErrors)    
+        dependencyNames = list(dependencyNames - set(bomPackageNames))
+        return dependencyNames
 
     ### WON'T BE TESTED
-    def handleConsole(self, package):
+    def checkForConsoleReboot(self, package):
         if self.operatingSystem.testConsole() == FAIL:
             erstr = "Logging in for console access "\
                     "for package %s..." % (package.name)
@@ -202,37 +163,15 @@ class Bombardier:
             self.filesystem.clearLock()
             status = self.operatingSystem.autoLogin(self.config)
             if status == FAIL:
-                ermsg = "Cannot gain console access because this system "\
+                errMsg = "Cannot gain console access because this system "\
                         "does not have valid login credentials."
-                Logger.error(ermsg)
-                return FAIL
+                raise Exceptions.ConsoleException(errMsg)
             self.operatingSystem.restartOnLogon()
             msg = "System requires a console to install this package and one does not exist. " \
                   "Please log in to continue the installation."
             Logger.warning(msg)
             return REBOOT
         return OK
-
-    ### WON'T BE TESTED
-    def checkReboot(self, package, returnCode):
-        if package.action == INSTALL:
-            if package.autoReboot:
-                erstr = "Waiting for package %s to reboot "\
-                        "the system..." % (package.fullName)
-                Logger.info(erstr)
-                while True:
-                    time.sleep(1)
-            if package.reboot or returnCode == REBOOT:
-                self.filesystem.clearLock()
-                msg = "The last package installed indicated that a reboot is necessary before continuing. " \
-                      "Please reboot the system before performing more installation activity."
-                Logger.warning(msg)
-                return REBOOT
-
-        if not self.addPackages:
-            erstr = "System has been reconciled."
-            Logger.info(erstr)
-            return self.cleanup(OK, logmessage="Exiting gracefully.")
 
     ### TESTED
     def inMaintenanceWindow(self):
@@ -319,8 +258,22 @@ class Bombardier:
                 topPriority = priority
         return topPriority
 
+    def uninstallOrder(self, packageDict):
+        chains = self.createPackageChains(packageDict)
+        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
+        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
+        uninstallOrder = []
+        for priority, chain in chains:
+            Logger.info(">>>>   CHAIN: %s" % chain )
+            for packageName in chain:
+                Logger.info(">>> PACKAGENAME: %s" % packageName)
+                if packageName in installedPackageNames:
+                    if packageName not in uninstallOrder:
+                        uninstallOrder.append(packageName)
+        return uninstallOrder # returns a list of packageNames in the correct installation order
+
     # TESTED
-    def installList(self, packageDict):
+    def installOrder(self, packageDict):
         """ - Create chains of package dependencies, the priority of each
         chain is the package with the highest priority in it, unless
         that package is already installed.
@@ -347,51 +300,27 @@ class Bombardier:
                     chains.remove([priority, chain])
         return installOrder # returns a list of packageNames in the correct installation order
 
-    def preboot(self, packageName):
-        Logger.warning("Package %s wants the system to "\
-                       "reboot before installing..." % packageName) # FIXME
-        self.filesystem.clearLock()
-        self.operatingSystem.autoLogin(self.config)
-        self.operatingSystem.restartOnLogon()
-        msg = "The current package requires a reboot before it can install. " \
-              "Please reboot the system before installing it."
-        Logger.warning(msg)
-        return REBOOT
-
     # TESTED
-    def installPackages(self):
+    def installPackages(self, addPackageDict):
         makingProgress = True
         packageNamesLeft = ['initialize']
         while makingProgress and packageNamesLeft:
             makingProgress = False
-            installList = self.installList(self.addPackages)
+            installOrder = self.installOrder(addPackageDict)
             packageNamesLeft = []
-            map(packageNamesLeft.append, installList) # Need a deep copy
-            for packageName in installList:
+            map(packageNamesLeft.append, installOrder) # Need a deep copy
+            for packageName in installOrder:
                 Logger.info("Packages remaining to install (in order): %s" % packageNamesLeft)
                 packageNamesLeft.remove(packageName)
-                package = self.addPackages[packageName]
+                package = addPackageDict[packageName]
                 erstr = "Currently installing package "\
                         "priority %s [%s]" % (package.priority, packageName)
                 Logger.info(erstr)
-                if package.console:
-                    if self.handleConsole(package) == FAIL:
-                        return FAIL
-                if package.status == FAIL:
-                    Logger.warning("Package could not download. Giving up.")
-                    return FAIL
-                if package.preboot and not self.config.freshStart:
-                    if self.preboot(package.name) == REBOOT:
-                        return REBOOT
-                status = package.process(packageNamesLeft)
+                if package.console and self.checkForConsoleReboot(package) == REBOOT:
+                    return REBOOT
+                status = package.installAndVerify(packageNamesLeft)
                 hashPath = os.path.join(miniUtility.getPackagePath(self.instanceName), package.fullName, HASH_FILE)
                 self.config.saveHash(hashPath)
-                self.config.freshStart = False
-                if status == PREBOOT:
-                    if self.preboot(package.name) == REBOOT:
-                        return REBOOT
-                if self.checkReboot(package, status) == REBOOT:
-                    return REBOOT
                 if status == FAIL:
                     erstr = "Package installation failure -- re-calculating package installation order"
                     Logger.error(erstr)
@@ -399,26 +328,36 @@ class Bombardier:
                 else:
                     makingProgress = True
         if packageNamesLeft:
-            Logger.error("There are packages that are broken, and we have done all we can do.")
+            Logger.error("There are packages that are broken, and we have done all we can do. ; ;")
             return FAIL
         return OK
 
-    def uninstallPackages(self, packages):
-        for packageName in packages.keys():
-            package = packages[packageName]
-            erstr = "Currently removing package "\
-                    "priority %s [%s]" % (package.priority, packageName)
-            Logger.info(erstr)
-            if package.console:
-                if self.handleConsole(package) == FAIL:
-                    return FAIL
-            status = package.uninstall()
-            self.checkReboot(package, status)
-            if status == FAIL:
-                erstr = "B11 Aborting due to package "\
-                        "uninstallation failure"
-                Logger.error(erstr)
-                return FAIL
+    def uninstallPackages(self, delPackageDict):
+        makingProgress = True
+        packageNamesLeft = ['initialize']
+        while makingProgress and packageNamesLeft:
+            makingProgress = False
+            uninstallOrder = self.uninstallOrder(delPackageDict)
+            packageNamesLeft = []
+            map(packageNamesLeft.append, uninstallOrder) # Need a deep copy
+            for packageName in uninstallOrder:
+                Logger.info("Packages remaining to uninstall (in order): %s" % packageNamesLeft)
+                package = delPackageDict[packageName]
+                packageNamesLeft.remove(packageName)
+                status = package.uninstall()
+                erstr = "Currently uninstalling package "\
+                        "priority %s [%s]" % (package.priority, packageName)
+                Logger.info(erstr)
+                status = package.uninstall()
+                if status == FAIL:
+                    erstr = "Package uninstallation failure -- re-calculating package installation order"
+                    Logger.error(erstr)
+                    break
+                else:
+                    makingProgress = True
+        if packageNamesLeft:
+            Logger.error("There are packages that are broken, and we have done all we can do. ; ;")
+            return FAIL
         return OK
 
     ### WON'T BE TESTED
@@ -449,7 +388,7 @@ class Bombardier:
         return OK
 
     ### TESTED
-    def getPackagesToAdd(self, addPackageNames):
+    def getPackagesToAddDict(self, addPackageNames):
         packages = {}
         for packageName in addPackageNames:
             try:
@@ -513,7 +452,7 @@ class Bombardier:
         return packageDict
 
     ### TESTED
-    def getPackagesToRemove(self, delPackageNames):
+    def getPackagesToRemoveDict(self, delPackageNames):
         progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         packageDict = self.createPackageDict(delPackageNames, UNINSTALL)
@@ -533,7 +472,7 @@ class Bombardier:
         shouldntBeInstalled = []
         progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
-        dependencyErrors = self.dependenciesInstalled(bomPackageNames)
+        dependencyErrors = self.getDependencyErrors(bomPackageNames, progressData)
         if dependencyErrors:
             errmsg = "The following packages are installed as "\
                      "dependencies %s" % dependencyErrors
@@ -579,63 +518,61 @@ class Bombardier:
 
         return testResults
 
-    def checkInstallationStatus(self, packageNames = None):
-        self.packageNames = packageNames
-        spkgPath          = miniUtility.getSpkgPath()
+    def checkInstallationStatus(self, packageNames = []):
+        #self.packageNames = packageNames
         pkgGroups,individualPackageNames  = self.config.getPackageGroups()
         Logger.info("package groups: %s, individuals: %s" % (pkgGroups, individualPackageNames)) #FIXME
-        if not self.inMaintenanceWindow():
-            erstr = "Currently a maintenance window: no activity will take place"
-            Logger.warning(erstr)
-            return self.cleanup(FAIL)
-        self.filesystem.chdir(spkgPath)
-        if self.packageNames == None:
-            Logger.info("Downloading Bill of Materials")
-            self.packageNames = individualPackageNames
-        if self.packageNames == []:
+        #spkgPath          = miniUtility.getSpkgPath()
+        #self.filesystem.chdir(spkgPath)
+        if packageNames == []:
+            packageNames = individualPackageNames
+        if packageNames == []:
             self.filesystem.clearLock()
             raise Exceptions.BadBillOfMaterials("Empty Bill of Materials")
-        addPackageNames, delPackageNames = self.checkBom(self.packageNames)
-        self.addPackages = self.getPackagesToAdd(addPackageNames)
-        try:
-            self.delPackages = self.getPackagesToRemove(delPackageNames)
-        except Exceptions.BadPackage, e:
-            logmessage = "Halting: there are packages installed that cannot be removed"
-            logmessage += `e`
-            return self.cleanup(OK, logmessage)
-        Logger.info("Packages to install: %s" % self.addPackages.keys())
-        removeFullPackageNames = [self.delPackages[x].fullName for x in self.delPackages.keys()]
+        addPackageNames, delPackageNames = self.checkBom(packageNames)
+        addPackageDict = self.getPackagesToAddDict(addPackageNames)
+        delPackageDict = self.getPackagesToRemoveDict(delPackageNames)
+        Logger.info("Packages to install: %s" % addPackageDict.keys())
+        removeFullPackageNames = [delPackageDict[x].fullName for x in delPackageDict.keys()]
         Logger.info("Packages to remove: %s" % removeFullPackageNames)
-        return OK
+        return addPackageDict, delPackageDict
 
     ### TESTED
-    def reconcileSystem(self, packageNames = None):
-        status = self.checkInstallationStatus(packageNames)
-        if status != OK:
-            return self.cleanup(status)
+    def reconcileSystem(self, packageNames = []):
+        addPackageDict, delPackageDict = self.checkInstallationStatus(packageNames)
         if self.filesystem.setLock() == FAIL:
             return FAIL
-        if self.delPackages.keys():
-            status = self.uninstallPackages(self.delPackages)
-        if status == FAIL:
-            errmsg = "Uninstallation failed. Not continuing with "\
-                     "installation of %s" % self.addPackages
-            Logger.error(errmsg)
-            return self.cleanup(FAIL, logmessage="Finished installing (ERRORS ENCOUNTERED).")
-        addPackageNames, delPackageNames = self.checkBom(self.packageNames)
-        self.getPackagesToAdd(addPackageNames)
-        status = self.installPackages()
+        for packageName in delPackageDict:
+            status = delPackageDict[packageName].uninstall()
+            if status == FAIL:
+                errmsg = "Uninstallation failed on %s. Aborting reconcile." % packageName
+                Logger.error(errmsg)
+                return self.cleanup(FAIL, logmessage="Finished installing (ERRORS ENCOUNTERED).")
+
+        addPackageDict, delPackageDict = self.checkInstallationStatus(packageNames)
+        status = self.installPackages(addPackageDict)
         return self.cleanup(status, logmessage="Finished installing.")
 
-    def checkSystem(self, packageNames = None):
-        if self.checkInstallationStatus(packageNames) != OK:
-            return FAIL
+    def checkConfigurationHash(self, packageName):
+        newPackage = Package.Package(packageName, self.repository, self.config, 
+                                     self.filesystem, self.operatingSystem,
+                                     self.instanceName) 
+        newPackage.initialize()
+        packageConfig = newPackage.getConfiguration()
+        configHashPath = os.path.join(miniUtility.getPackagePath(self.instanceName), 
+                                      newPackage.fullName, HASH_FILE)
+        configDiff = self.config.checkHash(configHashPath)
+        differences = findDifferences(packageConfig, configDiff, [])
+        return differences
+
+    def checkSystem(self, packageNames = []):
+        addPackageDict, delPackageDict = self.checkInstallationStatus(packageNames)
         progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
         fullProgressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
         fullInstalledPackageNames, fullBrokenPackageNames = miniUtility.getInstalled(fullProgressData)
         Logger.info("packages that are installed: %s" % ' '.join(fullInstalledPackageNames))
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
-        shouldBeInstalled, shouldntBeInstalled = self.checkBom(self.packageNames)
+        shouldBeInstalled, shouldntBeInstalled = self.checkBom(packageNames)
         # check the configuration for each installed package
         packageInfo = {"ok":installedPackageNames,
                        "reconfigure": {},
@@ -645,15 +582,7 @@ class Bombardier:
         for packageName in shouldntBeInstalled:
             packageInfo["ok"].remove(packageName)
         for packageName in installedPackageNames:
-            newPackage = Package.Package(packageName, self.repository, self.config, 
-                                         self.filesystem, self.operatingSystem,
-                                         self.instanceName) 
-            newPackage.initialize()
-            packageConfig = newPackage.getConfiguration()
-            configHashPath = os.path.join(miniUtility.getSpkgPath(), "packages",
-                                          newPackage.fullName, HASH_FILE)
-            configDiff = self.config.checkHash(configHashPath)
-            differences = findDifferences(packageConfig, configDiff, [])
+            differences = self.checkConfigurationHash(packageName)
             if differences:
                 if packageName in packageInfo["ok"]:
                     packageInfo["reconfigure"][packageName] = differences
@@ -665,20 +594,24 @@ class Bombardier:
             package = Package.Package(packageName, self.repository, self.config, self.filesystem,
                                       self.operatingSystem, self.instanceName)
             package.initialize()
-            if action == 'install':
-                progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
-                installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
-                for p in installedPackageNames:
-                    if p.startswith(packageName):
-                        Logger.error( 'Package %s is already installed.' %p )
-                        return FAIL
-                self.addPackages = {packageName:package}
-                status = self.installPackages()
-            if action == 'uninstall':
-                status = package.uninstall()
-            if action == 'verify':
+            if action == INSTALL:
+                addPackageDict, delPackageDict = self.checkInstallationStatus()
+                Logger.info("AddPackageDict: %s --- delPacakgeDict: %s" % (addPackageDict.keys(), delPackageDict.keys()))
+                if not packageName in addPackageDict:
+                    Logger.error("Package %s cannot be installed." % packageName)
+                    return FAIL
+                addPackageDict = {packageName:package}
+                status = self.installPackages(addPackageDict)
+            if action == UNINSTALL:
+                addPackageDict, delPackageDict = self.checkInstallationStatus()
+                if packageName in addPackageDict:
+                    Logger.error("Package %s is not installed." % packageName)
+                    return FAIL
+                delPackageDict = {packageName:package}
+                status = self.uninstallPackages(delPackageDict)
+            if action == VERIFY:
                 status = package.verify()
-            if action == 'configure':
+            if action == CONFIGURE:
                 if self.checkConfiguration(package) == FAIL:
                     return FAIL
                 else:
@@ -687,11 +620,11 @@ class Bombardier:
                                             package.fullName, HASH_FILE)
                     Logger.info("writing configuration fingerprint to %s" % hashPath)
                     self.config.saveHash(hashPath)
-            if action == 'execute':
+            if action == EXECUTE:
                 status = package.executeMaintScript(scriptName)
-            return self.cleanup(status, logmessage="Finished %s for %s." %(action, packageName))
+            return self.cleanup(status, logmessage="Finished %s for %s." %(ACTION_DICT[action], packageName))
         except Exceptions.BadPackage, e:
-            errmsg = "Cannot perform action %s on package %s: %s" % (action, e.packageName, e.errmsg)
+            errmsg = "Cannot perform action %s on package %s: %s" % (ACTION_DICT[action], e.packageName, e.errmsg)
             Logger.warning(errmsg)
             return FAIL
 

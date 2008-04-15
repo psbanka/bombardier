@@ -19,6 +19,25 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+class RebootRequiredException(Exception):
+    def __init__(self, name):
+        e = Exception()
+        Exception.__init__(e)
+        self.name=name
+    def __repr__(self):
+        return "RebootRequiredException: Package %s requires a reboot, stopping..." %self.name
+    def __str__(self):
+        return self.__repr__()
+
+class ConsoleException(Exception):
+    def __init__(self, msg):
+        e = Exception()
+        Exception.__init__(e)
+        self.msg=msg
+    def __repr__(self):
+        return "ConsoleException: %s" % self.msg
+    def __str__(self):
+        return self.__repr__()
 
 class InvalidConfigData(Exception):
     def __init__(self, section, t1, t2):

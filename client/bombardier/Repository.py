@@ -185,9 +185,9 @@ class Repository:
         try:
             fullPackageName = self.packages[packageName]['install'][FULL_NAME]
         except KeyError:
-            Logger.error("package %s is not in the package database" % packageName)
+            errmsg = "package %s is not in the package database" % packageName
             Logger.info("packages: (%s)" % " ".join(self.packages.keys()))
-            return FAIL
+            raise Exceptions.BadPackage(packageName, errmsg)
         if self.filesystem.isdir(os.path.join(packagePath, fullPackageName)):
             return OK
         while tries:
@@ -195,5 +195,5 @@ class Repository:
             if status == OK:
                 return OK
             tries -= 1
-        return FAIL
+        raise Exceptions.BadPackage(packageName, "Could not get and unpack.")
 
