@@ -114,7 +114,7 @@ def getBc(instanceName):
     filesystem = bombardier.Filesystem.Filesystem()
     filesystem.clearLock()
     repository = bombardier.Repository.Repository(filesystem, instanceName)
-    config = bombardier.Config.Config(filesystem, repository)
+    config = bombardier.Config.Config(filesystem, repository, instanceName)
     try:
         config.freshen()
     except bombardier.Exceptions.ServerUnavailable, e:
@@ -229,7 +229,7 @@ if __name__ == "__main__":
         print "This command requires an instance name."
         parser.print_help()
         sys.exit(1)
-    instanceName = args[1]
+    instanceName = args[0]
 
     if options.action in [ RECONCILE, STATUS]:
         status = processAction(options.action, instanceName, '', '')
@@ -239,14 +239,14 @@ if __name__ == "__main__":
             print "This command requires a package name as an argument."
             parser.print_help()
             sys.exit( 1 )
-        packageNames = args[2:]
+        packageNames = args[1:]
         if options.action == EXECUTE:
             if len(args) != 3:
                 print "This command requires a package name and a script name."
                 parser.print_help()
                 sys.exit( 1 )
-            packageNames = args[2]
-            scriptName = args[3]
+            packageNames = args[1]
+            scriptName = args[2]
 
         for packageName in packageNames:
             status = processAction(options.action, instanceName, packageName, scriptName)

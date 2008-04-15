@@ -286,7 +286,7 @@ class Bombardier:
     # TESTED
     def createPackageChains(self, packageDict):
         chains = []
-        packageData = self.filesystem.getProgressData(stripVersionFromName = True)
+        packageData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(packageData)
         for packageName in packageDict.keys():
             if packageName in brokenPackageNames:
@@ -329,7 +329,7 @@ class Bombardier:
         have any dependencies and is not dependent on others."""
 
         chains = self.createPackageChains(packageDict)
-        progressData = self.filesystem.getProgressData(stripVersionFromName = True)
+        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         # - Put all the packages of each chain into the installation
         # order, excluding those that have already been installed in order
@@ -514,7 +514,7 @@ class Bombardier:
 
     ### TESTED
     def getPackagesToRemove(self, delPackageNames):
-        progressData = self.filesystem.getProgressData(stripVersionFromName = True)
+        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         packageDict = self.createPackageDict(delPackageNames, UNINSTALL)
         if sets.Set(installedPackageNames) == sets.Set(packageDict.keys()):
@@ -531,7 +531,7 @@ class Bombardier:
         shouldn't be."""
         shouldBeInstalled = []
         shouldntBeInstalled = []
-        progressData = self.filesystem.getProgressData(stripVersionFromName = True)
+        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         dependencyErrors = self.dependenciesInstalled(bomPackageNames)
         if dependencyErrors:
@@ -548,7 +548,7 @@ class Bombardier:
         return shouldBeInstalled, shouldntBeInstalled
 
     def verifySystem(self):
-        progressData = self.filesystem.getProgressData()
+        progressData = self.filesystem.getProgressData(self.instanceName)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         testResults = {}
 
@@ -630,8 +630,8 @@ class Bombardier:
     def checkSystem(self, packageNames = None):
         if self.checkInstallationStatus(packageNames) != OK:
             return FAIL
-        progressData = self.filesystem.getProgressData(stripVersionFromName = True)
-        fullProgressData = self.filesystem.getProgressData(stripVersionFromName = False)
+        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
+        fullProgressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
         fullInstalledPackageNames, fullBrokenPackageNames = miniUtility.getInstalled(fullProgressData)
         Logger.info("packages that are installed: %s" % ' '.join(fullInstalledPackageNames))
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
@@ -666,7 +666,7 @@ class Bombardier:
                                       self.operatingSystem, self.instanceName)
             package.initialize()
             if action == 'install':
-                progressData = self.filesystem.getProgressData(stripVersionFromName = False)
+                progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
                 installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
                 for p in installedPackageNames:
                     if p.startswith(packageName):
