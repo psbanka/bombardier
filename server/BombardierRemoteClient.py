@@ -208,7 +208,7 @@ class BombardierRemoteClient(RemoteClient):
             self.s.sendline ('cd %s' %self.spkgDir)
             self.s.prompt()
             packageString = ' '.join(packageNames)
-            cmd = '%s bc.py %s %s %s' % (self.python, ACTION_DICT[action], packageString, scriptName)
+            cmd = '%s bc.py %s %s %s %s' % (self.python, ACTION_DICT[action], self.hostName, packageString, scriptName)
             self.s.sendline(cmd)
             foundIndex = 0
             while True:
@@ -297,7 +297,7 @@ class BombardierRemoteClient(RemoteClient):
         if not os.path.isdir( statusDir ):
             os.makedirs( statusDir )
 
-        self.s.sendline ('cd %s && cat status.yml' %self.spkgDir)
+        self.s.sendline ('cd %s/%s && cat status.yml' % (self.spkgDir, self.hostName))
         self.s.prompt()
         statusYml = str(self.s.before).split("status:")[0]
         try:
