@@ -245,7 +245,7 @@ if __name__ == "__main__":
                 print "This command requires a package name and a script name."
                 parser.print_help()
                 sys.exit( 1 )
-            packageNames = args[1]
+            packageNames = [args[1]]
             scriptName = args[2]
 
         for packageName in packageNames:
