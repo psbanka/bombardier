@@ -78,14 +78,10 @@ class Config(dict):
     def keys(self):
         return self.data.keys()
 
-    def getPackageGroups(self):
-        groups   = []
-        packages = []
-        if self.data.has_key("bom"):
-            groups = self.data["bom"]
+    def getBomPackages(self):
         if self.data.has_key("packages"):
-            packages = self.data["packages"]
-        return groups, packages
+            return self.data["packages"]
+        return []
 
     def saveHash(self, path):
         f = self.filesystem.open(path, 'w')

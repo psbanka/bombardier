@@ -150,8 +150,10 @@ def processAction(action, instanceName, packageName, scriptName):
             else:
                 status = FAIL
         elif action == RECONCILE:
+            bc.recordErrors = True
             status = bc.reconcileSystem()
         else:
+            bc.recordErrors = False
             status = bc.usePackage(packageName, action, scriptName)
 
         bc.filesystem.clearLock()

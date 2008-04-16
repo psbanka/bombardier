@@ -28,7 +28,7 @@ from staticData import *
 class PackageChain:
     def __init__(self, priority, startPackageName, packages,
                  installedPackageNames, brokenPackageNames, repository,
-                 config, filesystem, operatingSystem, instanceName):
+                 config, filesystem, operatingSystem, instanceName, recordErrors):
         self.depth       = 0
         self.priority    = priority
         self.packages    = packages
@@ -38,6 +38,7 @@ class PackageChain:
         self.chain       = [startPackageName]
         self.repository  = repository
         self.config      = config
+        self.recordErrors = recordErrors
         self.vPackages   = VirtualPackages(repository.packages)
         self.installedPackageNames = self.vPackages.resolveVPkgList( installedPackageNames )
         self.brokenPackageNames = brokenPackageNames
@@ -76,7 +77,8 @@ class PackageChain:
         if depName not in ( self.vPackages.resolveVPkgList( self.installedPackageNames ) + \
                             self.vPackages.resolveVPkgList( self.packages.keys() ) ):
             self.packages[depName] = self.getNewPackage( depName )
-            self.packages[pkgName].addDependencyError( depName )
+            if self.recordErrors:
+                self.packages[pkgName].addDependencyError( depName )
 
     def getActualPkgName( self, pkgName ):
         return( self.vPackages.getActualPkgName( pkgName, self.packages.keys() ) )
@@ -142,6 +144,7 @@ class Bombardier:
         self.filesystem = filesystem
         self.operatingSystem = operatingSystem
         self.instanceName    = instanceName
+        self.recordErrors = True
         
     ### TESTED
     def getDependencyErrors(self, bomPackageNames, progressData):
@@ -239,7 +242,7 @@ class Bombardier:
                 newChain = PackageChain(chainPriority, packageName, packageDict,
                                         installedPackageNames, brokenPackageNames,
                                         self.repository, self.config, self.filesystem,
-                                        self.operatingSystem, self.instanceName)
+                                        self.operatingSystem, self.instanceName, self.recordErrors)
             except Exceptions.BadPackage, e:
                 errmsg = "Package %s will not be installed because it is "\
                          "dependent upon one or more broken packages" % packageName
@@ -257,20 +260,6 @@ class Bombardier:
             if priority > topPriority:
                 topPriority = priority
         return topPriority
-
-    def uninstallOrder(self, packageDict):
-        chains = self.createPackageChains(packageDict)
-        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
-        uninstallOrder = []
-        for priority, chain in chains:
-            Logger.info(">>>>   CHAIN: %s" % chain )
-            for packageName in chain:
-                Logger.info(">>> PACKAGENAME: %s" % packageName)
-                if packageName in installedPackageNames:
-                    if packageName not in uninstallOrder:
-                        uninstallOrder.append(packageName)
-        return uninstallOrder # returns a list of packageNames in the correct installation order
 
     # TESTED
     def installOrder(self, packageDict):
@@ -332,34 +321,6 @@ class Bombardier:
             return FAIL
         return OK
 
-    def uninstallPackages(self, delPackageDict):
-        makingProgress = True
-        packageNamesLeft = ['initialize']
-        while makingProgress and packageNamesLeft:
-            makingProgress = False
-            uninstallOrder = self.uninstallOrder(delPackageDict)
-            packageNamesLeft = []
-            map(packageNamesLeft.append, uninstallOrder) # Need a deep copy
-            for packageName in uninstallOrder:
-                Logger.info("Packages remaining to uninstall (in order): %s" % packageNamesLeft)
-                package = delPackageDict[packageName]
-                packageNamesLeft.remove(packageName)
-                status = package.uninstall()
-                erstr = "Currently uninstalling package "\
-                        "priority %s [%s]" % (package.priority, packageName)
-                Logger.info(erstr)
-                status = package.uninstall()
-                if status == FAIL:
-                    erstr = "Package uninstallation failure -- re-calculating package installation order"
-                    Logger.error(erstr)
-                    break
-                else:
-                    makingProgress = True
-        if packageNamesLeft:
-            Logger.error("There are packages that are broken, and we have done all we can do. ; ;")
-            return FAIL
-        return OK
-
     ### WON'T BE TESTED
     def cleanup(self, status, logmessage=''):
         self.operatingSystem.noRestartOnLogon()
@@ -407,8 +368,7 @@ class Bombardier:
         packageDict = {}
         for packageName in packageList:
             if action == UNINSTALL:
-                Logger.info("Package %s is "\
-                            "not on the bill of materials." % packageName)
+                Logger.info("Adding to package removal list: %s" % packageName)
             try:
                 newPackage = Package.Package(packageName, self.repository, self.config, self.filesystem,
                                              self.operatingSystem, self.instanceName)
@@ -424,6 +384,8 @@ class Bombardier:
         # add any packages that are installed already
         # which are dependent upon those to the list as well
         vPackages = VirtualPackages(self.repository.packages)
+        uninstallOrder = []
+        map(uninstallOrder.append, delPackageNames)
         while delPackageNames:
             newDependencyNames = []
             delPackageNames = []
@@ -439,17 +401,16 @@ class Bombardier:
                 package.action = UNINSTALL
                 for tombstonedPackageName in packageDict.keys():
                     if vPackages.getVPkgNameFromPkgName( tombstonedPackageName ) in package.dependencies:
-                        erstr = "Scheduling package %s for removal "\
-                                "because it depends on %s" % \
-                                (packageName, tombstonedPackageName)
-                        Logger.info(erstr)
+                        erstr = "Adding to package removal list: %s (depends on %s)"
+                        uninstallOrder.insert(0, packageName)
+                        Logger.info(erstr % (packageName, tombstonedPackageName))
                         packageDict[tombstonedPackageName].dependsOnMe.append(packageName)
                         if packageName not in packageDict.keys():
                             if packageName not in newDependencyNames:
                                 packageDict[packageName] = package
                                 newDependencyNames.append(packageName)
                 delPackageNames = newDependencyNames
-        return packageDict
+        return packageDict, uninstallOrder
 
     ### TESTED
     def getPackagesToRemoveDict(self, delPackageNames):
@@ -458,10 +419,9 @@ class Bombardier:
         packageDict = self.createPackageDict(delPackageNames, UNINSTALL)
         if sets.Set(installedPackageNames) == sets.Set(packageDict.keys()):
             return packageDict
-        packageDict = self.getUninstallPackageDependencies(packageDict,
-                                                           delPackageNames,
-                                                           installedPackageNames)
-        return packageDict
+        packageDict, uninstallOrder = self.getUninstallPackageDependencies(packageDict, delPackageNames,
+                                                                           installedPackageNames)
+        return packageDict, uninstallOrder
 
     def checkBom(self, bomPackageNames):
         """ Check through what should be installed on the system and what
@@ -518,38 +478,28 @@ class Bombardier:
 
         return testResults
 
-    def checkInstallationStatus(self, packageNames = []):
-        #self.packageNames = packageNames
-        pkgGroups,individualPackageNames  = self.config.getPackageGroups()
-        Logger.info("package groups: %s, individuals: %s" % (pkgGroups, individualPackageNames)) #FIXME
-        #spkgPath          = miniUtility.getSpkgPath()
-        #self.filesystem.chdir(spkgPath)
-        if packageNames == []:
-            packageNames = individualPackageNames
-        if packageNames == []:
-            self.filesystem.clearLock()
-            raise Exceptions.BadBillOfMaterials("Empty Bill of Materials")
-        addPackageNames, delPackageNames = self.checkBom(packageNames)
+    def checkInstallationStatus(self, bomPackageNames = []):
+        if bomPackageNames == []:
+            bomPackageNames = self.config.getBomPackages()
+            if bomPackageNames == []:
+                raise Exceptions.BadBillOfMaterials("Empty Bill of Materials")
+        addPackageNames, delPackageNames = self.checkBom(bomPackageNames)
         addPackageDict = self.getPackagesToAddDict(addPackageNames)
-        delPackageDict = self.getPackagesToRemoveDict(delPackageNames)
-        Logger.info("Packages to install: %s" % addPackageDict.keys())
-        removeFullPackageNames = [delPackageDict[x].fullName for x in delPackageDict.keys()]
-        Logger.info("Packages to remove: %s" % removeFullPackageNames)
-        return addPackageDict, delPackageDict
+        delPackageDict, uninstallOrder = self.getPackagesToRemoveDict(delPackageNames)
+        return addPackageDict, delPackageDict, uninstallOrder
 
     ### TESTED
     def reconcileSystem(self, packageNames = []):
-        addPackageDict, delPackageDict = self.checkInstallationStatus(packageNames)
+        addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus(packageNames)
         if self.filesystem.setLock() == FAIL:
             return FAIL
-        for packageName in delPackageDict:
-            status = delPackageDict[packageName].uninstall()
-            if status == FAIL:
-                errmsg = "Uninstallation failed on %s. Aborting reconcile." % packageName
-                Logger.error(errmsg)
-                return self.cleanup(FAIL, logmessage="Finished installing (ERRORS ENCOUNTERED).")
+        status = self.uninstallPackages(delPackageDict, uninstallOrder)
+        if status == FAIL:
+            errmsg = "Uninstallation failed on %s. Aborting reconcile." % packageName
+            Logger.error(errmsg)
+            return self.cleanup(FAIL, logmessage="Finished installing (ERRORS ENCOUNTERED).")
 
-        addPackageDict, delPackageDict = self.checkInstallationStatus(packageNames)
+        addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus(packageNames)
         status = self.installPackages(addPackageDict)
         return self.cleanup(status, logmessage="Finished installing.")
 
@@ -566,7 +516,7 @@ class Bombardier:
         return differences
 
     def checkSystem(self, packageNames = []):
-        addPackageDict, delPackageDict = self.checkInstallationStatus(packageNames)
+        addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus(packageNames)
         progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
         fullProgressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
         fullInstalledPackageNames, fullBrokenPackageNames = miniUtility.getInstalled(fullProgressData)
@@ -589,13 +539,25 @@ class Bombardier:
                     packageInfo["ok"].remove(packageName)
         return packageInfo
 
+    def uninstallPackages(self, delPackageDict, uninstallOrder):
+        status = OK
+        removeFullPackageNames = [delPackageDict[x].fullName for x in uninstallOrder]
+        Logger.info("Packages to remove: %s" % removeFullPackageNames)
+        for packageName in uninstallOrder:
+            uninstallStatus = delPackageDict[packageName].uninstall()
+            if uninstallStatus == FAIL:
+                Logger.info("Failed to uninstall %s. Continuing with uninstallation..." % packageName)
+                return FAIL # FIXME
+                status = FAIL
+        return status
+
     def usePackage(self, packageName, action, scriptName=''):
         try:
             package = Package.Package(packageName, self.repository, self.config, self.filesystem,
                                       self.operatingSystem, self.instanceName)
             package.initialize()
             if action == INSTALL:
-                addPackageDict, delPackageDict = self.checkInstallationStatus()
+                addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus()
                 Logger.info("AddPackageDict: %s --- delPacakgeDict: %s" % (addPackageDict.keys(), delPackageDict.keys()))
                 if not packageName in addPackageDict:
                     Logger.error("Package %s cannot be installed." % packageName)
@@ -603,12 +565,11 @@ class Bombardier:
                 addPackageDict = {packageName:package}
                 status = self.installPackages(addPackageDict)
             if action == UNINSTALL:
-                addPackageDict, delPackageDict = self.checkInstallationStatus()
-                if packageName in addPackageDict:
-                    Logger.error("Package %s is not installed." % packageName)
-                    return FAIL
-                delPackageDict = {packageName:package}
-                status = self.uninstallPackages(delPackageDict)
+                bomPackageNames = self.config.getBomPackages()
+                if packageName in bomPackageNames:
+                    bomPackageNames.remove(packageName)
+                addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus()
+                status = self.uninstallPackages(delPackageDict, uninstallOrder)
             if action == VERIFY:
                 status = package.verify()
             if action == CONFIGURE:
