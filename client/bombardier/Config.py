@@ -25,7 +25,7 @@
 import yaml
 from staticData import *
 import miniUtility, Logger
-import random
+import random, copy
 from Exceptions import InvalidConfigData
             
 def generatePassword():
@@ -78,9 +78,12 @@ class Config(dict):
     def keys(self):
         return self.data.keys()
 
+    def setBomPackages(self, pDict):
+        self.data["packages"] = copy.deepcopy(pDict)
+
     def getBomPackages(self):
         if self.data.has_key("packages"):
-            return self.data["packages"]
+            return copy.deepcopy(self.data["packages"])
         return []
 
     def saveHash(self, path):

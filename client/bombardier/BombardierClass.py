@@ -21,7 +21,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import sets, os, time
+import sets, os, time, copy
 import miniUtility, Package, Exceptions, Logger
 from staticData import *
 
@@ -383,9 +383,9 @@ class Bombardier:
     def getUninstallPackageDependencies(self, packageDict, delPackageNames, installedPackageNames):
         # add any packages that are installed already
         # which are dependent upon those to the list as well
+        Logger.info("Checking dependencies of packages to be uninstalled %s..." % delPackageNames)
         vPackages = VirtualPackages(self.repository.packages)
-        uninstallOrder = []
-        map(uninstallOrder.append, delPackageNames)
+        uninstallOrder = copy.deepcopy(delPackageNames)
         while delPackageNames:
             newDependencyNames = []
             delPackageNames = []
@@ -414,12 +414,14 @@ class Bombardier:
 
     ### TESTED
     def getPackagesToRemoveDict(self, delPackageNames):
+        uninstallOrder = []
         progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         packageDict = self.createPackageDict(delPackageNames, UNINSTALL)
         if sets.Set(installedPackageNames) == sets.Set(packageDict.keys()):
             return packageDict
-        packageDict, uninstallOrder = self.getUninstallPackageDependencies(packageDict, delPackageNames,
+        if delPackageNames:
+            packageDict, uninstallOrder = self.getUninstallPackageDependencies(packageDict, delPackageNames,
                                                                            installedPackageNames)
         return packageDict, uninstallOrder
 
@@ -565,9 +567,12 @@ class Bombardier:
                 addPackageDict = {packageName:package}
                 status = self.installPackages(addPackageDict)
             if action == UNINSTALL:
-                bomPackageNames = self.config.getBomPackages()
+                progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
+                installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
+                bomPackageNames = installedPackageNames
                 if packageName in bomPackageNames:
                     bomPackageNames.remove(packageName)
+                self.config.setBomPackages(bomPackageNames)
                 addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus()
                 status = self.uninstallPackages(delPackageDict, uninstallOrder)
             if action == VERIFY:
