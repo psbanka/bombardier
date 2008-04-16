@@ -419,7 +419,7 @@ class Bombardier:
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         packageDict = self.createPackageDict(delPackageNames, UNINSTALL)
         if sets.Set(installedPackageNames) == sets.Set(packageDict.keys()):
-            return packageDict
+            return packageDict, packageDict.keys()
         if delPackageNames:
             packageDict, uninstallOrder = self.getUninstallPackageDependencies(packageDict, delPackageNames,
                                                                            installedPackageNames)
@@ -484,7 +484,7 @@ class Bombardier:
         if bomPackageNames == []:
             bomPackageNames = self.config.getBomPackages()
             if bomPackageNames == []:
-                raise Exceptions.BadBillOfMaterials("Empty Bill of Materials")
+                Logger.warning("Empty Bill of Materials")
         addPackageNames, delPackageNames = self.checkBom(bomPackageNames)
         addPackageDict = self.getPackagesToAddDict(addPackageNames)
         delPackageDict, uninstallOrder = self.getPackagesToRemoveDict(delPackageNames)

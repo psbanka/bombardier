@@ -147,10 +147,7 @@ def instanceSetup(instanceName):
 
 def processAction(action, instanceName, packageName, scriptName, packageFactory):
     if not os.path.isdir(instanceName):
-        if action in [ INSTALL, RECONCILE ]:
-            instanceSetup(instanceName)
-        else:
-            raise NoInstanceError(instanceName)
+        instanceSetup(instanceName)
     
     if action in [ UNINSTALL, VERIFY, CONFIGURE, EXECUTE ]:
         packageName = findLikelyPackageName(instanceName, packageName)

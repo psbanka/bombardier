@@ -66,13 +66,14 @@ class Repository:
         if response.strip() != "OK":
             Logger.error("Received an invalid response from the server")
             raise Exceptions.FileNotFound(filename, "server told us that it didn't have our file.")
-        filepath = dosPath +'/'+filename
-        if os.path.isfile(filepath):
-            status, actualChecksum = cls.computeMd5(filepath, checksum)
+        filePath = dosPath +'/'+filename
+        if os.path.isfile(filePath):
+            status, actualChecksum = cls.computeMd5(filePath, checksum)
             if status != OK:
                 errmsg = "MD5Sum did not verify. Expected: (%s), got: (%s)" % (checksum, actualChecksum)
                 raise Exceptions.BadPackage(filename, errmsg)
-        raise Exceptions.FileNotFound(filepath, "did not receive from the server")
+            return filePath
+        raise Exceptions.FileNotFound(filePath, "did not receive from the server")
 
     @classmethod
     def packageInfoRequest(cls, packageName):
