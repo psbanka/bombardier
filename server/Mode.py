@@ -108,9 +108,11 @@ class Mode:
         if not hostName in self.bomConnections:
             brc = BombardierRemoteClient(hostName, self.password, self.dataPath, outputHandle)
             self.bomConnections[hostName] = brc
-        if self.password:
-            self.bomConnections[hostName].configPasswd = self.password
-        self.bomConnections[hostName].debug = self.debug
+        else:
+            if self.password:
+                self.bomConnections[hostName].configPasswd = self.password
+            self.bomConnections[hostName].debug = self.debug
+            self.bomConnections[hostName].refreshConfig()
         return self.bomConnections[hostName]
 
     def clearBomConnections(self):

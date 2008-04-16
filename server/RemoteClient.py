@@ -49,21 +49,24 @@ class RemoteClient:
         self.dataPath     = dataPath
         self.outputHandle = outputHandle 
         self.status       = DISCONNECTED
-        self.info         = getClient(self.hostName, dataPath, password)
+        self.info         = {}
+        self.password     = password
+        self.refreshConfig()
         self.username     = self.info["defaultUser"]
         self.ipAddress    = self.info["ipAddress"]
         self.platform     = self.info["platform"]
-        if 'sharedKeys' not in self.info:
+        if 'sharedKeys' not in self.info and self.password == '':
             if os.path.isfile("defaultPassword.b64"):
                 self.debugOutput("Using default password")
                 self.password = base64.decodestring(open(self.dataPath+"/"+DEFAULT_PASSWORD).read())
             else:
                 self.password  = getpass.getpass( "Enter password for %s: "% self.username )
-        else:
-            self.password = ''
         self.connectTime = 0
         self.cursorPosition = 0
         self.savedDirectory = ''
+
+    def refreshConfig(self):
+        self.info = getClient(self.hostName, self.dataPath, self.password)
     
     def templateOutput(self, template, debugText, noDebugText='.'):
         output = ''
