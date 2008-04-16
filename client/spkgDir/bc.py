@@ -26,7 +26,7 @@ from bombardier.staticData import *
 from bombardier.Logger import logger, addStdErrLogging
 import bombardier.Filesystem, bombardier.Exceptions
 import bombardier.Config, bombardier.OperatingSystem
-import bombardier.Server
+import bombardier.Package
 import bombardier.Repository, bombardier.BombardierClass
 from bombardier.miniUtility import getProgressPath
 
@@ -59,12 +59,12 @@ def findLikelyPackageName(instanceName, packageName):
         logger.info( 'Using %s' %packageName)
         return packageName
 
-def fixSpkg(instanceName, packageName, action):
+def fixSpkg(instanceName, packageName, action, packageFactory):
     statusData = open(getProgressPath(instanceName), 'r').read()
     status = yaml.load(statusData)
     if status.get("install-progress") == None:
-        logger.error( "Status file is empty." )
-        return FAIL
+        status["install-progress"] = {}
+        logger.warning( "Status file is empty." )
     now = time.asctime()
     if action == FIX:
         fixName = []
@@ -76,10 +76,15 @@ def fixSpkg(instanceName, packageName, action):
         for possiblePackageName in status["install-progress"]:
             if baseName in possiblePackageName:
                 fixName.append(possiblePackageName)
-        if len(fixName) != 1:
-            logger.error("Could not find package %s. (possible %s)" % (packageName, ' '.join(fixName)))
+        if len(fixName) > 1:
+            logger.error("Package name %s is ambigious. (possible %s)" % (packageName, ' '.join(fixName)))
             return FAIL
-        packageName = fixName[0]
+        elif len(fixName) == 1:
+            packageName = fixName[0]
+        elif len(fixName) == 0:
+            newPackage = packageFactory.getMeOne(packageName)
+            packageName = newPackage.fullName
+            logger.info("Selecting previously UNINSTALLED package: %s" % packageName)
         status["install-progress"]["%s" % packageName] = {"INSTALLED": now, "UNINSTALLED": "NA", "VERIFIED": now}
         logger.info("%s has been set to INSTALLED." % packageName )
     elif action == PURGE:
@@ -95,26 +100,44 @@ def fixSpkg(instanceName, packageName, action):
     open(getProgressPath(instanceName), 'w').write(yaml.dump(status))
     return OK
 
-def getBc(instanceName):
-    import bombardier.Filesystem, bombardier.Exceptions
-    filesystem = bombardier.Filesystem.Filesystem()
-    filesystem.clearLock()
-    repository = bombardier.Repository.Repository(filesystem, instanceName)
-    config = bombardier.Config.Config(filesystem, repository, instanceName)
-    try:
-        config.freshen()
-    except bombardier.Exceptions.ServerUnavailable, e:
-        logger.error( "Cannot connect to server (%s)" % e )
-        sys.exit(1)
-    if sys.platform == "linux2":
-        import bombardier.Linux
-        operatingSystem = bombardier.Linux.Linux()
-    else:
-        import bombardier.Windows
-        operatingSystem = bombardier.Windows.Windows()
+class BombardierEnvironment:
+    def __init__(self, instanceName):
+        import bombardier.Filesystem, bombardier.Exceptions
+        self.filesystem      = bombardier.Filesystem.Filesystem()
+        self.repository      = bombardier.Repository.Repository(self.filesystem, instanceName)
+        self.config          = bombardier.Config.Config(self.filesystem, self.repository, instanceName)
+        self.operatingSystem = None
+        self.instanceName    = instanceName
+        try:
+            self.config.freshen()
+        except bombardier.Exceptions.ServerUnavailable, e:
+            logger.error( "Cannot connect to server (%s)" % e )
+            sys.exit(1)
+        if sys.platform == "linux2":
+            import bombardier.Linux
+            self.operatingSystem = bombardier.Linux.Linux()
+        else:
+            import bombardier.Windows
+            operatingSystem = bombardier.Windows.Windows()
 
-    bc = bombardier.BombardierClass.Bombardier(repository, config, filesystem, 
-                                               operatingSystem, instanceName)
+    def clearLock(self):
+        self.filesystem.clearLock()
+        
+class PackageFactory:
+    def __init__(self, env):
+        self.env = env
+
+    def getMeOne(self, packageName):
+        newPackage = bombardier.Package.Package(packageName, self.env.repository, self.env.config, 
+                                     self.env.filesystem, self.env.operatingSystem, self.env.instanceName) 
+        newPackage.initialize()
+        return newPackage
+
+def getBc(instanceName):
+    env = BombardierEnvironment(instanceName)
+    env.clearLock()
+    bc = bombardier.BombardierClass.Bombardier(env.repository, env.config, env.filesystem, 
+                                               env.operatingSystem, instanceName)
     return bc
 
 def instanceSetup(instanceName):
@@ -122,8 +145,7 @@ def instanceSetup(instanceName):
     os.makedirs("%s/packages" % instanceName)
     open(getProgressPath(instanceName), 'w').write(yaml.dump(statusDct))
 
-
-def processAction(action, instanceName, packageName, scriptName):
+def processAction(action, instanceName, packageName, scriptName, packageFactory):
     if not os.path.isdir(instanceName):
         if action in [ INSTALL, RECONCILE ]:
             instanceSetup(instanceName)
@@ -136,7 +158,7 @@ def processAction(action, instanceName, packageName, scriptName):
     status = FAIL
     try:
         if action in [ FIX, PURGE ]:
-            status = fixSpkg(instanceName, packageName, action)
+            status = fixSpkg(instanceName, packageName, action, packageFactory)
             return status
         bc = getBc(instanceName)
         if action == STATUS:
@@ -214,22 +236,28 @@ if __name__ == "__main__":
 
     (options, args) = parser.parse_args()
     if len(args) < 1:
+        print "CMD: %s" % ' '.join(sys.argv)
         print "This command requires an instance name."
         parser.print_help()
         sys.exit(1)
     instanceName = args[0]
 
+    env = BombardierEnvironment(instanceName)
+    packageFactory = PackageFactory(env)
+
     if options.action in [ RECONCILE, STATUS]:
-        status = processAction(options.action, instanceName, '', '')
+        status = processAction(options.action, instanceName, '', '', packageFactory)
     else:
         scriptName   = ""
         if len(args) < 2:
+            print "CMD: %s" % ' '.join(sys.argv)
             print "This command requires a package name as an argument."
             parser.print_help()
             sys.exit( 1 )
         packageNames = args[1:]
         if options.action == EXECUTE:
             if len(args) != 3:
+                print "CMD: %s" % ' '.join(sys.argv)
                 print "This command requires a package name and a script name."
                 parser.print_help()
                 sys.exit( 1 )
@@ -238,7 +266,7 @@ if __name__ == "__main__":
             
 
         for packageName in packageNames:
-            status = processAction(options.action, instanceName, packageName, scriptName)
+            status = processAction(options.action, instanceName, packageName, scriptName, packageFactory)
             if status != OK:
                  sys.exit(status)
     sys.exit(status)
