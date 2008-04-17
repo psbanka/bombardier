@@ -160,10 +160,10 @@ class SpkgV4:
         dataSource = ''
         if hasattr(self, "server"):
             dataSource = self.server.strip()
-            if hasattr(self, "instance"):
-                instance = self.instance.strip()
-                if instance != '':
-                    dataSource += "\\"+instance
+            if hasattr(self, "dbinstance"):
+                dbinstance = self.dbinstance.strip()
+                if dbinstance != '':
+                    dataSource += "\\"+dbinstance
                 if hasattr(self, "port"):
                     port = self.port.strip()
                     if port != '':

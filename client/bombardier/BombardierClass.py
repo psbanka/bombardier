@@ -559,9 +559,9 @@ class Bombardier:
                                       self.operatingSystem, self.instanceName)
             package.initialize()
             if action == INSTALL:
-                addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus()
-                Logger.info("AddPackageDict: %s --- delPacakgeDict: %s" % (addPackageDict.keys(), delPackageDict.keys()))
-                if not packageName in addPackageDict:
+                progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
+                installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
+                if packageName in [installedPackageNames + brokenPackageNames]:
                     Logger.error("Package %s cannot be installed." % packageName)
                     return FAIL
                 addPackageDict = {packageName:package}
