@@ -286,72 +286,85 @@ def standAloneMode(filesystem):
         return True
     return False
 
+
 # TESTED
-def quadToInt(quadString):
+def netStringToNetLong(netString):
     quadIndex = 3
-    integer = 0L
-    for octet in quadString.split('.'):
-        integer += (long(octet) << (quadIndex * 8))
+    netLong = 0L
+    for octet in netString.split('.'):
+        netLong += (long(octet) << (quadIndex * 8))
         quadIndex -= 1
-    return integer
+    return netLong
+
+def netLongToNetString(netLong):
+    output = []
+    while netLong:
+        output.append( str( netLong & 255 ) )
+        netLong = netLong >> 8
+    output.reverse()
+    return '.'.join(output)
+    
+# TESTED
+def computeNetLongFromStrings(netStringAddress, netStringMask):
+    if type(netStringAddress) == type("string"):
+        netLongAddress = netStringToNetLong(netStringAddress)
+    else:
+        netLongAddress = netStringAddress
+    if type(netStringMask) == type("string"):
+        netLongMask = netStringToNetLong(netStringMask)
+    else:
+        netLongMask = netStringMask
+    netLong = netLongAddress & netLongMask
+    return netLong
 
 # TESTED
-def computeNet(address, snm):
-    if type(address) == type("string"):
-        address = quadToInt(address)
-    if type(snm) == type("string"):
-        snm = quadToInt(snm)
-    network = address & snm
-    return network
-
-# TESTED
-def convertToSlashNotation(quad):
+def findBitMaskFromNetString(netString):
     bits = 0
-    quads = quad.split('.')
-    if len(quads) != 4: return 0
-    for i in quad.split('.'):
-        if int(i) < 0 or int(i) > 255:
+    octets = netString.split('.')
+    if len(octets) != 4: return 0
+    for octet in octets:
+        if int(octet) < 0 or int(octet) > 255:
             return 0
         for j in range(0,8):
-            if int(i) == 256-(2**j):
+            if int(octet) == 256-(2**j):
                 bits += (8-j)
                 break
     return bits
 
 # TESTED
-def convertFromSlashNotation(bits):
+def netLongFromBitmask(bits):
     if bits == 0: return 0L
-    output = 0L
+    netLong = 0L
     for i in range(0,31):
         pyChucker(i)
         if bits:
-            output += 1
+            netLong += 1
             bits -= 1
-        output = output << 1
-    return output
+        netLong = netLong << 1
+    return netLong
 
 # TESTED
-def convertSlashToNetwork(network):
+def convertCidrToNetLongs(netStringCidr):
     try:
-        address  = network.split('/')[0]
-        maskBits = network.split('/')[1]
+        netString  = netStringCidr.split('/')[0]
+        maskBits   = netStringCidr.split('/')[1]
     except IndexError:
-        print "BAD DATA: %s" % network
-        print network.split('/')
-        return convertFromSlashNotation(32)
-    snm = convertFromSlashNotation(int(maskBits))
-    networkInt = computeNet(address, snm)
-    return networkInt
+        print "BAD DATA: %s" % netStringCidr
+        print netStringCidr.split('/')
+        return netLongFromBitmask(32)
+    netLongMask = netLongFromBitmask(int(maskBits))
+    netLong = computeNetLongFromStrings(netString, netLongMask)
+    return netLong, netLongMask
+
 
 # TESTED
 def getNetworkList(networkDict):
     addressSet = networkDict["address"]
-    networks = []
-    for network in addressSet:
-        networkInt = convertSlashToNetwork(network)
-        networks.append(networkInt)
-    return networks
-
+    netLongs = []
+    for networkString in addressSet:
+        netLong, netLongMask = convertCidrToNetLongs(networkString)
+        netLongs.append(netLong)
+    return netLongs
 
 def ipConfig():
     cmd="%s > output.txt" % os.path.join(os.environ["WINDIR"], "system32", "ipconfig.exe")
@@ -372,7 +385,7 @@ def ipConfig():
     if len(snms) != len(addresses):
         return addressSet
     for i in range(0, len(addresses)):
-        bits = convertToSlashNotation(snms[i])
+        bits = findBitMaskFromNetString(snms[i])
         addressSet.union_update(["%s/%d" % (addresses[i], bits)])
     return addressSet
 
