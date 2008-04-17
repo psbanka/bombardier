@@ -118,7 +118,7 @@ class BombardierEnvironment:
             self.operatingSystem = bombardier.Linux.Linux()
         else:
             import bombardier.Windows
-            operatingSystem = bombardier.Windows.Windows()
+            self.operatingSystem = bombardier.Windows.Windows()
 
     def clearLock(self):
         self.filesystem.clearLock()
