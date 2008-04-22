@@ -297,12 +297,13 @@ def netStringToNetLong(netString):
     return netLong
 
 def netLongToNetString(netLong):
-    output = []
+    netStrings = []
     while netLong:
-        output.append( str( netLong & 255 ) )
+        netString = str( netLong & 255 )
+        netStrings.append( netString )
         netLong = netLong >> 8
-    output.reverse()
-    return '.'.join(output)
+    netStrings.reverse()
+    return '.'.join(netStrings)
     
 # TESTED
 def computeNetLongFromStrings(netStringAddress, netStringMask):

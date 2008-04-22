@@ -89,10 +89,10 @@ class SpkgV4:
         pyChucker(config)
         self.thisPackagesName = self._getname()
         self.filesystem = filesystem
-        self.stderr   = True
-        self.server   = None
-        self.instance = None
-        self.port     = None
+        self.stderr     = True
+        self.server     = None
+        self.dbinstance = None
+        self.port       = None
         if logger == None:
             import Logger
             self.logger = Logger.logger

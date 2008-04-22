@@ -78,6 +78,9 @@ class Config(dict):
     def keys(self):
         return self.data.keys()
 
+    def getInstance(self):
+        return self.instanceName
+
     def setBomPackages(self, pDict):
         self.data["packages"] = copy.deepcopy(pDict)
 
