@@ -29,11 +29,14 @@ if sys.platform == "win32":
     from time import sleep
     import win32api, win32file
     from Windows import Windows
-    from utility import consoleFail
 
 import Logger
+from Exceptions import ConsoleException
 from Filesystem import copyDirectory, removeFile
 from staticData import *
+
+class IisUtilsException(ConsoleException):
+    pass
 
 def removeSite( _siteIndex ):
     w3svcPath = "IIS://localhost/w3svc"
@@ -147,7 +150,7 @@ class SiteCreator:
         try:
             w3svc =GetObject( 'IIS://localhost/w3svc' )
         except Exception, e:
-            consoleFail( "Exception trying to get w3svc: \n%s" %e )
+            raise IisUtilsException( "Exception trying to get w3svc: \n%s" %e )
         Logger.info( "Created w3svc object, checking for duplicate sites" )    
         for webServer in w3svc:
             if webServer.Class == "IIsWebServer":
@@ -163,7 +166,7 @@ class SiteCreator:
             siteFoundAtIndex = False
 
         if siteFoundAtIndex:     
-            consoleFail( "Object found at intended site index %s, failing" %self.siteIndex )
+            raise IisUtilsException( "Object found at intended site index %s, failing" %self.siteIndex )
         else:    
             Logger.info( "No duplicate sites found, creating site" )                    
             newSite = w3svc.Create("IIsWebServer", self.siteIndex)
@@ -205,7 +208,7 @@ class SiteCreator:
                 site.Put( 'SecureBindings', self.secureBindings )
             site.SetInfo()
         except:
-            consoleFail( "Could not set serverBindings" )
+            raise IisUtilsException( "Could not set serverBindings" )
                 
 class AutoItControl:
     def __init__(self):
@@ -215,13 +218,13 @@ class AutoItControl:
         Logger.debug( "AutoItControl activating window %s" %(title) )
         self.aut.WinActivate( title )
         if not self.aut.WinActive( title ) :
-            consoleFail( "Could not activate " + title )
+            raise IisUtilsException( "Could not activate " + title )
         return True
     
     def waitVerifyActivate( self, title, text="", delay=30 ):
         Logger.debug( "AutoItControl waiting for window %s" %(title) )
         if not self.aut.WinWait( title, text, delay ):
-            consoleFail( "Wait failed on "+ title + "\nFailing" )
+            raise IisUtilsException( "Wait failed on "+ title + "\nFailing" )
         self.verifyActivate( title )
     
 class AutoWizard(AutoItControl):
@@ -235,6 +238,7 @@ class AutoWizard(AutoItControl):
         if repeat < 1: 
             return
         for r in range( repeat ):
+            pyChucker(r)
             self.aut.Send( "{ENTER}" )
             self.wizWait()
     
@@ -317,25 +321,25 @@ class CertInstaller(AutoWizard):
     def openCertSnapIn(self):
         self.aut.Run(r"C:\WINNT\System32\mmc.exe ../scripts/LocalMachineCerts.msc")
         if not self.aut.WinWait("LocalMachineCerts", "", 3):
-            consoleFail( "Could not open LocalMachineCerts.msc" )
+            raise IisUtilsException( "Could not open LocalMachineCerts.msc" )
     
     def openLocalMachinePersonalCerts(self):
         self.aut.Run(r"C:\WINNT\System32\mmc.exe ../scripts/LocalMachinePersonalCerts.msc")
         if not self.aut.WinWait("LocalMachinePersonalCerts", "", 3):
-            consoleFail( "Could not open LocalMachinePersonalCerts.msc" )
+            raise IisUtilsException( "Could not open LocalMachinePersonalCerts.msc" )
     def openCertificateWizard( self ):
     
         self.verifyActivate( self.title )
     
         self.aut.Send("!S")
         if not self.aut.WinWait("Welcome to the Web Server Certificate Wizard.", "", 30):
-           consoleFail( "Could not open Certificate Wizard" )
+           raise IisUtilsException( "Could not open Certificate Wizard" )
     
     def installCACert(self):
         self.showProgress( "CA Certificate" )
     
         if self.getCACert() == FAIL:
-            consoleFail( "Could not get CA cert from authority" )
+            raise IisUtilsException( "Could not get CA cert from authority" )
     
         self.openCertSnapIn()
         self.verifyActivate( "LocalMachineCerts" )
@@ -380,17 +384,17 @@ class CertInstaller(AutoWizard):
         Logger.debug( cmd )
         status = os.system( cmd )
         if status == FAIL:
-            consoleFail( "Problem submitting ticket number to certificate server" )
+            raise IisUtilsException( "Problem submitting ticket number to certificate server" )
         cmd = "%s -T%s %s/req/%s/csr" % ( curlCmd, self.certRequestPath, self.caUrl, ticketNum )
         Logger.debug( cmd )
         status = os.system( cmd )
         if status == FAIL:
-            consoleFail( "Unable to PUT our certificate request onto the certificate server" )
+            raise IisUtilsException( "Unable to PUT our certificate request onto the certificate server" )
         cmd = "%s %s/req/%s/crt > %s" % ( curlCmd, self.caUrl, ticketNum, self.signedCertPath)
         Logger.debug( cmd )
         status = os.system( cmd )
         if status == FAIL:
-            consoleFail( "Unable to get our signed certificate request from the certificate server" )
+            raise IisUtilsException( "Unable to get our signed certificate request from the certificate server" )
         return OK
         
     def getCertRequestPath( self, commonName ):
