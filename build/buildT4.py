@@ -365,8 +365,8 @@ class TarCreator:
             displayCmd += "--password PASSWORD "
         cmd        += "%s/%s " % (self.svnConfig["root"], self.scriptName)
         displayCmd += "%s/%s " % (self.svnConfig["root"], self.scriptName)
-        cmd        += "%s/scripts > output.txt 2>&1" % self.destDir
-        displayCmd += "%s/scripts > output.txt 2>&1" % self.destDir
+        cmd        += "%s > output.txt 2>&1" % self.destDir
+        displayCmd += "%s > output.txt 2>&1" % self.destDir
         if sys.platform == "win32":
             status = os.system(cmd)
         else:
