@@ -91,7 +91,7 @@ class SpkgV4:
         self.filesystem = filesystem
         self.stderr     = True
         self.server     = None
-        self.dbinstance = None
+        self.dbInstance = None
         self.port       = None
         if logger == None:
             import Logger
@@ -160,10 +160,10 @@ class SpkgV4:
         dataSource = ''
         if hasattr(self, "server"):
             dataSource = self.server.strip()
-            if hasattr(self, "dbinstance"):
-                dbinstance = self.dbinstance.strip()
-                if dbinstance != '':
-                    dataSource += "\\"+dbinstance
+            if hasattr(self, "dbInstance"):
+                dbInstance = self.dbInstance.strip()
+                if dbInstance != '':
+                    dataSource += "\\"+dbInstance
                 if hasattr(self, "port"):
                     port = self.port.strip()
                     if port != '':
