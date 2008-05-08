@@ -30,6 +30,7 @@ def getChecksum( fullPath ):
     return( checkSum )
 
 def findClassName(scriptName):
+    print ">>>>>",os.getcwd()
     ignoredList = ["installer.py", "uninstaller.py", "configure.py", "verify.py", "backup.py"]
     if os.path.isfile( '../scripts/%s.py' %scriptName ):
         return scriptName
@@ -355,28 +356,31 @@ class TarCreator:
         if not os.path.isdir(self.destDir):
             print "making directory %s" % self.destDir
             os.makedirs(self.destDir)
-        cmd = "svn export "
-        displayCmd = cmd
-        if self.svnConfig.has_key("username"):
-            cmd        += "--username %s " % self.svnConfig["username"]
-            displayCmd += "--username USER_NAME "
-        if self.svnConfig.has_key("password"):
-            cmd        += "--password %s " % self.svnConfig["password"]
-            displayCmd += "--password PASSWORD "
-        cmd        += "%s/%s " % (self.svnConfig["root"], self.scriptName)
-        displayCmd += "%s/%s " % (self.svnConfig["root"], self.scriptName)
-        cmd        += "%s > output.txt 2>&1" % self.destDir
-        displayCmd += "%s > output.txt 2>&1" % self.destDir
-        if sys.platform == "win32":
-            status = os.system(cmd)
-        else:
-            status, output = commands.getstatusoutput(cmd)
-        if status != OK:
-            self.errors.append("error exporting scripts for %s" % self.packageName)
-            if os.path.isfile("output.txt"):
-                for line in open("output.txt").readlines():
-                    self.errors.append("debug: %s" % line.strip())
-            return FAIL
+        exportDirs = ["scripts", "maint"]
+
+        for exportDir in exportDirs:
+            cmd = "svn export "
+            displayCmd = cmd
+            if self.svnConfig.has_key("username"):
+                cmd        += "--username %s " % self.svnConfig["username"]
+                displayCmd += "--username USER_NAME "
+            if self.svnConfig.has_key("password"):
+                cmd        += "--password %s " % self.svnConfig["password"]
+                displayCmd += "--password PASSWORD "
+            cmd        += "%s/%s/%s " % (self.svnConfig["root"], self.scriptName, exportDir)
+            displayCmd += "%s/%s/%s " % (self.svnConfig["root"], self.scriptName, exportDir)
+            cmd        += "%s/%s > output.txt 2>&1" % (self.destDir, exportDir)
+            displayCmd += "%s/%s > output.txt 2>&1" % (self.destDir, exportDir)
+            print "Exporting from SVN: (%s)..." % displayCmd
+            if sys.platform == "win32":
+                cmdStatus = os.system(cmd)
+            else:
+                cmdStatus, output = commands.getstatusoutput(cmd)
+            if cmdStatus != OK:
+                self.errors.append("error exporting %s for %s" % (exportDir, self.packageName))
+                if os.path.isfile("output.txt"):
+                    for line in open("output.txt").readlines():
+                        self.errors.append("debug: %s" % line.strip())
         return OK
 
     def makePackage(self, cleanOld):
