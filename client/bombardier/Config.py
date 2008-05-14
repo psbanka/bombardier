@@ -116,8 +116,7 @@ class Config(dict):
         configPath = os.path.join(miniUtility.getSpkgPath(), self.instanceName, CONFIG_FILE)
         if not os.path.isfile(configPath):
             return FAIL
-        Logger.warning("THIS SYSTEM IS USING AN UNENCRYPTED LOCAL CONFIGURATION FILE.")
-        Logger.warning("CONFIGURATION ENTRIES ON THE SERVER WILL BE IGNORED.")
+        Logger.warning("DETECTED A CLEARTEXT LOCAL CONFIGURATION FILE: IGNORING MANAGEMENT SERVER CONFIGURATION")
         fh = open(configPath, 'r')
         try:
             configData = fh.read()
@@ -225,6 +224,9 @@ class Config(dict):
 
     def getobj(self, sectionString, default, expType, optional):
         value = self.parseSection(sectionString, default, optional)        
+        if type(expType) == type("string"):
+            if type(value) == type(1234) or type(value) == type(123.32):
+                value = str(value)
         if type(value) == type(expType):
             return value
         raise InvalidConfigData(sectionString, type(value), type(expType))

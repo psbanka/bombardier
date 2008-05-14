@@ -133,8 +133,7 @@ class PackageFactory:
         newPackage.initialize()
         return newPackage
 
-def getBc(instanceName):
-    env = BombardierEnvironment(instanceName)
+def getBc(instanceName, env):
     env.clearLock()
     bc = bombardier.BombardierClass.Bombardier(env.repository, env.config, env.filesystem, 
                                                env.operatingSystem, instanceName)
@@ -145,7 +144,7 @@ def instanceSetup(instanceName):
     os.makedirs("%s/packages" % instanceName)
     open(getProgressPath(instanceName), 'w').write(yaml.dump(statusDct))
 
-def processAction(action, instanceName, packageName, scriptName, packageFactory):
+def processAction(action, instanceName, packageName, scriptName, packageFactory, env):
     if not os.path.isdir(instanceName):
         instanceSetup(instanceName)
     
@@ -157,7 +156,7 @@ def processAction(action, instanceName, packageName, scriptName, packageFactory)
         if action in [ FIX, PURGE ]:
             status = fixSpkg(instanceName, packageName, action, packageFactory)
             return status
-        bc = getBc(instanceName)
+        bc = getBc(instanceName, env)
         if action == STATUS:
             statusDict = bc.checkSystem()
             if type(statusDict) == type({}):
@@ -243,7 +242,7 @@ if __name__ == "__main__":
     packageFactory = PackageFactory(env)
 
     if options.action in [ RECONCILE, STATUS]:
-        status = processAction(options.action, instanceName, '', '', packageFactory)
+        status = processAction(options.action, instanceName, '', '', packageFactory, env)
     else:
         scriptName   = ""
         if len(args) < 2:
@@ -263,7 +262,7 @@ if __name__ == "__main__":
             
 
         for packageName in packageNames:
-            status = processAction(options.action, instanceName, packageName, scriptName, packageFactory)
+            status = processAction(options.action, instanceName, packageName, scriptName, packageFactory, env)
             if status != OK:
                  sys.exit(status)
     sys.exit(status)
