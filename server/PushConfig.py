@@ -7,7 +7,7 @@ from commonUtil import *
 from commands import getstatusoutput
 from Mode import HostNotEnabledException
 
-class PushConfig(PinshCmd.PinshCmd):
+class Push(PinshCmd.PinshCmd):
     def __init__(self, name = "push"):
         PinshCmd.PinshCmd.__init__(self, name)
         self.helpText = "push\tcopy the client's configuration file to the client (use 'no' to remove)"
@@ -28,7 +28,7 @@ class PushConfig(PinshCmd.PinshCmd):
         except HostNotEnabledException:
             return FAIL, ["Host not enabled for this user."]
         if noFlag:
-            status, output = r.runCmd("shred -uf config.yml")
+            status, output = r.runCmd("shred -uf %s/config.yml" % hostName)
             if status == FAIL:
                 return FAIL, ["Unable to delete config.yml from %s. (%s)" % (hostName, output.strip().replace('\n', ' '))]
             return OK, ["Remote config file removed."]
@@ -40,7 +40,7 @@ class PushConfig(PinshCmd.PinshCmd):
             client.decryptConfig()
         tmpFile = mode.dataPath+"/%s.yml" % (''.join(random.sample("abcdefghijklmnopqrstuvwxyz", 10)))
         open(tmpFile, 'w').write(yaml.dump( client.data ))
-        r.scp(tmpFile, r.spkgDir+"/config.yml")
+        r.scp(tmpFile, "%s/%s/config.yml" % (r.spkgDir, hostName))
         status, output = getstatusoutput("shred -uf %s" % tmpFile)
         if status == FAIL:
             return FAIL, ["Unable to remove file %s. May have sensitive data left on the operating system."]
