@@ -25,8 +25,10 @@ class SpkgException( Exception ):
         return self.errorMessage
 
 def getInstance():
+    path = os.getcwd()
     spkgPath = miniUtility.getSpkgPath()
-    instanceName = os.getcwd().split(spkgPath)[1].split(os.path.sep)[0]
+    subDir = path.split(spkgPath)[1]
+    instanceName = subDir.split(os.path.sep)[1]
     return instanceName
 
 def getConfig():
