@@ -49,6 +49,8 @@ class ScriptField(PinshCmd.PinshCmd):
         if len(packageNames) != 1:
             return ''
         packageName = packageNames[0]
+        if len(tokens) <= index:
+            return ''
         partialScriptName  = tokens[index]
         possibleMatches = self.possibleScriptNames(packageName, partialScriptName)
         if possibleMatches:

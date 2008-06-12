@@ -57,7 +57,8 @@ class RemoteClient:
         self.platform     = self.info["platform"]
         if 'sharedKeys' not in self.info and self.password == '':
             if os.path.isfile("defaultPassword.b64"):
-                self.debugOutput("Using default password")
+                msg = "WARNING: using default password"
+                self.debugOutput(msg, msg)
                 self.password = base64.decodestring(open(self.dataPath+"/"+DEFAULT_PASSWORD).read())
             else:
                 self.password  = getpass.getpass( "Enter password for %s: "% self.username )
@@ -104,7 +105,8 @@ class RemoteClient:
     def connect(self):
         self.s = pxssh.pxssh()
         self.s.timeout = 6000
-        #self.debugOutput("Connecting to %s..." %self.hostName)
+        msg = "connecting to %s..." %self.hostName
+        self.debugOutput(msg, msg)
         try:
             if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):
                 raise Exception
@@ -130,7 +132,7 @@ class RemoteClient:
         else:
             cmd += "%s@%s:%s %s" % (self.username, self.ipAddress, remotePath, localPath)
         cmd += "'"
-        self.debugOutput("EXECUTING: %s" % cmd)
+        #self.debugOutput("EXECUTING: %s" % cmd)
         stdout, stdin = os.popen4(cmd)
         s = pexpect.spawn(cmd, timeout=5000)
         sshNewkey = 'Are you sure you want to continue connecting'
@@ -203,7 +205,7 @@ class RemoteClient:
         connectionAge = time.time() - self.connectTime
         if self.status == DISCONNECTED or connectionAge > CONNECTION_TIMEOUT or self.status == BROKEN:
             if self.status == CONNECTED:
-                msg = "Assuming our connection to %s is stale after "\
+                msg = "assuming our connection to %s is stale after "\
                       "%4.2f minutes. Reconnecting..." % (self.hostName, connectionAge / 60.0)
                 self.debugOutput(msg)
                 self.disconnect()
@@ -218,7 +220,7 @@ class RemoteClient:
             dead = True
 
         if dead:
-            self.debugOutput("Our connection handle is dead. Reconnecting...")
+            self.debugOutput("our connection handle is dead. Reconnecting...")
             try:
                 self.disconnect()
             except:
@@ -271,7 +273,7 @@ class RemoteClient:
                 raise ClientUnavailableException(dest, errMsg)
             s.sendline(self.password)
         if i == 2:
-            self.debugOutput('Using password authentication')
+            self.debugOutput('using password authentication')
             s.sendline(self.password)
         if i == 3:
             pass

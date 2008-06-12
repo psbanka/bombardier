@@ -60,7 +60,7 @@ class BombardierRemoteClient(RemoteClient):
         package, path = data
         filename = self.dataPath+"/deploy/packages/"+package
         if not os.path.isfile(filename):
-            message = "Client requested a file that is not on this server: %s" % filename
+            message = "ERROR: client requested a file that is not on this server: %s" % filename
             self.debugOutput(message, message)
             self.s.send(`FAIL`)
         self.scp(filename, path)
@@ -81,7 +81,7 @@ class BombardierRemoteClient(RemoteClient):
         totalLines = len(encoded.split()) / BLK_SIZE
         printFrequency = totalLines / DOT_LENGTH
         if self.debug:
-            self.outputHandle.write("==> Sending configuration information:")
+            self.outputHandle.write("==> sending configuration information:")
             self.outputHandle.flush()
         if printFrequency < 1:
             printFrequency = 1
@@ -118,7 +118,7 @@ class BombardierRemoteClient(RemoteClient):
     def sendPkgInfo(self, packageName):
         thisPackageData = self.packageData.get(packageName) 
         if not thisPackageData:
-            message = "Could not find package data for %s." % packageName
+            message = "ERROR: could not find package data for %s." % packageName
             self.debugOutput(message, message)
             raise ClientConfigurationException(self.hostName)
         self.streamData(yaml.dump(thisPackageData))
@@ -126,7 +126,7 @@ class BombardierRemoteClient(RemoteClient):
     def sendBom(self, data):
         filename = self.dataPath+"/deploy/bom/%s.yml" % data
         if not os.path.isfile(filename):
-            message = "Could not find valid bom data for this %s. Exiting." % filename
+            message = "ERROR: could not find valid bom data for this %s. Exiting." % filename
             self.debugOutput(message, message)
             raise ClientConfigurationException(self.hostName)
         self.streamFile(filename)
@@ -144,7 +144,7 @@ class BombardierRemoteClient(RemoteClient):
     def runCmd(self, commandString):
         self.reportInfo = ''
         if self.freshen() != OK:
-            message = "UNABLE TO CONNECT TO %s. No actions are available." % self.hostName
+            message = "ERROR: unable to connect to %s." % self.hostName
             self.debugOutput(message, message)
             return FAIL, ''
         returnCode = OK
@@ -174,7 +174,7 @@ class BombardierRemoteClient(RemoteClient):
 
         data = re.compile("NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'").findall(tString)
         if data:
-            message1 = "Error in configuration"
+            message1 = "ERROR: invalid client configuration data"
             self.debugOutput(message1, message1)
             if len(data) == 2:
                 message2 = "Need option '%s' in section '%s'." % (data[0], data[1])
@@ -183,7 +183,7 @@ class BombardierRemoteClient(RemoteClient):
             self.debugOutput(message2, message2)
         data = re.compile("NoSectionError\: No section\: \'(\w+)\'").findall(tString)
         if data:
-            message1 = "Error in configuration"
+            message1 = "ERROR: invalid client configuration data"
             self.debugOutput(message1, message1)
             message2 = "Need section '%s'." % (data[0])
             self.debugOutput(message2, message2)
@@ -216,17 +216,18 @@ class BombardierRemoteClient(RemoteClient):
                 if foundIndex == 1:
                     self.dumpTrace()
                     self.s.prompt()
+                    self.getStatusYml()
                     return FAIL, ["Client raised an exception."]
                 if foundIndex == 0:
-                    self.debugOutput("BOMBARDIER HAS EXITED")
+                    #self.debugOutput("BOMBARDIER HAS EXITED")
                     if self.s.before.strip():
-                        self.debugOutput("Remaining output: %s" % self.s.before.strip())
+                        self.debugOutput("remaining output: %s" % self.s.before.strip())
                     self.s.setecho(False)
                     self.s.sendline("echo $?")
                     self.s.prompt()
                     try:
                         returnCode = int(str(self.s.before.split()[0].strip()))
-                        self.debugOutput("RETURN CODE: %s" % RETURN_DICT[returnCode])
+                        #self.debugOutput("RETURN CODE: %s" % RETURN_DICT[returnCode])
                     except Exception, e:
                         self.debugOutput( str(e) )
                         self.debugOutput( "invalid returncode: ('%s')" % self.s.before)
@@ -241,11 +242,11 @@ class BombardierRemoteClient(RemoteClient):
                 if not self.processMessage(message):
                     self.fromOutput(message)
         except KeyboardInterrupt:
-            self.debugOutput("Cleaning up...", "\nCleaning up...")
+            self.debugOutput("cleaning up...", "\ncleaning up...")
             if self.terminate() == OK:
-                self.debugOutput("Disconnected", "\nDisconnected")
+                self.debugOutput("disconnected", "\ndisconnected")
             else:
-                self.debugOutput("Could not disconnect", "\nCould not disconnect")
+                self.debugOutput("ERROR: could not disconnect", "\nERROR: could not disconnect")
             raise KeyboardInterrupt
 
         except Exception, e:
@@ -303,7 +304,7 @@ class BombardierRemoteClient(RemoteClient):
         try:
             yaml.load(statusYml)
         except:
-            self.debugOutput("status.yml could not be parsed (writing to error.yml)")
+            self.debugOutput("ERROR: status.yml could not be parsed (writing to error.yml)")
             open( self.dataPath+"/%s/error.yml" %(statusDir), 'w' ).write(statusYml)
             return
         open( self.dataPath+"/%s/%s.yml" %(statusDir, self.hostName), 'w' ).write(statusYml)

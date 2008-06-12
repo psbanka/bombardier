@@ -5,7 +5,7 @@ from Crypto.Cipher import AES
 from bombardier.staticData import CENSORED
 from staticData import *
 
-VALID_CHARS = [ chr(x) for x in range(ord(' '), ord('~')+1) ]
+VALID_CHARS = [ chr(x) for x in range(ord(' '), ord('~')+1) ] + ['\n']
 
 def pad(str):
     return str + '=' * (16 - len(str) % 16)
@@ -25,6 +25,28 @@ def encrypt(plainStr, passwd):
     b64CipherB64Str = base64.encodestring(cipherText).strip()
     return b64CipherB64Str
 
+def changePass(dict, oldPasswd, newPasswd):
+    oldPasswd = pad(oldPasswd)
+    newPasswd = pad(newPasswd)
+    changeLoop(dict, oldPasswd, newPasswd)
+    return dict
+
+def changeLoop(dict, oldPasswd, newPasswd):
+    if type(dict) != type({}):
+        return 
+    for key in dict:
+        t = type(dict[key])
+        if t == type('') and type(key) == type('') and key.startswith('enc_'):
+            dict[key] = decryptString(dict[key], oldPasswd)
+            dict[key] = encrypt(dict[key], newPasswd)
+        elif t == type({}):
+            try:
+                changeLoop(dict[key], oldPasswd, newPasswd)
+            except DecryptionException, e:
+                pyChucker(e)
+                print e
+                raise InvalidData(key, dict[key], "Unable to decrypt")
+    
 def decrypt(dict, passwd):
     if passwd:
         passwd = pad(passwd)
@@ -48,6 +70,7 @@ def decryptLoop(dict, passwd):
                 decryptLoop(dict[key], passwd)
             except DecryptionException, e:
                 pyChucker(e)
+                print e
                 raise InvalidData(key, dict[key], "Unable to decrypt")
     
 def decryptString(b64CipherB64Str, passwd, validChars=VALID_CHARS):

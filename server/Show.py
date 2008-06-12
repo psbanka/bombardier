@@ -86,7 +86,7 @@ class Package(PinshCmd.PinshCmd):
         pyChucker(noFlag, slash)
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
-        packageName = tokens[1]
+        packageName = tokens[2]
         pkgData = yaml.load(open(mode.dataPath+"/deploy/packages/packages.yml").read())
         return OK, ['', packageName, "========================", '', [pkgData.get(packageName)]]
 

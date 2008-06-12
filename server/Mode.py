@@ -53,7 +53,7 @@ class Mode:
         self.getTermInfo()
         self.debug = True
         self.config = {}
-        self.username = os.environ["USER"]
+        self.username = os.environ.get("USER")
         self.autoEnable = False
         self.setPrompt()
         self.dataPath = os.getcwd() #! FIXME!!

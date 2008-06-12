@@ -14,6 +14,8 @@ def getProgressData(hostName):
         print "\n\n %% Cannot retrieve status (NO FILE: %s)" %statusYml
         return None
     yml = yaml.load( open(statusYml).read() ) 
+    if yml == None:
+        return {}
     progressData = yml.get("install-progress")
     return progressData
 
@@ -30,6 +32,15 @@ def getNamesFromProgress(hostName, stripped=False):
             installedPackageNames = unstrippedInstPkgs
             brokenPackageNames    = unstrippedBrokenPkgs
     return (set(installedPackageNames), set(brokenPackageNames))
+
+def getInstallablePackageNames(hostName, packageName, stripped=True):
+    possibleMatches = set([])
+    for i in getPackageNamesFromBom(hostName):
+        if i.lower().startswith( packageName.lower() ):
+            possibleMatches.add( i )
+    installedPackageNames  =  getInstalledPackageNames(hostName, stripped)
+    brokenPackageNames = getBrokenPackageNames(hostName, stripped)
+    return list(possibleMatches - installedPackageNames - brokenPackageNames)
 
 def getInstalledPackageNames(hostName, stripped=False):
     return getNamesFromProgress(hostName, stripped)[0]
@@ -111,13 +122,7 @@ class InstallablePackageField(PackageField):
         if status == FAIL:
             print "Bad config file for %s." % hostName
             return []
-        possibleMatches = set([])
-        for i in getPackageNamesFromBom(hostName):
-            if i.lower().startswith( packageName.lower() ):
-                possibleMatches.add( i )
-        installedPackageNames  =  getInstalledPackageNames(hostName, stripped=True)
-        brokenPackageNames = getBrokenPackageNames(hostName, stripped=True)
-        return list(possibleMatches - installedPackageNames - brokenPackageNames)
+        return getInstallablePackageNames(hostName, packageName, stripped=True)
 
 class InstalledPackageField(PackageField):
     def __init__(self, name = "installedPackageField"):
@@ -149,6 +154,7 @@ class FixablePackageField(PackageField):
     def possiblePackageNames(self, hostName, packageName):
         possibleMatches = []
         packages = getBrokenPackageNames(hostName)
+        packages = packages.union(set(getInstallablePackageNames(hostName, packageName, stripped=True)))
         for i in packages:
             if i.lower().startswith( packageName.lower() ):
                 possibleMatches.append( i )

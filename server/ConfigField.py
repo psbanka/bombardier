@@ -36,6 +36,8 @@ class ConfigField(PinshCmd.PinshCmd):
         firstTokenNames = [ fn for fn in fileNames if fn.lower().startswith(partialFirst.lower()) ]
         if len(firstTokenNames) == 0:
             return [], {}
+        if tokens[index] in firstTokenNames:
+            firstTokenNames = [tokens[index]]
         if len(firstTokenNames) > 1:
             return firstTokenNames, {}
         firstTokenName = firstTokenNames[0]

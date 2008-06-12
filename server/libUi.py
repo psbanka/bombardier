@@ -12,19 +12,17 @@ PAGE = 3
 NEUTRAL = 5
 YES = 1
 NO = 0
-MOTD = ''
+MOTD = 'banner.txt'
 
-def motd():
+def motd(path, outputHandle):
     output = []
-    try:
-        f = open(MOTD, 'r')
+    fileName = os.path.join(path, MOTD)
+    if os.path.isfile(fileName):
+        f = open(fileName, 'r')
         l = f.readlines()
         for line in l:
-            output.append(line.strip())
-        userOutput(output, OK, sys.stdout, sys.stderr)
-    except:
-        pass
-
+            outputHandle.write(line)
+            outputHandle.flush()
 
 def appendNotBlank(currentToken, tokens):
     currentToken = currentToken.strip()

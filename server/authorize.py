@@ -4,11 +4,11 @@ import yaml, sys
 from commands import getstatusoutput
 from UserAuth import UserAuth
 
-SYSTEM_INFO = "deploy/include/systemInfo.yml"
+SYSTEM_INFO = "serverConfig.yml"
 #SYSTEM_INFO = "systemInfo.yml"
 
 def showAllRights(userName):
-    systemData = yaml.load(open("deploy/include/systemInfo.yml").read())
+    systemData = yaml.load(open(SYSTEM_INFO).read())
     if not userName:
         print yaml.dump(systemData["system"]["rights"], default_flow_style=False)
     else:

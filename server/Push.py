@@ -36,15 +36,18 @@ class Push(PinshCmd.PinshCmd):
         status = client.get()
         if status == FAIL:
             return FAIL ["Could not find valid configuration data for this host."]
-        if mode.password:
-            client.decryptConfig()
+        if not mode.password:
+            output = ["Did NOT decrypt configuration before sending"] 
+        else:
+            output = ["Decrypted configuration before sending."]
+        client.decryptConfig()
         tmpFile = mode.dataPath+"/%s.yml" % (''.join(random.sample("abcdefghijklmnopqrstuvwxyz", 10)))
         open(tmpFile, 'w').write(yaml.dump( client.data ))
         r.scp(tmpFile, "%s/%s/config.yml" % (r.spkgDir, hostName))
-        status, output = getstatusoutput("shred -uf %s" % tmpFile)
+        status, cmdoutput = getstatusoutput("shred -uf %s" % tmpFile)
         if status == FAIL:
-            return FAIL, ["Unable to remove file %s. May have sensitive data left on the operating system."]
+            return FAIL, output + ["Unable to remove file %s. May have sensitive data left on the local operating system."]
         else:
-            return OK, ['Command took %5.2f seconds' % (time.time() - start)]
+            return OK, output + ['Command took %5.2f seconds' % (time.time() - start)]
 
 

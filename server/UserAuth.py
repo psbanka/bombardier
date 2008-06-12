@@ -7,10 +7,6 @@ import libCipher
 import pexpect
 
 
-def showAllRights():
-    userData = yaml.load(open(mode.dataPath+"/deploy/include/systemInfo.yml").read())
-    print yaml.dump(userData["system"]["rights"], default_flow_style=False)
-
 def getPwd():
     lowercase = [ chr(c) for c in range(ord('a'),ord('z')) ]
     uppercase = [ chr(c) for c in range(ord('A'),ord('Z')) ]
@@ -119,9 +115,34 @@ class UserAuth:
             open(self.systemInfoFile, 'w').write(yaml.dump(systemInfo))
         return OK
 
+    def verifyVpnCert(self):
+        if not os.path.isdir("archive/tmp"):
+            os.makedirs("archive/tmp")
+        os.chdir('archive/tmp')
+        status, output = getstatusoutput("unzip ../%s*-inside.zip" % self.name)
+        if status != OK:
+            print "Error unpacking key file"
+            return FAIL
+        s = pexpect.spawn("openssl rsa -in %s.key -noout -text" % (self.name))
+        s.expect("Enter pass phrase")
+        s.sendline(self.vpnPass)
+        output = s.read()
+        s.close()
+        os.chdir("../..")
+        os.system("rm -rf archive/tmp")
+        if "modulus" in output:
+            print "VPN key passes openssl validation"
+            return OK
+        print "KEY IS NOT OK: %s" % output
+        return FAIL
+
     def createVpnCert(self):
         start = os.getcwd()
+        caData = yaml.load(open("deploy/include/OpenVpnCerts.yml").read())
+        libCipher.decryptLoop(caData, self.password)
         os.chdir("CA")
+        open("%s-CA.crt" % self.environment, "w").write(caData["openvpn"]["CA_CRT"])
+        open("%s-CA.key" % self.environment, "w").write(caData["openvpn"]["CA_KEY"])
         s = pexpect.spawn("bash mkpkg.sh %s %s" % (self.name, self.environment))
         s.expect("Enter PEM pass phrase:")
         s.sendline(self.vpnPass)
@@ -129,11 +150,10 @@ class UserAuth:
         s.sendline(self.vpnPass)
         time.sleep(1)
         s.close()
+        os.system("shred -fu %s-CA.*" % self.environment)
+        status = self.verifyVpnCert()
         os.chdir(start)
-        if os.path.isfile("%s/%s-%s-outside.zip" % ("CA", self.name, self.environment)):
-            if os.path.isfile("%s/%s-%s-inside.zip" % ("CA", self.name, self.environment)):
-                return OK
-        return FAIL
+        return status
 
     def createEntry(self, entry, password, notes):
         return "%s %s %s %s %s %s %s" % (self.name, self.safeCombo, entry, self.name, self.environment, password, notes)
@@ -160,7 +180,7 @@ class UserAuth:
 
     def prepareWebData(self):
         status1, output = getstatusoutput('mv %s.dat %s' % (self.name, self.webDir))
-        status2, output = getstatusoutput('bash -c "mv CA/%s*.zip %s"' % (self.name, self.webDir))
+        status2, output = getstatusoutput('bash -c "cp CA/archive/%s*.zip %s"' % (self.name, self.webDir))
         open("%s/%s.passwd" % (self.webDir, self.name), 'w').write(self.safeCombo)
         status3, output = getstatusoutput('sudo bash -c "chown %s.%s %s/%s*"' % (self.webUser, self.webUser, self.webDir, self.name))
         status4, output = getstatusoutput('sudo bash -c "chmod 600 %s/%s*"' % (self.webDir, self.name))

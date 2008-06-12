@@ -138,6 +138,8 @@ class PackageCommand(PinshCmd.PinshCmd):
             status, output = self.processObject(r, packageName, tokens)
         else:
             packageNames = self.packageList.workingNames(tokens, 2)
+            if not packageNames:
+                return FAIL, "No package names match %s. Check system status" % tokens[2]
             try:
                 r = mode.getBomConnection(self.hostName, slash.fpOut)
             except HostNotEnabledException:

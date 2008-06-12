@@ -40,7 +40,7 @@ if __name__ == "__main__":
                 status = cmdStatus
         sys.exit(status)
     else:
-        libUi.motd()
+        libUi.motd(mode.dataPath, slash.fpOut)
         if os.path.isfile(HISTORY_FILE):
             try:
                 readline.read_history_file(HISTORY_FILE)

@@ -1,5 +1,6 @@
 #! /bin/bash
 export PASS=test1234 country=US company=WellTemperedComputers division=TCE state=Oregon city=Portland
+openssl=/opt/openssl/bin/openssl
 
 function makeconfig() {
 cat> config  <<'EOF'
@@ -140,7 +141,7 @@ function _x509_request() {
     message="" 
     [ -n "$message" ] && echo $message && return
     export password
-    openssl req -config config \
+    $openssl req -config config \
 	-days 3650 \
 	-nodes -new -keyout \
 	$name.key -out $name.csr
@@ -162,7 +163,7 @@ function _x509_sign() {
     message=" ${csr}.csr does not exist" && [  -f "${csr}.csr" ] && 
     message=""
     [ -n "$message" ] && echo $message && return
-    openssl x509 -req  -in ${csr}.csr -days 3600  \
+    $openssl x509 -req  -in ${csr}.csr -days 3600  \
     -CA ${ca}-CA.crt -CAkey ${ca}-CA.key -CAcreateserial -out ${csr}.crt
     x509 issuer -crt $csr
 }
@@ -177,7 +178,7 @@ function _x509_show_request() {
     message=" ${csr}.csr does not exist" && [  -f "${csr}.csr" ] && 
     message=""
     [ -n "$message" ] && echo $message && return
-    openssl req -in ${csr}.csr -text -verify -noout
+    $openssl req -in ${csr}.csr -text -verify -noout
 }
 
 
@@ -207,7 +208,7 @@ function _x509_createCA() {
 	    return
 	}
     [ -f config ] || makeconfig
-    openssl req -config config -x509 \
+    $openssl req -config config -x509 \
 	-days 3650 -nodes -new \
 	-keyout ${fname}.key -out ${fname}.crt
     chmod 600 ${fname}.key
@@ -219,42 +220,42 @@ function _x509_show() {
     #[ -n "$*" ] && declare $*
     crt=${crt/.crt}.crt
     [  -f "${crt}" ] || { echo  "${crt}.crt does not exist" ; return; }
-    openssl x509 -in $crt -noout -text
+    $openssl x509 -in $crt -noout -text
     }
 function _x509_issuer() {
     declare -x $(_opt2var $*)
     #[ -n "$*" ] && declare $*
     crt=${crt/.crt}
     [  -f "${crt}.crt" ] || { echo  "${crt}.crt does not exist" ; return; }
-    openssl x509 -in ${crt}.crt -noout -issuer
+    $openssl x509 -in ${crt}.crt -noout -issuer
     }
 function _x509_subject() {
     declare -x $(_opt2var $*)
     #[ -n "$*" ] && declare $*
     crt=${crt/.crt}
     [  -f "${crt}.crt" ] || { echo  "${crt}.crt does not exist" ; return; }
-    openssl x509 -in ${crt}.crt -noout -subject
+    $openssl x509 -in ${crt}.crt -noout -subject
     }
 function _x509_serial() {
     declare -x $(_opt2var $*)
     #[ -n "$*" ] && declare $*
     crt=${crt/.crt}
     [  -f "${crt}.crt" ] || { echo  "${crt}.crt does not exist" ; return; }
-    openssl x509 -in ${crt}.crt -noout -serial
+    $openssl x509 -in ${crt}.crt -noout -serial
     }
 function _x509_enddate() {
     declare -x $(_opt2var $*)
     #[ -n "$*" ] && declare $*
     crt=${crt/.crt}
     [  -f "${crt}.crt" ] || { echo  "${crt}.crt does not exist" ; return; }
-    openssl x509 -in ${crt}.crt -noout -enddate
+    $openssl x509 -in ${crt}.crt -noout -enddate
     }
 function _x509_startdate() {
     declare -x $(_opt2var $*)
     #[ -n "$*" ] && declare $*
     crt=${crt/.crt}
     [  -f "${crt}.crt" ] || { echo  "${crt}.crt does not exist" ; return; }
-    openssl x509 -in ${crt}.crt -noout -startdate
+    $openssl x509 -in ${crt}.crt -noout -startdate
     }
 
 function _x509_key_password() {
@@ -269,7 +270,7 @@ function _x509_key_password() {
     backup=${key}.backup.$(date +%d-%m-%y@%H.%M.%S)
     cp -v  ${key}  ${backup}
     mv  ${key}  ${key}.original
-    openssl rsa -des3 -in  ${key}.original -out  ${key}
+    $openssl rsa -des3 -in  ${key}.original -out  ${key}
     [ $? = 0 ] || {
 	cp   ${key}.original $key
 	echo $failed

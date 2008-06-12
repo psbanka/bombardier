@@ -31,6 +31,7 @@ class LongList(PinshCmd.PinshCmd):
                     continue
                 else:
                     print "ACCEPTABLE NAMES SHOULDN'T HAVE ALLOWED %s" % tokens[i]
+                    print ">>",tokenNames
                     return ''
             for tokenName in tokenNames:
                 if self.unique:
