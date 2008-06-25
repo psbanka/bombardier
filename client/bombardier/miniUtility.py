@@ -28,13 +28,15 @@ INSTALLED        = 1
 BROKEN_UNINSTALL = 2
 UNINSTALLED      = 3
 
-def cygpath(dospath):
+def cygpath(dosPath):
     prefix = ''
-    if ':' in dospath:
-        drive = dospath.split(':')[0]
+    if not dosPath:
+        return ''
+    if ':' in dosPath:
+        drive = dosPath.split(':')[0]
         prefix = '/cygdrive/%s' % drive
-        dospath = dospath.split(':')[-1]
-    return prefix + dospath.replace('\\', '/')
+        dosPath = dosPath.split(':')[-1]
+    return prefix + dosPath.replace('\\', '/')
 
 def cyghome():
     import RegistryDict

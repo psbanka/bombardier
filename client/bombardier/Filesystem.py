@@ -21,7 +21,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import shutil, os, sys, tarfile, gzip, yaml, re, time
+import shutil, os, sys, tarfile, gzip, yaml, re, time, glob
 import Exceptions, miniUtility, Logger
 from staticData import *
 
@@ -140,6 +140,29 @@ class Filesystem:
     mock version of the operating system for testing. -pbanka"""
     def __init__(self):
         self.environ = os.environ
+    def rmScheduledFile(self,fileName):
+        import pywintypes
+        import win32api, win32file
+        try:
+            # first, let's shred it
+            status = os.system("shred -f %s" % fileName)
+            if status != OK:
+                status = os.system("/usr/bin/shred -f %s" % fileName)
+                if status != OK:
+                    Logger.warning("Unable to shred before deleting %s" % fileName)
+            os.unlink(fileName)
+            return OK
+        except:
+            try:
+                win32api.MoveFileEx(fileName, None,
+                                    win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
+                return REBOOT
+            except pywintypes.error, e:
+                Logger.error("Cannot remove file: %s (%s)" % (fileName, e))
+    def execute(self, command):
+        return os.system(command)
+    def glob(self, path):
+        return glob.glob(path)
     def open(self, path, mode=None):
         if mode:
             return open(path, mode)
@@ -159,6 +182,8 @@ class Filesystem:
         return os.stat(path)
     def unlink(self, path):
         os.unlink(path)
+    def dumpYaml(self, filename, dictionary):
+        open(filename, 'w').write(yaml.dump(dictionary))
     def loadYaml(self, filename):
         if not os.path.isfile(filename):
             filename = os.path.join(miniUtility.getSpkgPath(), filename)
