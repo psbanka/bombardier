@@ -163,6 +163,23 @@ class Filesystem:
         return os.system(command)
     def glob(self, path):
         return glob.glob(path)
+    def attrib(self, fileName, flagString):
+        attrib   = os.path.join(os.environ["WINDIR"], "SYSTEM32", "attrib.exe") 
+        cmd = "%s %s %s" % (attrib, flagString, fileName)
+        status = os.system(cmd)
+        return status
+    def runCacls(self, filename, account, permission, edit=True, recurse=True): 
+        cacls    = os.path.join(os.environ["WINDIR"], "SYSTEM32", "cacls.exe") 
+        editFlag = '' 
+     
+        if edit:  
+            editFlag = "/E" 
+        recurseFlag = '' 
+        if recurse: 
+            recurseFlag = '/T'  
+        cmd = "echo y| %s %s %s %s /P %s:%s >c:\.cacls.out" % (cacls, filename, recurseFlag, editFlag, account, permission) 
+        status = os.system(cmd) 
+        return status 
     def open(self, path, mode=None):
         if mode:
             return open(path, mode)
@@ -206,6 +223,8 @@ class Filesystem:
         tar.close()
     def listdir(self, path):
         return os.listdir(path)
+    def makedirs(self, path):
+        os.makedirs(path)
     def mkdir(self, path):
         os.makedirs(path)
 
