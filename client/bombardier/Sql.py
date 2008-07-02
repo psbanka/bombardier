@@ -4,6 +4,9 @@ import os, time, re
 OK                  = 0
 FAIL                = 1
 
+class BadQuery(Exception):
+    pass
+
 class Sql:
 
     def __init__(self, config, logger, database):
@@ -20,15 +23,15 @@ class Sql:
     def set_database(self, database):
         self.database = database
 
-    def adoQuery(qstr, database=None):
+    def adoQuery(self, qstr, database=None):
         import win32com.client
         if database == None:
             database = self.database
         connexion = win32com.client.gencache.EnsureDispatch('ADODB.Connection')
         dbs = "Provider='SQLOLEDB';Data Source='localhost';Initial Catalog='%s';"\
-              "Integrated Security=SSPI;" % (database)
+              "Integrated Security=SSPI;" % (self.database)
         connexion.Open(dbs)
-        recordset = connexion.Execute(query)[0]
+        recordset = connexion.Execute(qstr)[0]
         output = []
         while True:
             try:
@@ -64,8 +67,8 @@ class Sql:
         if dedicated:
             cmd += '-A '
         cmd += '-i %s -o %s ' % (fileName, outputFile)
-        if self.database:
-            cmd += "-d %s " % self.database
+        if database:
+            cmd += "-d %s " % database
         if noHeader:
             cmd += "-h -1 "
         status = os.system(cmd)
@@ -81,7 +84,8 @@ class Sql:
                     number, level, state = errchk.findall(line)[0]
                     status = FAIL
                 output += "%s\n" % line.strip()
-            rmScheduledFile(outputFile)
+            if status == OK:
+                rmScheduledFile(outputFile)
         return status, output
 
     def queryWithOutput(self, qstr, database = '', noHeader=False, dedicated=False, debug=False):
@@ -92,8 +96,24 @@ class Sql:
         if not database:
             database = self.database
         status, output = self.executeFileQuery(inputFile, database, noHeader, dedicated)
-        rmScheduledFile(inputFile)
+        if status == OK:
+            rmScheduledFile(inputFile)
         return status, output
+
+    def queryRegex(self, qstr, regex, database = None):
+        status, output = self.queryWithOutput(qstr, noHeader=True, database = database)
+        if status == FAIL:
+            self.logger.error("Couldn't find information from (%s)" % qstr)
+            raise BadQuery()
+        output_lines = output.split('\n')
+        match_info = None
+        for line in output_lines:
+            match_info = regex.findall(line)
+            if match_info:
+                return match_info
+        if not match_info:
+            raise BadQuery()
+        return match_info
 
     def get_all_databases(self):
         "Returns a list of databases SQL Server knows about"
@@ -111,5 +131,4 @@ class Sql:
         status, output = self.queryWithOutput(qstr, database = database, dedicated=dedicated, debug=debug)
         if status == FAIL:
             self.logger.error("QUERY FAILED: (%s)" % output)
-            self.logger.error("QUERY: (%s)" % qstr)
         return status
