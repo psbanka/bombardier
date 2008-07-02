@@ -160,13 +160,13 @@ class SpkgV4:
 
     def makeConnectionString(self):
         dataSource = ''
-        if hasattr(self, "server"):
+        if hasattr(self, "server") and type(self.server) == type("string"):
             dataSource = self.server.strip()
-            if hasattr(self, "dbInstance"):
+            if hasattr(self, "dbInstance") and type(self.dbInstance) == type("string"):
                 dbInstance = self.dbInstance.strip()
                 if dbInstance != '':
                     dataSource += "\\"+dbInstance
-                if hasattr(self, "port"):
+                if hasattr(self, "port") and type(self.port) == type("string"):
                     port = self.port.strip()
                     if port != '':
                         dataSource += ","+port
