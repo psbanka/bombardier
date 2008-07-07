@@ -7,6 +7,17 @@ import libCipher
 from Crypto.Cipher import AES
 from bombardier.staticData import OK, FAIL, CENSORED
 
+class ClientConfigurationException(Exception):
+    def __init__(self, server, message=''):
+        e = Exception()
+        Exception.__init__(e)
+        self.server = server
+        self.message = message
+    def __str__(self):
+        return "Could not find valid configuration data for %s (%s)" % (self.server, self.message)
+    def __repr__(self):
+        return "Could not find valid configuration data for %s (%s)" % (self.server, self.message)
+
 class Client:
 
     def __init__(self, systemName, passwd, dataPath):
@@ -48,8 +59,8 @@ class Client:
             configName = self.systemName
         else:
             ymlDirectory = "include"
-        filename = self.dataPath+"/deploy/%s/%s.yml" % (ymlDirectory, configName)
-        newData = yaml.load( open(filename, 'r').read() )
+        fileName = self.dataPath+"/deploy/%s/%s.yml" % (ymlDirectory, configName)
+        newData = yaml.load( open(fileName, 'r').read() )
         if newData == None:
             newData = {}
         self.data = miniUtility.addDictionaries(self.data, newData)
@@ -61,11 +72,11 @@ class Client:
         boms = self.data.get("bom", [])
         packages = set(self.data.get("packages", []))
         for bom in boms:
-            filename = self.dataPath+"/deploy/bom/%s.yml" % (bom)
-            if not os.path.isfile(filename):
-                print "%s does not exist" % filename
-                return FAIL
-            packages = packages.union(set(yaml.load(open(filename).read())))
+            fileName = self.dataPath+"/deploy/bom/%s.yml" % (bom)
+            if not os.path.isfile(fileName):
+                errmsg = "%s does not exist" % fileName
+                raise ClientConfigurationException(self.systemName, errmsg)
+            packages = packages.union(set(yaml.load(open(fileName).read())))
         self.data["packages"] = list(packages)
         if self.data.get("bom"):
             del self.data["bom"]

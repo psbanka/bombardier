@@ -15,14 +15,6 @@ DOT_LENGTH = 20
 
 CONNECTION_TIMEOUT = 90 * 3600 #90 min
 
-class ClientConfigurationException(Exception):
-    def __init__(self, server):
-        e = Exception()
-        Exception.__init__(e)
-        self.server = server
-    def __repr__(self):
-        return "Could not find valid configuration data for %s" % self.server
-
 def getClient(serverName, dataPath, password):
     client = Client.Client(serverName, password, dataPath)
     status = client.get()

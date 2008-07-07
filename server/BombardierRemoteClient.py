@@ -4,7 +4,8 @@ import sys, re, os, getpass, base64, time
 import yaml
 import StringIO
 import traceback
-from RemoteClient import RemoteClient, ClientConfigurationException
+from RemoteClient import RemoteClient
+from Client import ClientConfigurationException
 from staticData import *
 try:
     import syck
