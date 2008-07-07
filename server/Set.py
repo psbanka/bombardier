@@ -1,12 +1,25 @@
 #!/usr/bin/python
 
 import sys, time
-
 import PinshCmd, Mode, libUi, ConfigField, Expression, JobNameField, Integer, MultipleChoice, Variable
 import SecureCommSocket
 from commonUtil import *
-
 import Client, libCipher
+
+def resetMaster():
+    directories = ["include", "client"]
+    print "Re-encrypting files...",
+    for directory in directories:
+        fullPath = "%s/deploy/%s" % (mode.dataPath, directory)
+        files = glob.glob("%s/*.yml" % fullPath)
+        for fileName in files:
+            baseName = fileName.split(os.path.sep)[-1]
+            print fileName
+            #print '.',
+            oldData = yaml.load(open(fileName).read())
+            newData = libCipher.changePass(oldData, oldPassword, newPassword)
+            open(fileName % (directory, baseName), 'w').write(yaml.dump(newData))
+
 def setPassword(slash):
     if not 'password' in mode.config: 
         masterPass = libUi.pwdInput("Enter master password to authorize this user: ")
@@ -27,6 +40,7 @@ def setPassword(slash):
     testPass2 = libUi.pwdInput("new password (confirm): ")
     if testPass1 != testPass2:
         return FAIL, ["Passwords do not match"]
+    resetMaster = libUi.askYesNo("Reset master password?", NO)
     mode.myPassword = testPass1
     try:
         cipherMasterPass = libCipher.encrypt(mode.password, mode.myPassword)
@@ -39,7 +53,6 @@ def setPassword(slash):
         mode.auth = ADMIN
         mode.pushPrompt(slash, "#", Mode.ENABLE)
     return OK, ["Password set"]
-
 
 class UnsupportedTypeException(Exception):
     def __init__(self, destObject):
