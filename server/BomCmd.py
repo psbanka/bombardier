@@ -123,14 +123,20 @@ class PackageCommand(PinshCmd.PinshCmd):
             return FAIL, ["Incomplete command."]
         hostName = tokens[1]
         if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
-            return FAIL, ["Invalid host: "+hostName]
-        self.hostName = self.bomHostField.preferredNames(["command", hostName], 1)[0]
+            preferredNames = self.bomHostField.preferredNames(tokens, 1)
+            if hostName in preferredNames:
+                self.hostName = hostName
+            else:
+                return FAIL, ["Invalid host: "+hostName]
+        else:
+            self.hostName = self.bomHostField.preferredNames(["command", hostName], 1)[0]
         if tokens[-1] == '':
             tokens = tokens[:-1]
         if self.action== EXECUTE:
-            if self.packageField.match(tokens, 2) != (COMPLETE, 1):
+            packageNames = self.packageField.possiblePackageNames(hostName, tokens[2])
+            if len(packageNames) != 1:
                 return FAIL, ["Invalid package: "+tokens[2]]
-            packageName = self.packageField.preferredNames(tokens, 2)[0]
+            packageName = packageNames[0]
             try:
                 r = mode.getBomConnection(self.hostName, slash.fpOut)
             except HostNotEnabledException:
@@ -230,7 +236,7 @@ class Execute(PackageCommand):
         self.removeVersion = False
 
     def processObject(self, r, packageName, tokens):
-        scriptNames = self.scriptField.preferredNames(tokens, 3)
+        scriptNames = self.scriptField.possibleScriptNames(packageName, tokens[3])
         if len(scriptNames) == 0:
             return FAIL, ["Invalid scriptName"]
         elif len(scriptNames) > 1:
