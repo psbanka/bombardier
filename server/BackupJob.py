@@ -1,22 +1,20 @@
 """Coordinates backup, syncronization and restore among bombardier client 
 systems that each have the SqlBackup package installed"""
 
-import os, sys, yaml, glob, time
+import os, sys, yaml, time
 from bombardier.staticData import OK, FAIL
-from bombardier.miniUtility import cygpath, addDictionaries
+from bombardier.miniUtility import cygpath
 from bombardier.Filesystem import Filesystem
-from bcs import BombardierRemoteClient, EXECUTE
 from getpass import getpass
-import Client
+from BombardierRemoteClient import EXECUTE
 import logging
 import logging.handlers
 
 ## CONSTANTS ####################################################
-DATA_PATH = os.getcwd()
 SYSTEM_LOCK_TIMEOUT = 900
 
-FULL = 0
-LOG  = 1
+FULL = 10
+LOG  = 11
 
 OK = 0
 FAIL = 1
@@ -75,63 +73,39 @@ class DeadLockException(Exception):
 
 class BackupJob:
     "Responsible for keeping track of the backup"
-    def __init__(self, options, password, backup_server, restore_servers,
+    def __init__(self, options, backup_server, restore_servers, smtp,
                  filesystem, logger):
-        self.filesystem         = filesystem
-        self.report             = {"job":{}, "warnings": []}
-        self.status             = OK
-        self.backup_server_name = backup_server_name
-        self.logger             = logger
-        self.client             = Client.Client(backup_server_name, 
-                                                password, DATA_PATH)
-        self.client.downloadClient()
-        self.db_dict            = get_my_databases(self.client)
-        self.primary_prefix     = "sql.servers.%s" % backup_server_name
-        self.sanitized_name     = self.backup_server_name.replace('-','')
-        self.local_archive      = self.client.string("sql.mgmtBackupDirectory")
-        servers                 = self.client.dictionary("sql.servers").keys()
-        restore_server_names    = list(set(servers) - set([backup_server_name]))
-
-        self.start_time_str     = time.asctime()
-        self.start_time         = time.time()
-        self.backup_server = BombardierRemoteClient(self.backup_server_name, 
-                                                    password, DATA_PATH)
+        self.options         = options
+        self.backup_server   = backup_server
+        self.restore_servers = restore_servers
+        self.smtp            = smtp
+        self.filesystem      = filesystem
+        self.logger          = logger
+        self.report          = {"warnings": []}
+        self.status          = OK
+        self.db_dict         = get_my_databases(self.backup_server)
+        self.primary_prefix  = "sql.servers.%s" % backup_server.hostName
+        self.sanitized_name  = self.backup_server.hostName.replace('-','')
+        self.local_archive   = self.backup_server.string("sql.mgmtBackupDirectory")
+        self.start_time      = time.time()
 
         self.backup_type = LOG
         if options.full == True:
             self.backup_type = FULL
 
-        if SINGLE_DB in OPTIONS:
+        if self.options.test:
             self.db_dict = self.db_dict[self.db_dict.keys()[0]]
 
-        self.restore_servers = {}
-        for restore_server_name in restore_server_names:
-            restore_client  = Client.Client(restore_server_name, 
-                                            password, DATA_PATH)
-            restore_client.downloadClient()
-            ip_address      = restore_client.string("ipAddress")
-            prefix          = "sql.servers.%s" % backup_server_name
-            restore_path    = restore_client.string("%s.restorePath" % prefix)
-            restore_network = restore_client.string("%s.network" % prefix)
-            role            = restore_client.string("%s.role" % prefix)
-            restore_object  = BombardierRemoteClient(restore_server_name, 
-                                                     password, DATA_PATH)
-            restore_server_dict = {"object":restore_object, 
-                                   "ipAddress":ip_address, 
-                                   "role":role,
-                                   "restorePath":restore_path, 
-                                   "restoreNetwork":restore_network}
-            self.restore_servers[restore_server_name] = restore_server_dict
 
     def set_lock(self, lock_file_name, sleep_time=0):
         """If we are running a section of code that we don't want to run 
         concurrently, we lock"""
         time.sleep(sleep_time)
-        max_time    = SYSTEM_LOCK_TIMEOUT
-        lock_path   = os.path.join(DATA_PATH, "output", lock_file_name)
+        max_time  = SYSTEM_LOCK_TIMEOUT
+        lock_path = os.path.join(self.options.status_path, "output", lock_file_name)
 
         if self.filesystem.isfile(lock_path):
-            timestr = open(lock_path).read().strip()
+            timestr = self.filesystem.open(lock_path).read().strip()
             try:
                 elapsed_min = (time.time() - float(timestr)) / 60.0
             except ValueError:
@@ -141,7 +115,7 @@ class BackupJob:
             if elapsed_min > max_time:
                 raise DeadLockException(lock_file_name, elapsed_min)
             return FAIL
-        open(lock_path, 'w').write(`time.time()`)
+        self.filesystem.open(lock_path, 'w').write(`time.time()`)
         self.logger.info("Set lock %s" % lock_file_name)
         return OK
 
@@ -161,6 +135,21 @@ class BackupJob:
             return FAIL
         return OK
 
+    def clear_all_locks(self):
+        """Locks are used to ensure that different backup processes don't step
+        on each other. If something breaks, locks can keep things broken. 
+        Clearing the locks can be a good way to ensure that the database 
+        backup process goes on without stopping for lock files"""
+        if self.options.clear_locks:
+            lock_files = self.filesystem.glob(os.path.join('output', '*lock'))
+            for lock_file in lock_files:
+                status = self.filesystem.rmScheduledFile(lock_file)
+                msg = "Cleared lock (%s): (%s)" % (lock_file, status)
+                self.logger.info(msg)
+                if status == FAIL:
+                    lock_time = self.filesystem.open(lock_file).read()
+                    raise DeadLockException(lock_file, lock_time)
+
     def run_backup(self):
         "Perform the backup iteself using a BombardierRemoteClient object"
         lock_file = "%s-backup-lock" % self.sanitized_name
@@ -168,19 +157,17 @@ class BackupJob:
             return FAIL
         self.report["type"] = R[self.backup_type]
         if self.backup_type == FULL:
-            print "#################################### BACKUP FULL "
             status, output = self.backup_server.process(EXECUTE, 
                                                         ["SqlBackup"],
                                                          "backupFull",
                                                          True)
         else:
-            print "#################################### BACKUP LOG "
             status, output = self.backup_server.process(EXECUTE, 
                                                         ["SqlBackup"], 
                                                         "backupLog", 
                                                         True)
         if status != OK:
-            msg = "Backup failed on %s" % ( self.backup_server_name ) 
+            msg = "Backup failed on %s" % ( self.backup_server.hostName ) 
             self.logger.error(msg)
             self.report["warnings"].append(msg)
             for line in output:
@@ -188,21 +175,23 @@ class BackupJob:
             self.status = FAIL
 
         if self.backup_type == FULL:
-            backup_file = "%s-backupFull.yml" % self.backup_server_name
+            backup_file = "%s-backupFull.yml" % self.backup_server.hostName
         else:
-            backup_file = "%s-backupLog.yml" % self.backup_server_name
+            backup_file = "%s-backupLog.yml" % self.backup_server.hostName
 
-        backup_report = os.path.join(DATA_PATH, "output", backup_file)
-        backup_data = yaml.load(open(backup_report).read())
+        backup_report = os.path.join(self.options.status_path, "output", backup_file)
+        backup_data = self.filesystem.loadYaml(backup_report)
         start_time = backup_data["startTime"]
         self.report["backup time"] = start_time
         self.report["databases"] = {}
         for database in self.db_dict:
             self.report["databases"][database] = {}
             if self.backup_type == FULL:
-                stat_data = backup_data[database]["stats"]
-                self.report["databases"][database]["stats"] = stat_data
-            for key in ["backup", "compress", "verify", "rrd"]:
+                data = backup_data["databases"][database]["defrag"]
+                self.report["databases"][database]["defrag"] = data
+                data = backup_data["databases"][database]["stats"]
+                self.report["databases"][database]["stats"] = data
+            for key in ["backup", "process", "verify", "rrd", "status"]:
                 data = backup_data.get(database, {}).get(key)
                 if data:
                     self.report["databases"][database][key] = data
@@ -214,7 +203,7 @@ class BackupJob:
         if self.status != OK:
             self.report["pullFiles"] = R[SKIPPED]
             return
-        backup_path = self.client.string("%s.backupPath" % self.primary_prefix)
+        backup_path = self.backup_server.string("%s.backupPath" % self.primary_prefix)
         lock_file = "%s-pull-lock" % self.sanitized_name
         if self.set_lock(lock_file) == FAIL:
             msg = "Unable to sync backup files from primary server due to lock."
@@ -226,7 +215,7 @@ class BackupJob:
         local_replica = os.path.join(self.local_archive, self.sanitized_name)
         if 1 == 1:
         #try: 
-            msg = "Transferring files from %s..." % (self.backup_server_name)
+            msg = "Transferring files from %s..." % (self.backup_server.hostName)
             self.logger.info(msg)
             backup_cygpath = cygpath(backup_path)
             status = self.backup_server.rsync(local_replica, 
@@ -256,15 +245,16 @@ class BackupJob:
             self.report["archiveMaint"] = R[SKIPPED]
             return
         archive_path = os.path.join(self.local_archive, self.sanitized_name)
-        days_to_keep = self.client.integer("sql.backupDays")
+        days_to_keep = self.backup_server.integer("sql.backupDays")
 
+        self.report["directories removed on server"] = []
         for database in self.db_dict:
             archive_dict = {}
             delete_list  = []
             search_path = os.path.join(archive_path, database, "archive*")
-            directories = glob.glob(search_path)
+            directories = self.filesystem.glob(search_path)
             for directory in directories:
-                name, database, day, time_of_day = directory.split('-')
+                _name, database, day, time_of_day = directory.split('-')
                 if day in archive_dict:
                     archive_dict[day].append(time_of_day)
                 else:
@@ -289,23 +279,23 @@ class BackupJob:
                 path = "%s/%s/%s" % (archive_path, database, directory)
                 cmd = "rm -rf %s" % path
                 self.logger.debug(cmd)
-                self.fileystem.system(cmd)
-        self.report["directories removed on server"] = delete_list
+                self.filesystem.system(cmd)
+            self.report["directories removed on server"] += delete_list
 
     def push_files(self):
         "Perform data synchronization"
         if self.status == FAIL:
-            self.report["job"]["synchronized-to"] = R[SKIPPED]
+            self.report["synchronized-to"] = R[SKIPPED]
             return
-        self.report["job"]["synchronized-to"] = []
+        self.report["synchronized-to"] = []
         local_replica  = os.path.join(self.local_archive, self.sanitized_name) 
-        local_network  = self.client.string("%s.network" % self.primary_prefix)
+        local_network  = self.backup_server.string("%s.network" % self.primary_prefix)
 
         for restore_server_name in self.restore_servers:
             restore_server  = self.restore_servers[restore_server_name]
-            restore_path    = restore_server["restorePath"]
-            restore_network = restore_server["restoreNetwork"]
-            restore_object  = restore_server["object"]
+            prefix = "sql.servers.%s" % restore_server.hostName
+            restore_path    = restore_server.string("%s.restorePath" % prefix)
+            restore_network = restore_server.string("%s.restoreNetwork" % prefix)
 
             if restore_network != local_network:
                 lock_file = restore_server_name.replace('-','')+"sync-push-lock"
@@ -321,8 +311,8 @@ class BackupJob:
                     self.logger.info(msg % (restore_server_name))
                     if "\\" in restore_path or ':' in restore_path:
                         restore_path = cygpath(restore_path)
-                    status = restore_object.rsync(local_replica+"/*", 
-                                                 restore_path, "PUSH")
+                    status = restore_server.rsync(local_replica+"/*", 
+                                                  restore_path, "PUSH")
                     self.clear_lock(lock_file)
                     if status != OK:
                         msg = "Push to secondary %s failed."
@@ -338,18 +328,21 @@ class BackupJob:
                     self.status = DEGRADED
                     self.clear_lock(lock_file)
                     continue
-            self.report["job"]["synchronized-to"].append(restore_server_name)
+            self.report["synchronized-to"].append(restore_server_name)
 
     def collect_restore_info(self, restore_server_name):
         "Pulls information from the restore report for our final report"
         self.report["restore"][restore_server_name] = {}
         report_file_name = "%s-restore.yml" % restore_server_name
-        report_path = os.path.join(DATA_PATH, "output", report_file_name)
+        report_path = os.path.join(self.options.status_path, "output", report_file_name)
         if not self.filesystem.isfile(report_path):
-            self.report["restore"][restore_server_name] = "NO-OUTPUT"
+            self.report["restore"][restore_server_name] = {"output":"NONE"}
+            msg = "No output received from server %s" % restore_server_name
+            self.logger.warning(msg)
+            self.report["warnings"].append(msg)
             self.status = DEGRADED
             return
-        restore_data = yaml.load(open(report_path, 'r').read())
+        restore_data = self.filesystem.loadYaml(report_path)
 
         for database in self.db_dict:
             self.report["restore"][restore_server_name][database] = {}
@@ -386,8 +379,8 @@ class BackupJob:
 
         for restore_server_name in self.restore_servers:
             restore_server = self.restore_servers[restore_server_name]
-            role           = restore_server["role"]
-            restore_object = restore_server["object"]
+            prefix = "sql.servers.%s" % restore_server.hostName
+            role = restore_server.string("%s.role" % prefix)
 
             if role == "manual":
                 self.report["servers"][restore_server_name] = "Automated restore disabled"
@@ -407,8 +400,7 @@ class BackupJob:
 
             msg = "Instructing server %s to restore..."
             self.logger.info(msg % restore_server_name)
-            print "#################################### RESTORE"
-            cmdstatus, output =  restore_object.process(EXECUTE, 
+            cmdstatus, _output =  restore_server.process(EXECUTE, 
                                                        ["SqlBackup"], 
                                                        "restore", True)
             self.clear_lock(lock_file)
@@ -419,7 +411,7 @@ class BackupJob:
                 self.status = DEGRADED
 
             self.collect_restore_info(restore_server_name)
-            if RESTORE_USERS in OPTIONS:
+            if self.options.restore_users:
                 self.online(restore_server_name)
 
     def online(self, restore_server_name):
@@ -428,16 +420,15 @@ class BackupJob:
             self.report["online"] = R[SKIPPED]
             return
         restore_server = self.restore_servers[restore_server_name]
-        restore_object = restore_server["object"]
 
         msg = "Instructing server %s to come online..."
         self.logger.info(msg % restore_server_name)
-        status, output = restore_object.process(EXECUTE, ["SqlBackup"], 
+        status, _output = restore_server.process(EXECUTE, ["SqlBackup"], 
                                                 "online", True)
         self.report["restore"][restore_server_name]["online"] = R[status]
         msg = "Instructing server %s to set proper user permission..."
         self.logger.info(msg % restore_server_name)
-        status, output = restore_object.process(EXECUTE, ["DbAuthorization"],
+        status, _output = restore_server.process(EXECUTE, ["DbAuthorization"],
                                        "setUsers", True)
         self.report["restore"][restore_server_name]["user auth"] = R[status]
         if status != OK:
@@ -449,7 +440,7 @@ class BackupJob:
 
         msg = "Instructing server %s to run restore scripts..."
         self.logger.info(msg % restore_server_name)
-        status, output = restore_object.process(EXECUTE, ["SqlBackup"], 
+        status, _output = restore_server.process(EXECUTE, ["SqlBackup"], 
                                        "restoreScripts", True)
         self.report["restore"][restore_server_name]["run restore scripts"] = R[status]
         if status != OK:
@@ -461,14 +452,13 @@ class BackupJob:
     def status_email(self, subject):
         "Prepare an email that will be sent to administrators"
         from email.MIMEText import MIMEText
-        import smtplib
 
         host_name = self.filesystem.environ.get("HOSTNAME")
         if not host_name:
             self.filesystem.system("hostname > hostname.txt")
             host_name = self.filesystem.open("hostname.txt").read().strip()
 
-        administrators = self.client.string("sql.administrators")
+        administrators = self.backup_server.listobj("network.administratorEmails")
         body = yaml.dump(self.report, default_flow_style=False)
         msg = "Sending informational message to %s..."
         self.logger.info(msg % str(administrators))
@@ -476,12 +466,11 @@ class BackupJob:
         msg['Subject'] = subject
         msg['From'] = host_name
         msg['To'] = ','.join(administrators)
-        smtp = smtplib.SMTP()
         #smtp.set_debuglevel(1)
-        mail_server = self.client.string("network.mailRelay")
-        smtp.connect(host=mail_server)
-        smtp.sendmail(host_name, administrators, msg.as_string())
-        smtp.quit()
+        mail_server = self.backup_server.string("network.mailRelay")
+        self.smtp.connect(host=mail_server)
+        self.smtp.sendmail(host_name, administrators, msg.as_string())
+        self.smtp.quit()
 
     def wrapup(self):
         "resposible for coordinating all final reporting actions"
@@ -489,15 +478,32 @@ class BackupJob:
         if self.status == OK:
             if self.backup_type == FULL:
                 subject = "Full Backup and Restore successful on %s"
-                subject = subject % self.backup_server_name
+                subject = subject % self.backup_server.hostName
         elif self.status == DEGRADED:
             subject = "Some errors were encoundered in %s backup on %s"
-            subject = subject % (R[self.backup_type], self.backup_server_name)
+            subject = subject % (R[self.backup_type], self.backup_server.hostName)
         elif self.status == FAIL:
             subject = "FAILURE in %s backup on %s"
-            subject = subject % (R[self.backup_type], self.backup_server_name)
+            subject = subject % (R[self.backup_type], self.backup_server.hostName)
         if subject:
             self.status_email(subject)
+
+    def main(self):
+        "Runs the whole job from start to finish"
+        self.clear_all_locks()
+        if self.options.backup:
+            self.run_backup()
+        if self.options.pull:
+            self.pull_files()
+        if self.options.maint:
+            self.archive_maint()
+        if self.options.push:
+            self.push_files()
+        if self.options.restore:
+            self.restore()
+        if self.options.report:
+            self.wrapup()
+        return self.report
 
 ## MAIN #########################################################
 
@@ -517,15 +523,44 @@ def get_logger():
 def get_options():
     "Parse the command line and return options"
     import optparse
-    usage = "usage: %prog server-name [options] <backup_server>"
+    usage = "usage: %prog [OPTIONS] BACKUP_SERVER"
     parser = optparse.OptionParser(usage)
+    parser.add_option("-s", "--statuspath", dest="status_path",
+                      help="path where status information is kept", 
+                      metavar="PATH", default=os.getcwd())
     parser.add_option("-f", "--full", dest="full",
                       action="store_true", default=False,
-                      help="Turn on debugging")
-
-    password = ''
-    if PASSWORD in OPTIONS:
-        password = getpass("Please provide root password: ")
+                      help="perform a full backup as opposed to a log backup")
+    parser.add_option("-p", "--password", dest="ask_password",
+                      action="store_true", default=False,
+                      help="prompt for a configuration password")
+    parser.add_option("-b", "--backup", dest="backup",
+                      help="perform a backup as part of the job", 
+                      default=False, action="store_true")
+    parser.add_option("-l", "--pull", dest="pull",
+                      help="pull files from the primary", 
+                      default=False, action="store_true")
+    parser.add_option("-h", "--push", dest="push",
+                      help="push files to the secondaries", 
+                      default=False, action="store_true")
+    parser.add_option("-m", "--maint", dest="maint",
+                      help="maintain archive files on this server", 
+                      default=False, action="store_true")
+    parser.add_option("-r", "--restore", dest="restore",
+                      help="perform a restore on all secondaries", 
+                      default=False, action="store_true")
+    parser.add_option("-u", "--users", dest="restore_users",
+                      help="re-create users on secondaries", 
+                      default=False, action="store_true")
+    parser.add_option("-i", "--report", dest="report",
+                      help="send a report after completing", 
+                      default=False, action="store_true")
+    parser.add_option("-c", "--clear", dest="clear_locks",
+                      help="clear all lock files", 
+                      default=False, action="store_true")
+    parser.add_option("-t", "--test", dest="test",
+                      help="test mode -- does only one database", 
+                      default=False, action="store_true")
 
     (options, args) = parser.parse_args()
     if not args:
@@ -533,43 +568,42 @@ def get_options():
         parser.print_help()
         sys.exit(FAIL)
     backup_server_name = args[0]
-    return options, password, backup_server_name
+    return options, backup_server_name
 
-def clear_all_locks(filesystem, logger):
-    """Locks are used to ensure that different backup processes don't step on 
-    each other. If something breaks, locks can keep things broken. Clearing 
-    the locks can be a good way to ensure that the database backup process 
-    goes on without stopping for lock files"""
-    if CLEAR_LOCKS in OPTIONS:
-        for lock_file in filesystem.glob(os.path.join('output', '*lock')):
-            status = filesystem.rmScheduledFile(lock_file)
-            logger.info("Cleared lock (%s): (%s)" % (lock_file, status))
-            if status == FAIL:
-                lock_time = filesystem.open(lock_file).read()
-                raise DeadLockException(lock_file, lock_time)
+def get_restore_servers(backup_server, password, options):
+    """produces restore_server objects that are associated 
+    with this backup server"""
+    from BombardierRemoteClient import BombardierRemoteClient
+    servers                 = backup_server.dictionary("sql.servers").keys()
+    restore_server_names    = list(set(servers) - set([backup_server.hostName]))
+    restore_servers         = {}
+
+    for restore_server_name in restore_server_names:
+        restore_server  = BombardierRemoteClient(restore_server_name, 
+                                                 password, options.status_path)
+        restore_servers[restore_server_name] = restore_server
+
+    return restore_servers
 
 def main(filesystem):
-    "main method: needs to be broken up"
+    "Instantiates a few objects and tells them to do their jobs"
+    from BombardierRemoteClient import BombardierRemoteClient
+    import smtplib
+
     logger   = get_logger()
-    options, password, backup_server_name = get_options()
+    options, backup_server_name = get_options()
+    password = ''
+    if options.ask_password:
+        password = getpass("Please provide configuration decryption password: ")
 
     try:
-        status = OK
-        job = BackupJob(options, password, backup_server_name, 
+        backup_server = BombardierRemoteClient(backup_server_name, 
+                                               password, options.status_path)
+        restore_servers = get_restore_servers(backup_server, password, options)
+        smtp = smtplib.SMTP()
+        job = BackupJob(options, backup_server, restore_servers, smtp,
                         filesystem, logger)
-        clear_all_locks(filesystem, logger)
-        if PERFORM_BACKUP in OPTIONS:
-            job.run_backup()
-        if RSYNC_PULL in OPTIONS:
-            job.pull_files()
-        if ARCHIVE_MAINT in OPTIONS:
-            job.archive_maint()
-        if RSYNC_PUSH in OPTIONS:
-            job.push_files()
-        if PERFORM_RESTORE in OPTIONS :
-            job.restore()
-        if REPORT_OUT in OPTIONS:
-            job.wrapup()
+        job.main()
     except DeadLockException, dle:
         job.report["EXCEPTION"] = str(dle)
         job.status = FAIL
