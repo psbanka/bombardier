@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import pxssh, pexpect
 import sys, os, getpass, base64, time
 import Client
 from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
@@ -36,6 +35,7 @@ class ClientUnavailableException(Exception):
 class RemoteClient:
 
     def __init__(self, hostName, dataPath, outputHandle=sys.stdout, password=''):
+        import pxssh, pexpect
         self.debug        = True
         self.hostName     = hostName
         self.dataPath     = dataPath
@@ -322,6 +322,43 @@ class RemoteClient:
         finally:
             self.status = DISCONNECTED
 
+    # FIXME: Duplicate code
+
+    def parseSection(self, sectionString, default, optional):
+        sections = sectionString.split('.')
+        d = self.info
+        for section in sections:
+            try:
+                d = d[section]
+            except:
+                d = None
+                break
+        if d == None:
+            if not optional:
+                raise InvalidConfigData("Option %s not found" % sectionString, None, None)
+            d = default
+        return d
+
+    def getobj(self, sectionString, default, expType, optional):
+        value = self.parseSection(sectionString, default, optional)        
+        if type(expType) == type("string"):
+            if type(value) == type(1234) or type(value) == type(123.32):
+                value = str(value)
+        if type(value) == type(expType):
+            return value
+        raise InvalidConfigData(sectionString, type(value), type(expType))
+
+    def listobj(self, sectionString, default=[], optional=True):
+        return self.getobj(sectionString, default, [], optional)
+
+    def string(self, sectionString, default='', optional=True):
+        return self.getobj(sectionString, default, "string", optional)
+
+    def integer(self, sectionString, default=1, optional=True):
+        return self.getobj(sectionString, default, 1, optional)
+
+    def dictionary(self, sectionString, default={}, optional=True):
+        return self.getobj(sectionString, default, {}, optional)
 if __name__ == "__main__":
     from libTest import startTest, runTest, endTest
     passwd = getpass.getpass("root's password:")
