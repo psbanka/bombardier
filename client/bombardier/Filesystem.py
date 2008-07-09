@@ -83,8 +83,6 @@ def removeFile( path ):
         os.remove( path )
 
 def rmScheduledFile(fileName):
-    import pywintypes
-    import win32api, win32file
     try:
         # first, let's shred it
         status = os.system("shred -f %s" % fileName)
@@ -92,14 +90,23 @@ def rmScheduledFile(fileName):
             status = os.system("/usr/bin/shred -f %s" % fileName)
             if status != OK:
                 Logger.warning("Unable to shred before deleting %s" % fileName)
-        os.unlink(fileName)
+        if '*' in fileName:
+            for fileName in glob.glob(fileName):
+                os.unlink(fileName)
+        else:
+            os.unlink(fileName)
         return OK
     except:
-        try:
-            win32api.MoveFileEx(fileName, None,
-                                win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
-            return REBOOT
-        except pywintypes.error, e:
+        if sys.platform == "win32":
+            try:
+                import pywintypes
+                import win32api, win32file
+                win32api.MoveFileEx(fileName, None,
+                                    win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
+                return REBOOT
+            except pywintypes.error, e:
+                Logger.error("Cannot remove file: %s (%s)" % (fileName, e))
+        else:
             Logger.error("Cannot remove file: %s (%s)" % (fileName, e))
 
 def rmScheduledDir(path):
