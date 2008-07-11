@@ -548,9 +548,7 @@ class Bombardier:
         for packageName in uninstallOrder:
             uninstallStatus = delPackageDict[packageName].uninstall()
             if uninstallStatus == FAIL:
-                Logger.info("Failed to uninstall %s. Continuing with uninstallation..." % packageName)
-                return FAIL # FIXME
-                status = FAIL
+                return FAIL
         return status
 
     def usePackage(self, packageName, action, scriptName=''):
