@@ -432,7 +432,7 @@ class Bombardier:
         shouldn't be."""
         shouldBeInstalled = []
         shouldntBeInstalled = []
-        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
+        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         dependencyErrors = self.getDependencyErrors(bomPackageNames, progressData)
         if dependencyErrors:

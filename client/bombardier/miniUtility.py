@@ -227,29 +227,56 @@ def determineInstallStatus(item, progressData):
     return INSTALLED, iInt
 
 def getInstalledUninstalledTimes(progressData):
-    installed = []
-    brokenInstalled = []
-    uninstalled = []
-    brokenUninstalled = []
+    output = {"installed":[], "uninstalled":[], 
+              "brokenInstalled":[], "brokenUninstalled":[]}
     for item in progressData.keys():
         status, lastAction = determineInstallStatus(item, progressData)
         if status == INSTALLED:
-            installed.append([item, lastAction])
+            output["installed"].append([item, lastAction])
         elif status == UNINSTALLED:
-            uninstalled.append([item, lastAction])
+            output["uninstalled"].append([item, lastAction])
         elif status == BROKEN_INSTALL:
-            brokenInstalled.append([item, lastAction])
+            output["brokenInstalled"].append([item, lastAction])
         elif status == BROKEN_UNINSTALL:
-            brokenUninstalled.append([item, lastAction])
-    installed.sort(datesort)
-    uninstalled.sort(datesort)
-    return installed, uninstalled, brokenInstalled, brokenUninstalled
+            output["brokenUninstalled"].append([item, lastAction])
+    output["installed"].sort(datesort)
+    output["uninstalled"].sort(datesort)
+    return output
+
+def checkToRemove(basePackageName, actionTime, comparisonList):
+    remove = False
+    for fullPackageName2, actionTime2 in comparisonList:
+        basePackageName2 = fullPackageName2.rpartition('-')[0]
+        if basePackageName == basePackageName2:
+            if actionTime2 > actionTime:
+                remove = True
+    return remove
+
+def stripVersionInfo(pkgInfo):
+    output = {"installed":[], "uninstalled":[], 
+              "brokenInstalled":[], "brokenUninstalled":[]}
+    packageListNames = output.keys()
+    for packageListName in packageListNames: # look at packageListName for duplicates in other listTypes
+        for fullPackageName, actionTime in pkgInfo[packageListName]: # do other package lists have this basename?
+            basePackageName = fullPackageName.rpartition('-')[0]
+            otherTypes = output.keys()
+            otherTypes.remove(packageListName)
+            for compareList in otherTypes:
+                remove = checkToRemove(basePackageName, actionTime, pkgInfo[compareList])
+                if remove == True:
+                    break
+            if not remove:
+                output[packageListName].append([basePackageName, actionTime])
+    return output
+  
 
 def getInstalled(progressData):
-    installed, uninstalled, brokenInstalled, brokenUninstalled = getInstalledUninstalledTimes(progressData)
-    installedPackageNames = [packageName[0] for packageName in installed]
-    brokenPackageNames    = [packageName[0] for packageName in brokenInstalled]
-    brokenPackageNames   += [packageName[0] for packageName in brokenUninstalled]
+    #installed, uninstalled, brokenInstalled, brokenUninstalled = getInstalledUninstalledTimes(progressData)
+    pkgInfo = getInstalledUninstalledTimes(progressData)
+    pkgInfo = stripVersionInfo(pkgInfo)
+    installedPackageNames = [packageName[0] for packageName in pkgInfo["installed"]]
+    brokenPackageNames    = [packageName[0] for packageName in pkgInfo["brokenInstalled"]]
+    brokenPackageNames   += [packageName[0] for packageName in pkgInfo["brokenUninstalled"]]
     return installedPackageNames, brokenPackageNames
 
 def integrate(data, dictionary, overwrite):
