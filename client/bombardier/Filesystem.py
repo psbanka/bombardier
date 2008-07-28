@@ -148,8 +148,6 @@ class Filesystem:
     def __init__(self):
         self.environ = os.environ
     def rmScheduledFile(self,fileName):
-        import pywintypes
-        import win32api, win32file
         try:
             # first, let's shred it
             status = os.system("shred -f %s" % fileName)
@@ -160,12 +158,19 @@ class Filesystem:
             os.unlink(fileName)
             return OK
         except:
-            try:
-                win32api.MoveFileEx(fileName, None,
-                                    win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
-                return REBOOT
-            except pywintypes.error, e:
-                Logger.error("Cannot remove file: %s (%s)" % (fileName, e))
+            if sys.platform == "win32":
+                import pywintypes
+                import win32api, win32file
+                try:
+                    win32api.MoveFileEx(fileName, None,
+                                        win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
+                    return REBOOT
+                except pywintypes.error, e:
+                    Logger.error("Cannot remove file: %s (%s)" % (fileName, e))
+            else:
+                return FAIL
+    def system(self, command):
+        return os.system(command)
     def execute(self, command):
         return os.system(command)
     def glob(self, path):

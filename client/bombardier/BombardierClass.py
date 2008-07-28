@@ -519,7 +519,7 @@ class Bombardier:
 
     def checkSystem(self, packageNames = []):
         addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus(packageNames)
-        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
+        progressData = self.filesystem.getProgressData(self.instanceName)
         fullProgressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
         fullInstalledPackageNames, fullBrokenPackageNames = miniUtility.getInstalled(fullProgressData)
         Logger.info("packages that are installed: %s" % ' '.join(fullInstalledPackageNames))
