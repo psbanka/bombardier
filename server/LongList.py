@@ -16,6 +16,7 @@ class LongList(PinshCmd.PinshCmd):
         self.cmdOwner = 0
 
     def workingNames(self, tokens, index):
+        #print "\nWN>",tokens, index
         output = []
         previousTokens = tokens[0:index]
         for i in range(index, len(tokens)):

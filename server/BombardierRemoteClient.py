@@ -213,7 +213,7 @@ class BombardierRemoteClient(RemoteClient):
             self.s.sendline(cmd)
             foundIndex = 0
             while True:
-                foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=600)
+                foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=6000)
                 if foundIndex == 1:
                     self.dumpTrace()
                     self.s.prompt()

@@ -95,6 +95,7 @@ class RemoteClient:
         return FAIL
 
     def connect(self):
+        import pxssh, pexpect
         self.s = pxssh.pxssh()
         self.s.timeout = 6000
         msg = "connecting to %s..." %self.hostName
@@ -114,6 +115,7 @@ class RemoteClient:
         return OK
 
     def connectRsync(self, direction, localPath, remotePath, dryRun = True, deleteFlag = False):
+        import pxssh, pexpect
         cmd = "bash -c 'rsync --progress -a "
         if dryRun:
             cmd += "--dry-run "
@@ -158,6 +160,7 @@ class RemoteClient:
             return line
 
     def rsync(self, localPath, remotePath, direction, deleteFlag = False):
+        import pxssh, pexpect
         s = self.connectRsync(direction, localPath, remotePath, True)
         files = []
         while True:
@@ -222,6 +225,7 @@ class RemoteClient:
         return OK 
 
     def processScp(self, s):
+        import pxssh, pexpect
         sshNewkey = 'Are you sure you want to continue connecting'
         i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=50)
         if i == 0:
@@ -242,11 +246,13 @@ class RemoteClient:
         return OK
 
     def get(self, destFile):
+        import pxssh, pexpect
         self.debugOutput( "getting %s" % destFile)
         s = pexpect.spawn('scp -v %s@%s:%s .' % (self.username, self.ipAddress, destFile), timeout=30)
         return self.processScp(s)
 
     def scp(self, source, dest):
+        import pxssh, pexpect
         self.debugOutput("sending %s to %s:%s" % (source, self.ipAddress, dest))
         s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest), timeout=90)
         sshNewkey = 'Are you sure you want to continue connecting'

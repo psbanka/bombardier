@@ -71,6 +71,8 @@ class PackageField(PinshCmd.PinshCmd):
 
     def preferredNames(self, tokens, index):
         hostNames = self.bomHostField.preferredNames(tokens, index-1)
+        if tokens[index-1] in hostNames:
+            hostNames = [tokens[index-1]]
         if len(hostNames) != 1:
             return []
         hostName = hostNames[0]

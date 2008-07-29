@@ -13,34 +13,15 @@ import logging.handlers
 ## CONSTANTS ####################################################
 SYSTEM_LOCK_TIMEOUT = 900
 
-FULL = 10
-LOG  = 11
+FULL     = 10
+LOG      = 11
 
-OK = 0
-FAIL = 1
-SKIPPED = 2
+OK       = 0
+FAIL     = 1
+SKIPPED  = 2
 DEGRADED = 3
 
 R = {OK:"OK", FAIL:"FAIL", SKIPPED:"SKIPPED", FULL:"FULL", LOG:"LOG"}
-
-# OPTIONS
-CLEAR_LOCKS     = -1
-PERFORM_BACKUP  = 1
-RSYNC_PULL      = 2
-ARCHIVE_MAINT   = 4
-RSYNC_PUSH      = 8
-PERFORM_RESTORE = 16
-SINGLE_DB       = 32
-RESTORE_USERS   = 64
-REPORT_OUT      = 128
-PASSWORD        = 256
-BASIC_OPTIONS   = [PERFORM_BACKUP, RSYNC_PULL, ARCHIVE_MAINT, RSYNC_PUSH, 
-                   PERFORM_RESTORE, RESTORE_USERS, REPORT_OUT]
-SECURE_OPTIONS  = [PASSWORD, PERFORM_BACKUP, RSYNC_PULL, ARCHIVE_MAINT, 
-                   RSYNC_PUSH, PERFORM_RESTORE, RESTORE_USERS, REPORT_OUT]
-TEST_OPTIONS    = [CLEAR_LOCKS, RSYNC_PULL, RSYNC_PUSH, PERFORM_RESTORE, 
-                   RESTORE_USERS]
-OPTIONS         = BASIC_OPTIONS
 
 ## JOBINFO CLASS ################################################
 
@@ -51,8 +32,9 @@ def get_my_databases(config):
     for app in apps:
         database_name = apps[app].get("dbName")
         db_options    = apps[app].get("dbOptions", [])
-        if database_name and database_name not in my_databases.keys():
-            my_databases[database_name] = db_options
+        if "backup" in db_options:
+            if database_name and database_name not in my_databases.keys():
+                my_databases[database_name] = db_options
     return my_databases
 
 ## LOCKING ROUTINES #############################################
@@ -88,6 +70,7 @@ class BackupJob:
         self.sanitized_name  = self.backup_server.hostName.replace('-','')
         self.local_archive   = self.backup_server.string("sql.mgmtBackupDirectory")
         self.start_time      = time.time()
+        self.backup_stamp    = ''
 
         self.backup_type = LOG
         if options.full == True:
@@ -181,18 +164,21 @@ class BackupJob:
 
         backup_report = os.path.join(self.options.status_path, "output", backup_file)
         backup_data = self.filesystem.loadYaml(backup_report)
-        start_time = backup_data["startTime"]
-        self.report["backup time"] = start_time
+        self.backup_stamp = backup_data["startTime"]
+        self.report["backup time"] = self.backup_stamp
         self.report["databases"] = {}
+
         for database in self.db_dict:
             self.report["databases"][database] = {}
             if self.backup_type == FULL:
-                data = backup_data["databases"][database]["defrag"]
-                self.report["databases"][database]["defrag"] = data
-                data = backup_data["databases"][database]["stats"]
-                self.report["databases"][database]["stats"] = data
+                data = backup_data.get("databases", {}).get(database, {})
+                if type(data) != type({}):
+                    self.logger.warning("====== NO DATA FOR %s" % database)
+                    continue
+                self.report["databases"][database]["defrag"] = data.get("defrag")
+                self.report["databases"][database]["check"] = data.get("stats")
             for key in ["backup", "process", "verify", "rrd", "status"]:
-                data = backup_data.get(database, {}).get(key)
+                data = backup_data.get("databases", {}).get(database, {}).get(key)
                 if data:
                     self.report["databases"][database][key] = data
 
@@ -343,30 +329,47 @@ class BackupJob:
             self.status = DEGRADED
             return
         restore_data = self.filesystem.loadYaml(report_path)
+        restore_warnings = restore_data.get("warnings")
+        self.report["warnings"] += restore_warnings
 
         for database in self.db_dict:
             self.report["restore"][restore_server_name][database] = {}
-            db_info = restore_data.get(database)
+            db_info = restore_data.get("databases", {}).get(database)
             if db_info:
                 db_time_check = db_info.get("timestamp")
                 self.report["restore"][restore_server_name][database]["timestamp"] = db_time_check
-                if db_time_check != self.start_time:
+                if not self.backup_stamp:
+                    if db_time_check:
+                        msg = "No timestamp comparison possible"
+                        self.logger.warning( msg )
+                        self.report["warnings"].append(msg)
+                        self.status = OK
+                        self.report["restore"][restore_server_name][database]["status"] = "UNKNOWN"
+                    else: 
+                        msg = "No timestamp on database %s" % database
+                        self.logger.warning( msg )
+                        self.report["warnings"].append(msg)
+                        self.status = DEGRADED
+                        self.report["restore"][restore_server_name][database]["status"] = "FAIL"
+                elif db_time_check != self.backup_stamp:
                     msg = "BAD TIMESTAMP: %s/%s (should be %s, found %s)"
                     self.logger.error( msg % (database, restore_server_name,
-                                         self.start_time, db_time_check))
-                    self.report["warnings"].append(msg) 
+                                         self.backup_stamp, db_time_check))
+                    self.report["warnings"].append(msg % (database, restore_server_name,
+                                         self.backup_stamp, db_time_check))
                     self.status = DEGRADED
-                    self.report["servers"][restore_server_name][database]["status"] = "FAIL"
+                    self.report["restore"][restore_server_name][database]["status"] = "FAIL"
                 else:
                     msg = "Correct timestamp: %s/%s: %s"
                     self.logger.info(msg % (database, restore_server_name, db_time_check))
-                    self.report["servers"][restore_server_name][database]["status"] = "VERIFIED"
+                    self.report["restore"][restore_server_name][database] = db_info
+                    self.report["restore"][restore_server_name][database]["status"] = "VERIFIED"
             else:
                 msg =  "Database %s on %s has no restore history."
                 self.logger.error( msg % (database, restore_server_name) )
-                self.report["warnings"].append(msg)
-                self.report["servers"][restore_server_name][database]["timestamp"] = "NONE"
-                self.report["servers"][restore_server_name][database]["status"] = "FAIL"
+                self.report["warnings"].append(msg % (database, restore_server_name))
+                self.report["restore"][restore_server_name][database]["timestamp"] = "NONE"
+                self.report["restore"][restore_server_name][database]["status"] = "FAIL"
                 self.status = DEGRADED
 
     def restore(self):
@@ -383,10 +386,10 @@ class BackupJob:
             role = restore_server.string("%s.role" % prefix)
 
             if role == "manual":
-                self.report["servers"][restore_server_name] = "Automated restore disabled"
+                self.report["restore"][restore_server_name] = "Automated restore disabled"
                 continue
             if role == "rw_secondary" and not self.backup_type == FULL:
-                self.report["servers"][restore_server_name] = "Not configured to restore log backups"
+                self.report["restore"][restore_server_name] = "Not configured to restore log backups"
                 self.logger.info("Not restoring to secondary on log backup")
                 continue
 
@@ -540,7 +543,7 @@ def get_options():
     parser.add_option("-l", "--pull", dest="pull",
                       help="pull files from the primary", 
                       default=False, action="store_true")
-    parser.add_option("-h", "--push", dest="push",
+    parser.add_option("-x", "--push", dest="push",
                       help="push files to the secondaries", 
                       default=False, action="store_true")
     parser.add_option("-m", "--maint", dest="maint",
