@@ -170,7 +170,7 @@ class BombardierRemoteClient(RemoteClient):
         foundIndex = 1
         while foundIndex == 1:
             traceback.append(self.s.match.groups()[0])
-            foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=600)
+            foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=6000)
         tString = ''.join(traceback)
 
         data = re.compile("NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'").findall(tString)
