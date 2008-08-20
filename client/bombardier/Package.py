@@ -29,6 +29,67 @@ import Spkg
 import miniUtility, MetaData, Logger
 from Exceptions import BadPackage, FeatureRemovedException, RebootRequiredException
 from staticData import *
+from threading import Thread
+
+class JobThread(Thread):
+    def __init__(self, importString, cmd, config):
+        Thread.__init__(self)
+        self.importString = importString
+        self.cmd = cmd
+        self.config = config
+        self.cmdStatus = None
+
+    def run(self):
+        Logger.info("Running %s..." % self.cmd)
+        #if 1 == 1:
+        try:
+            exec(self.importString)
+            exec("self.cmdStatus = %s" % self.cmd)
+        except:
+        #else:
+            Logger.error( "Failed to run %s" % self.cmd )
+
+class Job:
+    def __init__(self, importString, cmd, config):
+        self.importString = importString
+        self.cmd = cmd
+        self.config = config
+        self.startTime = None
+        self.jt = None
+        self.jobStatus = None
+
+    def isRunning(self):
+        if self.jt:
+            if self.jt.isAlive():
+                return True
+            Logger.info("-- status: %s" % (self.jt.cmdStatus))
+            self.jobStatus = self.jt.cmdStatus
+        return False
+
+    def execute(self):
+        self.startTime = time.time()
+        status = FAIL
+        if self.isRunning():
+            Logger.error("Refusing to run %s; it is already running" % self.name)
+            return FAIL
+        self.jt = JobThread(self.importString, self.cmd, self.config)
+        self.jt.start()
+        Logger.info("Started job...")
+        counter = 1
+        while self.isRunning():
+            time.sleep(1)
+            counter += 1
+            if not counter % 100:
+                Logger.info("Waiting for completion (%s)..." % time.strftime(time.ctime()))
+                counter = 1
+        status = self.jt.cmdStatus
+        return status
+
+    def killThread(self, timeout=5):
+        if not self.isRunning():
+            return OK
+        self.jt.join(timeout)
+        return OK
 
 class Package:
 
@@ -314,22 +375,6 @@ class Package:
             return status
         raise FeatureRemovedException(self.action)
 
-    def chdir(self):
-        self.cwd = os.getcwd()
-        #Logger.debug(" Changing directory to %s" % os.path.join(miniUtility.getSpkgPath(), PACKAGES))
-        self.filesystem.chdir(os.path.join(miniUtility.getSpkgPath(), PACKAGES))
-        if self.fullName:
-            try:
-                self.filesystem.chdir(self.fullName)
-                return OK
-            except OSError, e:
-                ermsg = "Unable to change directory to package. Aborting. (%s)" % `e`
-                Logger.error(ermsg)
-        else:
-            Logger.error("No package fullname -- package not found. Aborting.")
-        self.status = FAIL
-        return FAIL
-
     def packageStuff(self):
         if not self.fullName:
             Logger.error("Package %s is invalid")
@@ -344,9 +389,13 @@ class Package:
         self.status = self.findCmd(INSTALL, packageList)
         Logger.info("Install result for %s : %s" % (self.fullName, self.status))
         return self.status
-    
+
     def executeMaintScript(self, scriptName):
         self.download()
+        # remove old history
+        outputPath = os.path.join(miniUtility.getSpkgPath(), self.instanceName, 
+                                  "output", "%s-output.yml" % scriptName)
+        self.filesystem.rmScheduledFile(outputPath)
         message = "Executing (%s) inside package (%s)" %(scriptName, self.fullName)
         Logger.info(message)
         scriptPath = "%s/%s.py" %(self.maintDir, scriptName)
@@ -357,9 +406,11 @@ class Package:
             raise BadPackage, (self.name, msg)
         sys.path.append(self.maintDir )
         importString = 'import %s'%scriptName
-        exec(importString)
         status = FAIL # For PyChecker
-        exec('status = %s.execute(self.config, Logger.logger)'%scriptName)
+        cmd = 'status = %s.execute(self.config, Logger.logger)'%scriptName
+        job = Job(importString, cmd, self.config)
+        status = job.execute()
+        #exec('status = %s.execute(self.config, Logger.logger)'%scriptName)
         sys.path.remove(self.maintDir)
         os.chdir(startDir)
         if status == None:
