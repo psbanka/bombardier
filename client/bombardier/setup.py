@@ -18,7 +18,7 @@
 # 02110-1301, USA.
 
 try:
-    from bombardier.staticData import VERSION
+    from staticData import VERSION
 except ImportError:
     VERSION = "(unknown)"
 
