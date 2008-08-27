@@ -812,42 +812,6 @@ class Windows(OperatingSystem.OperatingSystem):
     def CoInitialize(self):
         pythoncom.CoInitialize()
 
-    # ============= CONSOLE CHECKER
-
-    def testConsole(self):
-        gt = guiThread()
-        gt.start()
-        try:
-            aut = win32com.client.Dispatch( "AutoItX3.Control.1" )
-        except pywintypes.com_error:
-            Logger.error("AutoIt DLL error: attempting to register")
-            comPath = os.path.join(miniUtility.getSpkgPath(), "AutoItX3.dll")
-            regSvc  = os.path.join(os.environ["WINDIR"], "SYSTEM32", "regsvc")
-            os.system("%s /s %s" % (regSvc, comPath))
-            try:
-                aut = win32com.client.Dispatch( "AutoItX3.Control.1" )
-                Logger.info("Registered properly")
-            except pywintypes.com_error:
-                raise Exceptions.MissingComponent, "AutoIT"
-        aut.winWait(TEST_TITLE, '', 60)
-        tries = 3
-        while tries:
-            aut.WinActivate( TEST_TITLE )
-            if not aut.WinActive( TEST_TITLE ) :
-                tries -= 1
-            else:
-                break
-        if tries == 0:
-            Logger.info("There is no console detected (a)")
-            return FAIL
-        status = aut.ControlClick(TEST_TITLE, '', 'Button1')
-        if status == 1:
-            Logger.info("console detected")
-            return OK
-        else:
-            Logger.info("There is no console detected (b)")
-            return FAIL
-    
     ## From Config
     # NOT TESTABLE
     def getWindowsType(self):

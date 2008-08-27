@@ -328,100 +328,6 @@ def waitVerifyActivate( aut, title, text="", delay=30 ):
         return FAIL
     return( verifyActivate( aut, title ) )
 
-def createSqlDsn(server, instance, port, username, password, dbName, dsnName):
-    if instance:
-        serverInst = server + '\\' + instance
-    else:
-        serverInst = server
-    aut = win32com.client.Dispatch( "AutoItX3.Control.1" )
-    aut.Run("c:\\WINNT\\system32\\odbcad32.exe")
-    print "Screen 1"
-    if waitVerifyActivate(aut, "ODBC Data Source Administrator", "", 60) == FAIL:
-        return FAIL
-    print "clicking on on the SysTabControl123"
-    aut.AutoItSetOption("MouseCoordMode", 0)
-    aut.MouseClick("left", 100, 40) # ugh, I hate this.
-    #aut.ControlClick("ODBC Data Source Administrator", "", "SysTabControl321") # Pick System DSNs
-    print "clicked on the sysTabControl"
-    aut.MouseClick("left", 400, 90) # ugh, I hate this too.
-    #aut.ControlClick("ODBC Data Source Administrator", "", "Button9") # 
-    print "Screen 2"
-    if waitVerifyActivate(aut, "Create New Data Source", "", 20) == FAIL:
-        return FAIL
-    aut.Send("s") # Go to SQL server DSNs
-    aut.ControlClick("Create New Data Source", "", "Button4") # "Finish"
-
-    print "Screen 3"
-    if waitVerifyActivate(aut, "Create a New Data Source to SQL Server",
-                          "This wizard will help you create an ODBC", 20) == FAIL:
-        return FAIL
-    aut.ControlSend("Create a New Data Source to SQL Server", "", "Edit1", dsnName)
-    aut.ControlSend("Create a New Data Source to SQL Server", "", "Edit3", serverInst)
-
-    print "Screen 4"
-    if waitVerifyActivate(aut, "Create a New Data Source to SQL Server",
-                          "This wizard will help you create an ODBC", 20) == FAIL:
-        return FAIL
-    aut.Send("!n") # Next
-
-    print "Screen 5"
-    if waitVerifyActivate(aut, "Create a New Data Source to SQL Server",
-                          "How should SQL Server verify the authenticity", 20) == FAIL:
-        if waitVerifyActivate(aut, "Microsoft SQL Server DSN Configuration", '', 5) != FAIL:
-            print "The DSN exists...overwriting..."
-            aut.Send("{ENTER}")
-        else:
-            return FAIL
-    aut.ControlClick("Create a New Data Source to SQL Server", "", "Button2") # SQL Authentication
-    aut.ControlSend("Create a New Data Source to SQL Server", "", "Edit1", "+{END}{DEL}")
-    aut.ControlSend("Create a New Data Source to SQL Server", "", "Edit1", username)
-    aut.ControlSend("Create a New Data Source to SQL Server", "", "Edit2", password)
-    aut.Send("!t") # Next
-
-    print "Screen 6"
-    windowName = "Edit Network Library Configuration"
-    if waitVerifyActivate(aut, windowName, "", 20) == FAIL:
-        windowName = "Add Network Library Configuration"
-        if waitVerifyActivate(aut, windowName, "", 20) == FAIL:
-            return FAIL
-    aut.Send("!d-") # UNCheck Dynamic ports 
-    aut.ControlSend(windowName, "", "Edit4", "{END}+{HOME}{DEL}"+port)
-    aut.Send("{ENTER}") # Next
-
-    print "Screen 7"
-    # <<< Back to screen 5
-    if verifyActivate( aut, "Create a New Data Source to SQL Server" ) == FAIL:
-        return FAIL
-    aut.Send("!n") # Next
-
-    print "Screen 8"
-    if waitVerifyActivate(aut, "Create a New Data Source to SQL Server",
-                          "Change the &default database to", 20) == FAIL:
-        return FAIL
-    aut.Send("!d+") # Use a specific database, check.
-    aut.ControlSend("Create a New Data Source to SQL Server", "", "Edit1", "+{END}{DEL}")
-    aut.ControlSend("Create a New Data Source to SQL Server", "", "Edit1", dbName)
-    aut.Send("!n")
-    aut.Send("{ENTER}")
-
-    print "Screen 9"
-    if waitVerifyActivate(aut, "ODBC Microsoft SQL Server Setup",
-                          "A new ODBC data source", 20) == FAIL:
-        if waitVerifyActivate("Microsoft SQL Server Login", 10):
-            print "INVALID LOGIN CREDENTIALS: %s" % \
-                  `[server, instance, port, username, password, dbName, dsnName]`
-            if waitVerifyActivate(aut, "Create a New Data Source to SQL Server", "", 20) != FAIL:
-                aut.Send("!{F4}")
-        return FAIL
-    aut.Send("{TAB}{ENTER}")
-
-    print "Screen 10"
-    # <<< Back to Screen 1
-    if verifyActivate( aut, "ODBC Data Source Administrator" ) == FAIL:
-        return FAIL
-    aut.Send("{ENTER}")
-    return OK
-
 def makeAccessDsn( dataSourceName, dbFilePath ):
     try:
         hKey = winreg.CreateKey( winreg.HKEY_LOCAL_MACHINE,
@@ -454,40 +360,6 @@ def makeAccessDsn( dataSourceName, dbFilePath ):
     except Exception, e:
         Logger.Error( "Unable to create Access DSN:\n%s" %e )
         sys.exit( 1 )
-
-def createAccessDsn(dsnName, path):
-    aut = win32com.client.Dispatch( "AutoItX3.Control.1" )
-    aut.Run("c:\\WINNT\\system32\\odbcad32.exe")
-    # === Screen 1
-    print "1"
-    if waitVerifyActivate(aut, "ODBC Data Source Administrator", "", 60) == FAIL:
-        return FAIL
-    aut.Send("^{TAB}")
-    aut.Send("!D")
-    aut.Send("m")
-    aut.Send("{ENTER}")
-    if waitVerifyActivate(aut, "ODBC Microsoft Access Setup", "", 30) == FAIL:
-        return FAIL
-    aut.Send("%s{TAB}" % dsnName)
-    aut.Send("!S")
-    if waitVerifyActivate(aut, "Select Database","", 30) == FAIL:
-        return FAIL
-    aut.Send("%s{TAB}" % path)
-    aut.Send("{ENTER}")
-    if waitVerifyActivate(aut, "ODBC Data Source Administrator", "", 30) == FAIL:
-        return FAIL
-    aut.Send("{ENTER}")
-    if waitVerifyActivate(aut, "ODBC Data Source Administrator", '', 30) == FAIL:
-        return FAIL
-    aut.Send("{ENTER}")
-    if waitVerifyActivate(aut, "ODBC Microsoft Access Setup", '', 30) == FAIL:
-        return FAIL
-    aut.Send("{ENTER}")
-    if waitVerifyActivate(aut, "ODBC Data Source Administrator", '', 30) == FAIL:
-        return FAIL
-    aut.Send("{ENTER}")
-    del aut
-    return OK
 
 def checkHotfix(issue=''):
     if issue == '':
@@ -733,44 +605,6 @@ def replaceDelimiter(oldField, newField, fileName):
     open(fileName, 'w').write(newText)
     return status
                 
-def replaceAut(oldField, newField, fileName=''):
-    if fileName == '':
-        fileName = "../scripts/config.aut"
-    status = replaceInFile(".*\*"+oldField+"\*.*",
-                           "Send, "+doubleEscape(newField)+"{TAB}",
-                           fileName)
-    if status == FAIL:
-        print "Error configuring AutoIT"
-        sys.exit(1)
-
-def replaceAutV3(oldField, newField, fileName):
-    status = replaceDelimiter(oldField, newField, fileName)
-    if status == FAIL:
-        print "Error configuring AutoItv3 File"
-        sys.exit(1)
-        
-def autoIt(configList, fileName='', wait=0, version=2):
-    # replace all components in autoit file:
-    if fileName == '':
-        shutil.copy("../scripts/config-orig.aut", "../scripts/config.aut")
-        fileName = r"..\scripts\config.aut"
-    if version == 2:
-        ai = os.path.join(miniUtility.getSpkgPath(),AUTOIT_V2)
-        for item in configList:
-            replaceAut(item[0], item[1], fileName)
-    else:
-        ai = os.path.join(miniUtility.getSpkgPath(),AUTOIT_V3)
-        for item in configList:
-            replaceAutV3(item[0], item[1], fileName)
-    print "Starting AutoIT..."
-    if wait:
-        status = os.system('"start /wait '+ai+r' '+fileName)
-    else:
-        status = os.system('"start '+ai+r' '+fileName)
-    if status == FAIL:
-        print "Unable to start AutoIT"
-        sys.exit(1)
-
 def checksumList(md5list):
     for chunk in md5list:
         fullFilename = chunk[0]

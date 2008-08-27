@@ -216,8 +216,5 @@ class Linux(OperatingSystem.OperatingSystem):
     def noRestartOnLogon(self): 
         pass
 
-    def testConsole(self):
-        return OK
-
     def noAutoLogin(self): 
         pass

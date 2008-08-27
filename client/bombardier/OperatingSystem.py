@@ -33,7 +33,6 @@ class OperatingSystem:
         self.domain = ''
         self.username = ''
         self.password = ''
-        self.testConsoleValue = False
 
     def execute(self, cmd, errorString="", debug=0, dieOnExit=False,
                 workingDirectory = '.', captureOutput=False):

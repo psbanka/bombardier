@@ -157,25 +157,6 @@ class Bombardier:
         dependencyNames = list(dependencyNames - set(bomPackageNames))
         return dependencyNames
 
-    ### WON'T BE TESTED
-    def checkForConsoleReboot(self, package):
-        if self.operatingSystem.testConsole() == FAIL:
-            erstr = "Logging in for console access "\
-                    "for package %s..." % (package.name)
-            Logger.info(erstr)
-            self.filesystem.clearLock()
-            status = self.operatingSystem.autoLogin(self.config)
-            if status == FAIL:
-                errMsg = "Cannot gain console access because this system "\
-                        "does not have valid login credentials."
-                raise Exceptions.ConsoleException(errMsg)
-            self.operatingSystem.restartOnLogon()
-            msg = "System requires a console to install this package and one does not exist. " \
-                  "Please log in to continue the installation."
-            Logger.warning(msg)
-            return REBOOT
-        return OK
-
     ### TESTED
     def inMaintenanceWindow(self):
         windowTime = ''
@@ -305,8 +286,6 @@ class Bombardier:
                 erstr = "Currently installing package "\
                         "priority %s [%s]" % (package.priority, packageName)
                 Logger.info(erstr)
-                if package.console and self.checkForConsoleReboot(package) == REBOOT:
-                    return REBOOT
                 status = package.installAndVerify(packageNamesLeft)
                 hashPath = os.path.join(miniUtility.getPackagePath(self.instanceName), package.fullName, HASH_FILE)
                 self.config.saveHash(hashPath)
