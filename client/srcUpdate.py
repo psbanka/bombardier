@@ -34,8 +34,7 @@ def setRegistry(spkgPath):
     bomKey = _winreg.CreateKey(hklm,'GE-IT\\Bombardier')
     _winreg.SetValueEx(bomKey, 'InstallPath', 0, _winreg.REG_SZ, spkgPath)
 
-def updateSpkgDir(startDir, pythonPath):
-    print "Cleaning spkgDir..."
+def robustGetSpkgPath():
     try:
         spkgPath = getSpkgPath()
     except:
@@ -46,20 +45,44 @@ def updateSpkgDir(startDir, pythonPath):
             spkgPath = "/opt/spkg"
             open('/etc/bombardier.yml', 'w').write('---\nspkgPath: /opt/spkg\n')
     spkgPath = getSpkgPath()
+
     if not os.path.isdir(spkgPath):
         os.makedirs(spkgPath)
+    return spkgPath
+
+def updateSpkgDir(startDir, instanceName):
+    spkgPath = robustGetSpkgPath()
     os.chdir( spkgPath )
+
+    print "Cleaning spkgDir..."
+
     for i in os.listdir('.'):
-        if os.path.isfile(i) and i != 'status.yml' and 'bombardier.log' not in i:
+        if os.path.isfile(i) and not i.startswith('bombardier.log'):
             try:
                 os.unlink( i )
             except:
                 print "unable to delete %s" % i
         else:
-            print "SAVED: %s" %i
+            print "SAVED: %s" % i
 
-    os.chdir( "%s/spkgDir" %startDir )
-    os.system( "%s setup.py install %s" %(pythonPath, spkgPath) )
+    os.chdir( "%s/spkgDir" % startDir )
+    pkgsDir = "%s/%s/packages" % (instanceName, spkgPath)
+    statusFile = "%s/status.yml" % pkgsDir
+    if not os.path.isdir(pkgsDir):
+        os.makedirs(pkgsDir)
+    if not os.path.isfile(statusFile):
+        open(statusFile, 'w').write("---\nstatus:\n   newInstall: True\n")
+
+    noFileWarningTemplate = "Warning! %s/%s does not exist. Not copying." 
+    for inode in os.listdir("."):
+        if os.path.isfile(inode):
+            spkgFile = os.path.join(spkgPath, inode)
+            if not os.path.isfile(spkgFile):
+                sys.stdout.write( "copying %s -> %s\n" % (inode, spkgPath) )
+                shutil.copy(inode, spkgFile)
+        else:
+            print noFileWarningTemplate % (os.getcwd(), inode)
+
     os.chdir( startDir )
 
 def updateBombardier(startDir, pythonPath):
@@ -73,7 +96,7 @@ def updateBombardier(startDir, pythonPath):
 
     os.system( "%s bombardier/setup.py install" %pythonPath )
 
-def updatePython():
+def updatePython(instanceName):
     print "Updating python libraries."
     if sys.platform == "win32":
         pythonPath = os.path.join(sys.prefix, "python.exe")
@@ -83,9 +106,10 @@ def updatePython():
             pythonPath = os.path.join(sys.prefix, "bin", "python")
 
     startDir = os.getcwd()
-    updateSpkgDir(startDir, pythonPath)
+    updateSpkgDir(startDir, instanceName)
     updateBombardier(startDir, pythonPath)
 
 if __name__ == '__main__':
-    updatePython()
+    instanceName = sys.argv[1]
+    updatePython(instanceName)
 
