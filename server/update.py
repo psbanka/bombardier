@@ -16,7 +16,7 @@ class UpdateRemoteClient(BombardierRemoteClient):
 
     def srcUpdate(self):
         self.debugOutput("running srcUpdate")
-        self.s.sendline("%s srcUpdate.py" % self.python)
+        self.s.sendline("%s srcUpdate.py %s" % (self.python, self.hostName))
         self.s.prompt()
         self.debugOutput(self.s.before)
 

@@ -20,6 +20,7 @@ class BombardierRemoteClient(RemoteClient):
 
     def __init__(self, hostName, configPasswd, dataPath, outputHandle=sys.stdout, packageData=None):
         RemoteClient.__init__(self, hostName, dataPath, outputHandle, configPasswd)
+        self.hostStatus = {}
         self.configPasswd = configPasswd
         self.localFilename = ''
         self.reportInfo = ''
@@ -45,6 +46,11 @@ class BombardierRemoteClient(RemoteClient):
             self.spkgDir = self.info.get("spkgPath")
 
     def freshen(self):
+        statusFile = os.path.join(self.dataPath, "status", "%s.yml" % self.hostName)
+        if os.path.isfile(statusFile):
+            statusData = syck.load(open(statusFile).read())
+            if type(statusData) == type({}):
+                self.hostStatus = statusData.get("install-progress", {})
         self.packageData = syck.load(open(self.dataPath+"/deploy/packages/packages.yml").read())
         return(RemoteClient.freshen(self))
 
@@ -57,9 +63,18 @@ class BombardierRemoteClient(RemoteClient):
         message = "%s installing %s" %(self.hostName, packageName)
         self.templateOutput(DEBUG_OUTPUT_TEMPLATE, message, message)
 
+    def newSendPackage(self, packageName, destPath):
+        filename = self.dataPath+"/deploy/packages/"+packageName
+        if not os.path.isfile(filename):
+            message = "ERROR: client requested a file that is not on this server: %s" % filename
+            self.debugOutput(message, message)
+            self.s.send(`FAIL`)
+        self.scp(filename, destPath)
+
     def sendPackage(self, data):
         package, path = data
         filename = self.dataPath+"/deploy/packages/"+package
+        self.debugOutput("Sending %s..." % package,"")
         if not os.path.isfile(filename):
             message = "ERROR: client requested a file that is not on this server: %s" % filename
             self.debugOutput(message, message)
@@ -193,6 +208,60 @@ class BombardierRemoteClient(RemoteClient):
                 message = "CLIENT TRACEBACK: %s" % line
                 self.debugOutput(message, message)
 
+    def runBc(self, action, packageNames, scriptName, debug):
+        print "RUNNING BC"
+        self.s.sendline ('cd %s' %self.spkgDir)
+        self.s.prompt()
+        packageString = ' '.join(packageNames)
+        cmd = '%s bc.py %s %s %s %s' % (self.python, ACTION_DICT[action], self.hostName, packageString, scriptName)
+        self.s.sendline(cmd)
+        foundIndex = 0
+        while True:
+            foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=6000)
+            if foundIndex == 1: # Stack track
+                self.dumpTrace()
+                self.s.prompt()
+                self.getStatusYml()
+                return FAIL, ["Client raised an exception."]
+            if foundIndex == 0: # BC exited
+                if self.s.before.strip():
+                    self.debugOutput("remaining output: %s" % self.s.before.strip())
+                self.s.setecho(False)
+                self.s.sendline("echo $?")
+                self.s.prompt()
+                try:
+                    returnCode = int(str(self.s.before.split()[0].strip()))
+                except Exception, e:
+                    self.debugOutput( str(e) )
+                    self.debugOutput( "invalid returncode: ('%s')" % self.s.before)
+                    returnCode = FAIL
+                break
+            messageType, message = self.s.match.groups()
+            if messageType == "DEBUG":
+                if DEBUG:
+                    self.fromOutput(message)
+                continue
+            message=message.strip()
+            if not self.processMessage(message):
+                self.fromOutput(message)
+
+    def uploadPackages(self, packageNames):
+        import bombardier.miniUtility
+        for packageName in packageNames:
+            for installedPackageName in self.hostStatus:
+                if installedPackageName.startswith(packageName):
+                    if self.hostStatus[installedPackageName].get("INSTALLED", "NA") != "NA":
+                        newestPackageData = self.packageData.get(packageName, {})
+                        newestPackageName = newestPackageData.get("install", {}).get("fullName")
+                        if not newestPackageName:
+                            errmsg = "Host has installed %s which is not in the DSL" % packageName
+                            self.debugOutput(errmsg, errmsg)
+                            return
+                        if installedPackageName != newestPackageName:
+                            self.debugOutput('', "Need to send package: %s" % newestPackageName)
+                            destPath = "%s/%s/packages" % (self.spkgDir, self.hostName)
+                            self.newSendPackage(newestPackageName+".spkg", destPath)
+
     def process(self, action, packageNames, scriptName, debug):
         self.reportInfo = ''
         self.debug = debug
@@ -206,42 +275,8 @@ class BombardierRemoteClient(RemoteClient):
             return FAIL, ["UNABLE TO CONNECT TO %s. No actions are available." % self.hostName]
         returnCode = OK
         try:
-            self.s.sendline ('cd %s' %self.spkgDir)
-            self.s.prompt()
-            packageString = ' '.join(packageNames)
-            cmd = '%s bc.py %s %s %s %s' % (self.python, ACTION_DICT[action], self.hostName, packageString, scriptName)
-            self.s.sendline(cmd)
-            foundIndex = 0
-            while True:
-                foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=6000)
-                if foundIndex == 1:
-                    self.dumpTrace()
-                    self.s.prompt()
-                    self.getStatusYml()
-                    return FAIL, ["Client raised an exception."]
-                if foundIndex == 0:
-                    #self.debugOutput("BOMBARDIER HAS EXITED")
-                    if self.s.before.strip():
-                        self.debugOutput("remaining output: %s" % self.s.before.strip())
-                    self.s.setecho(False)
-                    self.s.sendline("echo $?")
-                    self.s.prompt()
-                    try:
-                        returnCode = int(str(self.s.before.split()[0].strip()))
-                        #self.debugOutput("RETURN CODE: %s" % RETURN_DICT[returnCode])
-                    except Exception, e:
-                        self.debugOutput( str(e) )
-                        self.debugOutput( "invalid returncode: ('%s')" % self.s.before)
-                        returnCode = FAIL
-                    break
-                messageType, message = self.s.match.groups()
-                if messageType == "DEBUG":
-                    if DEBUG:
-                        self.fromOutput(message)
-                    continue
-                message=message.strip()
-                if not self.processMessage(message):
-                    self.fromOutput(message)
+            self.uploadPackages(packageNames)
+            self.runBc(action, packageNames, scriptName, debug)
         except KeyboardInterrupt:
             self.debugOutput("cleaning up...", "\ncleaning up...")
             if self.terminate() == OK:
