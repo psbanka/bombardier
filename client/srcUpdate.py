@@ -1,7 +1,7 @@
 #!/cygdrive/c/Python24/python.exe
 
-# srcUpdate.py: Tool for running setup.py install on dmoweasel,
-#               bombardier, spkg, and site-root to update just
+# srcUpdate.py: Tool for running setup.py install on,
+#               bombardier, and spkg to update just
 #               the python libraries. To use this, check out 
 #               the bombardier/trunk/client dirctory and run
 #               this script. This is just a simple tool, and
