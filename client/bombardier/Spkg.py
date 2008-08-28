@@ -35,8 +35,7 @@ def getConfig():
     instanceName = getInstance()
     filesystem = Filesystem.Filesystem()
     repository = Repository.Repository(filesystem, instanceName)
-    config = Config.Config(filesystem, repository, instanceName)
-    config.freshen()
+    config = Config.Config(filesystem, instanceName)
     return config
 
 def mainBody(pkgVersion, cls):

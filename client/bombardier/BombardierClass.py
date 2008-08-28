@@ -39,7 +39,7 @@ class PackageChain:
         self.repository  = repository
         self.config      = config
         self.recordErrors = recordErrors
-        self.vPackages   = VirtualPackages(repository.packages)
+        self.vPackages   = VirtualPackages(repository.packageData)
         self.installedPackageNames = self.vPackages.resolveVPkgList( installedPackageNames )
         self.brokenPackageNames = brokenPackageNames
         self.packageChain(startPackageName)
@@ -209,7 +209,7 @@ class Bombardier:
     # TESTED
     def createPackageChains(self, packageDict):
         chains = []
-        packageData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
+        packageData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(packageData)
         for packageName in packageDict.keys():
             if packageName in brokenPackageNames:
@@ -252,7 +252,7 @@ class Bombardier:
         have any dependencies and is not dependent on others."""
 
         chains = self.createPackageChains(packageDict)
-        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
+        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         # - Put all the packages of each chain into the installation
         # order, excluding those that have already been installed in order
@@ -332,6 +332,7 @@ class Bombardier:
         packages = {}
         for packageName in addPackageNames:
             try:
+                Logger.info("ATTEMPTING TO ADD A PACKAGE NAMED %s" % packageName)
                 newPackage = Package.Package(packageName, self.repository, self.config, self.filesystem,
                                              self.operatingSystem, self.instanceName)
                 newPackage.initialize()
@@ -363,7 +364,7 @@ class Bombardier:
         # add any packages that are installed already
         # which are dependent upon those to the list as well
         Logger.info("Checking dependencies of packages to be uninstalled %s..." % delPackageNames)
-        vPackages = VirtualPackages(self.repository.packages)
+        vPackages = VirtualPackages(self.repository.packageData)
         uninstallOrder = copy.deepcopy(delPackageNames)
         while delPackageNames:
             newDependencyNames = []
@@ -394,7 +395,7 @@ class Bombardier:
     ### TESTED
     def getPackagesToRemoveDict(self, delPackageNames):
         uninstallOrder = []
-        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
+        progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
         installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
         packageDict = self.createPackageDict(delPackageNames, UNINSTALL)
         if sets.Set(installedPackageNames) == sets.Set(packageDict.keys()):
@@ -536,7 +537,7 @@ class Bombardier:
                                       self.operatingSystem, self.instanceName)
             package.initialize()
             if action == INSTALL:
-                progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
+                progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
                 installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
                 if packageName in [installedPackageNames + brokenPackageNames]:
                     Logger.error("Package %s cannot be installed." % packageName)
@@ -544,7 +545,7 @@ class Bombardier:
                 addPackageDict = {packageName:package}
                 status = self.installPackages(addPackageDict)
             if action == UNINSTALL:
-                progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = True)
+                progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
                 installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
                 bomPackageNames = installedPackageNames
                 if packageName in bomPackageNames:

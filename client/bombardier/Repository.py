@@ -33,10 +33,10 @@ FULL_NAME    = "fullName"
 
 class Repository:
 
-    def __init__(self, filesystem, instanceName):
+    def __init__(self, filesystem, instanceName, packageData = {}):
         self.filesystem   = filesystem
         self.instanceName = instanceName
-        self.packages     = {}
+        self.packageData  = packageData
 
     @classmethod
     def computeMd5(cls, filename, checksum):
@@ -75,63 +75,17 @@ class Repository:
             return filePath
         raise Exceptions.FileNotFound(filePath, "did not receive from the server")
 
-    @classmethod
-    def packageInfoRequest(cls, packageName):
-        config = cls.dataRequest("==REQUEST-PKGINFO==:%s" % (packageName))
-        return config
-
-    @classmethod
-    def configRequest(cls):
-        config = cls.dataRequest("==REQUEST-CONFIG==")
-        return config
-
-    @classmethod
-    def dataRequest(cls, requestString):
-        import zlib
-        Logger.info(requestString)
-        STREAM_BLOCK_SIZE= 77
-        b64Data = []
-        while True:
-            chunk = sys.stdin.read(STREAM_BLOCK_SIZE)
-            if not chunk or chunk[0] == ' ':
-                break
-            b64Data.append(chunk)
-        yamlData = ''
-        yamlData = zlib.decompress(base64.decodestring(''.join(b64Data)))
-        Logger.debug("Received %s lines of yaml" % len(yamlData.split('\n')))
-
-        try:
-            config = yaml.load(yamlData)
-        except:
-            ermsg = "Received bad YAML: %s" % (repr(yamlData))
-            raise Exceptions.ServerUnavailable, ("config", ermsg)
-        if type(config) == type("string"):
-            Logger.error("Invalid Yaml on server: %s" % config)
-            raise Exceptions.ServerUnavailable, ("config", "invalid yaml")
-        if type(config) != type({}) and type(config) != type([]): # backwards comptible yaml
-            config = config.next()
-        return config
-
     # TESTED
     def getMetaData(self, name):
-        if not name in self.packages:
-            self.packages[name] = self.packageInfoRequest(name)
-        pkgData = self.packages.get(name)
+        if not name in self.packageData:
+            raise Exceptions.ServerUnavailable, ("packageInfo", name)
+        pkgData = self.packageData.get(name)
         return MetaData.MetaData(pkgData)
 
     # TESTED
-    def getAndUnpack(self, fullPackageName, checksum):
+    def unpack(self, fullPackageName, checksum, removeSpkg = True):
         packagePath = miniUtility.getPackagePath(self.instanceName)
         pkgPath = os.path.join(packagePath, fullPackageName)
-        try:
-            shutil.rmtree(pkgPath)
-        except OSError:
-            pass
-        self.packageRequest(fullPackageName+".spkg", self.instanceName, checksum)
-        return self.unpack(pkgPath, fullPackageName, True)
-
-    def unpack(self, pkgPath, fullPackageName, removeSpkg = True):
-        packagePath = miniUtility.getPackagePath(self.instanceName)
         if not self.filesystem.isfile(pkgPath+".spkg"):
             erstr = "No package file in %s." % (pkgPath+".spkg")
             Logger.error(erstr)
@@ -184,15 +138,15 @@ class Repository:
         # FIXME: for uninstall, this should find the directory in packages
         packagePath = miniUtility.getPackagePath(self.instanceName)
         try:
-            fullPackageName = self.packages[packageName]['install'][FULL_NAME]
+            fullPackageName = self.packageData[packageName]['install'][FULL_NAME]
         except KeyError:
             errmsg = "package %s is not in the package database" % packageName
-            Logger.info("packages: (%s)" % " ".join(self.packages.keys()))
+            Logger.info("packages: (%s)" % " ".join(self.packageData.keys()))
             raise Exceptions.BadPackage(packageName, errmsg)
         if self.filesystem.isdir(os.path.join(packagePath, fullPackageName)):
             return OK
         while tries:
-            status = self.getAndUnpack(fullPackageName, checksum)
+            status = self.unpack(fullPackageName, checksum)
             if status == OK:
                 return OK
             tries -= 1

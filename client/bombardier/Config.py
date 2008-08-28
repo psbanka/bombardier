@@ -51,23 +51,20 @@ def findIncludeList(data):
 
 class Config(dict):
 
-    """This object retains the complete configuration for a system. It
-    provides that information either as a dictionary or a
-    ConfigParser. It will download its own configuration from the
-    repository as well as following any 'include' chains to create a
-    single unified dictionary."""
+    """This object retains the complete configuration for a system."""
     
     ### TESTED
-    def __init__(self, filesystem, repository, instanceName):
+    def __init__(self, filesystem, instanceName, configData = {}):
         self.filesystem = filesystem
-        self.repository = repository
         self.instanceName = instanceName
         self.includes   = []
         self.automated  = False
-        self.data       = {}
         self.username   = None
         self.password   = None
         self.domain     = None
+        self.data       = configData
+
+        self.readLocalConfig()
 
     def __getitem__(self, key):
         return self.data[key]
@@ -116,7 +113,8 @@ class Config(dict):
         configPath = os.path.join(miniUtility.getSpkgPath(), self.instanceName, CONFIG_FILE)
         if not os.path.isfile(configPath):
             return FAIL
-        Logger.warning("DETECTED A CLEARTEXT LOCAL CONFIGURATION FILE: IGNORING MANAGEMENT SERVER CONFIGURATION")
+        msg = "DETECTED A CLEARTEXT LOCAL CONFIGURATION FILE: IGNORING MANAGEMENT SERVER CONFIGURATION"
+        Logger.warning(msg)
         fh = open(configPath, 'r')
         try:
             configData = fh.read()
@@ -125,26 +123,6 @@ class Config(dict):
             return FAIL
         return OK
             
-    def freshen(self):
-        self.data = {}
-        status = self.readLocalConfig()
-        if status == FAIL:
-            self.data = self.repository.configRequest()
-        self.username = DEFAULT_USER
-        self.password = generatePassword()
-        self.domain   = DEFAULT_DOMAIN
-        if self.data.has_key("system"):
-            username = self.data["system"].get("serviceuser")
-            if username:
-                self.username = username
-            password = self.data["system"].get("servicepasswd")
-            if password:
-                self.password = password
-            domain = self.data["system"].get("servicedomain")
-            if domain:
-                self.domain = domain
-        return OK
-
     ### TESTED
     def set(self, section, option, value):
         if type(self.data.get(section)) != type(dict()):

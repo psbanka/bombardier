@@ -24,12 +24,15 @@ import sys, optparse, StringIO, traceback, yaml, time, re
 
 from bombardier.staticData import *
 from bombardier.Logger import logger, addStdErrLogging
-import bombardier.Filesystem, bombardier.Exceptions
-import bombardier.Config, bombardier.OperatingSystem
+from bombardier.Filesystem import Filesystem
+from bombardier.Repository import Repository
+from bombardier.Config import Config
+import bombardier.Exceptions
 import bombardier.Package
-import bombardier.Repository, bombardier.BombardierClass
+import bombardier.BombardierClass
 from bombardier.miniUtility import getProgressPath
-
+import base64
+import zlib
 
 
 class NoInstanceError(Exception):
@@ -102,23 +105,49 @@ def fixSpkg(instanceName, packageName, action, packageFactory):
 
 class BombardierEnvironment:
     def __init__(self, instanceName):
-        import bombardier.Filesystem, bombardier.Exceptions
-        self.filesystem      = bombardier.Filesystem.Filesystem()
-        self.repository      = bombardier.Repository.Repository(self.filesystem, instanceName)
-        self.config          = bombardier.Config.Config(self.filesystem, self.repository, instanceName)
+        self.filesystem      = Filesystem()
+        self.repository      = None
+        self.config          = None
         self.operatingSystem = None
         self.instanceName    = instanceName
-        try:
-            self.config.freshen()
-        except bombardier.Exceptions.ServerUnavailable, e:
-            logger.error( "Cannot connect to server (%s)" % e )
-            sys.exit(1)
         if sys.platform == "linux2":
             import bombardier.Linux
             self.operatingSystem = bombardier.Linux.Linux()
         else:
             import bombardier.Windows
             self.operatingSystem = bombardier.Windows.Windows()
+
+    def dataRequest(self):
+        STREAM_BLOCK_SIZE= 77
+        b64Data = []
+        while True:
+            chunk = sys.stdin.read(STREAM_BLOCK_SIZE)
+            if not chunk or chunk[0] == ' ':
+                break
+            b64Data.append(chunk)
+        yamlData = ''
+        yamlData = zlib.decompress(base64.decodestring(''.join(b64Data)))
+        logger.debug("Received %s lines of yaml" % len(yamlData.split('\n')))
+
+        try:
+            inputData = yaml.load(yamlData)
+        except:
+            ermsg = "Received bad YAML: %s" % (repr(yamlData))
+            raise bombardier.Exceptions.ServerUnavailable, ("inputData", ermsg)
+        if type(inputData) == type("string"):
+            logger.error("Invalid Yaml on server: %s" % inputData)
+            raise bombardier.Exceptions.ServerUnavailable, ("inputData", "invalid yaml")
+        if type(inputData) != type({}) and type(inputData) != type([]): # backwards comptible yaml
+            inputData = inputData.next()
+        configData  = inputData.get("configData")
+        if not configData:
+            logger.error("No configuration data received")
+            raise bombardier.Exceptions.ServerUnavailable, ("configData", "invalid yaml")
+        packageData = inputData.get("packageData", {})
+        if not packageData:
+            logger.warning("No package data received")
+        self.config = Config(self.filesystem, instanceName, configData)
+        self.repository = Repository(self.filesystem, instanceName, packageData)
 
     def clearLock(self):
         self.filesystem.clearLock()
@@ -239,6 +268,7 @@ if __name__ == "__main__":
     instanceName = args[0]
 
     env = BombardierEnvironment(instanceName)
+    env.dataRequest()
     packageFactory = PackageFactory(env)
 
     if options.action in [ RECONCILE, STATUS]:
@@ -259,7 +289,6 @@ if __name__ == "__main__":
                 sys.exit( 1 )
             packageNames = [args[1]]
             scriptName = args[2]
-            
 
         for packageName in packageNames:
             status = processAction(options.action, instanceName, packageName, scriptName, packageFactory, env)
