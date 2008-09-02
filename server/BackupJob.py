@@ -9,6 +9,7 @@ from getpass import getpass
 from BombardierRemoteClient import EXECUTE
 import logging
 import logging.handlers
+import StringIO, traceback
 
 ## CONSTANTS ####################################################
 SYSTEM_LOCK_TIMEOUT = 900
@@ -124,7 +125,7 @@ class BackupJob:
         Clearing the locks can be a good way to ensure that the database 
         backup process goes on without stopping for lock files"""
         if self.options.clear_locks:
-            lock_files = self.filesystem.glob(os.path.join('output', '*lock'))
+            lock_files = self.filesystem.glob(os.path.join('output', '*lock*'))
             for lock_file in lock_files:
                 status = self.filesystem.rmScheduledFile(lock_file)
                 msg = "Cleared lock (%s): (%s)" % (lock_file, status)
@@ -149,8 +150,9 @@ class BackupJob:
                                                         ["SqlBackup"], 
                                                         "backupLog", 
                                                         True)
-        if status != OK:
-            msg = "Backup failed on %s" % ( self.backup_server.hostName ) 
+        print "STATUS: ",status
+        if status == FAIL:
+            msg = "Backup partially failed on %s" % ( self.backup_server.hostName ) 
             self.logger.error(msg)
             self.report["warnings"].append(msg)
             for line in output:
@@ -187,6 +189,7 @@ class BackupJob:
     def pull_files(self):
         "Pull backup files from the backup server to this managmeent server"
         if self.status != OK:
+            self.logger.error("Refusing to pull files on account of failed backup")
             self.report["pullFiles"] = R[SKIPPED]
             return
         backup_path = self.backup_server.string("%s.backupPath" % self.primary_prefix)
@@ -268,6 +271,11 @@ class BackupJob:
                 self.filesystem.system(cmd)
             self.report["directories removed on server"] += delete_list
 
+            for _type in ["Size", "Time"]:
+                xmlPath = os.path.join(archive_path, database, "%sBackup%s.xml" % (database, _type))
+                rrdPath = "/var/www/html/cacti/rra/%sBackup%s.rrd" % (database, _type) # FIXME
+                self.filesystem.system("/opt/rrdtool/bin/rrdtool restore -f %s %s" % (xmlPath, rrdPath))
+
     def push_files(self):
         "Perform data synchronization"
         if self.status == FAIL:
@@ -329,7 +337,7 @@ class BackupJob:
             self.status = DEGRADED
             return
         restore_data = self.filesystem.loadYaml(report_path)
-        restore_warnings = restore_data.get("warnings")
+        restore_warnings = restore_data.get("warnings", [])
         self.report["warnings"] += restore_warnings
 
         for database in self.db_dict:
@@ -476,8 +484,9 @@ class BackupJob:
         self.smtp.quit()
 
     def wrapup(self):
-        "resposible for coordinating all final reporting actions"
+        "responsible for coordinating all final reporting actions"
         subject = ''
+        self.logger.info("OUR STATUS: (%s)" % self.status)
         if self.status == OK:
             if self.backup_type == FULL:
                 subject = "Full Backup and Restore successful on %s"
@@ -488,25 +497,43 @@ class BackupJob:
         elif self.status == FAIL:
             subject = "FAILURE in %s backup on %s"
             subject = subject % (R[self.backup_type], self.backup_server.hostName)
+        else:
+            subject = "UNKNOWN STATUS in %s backup on %s"
+            subject = subject % (R[self.backup_type], self.backup_server.hostName)
+        self.logger.info("WRAPUP: subject: (%s)" % subject)
         if subject:
             self.status_email(subject)
 
     def main(self):
         "Runs the whole job from start to finish"
         self.clear_all_locks()
-        if self.options.backup:
-            self.run_backup()
-        if self.options.pull:
-            self.pull_files()
-        if self.options.maint:
-            self.archive_maint()
-        if self.options.push:
-            self.push_files()
-        if self.options.restore:
-            self.restore()
-        if self.options.report:
-            self.wrapup()
-        return self.report
+        try:
+            if self.options.backup:
+                self.run_backup()
+            if self.options.pull:
+                self.pull_files()
+            if self.options.maint:
+                self.archive_maint()
+            if self.options.push:
+                self.push_files()
+            if self.options.restore:
+                self.restore()
+            if self.options.report:
+                self.logger.info("CONFIGURED TO SEND A REPORT")
+                self.wrapup()
+            return self.report
+        except Exception, e:
+            self.logger.error("Error in backup on %s" % self.backup_server.hostName)
+            e = StringIO.StringIO()
+            traceback.print_exc(file=e)
+            e.seek(0)
+            data = e.read()
+            ermsg = ''
+            for line in data.split('\n'):
+                ermsg += "\n||>>>%s" % line
+            self.logger.error(ermsg)
+            self.logger.error("\n")
+            return self.report
 
 ## MAIN #########################################################
 
@@ -582,9 +609,13 @@ def get_restore_servers(backup_server, password, options):
     restore_servers         = {}
 
     for restore_server_name in restore_server_names:
-        restore_server  = BombardierRemoteClient(restore_server_name, 
-                                                 password, options.status_path)
-        restore_servers[restore_server_name] = restore_server
+        try:
+            restore_server  = BombardierRemoteClient(restore_server_name, 
+                                                     password, options.status_path)
+            restore_servers[restore_server_name] = restore_server
+        except IOError:
+            print "Invalid server name in config file: %s" % restore_server_name
+            sys.exit(1)
 
     return restore_servers
 

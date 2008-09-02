@@ -29,8 +29,8 @@ class BadRightException(Exception):
 
 class UserAuth:
 
-    def __init__(self, name, rightsList, comment, systemInfoFile, autoConfirm, password=''):
-        self.systemInfoFile  = mode.dataPath+'/'+systemInfoFile
+    def __init__(self, name, rightsList, comment, systemInfoFile, serverInfoFile, autoConfirm, password=''):
+        self.systemInfoFile  = systemInfoFile
         self.autoConfirm     = autoConfirm
         self.name            = name
         self.userName        = self.name.replace('.', ' ')
@@ -42,7 +42,7 @@ class UserAuth:
         self.hostAccess      = {}
         self.modifiedSystems = set()
 
-        config = yaml.load(open(self.systemInfoFile).read())
+        config = yaml.load(open(serverInfoFile).read())
         self.environment = config["environment"]
         self.webDir = config["webDir"]
         self.webUser = config["webUser"]

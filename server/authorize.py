@@ -5,6 +5,7 @@ from commands import getstatusoutput
 from UserAuth import UserAuth
 
 SYSTEM_INFO = "serverConfig.yml"
+SERVER_CONFIG = "/etc/serverConfig.yml"
 #SYSTEM_INFO = "systemInfo.yml"
 
 def showAllRights(userName):
@@ -63,7 +64,8 @@ if __name__ == "__main__":
         sys.exit(FAIL)
 
     userName   = args[0].lower()
-    user = UserAuth(userName, rightsList, options.comment, SYSTEM_INFO, options.autoConfirm)
+    user = UserAuth(userName, rightsList, options.comment, SYSTEM_INFO, 
+                    SERVER_CONFIG, options.autoConfirm)
     if not options.vpnOnly:
         print "Modifying systemInfo.yml..."
         user.modifySystemInfo()
