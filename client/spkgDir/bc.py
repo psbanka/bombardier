@@ -196,9 +196,9 @@ def processAction(action, instanceName, packageName, scriptName, packageFactory,
                 status = OK
             else:
                 status = FAIL
-        elif action == RECONCILE:
+        elif action in [ RECONCILE, DRY_RUN ]:
             bc.recordErrors = True
-            status = bc.reconcileSystem()
+            status = bc.reconcileSystem(action=action)
         else:
             bc.recordErrors = False
             status = bc.usePackage(packageName, action, scriptName)
@@ -258,6 +258,9 @@ if __name__ == "__main__":
     parser.add_option("-p", "--purge", dest="action",
                       action="store_const", const=PURGE,
                       help="Remove a package from the status")
+    parser.add_option("-d", "--dry-run", dest="action",
+                      action="store_const", const=DRY_RUN,
+                      help="Do a test reconcile")
 
     (options, args) = parser.parse_args()
     if len(args) < 1:
@@ -271,7 +274,7 @@ if __name__ == "__main__":
     env.dataRequest()
     packageFactory = PackageFactory(env)
 
-    if options.action in [ RECONCILE, STATUS]:
+    if options.action in [ RECONCILE, STATUS, DRY_RUN ]:
         status = processAction(options.action, instanceName, '', '', packageFactory, env)
     else:
         scriptName   = ""

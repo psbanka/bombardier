@@ -271,7 +271,7 @@ class Bombardier:
         return installOrder # returns a list of packageNames in the correct installation order
 
     # TESTED
-    def installPackages(self, addPackageDict):
+    def installPackages(self, addPackageDict, dryRun=False):
         makingProgress = True
         packageNamesLeft = ['initialize']
         while makingProgress and packageNamesLeft:
@@ -287,8 +287,9 @@ class Bombardier:
                         "priority %s [%s]" % (package.priority, packageName)
                 Logger.info(erstr)
                 status = package.installAndVerify(packageNamesLeft)
-                hashPath = os.path.join(miniUtility.getPackagePath(self.instanceName), package.fullName, HASH_FILE)
-                self.config.saveHash(hashPath)
+                if not dryRun:
+                    hashPath = os.path.join(miniUtility.getPackagePath(self.instanceName), package.fullName, HASH_FILE)
+                    self.config.saveHash(hashPath)
                 if status == FAIL:
                     erstr = "Package installation failure -- re-calculating package installation order"
                     Logger.error(erstr)
@@ -471,18 +472,21 @@ class Bombardier:
         return addPackageDict, delPackageDict, uninstallOrder
 
     ### TESTED
-    def reconcileSystem(self, packageNames = []):
+    def reconcileSystem(self, action=RECONCILE, packageNames = []):
+        dryRun = False
+        if action == DRY_RUN:
+            dryRun = True
         addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus(packageNames)
         if self.filesystem.setLock() == FAIL:
             return FAIL
-        status = self.uninstallPackages(delPackageDict, uninstallOrder)
+        status = self.uninstallPackages(delPackageDict, uninstallOrder, dryRun)
         if status == FAIL:
             errmsg = "Uninstallation failed on %s. Aborting reconcile." % packageName
             Logger.error(errmsg)
             return self.cleanup(FAIL, logmessage="Finished installing (ERRORS ENCOUNTERED).")
 
         addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus(packageNames)
-        status = self.installPackages(addPackageDict)
+        status = self.installPackages(addPackageDict, dryRun)
         return self.cleanup(status, logmessage="Finished installing.")
 
     def checkConfigurationHash(self, packageName):
@@ -521,12 +525,12 @@ class Bombardier:
                     packageInfo["ok"].remove(packageName)
         return packageInfo
 
-    def uninstallPackages(self, delPackageDict, uninstallOrder):
+    def uninstallPackages(self, delPackageDict, uninstallOrder, dryRun=False):
         status = OK
         removeFullPackageNames = [delPackageDict[x].fullName for x in uninstallOrder]
         Logger.info("Packages to remove: %s" % removeFullPackageNames)
         for packageName in uninstallOrder:
-            uninstallStatus = delPackageDict[packageName].uninstall()
+            uninstallStatus = delPackageDict[packageName].uninstall(dryRun)
             if uninstallStatus == FAIL:
                 return FAIL
         return status

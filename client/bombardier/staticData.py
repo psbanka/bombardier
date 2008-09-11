@@ -75,11 +75,13 @@ EXECUTE       = '11'
 FIX           = '12'
 PURGE         = '13'
 STATUS        = '14'
+DRY_RUN       = '15'
 
 ACTION_DICT = { UNINSTALL:'uninstall', CONFIGURE:'configure', 
                 INSTALL:'install', VERIFY:'verify', 
                 RECONCILE:'reconcile', STATUS:'status', 
-                EXECUTE:'execute', FIX:'fix', PURGE:'purge' } 
+                EXECUTE:'execute', FIX:'fix', PURGE:'purge',
+                DRY_RUN:'dry_run' } 
 
 BLOCK_SIZE    = 10000
 

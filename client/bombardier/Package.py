@@ -239,9 +239,9 @@ class Package:
         self.download()
         return self.findCmd(CONFIGURE)
 
-    def findCmd(self, action, packageList=[]):
+    def findCmd(self, action, packageList=[], dryRun=False):
         if self.packageVersion > 1:
-            return self.findCmd2(action, packageList)
+            return self.findCmd2(action, packageList, dryRun=dryRun)
         else:
             return self.findCmd1(action, packageList)
 
@@ -268,7 +268,7 @@ class Package:
         status = self.operatingSystem.run(fullCmd, self.workingDir, self.console)
         return status
 
-    def findCmd2(self, action, packageList=[]):
+    def findCmd2(self, action, packageList=[], dryRun=False):
         cwd = self.filesystem.getcwd()
         sys.path.insert(0, self.scriptsDir)
         self.filesystem.chdir(self.scriptsDir)
@@ -301,16 +301,19 @@ class Package:
                 else:
                     raise BadPackage( self.name, "Unknown package version %s" % self.packageVersion )
                 fileFound = True
-                if action == INSTALL:
-                    status = obj.installer()
-                elif action == VERIFY:
-                    status = obj.verify()
-                elif action == UNINSTALL:
-                    status = obj.uninstaller()
-                elif action == CONFIGURE:
-                    status = obj.configure()
+                if not dryRun:
+                    if action == INSTALL:
+                        status = obj.installer()
+                    elif action == VERIFY:
+                        status = obj.verify()
+                    elif action == UNINSTALL:
+                        status = obj.uninstaller()
+                    elif action == CONFIGURE:
+                        status = obj.configure()
+                    else:
+                        raise FeatureRemovedException(action)
                 else:
-                    raise FeatureRemovedException(action)
+                    status = OK
                 del randString
                 if fileName in sys.modules:
                     sys.modules.pop(fileName)
@@ -365,13 +368,14 @@ class Package:
             self.initializeFromFilesystem()
             self.downloaded = True
     
-    def installAndVerify(self, packageList=[]):
+    def installAndVerify(self, packageList=[], dryRun=False):
         self.download()
         if self.action == INSTALL:
-            status = self.install(packageList)
-            if status == OK:
-                status = self.verify()
-            self.writeProgress()
+            status = self.install(packageList, dryRun=dryRun)
+            if not dryRun:
+                if status == OK:
+                    status = self.verify()
+                self.writeProgress()
             return status
         raise FeatureRemovedException(self.action)
 
@@ -382,12 +386,15 @@ class Package:
         return OK
     
     # TESTED
-    def install(self, packageList): 
+    def install(self, packageList, dryRun=False): 
+        dryRunString = ""
+        if dryRun:
+            dryRunString = " --DRY_RUN-- "
         self.download()
-        message = "Beginning installation of (%s)" % self.fullName
+        message = "Beginning installation of (%s)%s" % (self.fullName, dryRunString)
         Logger.info(message)
-        self.status = self.findCmd(INSTALL, packageList)
-        Logger.info("Install result for %s : %s" % (self.fullName, self.status))
+        self.status = self.findCmd(INSTALL, packageList, dryRun=dryRun)
+        Logger.info("Install result for %s%s : %s" % (self.fullName, dryRunString, self.status))
         return self.status
 
     def executeMaintScript(self, scriptName):
@@ -432,13 +439,17 @@ class Package:
         return self.status
 
     # TESTED
-    def uninstall(self):
+    def uninstall(self, dryRun=False):
         self.action = UNINSTALL
         self.download()
-        Logger.info("Uninstalling package %s" % self.name)
-        self.status = self.findCmd(UNINSTALL)
-        self.writeProgress()
-        Logger.info("Uninstall result for %s : %s" % (self.fullName, self.status))
+        dryRunString = ""
+        if dryRun:
+            dryRunString = " --DRY_RUN-- "
+        Logger.info("Uninstalling package %s%s" % (self.name, dryRunString))
+        self.status = self.findCmd(UNINSTALL, dryRun=dryRun)
+        if not dryRun:
+            self.writeProgress()
+        Logger.info("Uninstall result for %s%s : %s" % (self.fullName, dryRunString, self.status))
         return self.status
 
     # TESTED
