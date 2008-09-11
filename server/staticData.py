@@ -16,10 +16,12 @@ STATUS    = 5
 EXECUTE   = 6
 FIX       = 7
 PURGE     = 8
+DRY_RUN   = 9
 
 ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i', 
                VERIFY: '-v', RECONCILE: '-r', STATUS: '-s', 
-               EXECUTE: '-x', FIX: '-f', PURGE: '-p'}
+               EXECUTE: '-x', FIX: '-f', PURGE: '-p',
+               DRY_RUN: '-d'}
 
 RETURN_DICT = {OK: 'OK', FAIL: 'FAIL', REBOOT: 'REBOOT', PREBOOT: 'PREBOOT'}
 

@@ -72,6 +72,13 @@ class Reconcile(BomCmd):
         self.logCommand = True
         #self.auth = ADMIN
 
+class DryRun(BomCmd):
+    def __init__(self):
+        BomCmd.__init__(self, "dry-run")
+        self.helpText = "dry-run\ttest reconcile"
+        self.action = DRY_RUN
+        self.logCommand = True
+
 class PackageCommand(PinshCmd.PinshCmd):
     def __init__(self, name):
         PinshCmd.PinshCmd.__init__(self, name)

@@ -9,7 +9,7 @@ class Package(PinshCmd.PinshCmd):
         self.childrenDict = { "status": BomCmd.Status(), "uninstall":BomCmd.Uninstall(), 
             "verify": BomCmd.Verify(), "configure": BomCmd.Configure(), "install":BomCmd.Install(), 
             "execute": BomCmd.Execute(), "purge": BomCmd.Purge(), "fix": BomCmd.Fix(), 
-            "reconcile": BomCmd.Reconcile()}
+            "reconcile": BomCmd.Reconcile(), "dry-run": BomCmd.DryRun()}
         self.children = [ self.childrenDict[key] for key in self.childrenDict ]
         self.helpText = "package\tperform a command that operates on another server through a package"
         self.level = 0
