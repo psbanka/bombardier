@@ -11,7 +11,7 @@ def resetMaster():
     directories = ["include", "client"]
     print "Re-encrypting files...",
     for directory in directories:
-        fullPath = "%s/deploy/%s" % (mode.dataPath, directory)
+        fullPath = "%s/deploy/%s" % (mode.serverHome, directory)
         files = glob.glob("%s/*.yml" % fullPath)
         for fileName in files:
             baseName = fileName.split(os.path.sep)[-1]
@@ -22,9 +22,9 @@ def resetMaster():
             open(fileName % (directory, baseName), 'w').write(yaml.dump(newData))
 
 def setPassword(slash):
-    if not 'password' in mode.config: 
+    if not 'password' in mode.config:
         masterPass = libUi.pwdInput("Enter master password to authorize this user: ")
-        client = Client.Client("test", masterPass, mode.dataPath)
+        client = Client.Client("test", masterPass, mode.serverHome)
         client.downloadClient()
         try:
             client.decryptConfig()

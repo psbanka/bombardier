@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 
-import yaml, os
+import syck, os, sys
 
 configFile = "/etc/bombardier.yml"
 if not os.path.isfile(configFile):
-    print "%% Error. The configuration file %s does not exist."
+    print "%% Error. The configuration file %s does not exist." % configFile
     print "%% Please create it with at least the following"
     print "%% information:"
     print "---"
-    print "dataPath: %s" % os.getcwd()
-os.chdir(yaml.load(open(configFile).read()).get("dataPath"))
+    print "serverHome: %s" % os.getcwd()
+    print
+    sys.exit(1)
+os.chdir(syck.load(open(configFile).read()).get("serverHome"))
 
 import exceptions
 import sys, os, readline, signal
@@ -46,7 +48,7 @@ if __name__ == "__main__":
                 status = cmdStatus
         sys.exit(status)
     else:
-        libUi.motd(mode.dataPath, slash.fpOut)
+        libUi.motd(mode.serverHome, slash.fpOut)
         if os.path.isfile(HISTORY_FILE):
             try:
                 readline.read_history_file(HISTORY_FILE)

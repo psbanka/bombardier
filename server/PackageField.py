@@ -10,7 +10,7 @@ from Client import Client
 from bombardier.miniUtility import getInstalled, stripVersion, getInstalledUninstalledTimes
 
 def getProgressData(hostName):
-    statusYml = mode.dataPath + "/status/%s.yml"%(hostName)
+    statusYml = mode.serverHome + "/status/%s.yml"%(hostName)
     if not os.path.isfile(statusYml):
         print "\n\n %% Cannot retrieve status (NO FILE: %s)" %statusYml
         return None
@@ -52,10 +52,10 @@ def getInstalledPackageNames(hostName, stripped=False):
     return getNamesFromProgress(hostName, stripped)[0]
 
 def getBrokenPackageNames(hostName, stripped=False):
-    return getNamesFromProgress(hostName, stripped)[1]  
+    return getNamesFromProgress(hostName, stripped)[1]
 
 def getPackageNamesFromBom(hostName):
-    client = Client(hostName, mode.password, mode.dataPath)
+    client = Client(hostName, mode.password, mode.serverHome)
     status = client.get()
     if status == FAIL:
         print " %% Bad config file for %s." % hostName
@@ -107,7 +107,7 @@ class BasicPackageField(PackageField):
     def possiblePackageNames(self, hostName, packageName):
         pyChucker(hostName)
         r = re.compile('([\w\-]+)\-\d+')
-        files = glob.glob(mode.dataPath+"/deploy/packages/*.spkg")
+        files = glob.glob(mode.serverHome+"/deploy/packages/*.spkg")
         clippedFiles = [ f.split('.spkg')[0].split('/')[-1] for f in files ]
         pkgNames = [ r.findall(c)[0] for c in clippedFiles ]
         filteredNames = [ pkgName for pkgName in pkgNames if pkgName.lower().startswith(packageName.lower()) ]
@@ -125,7 +125,7 @@ class InstallablePackageField(PackageField):
         PackageField.__init__(self, name)
 
     def possiblePackageNames(self, hostName, packageName):
-        client = Client(hostName, mode.password, mode.dataPath)
+        client = Client(hostName, mode.password, mode.serverHome)
         status = client.get()
         if status == FAIL:
             print "Bad config file for %s." % hostName

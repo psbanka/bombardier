@@ -22,11 +22,11 @@ class ConfigField(PinshCmd.PinshCmd):
         self.dataType = dataType
         self.cmdOwner = 0
         if dataType in [CLIENT, MERGED]:
-            self.directory = mode.dataPath+"/deploy/client"
+            self.directory = mode.serverHome+"/deploy/client"
         if dataType == INCLUDE:
-            self.directory = mode.dataPath+"/deploy/include"
+            self.directory = mode.serverHome+"/deploy/include"
         if dataType == BOM:
-            self.directory = mode.dataPath+"/deploy/bom"
+            self.directory = mode.serverHome+"/deploy/bom"
 
     def getTopLevelData(self, tokens, index, decrypt):
         partialFirst = tokens[index].split('.')[0]
@@ -43,7 +43,7 @@ class ConfigField(PinshCmd.PinshCmd):
             return firstTokenNames, {}
         firstTokenName = firstTokenNames[0]
         if self.dataType == MERGED:
-            client = Client.Client(firstTokenName, '', mode.dataPath)
+            client = Client.Client(firstTokenName, '', mode.serverHome)
             client.get()
             data = client.data
         else:

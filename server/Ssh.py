@@ -24,8 +24,8 @@ class Ssh(PinshCmd.PinshCmd):
             return FAIL, []
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
-        hostName = tokens[1] 
-        client = Client.Client(hostName, '', mode.dataPath)
+        hostName = tokens[1]
+        client = Client.Client(hostName, '', mode.serverHome)
         client.get()
         username = client.data.get("defaultUser")
         address  = client.data.get("ipAddress")

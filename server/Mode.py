@@ -61,7 +61,7 @@ class Mode:
         self.autoEnable = False
         self.editor = "/usr/bin/vim"
         self.setPrompt()
-        self.dataPath = os.getcwd() #! FIXME!!
+        self.serverHome = os.getcwd() #! FIXME!!
         self.childProcesses = []
 
     def addPersonalConfigList(self, option, value):
@@ -117,7 +117,7 @@ class Mode:
         if not ignoreConfig and not hostName in self.enabledSystems:
             raise HostNotEnabledException(hostName)
         if not hostName in self.bomConnections:
-            brc = BombardierRemoteClient(hostName, self.password, self.dataPath, outputHandle)
+            brc = BombardierRemoteClient(hostName, self.password, self.serverHome, outputHandle)
             self.bomConnections[hostName] = brc
         else:
             if self.password:
@@ -133,7 +133,7 @@ class Mode:
                 self.bomConnections[hostName] = None
             except:
                 print "%% Could not gracefully disconnect from %s." % hostName
-   
+
     def cleanMode(self, state):
         self.commandBuffer[state] = []
         self.variables[state] = []

@@ -22,7 +22,6 @@ class UpdateClient(PinshCmd.PinshCmd):
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
         hostName = tokens[1]
-        #r = UpdateRemoteClient(hostName, mode.password, mode.dataPath, slash.fpOut, mode.config.get("svnPath"))
         r = UpdateRemoteClient(hostName, mode, slash.fpOut)
         r.update()
         status = OK

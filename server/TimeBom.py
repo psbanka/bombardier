@@ -281,8 +281,8 @@ class Job(Logger):
         self.jt = JobThread(self.user, process, self.bomshCmd, self.password)
         self.jt.to = CommSocket.CommSocket()
         self.jt.fro = CommSocket.CommSocket()
-        self.to = self.jt.to 
-        self.fro = self.jt.fro 
+        self.to = self.jt.to
+        self.fro = self.jt.fro
         self.jt.start()
         return OK
 
@@ -294,11 +294,11 @@ class Job(Logger):
         return OK
 
 class TimeBom(Thread, Logger):
-    def __init__(self, password, dataPath, jobFile=TB_JOB_FILE, port=TB_CTRL_PORT):
+    def __init__(self, password, serverHome, jobFile=TB_JOB_FILE, port=TB_CTRL_PORT):
         Thread.__init__(self)
         Logger.__init__(self, "scheduler", 0)
         self.password          = password
-        self.jobFile           = dataPath + '/' + jobFile
+        self.jobFile           = serverHome + '/' + jobFile
         self.commSocketToJob   = None
         self.commSocketFromJob = None
         self.jobThread         = None
@@ -459,7 +459,7 @@ def areJobListsEqual( jobList1, jobList2, ignoreProps = ['lastRun', 'running'] )
     if numJobs != len(jobList2):
         return False
     jobList1.sort()
-    jobList2.sort()           
+    jobList2.sort()
     for i in range(numJobs):
         if not areJobsEqual(jobList1[i], jobList2[i], ignoreProps):
             return False
@@ -470,7 +470,7 @@ def test():
     os.chdir('/')
     status = OK
     TEST_PORT     = 2384
-    TEST_JOB_FILE = mode.dataPath + "/testJobFile.yml"
+    TEST_JOB_FILE = mode.serverHome + "/testJobFile.yml"
     TEST_PASSWORD = 'fooman'
     password = TEST_PASSWORD
     if OK_TO_PROMPT:
@@ -577,39 +577,39 @@ def test():
     sys.exit(0)
 
 def startService(passwd):
-    dataPath = os.getcwd()
-    tb = TimeBom(passwd, dataPath, port=TB_CTRL_PORT)
+    serverHome = os.getcwd()
+    tb = TimeBom(passwd, serverHome, port=TB_CTRL_PORT)
     if tb.status == FAIL:
         print >>sys.stderr, "Unable to start: Address already in use."
         sys.exit(0)
     tb.loadJobs()
-    
-    # do the UNIX double-fork magic, see Stevens' "Advanced 
+
+    # do the UNIX double-fork magic, see Stevens' "Advanced
     # Programming in the UNIX Environment" for details (ISBN 0201563177)
-    try: 
-        pid = os.fork() 
+    try:
+        pid = os.fork()
         if pid > 0:
             # exit first parent
-            sys.exit(0) 
-    except OSError, e: 
-        print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror) 
+            sys.exit(0)
+    except OSError, e:
+        print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)
         sys.exit(1)
 
     # decouple from parent environment
-    os.chdir("/") 
-    os.setsid() 
-    os.umask(0) 
+    os.chdir("/")
+    os.setsid()
+    os.umask(0)
 
     # do second fork
-    try: 
-        pid = os.fork() 
+    try:
+        pid = os.fork()
         if pid > 0:
             # exit from second parent, print eventual PID before
-            print "Daemon PID %d" % pid 
-            sys.exit(0) 
-    except OSError, e: 
-        print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror) 
-        sys.exit(1) 
+            print "Daemon PID %d" % pid
+            sys.exit(0)
+    except OSError, e:
+        print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror)
+        sys.exit(1)
 
     # start the daemon main loop
     #tb.start()

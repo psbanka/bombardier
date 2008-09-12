@@ -7,7 +7,7 @@ from BombardierRemoteClient import BombardierRemoteClient
 class UpdateRemoteClient(BombardierRemoteClient):
 
     def __init__(self, hostName, mode, outputHandle):
-        BombardierRemoteClient.__init__(self, hostName, mode.password, mode.dataPath, outputHandle)
+        BombardierRemoteClient.__init__(self, hostName, mode.password, mode.serverHome, outputHandle)
         self.tmpPath       = mode.config.get("tmpPath")
         self.bombardierSvn = mode.config.get("bombardierSvn")
         self.svnPath       = mode.config.get("svnPath")
@@ -55,7 +55,7 @@ class UpdateRemoteClient(BombardierRemoteClient):
         os.chdir(os.path.join(self.tmpPath))
         self.updateSource()
         os.chdir(os.path.join(self.tmpPath, "client"))
-        #os.chdir(self.dataPath+"/../client")
+        #os.chdir(self.serverHome+"/../client")
         version = self.getVersion()
         self.fileName = "bomClient-%d.tar.gz" % version
         self.tarFile = os.path.join(self.tmpPath, self.fileName)
@@ -82,7 +82,7 @@ class UpdateRemoteClient(BombardierRemoteClient):
 
     def sendFile(self, fileNamePattern):
         startDir = os.getcwd()
-        os.chdir("%s/deploy/packages" % self.dataPath)
+        os.chdir("%s/deploy/packages" % self.serverHome)
         fileNames = glob.glob(fileNamePattern)
         if len(fileNames) > 1:
             message = "Unknown file to deploy"
@@ -127,5 +127,5 @@ if __name__ == "__main__":
 
     serverNames = [s for s in servers.split(' ') if len(s) ]
     for serverName in serverNames:
-        r = UpdateRemoteClient(serverName, '', mode.dataPath, sys.stdout, mode.packageData, svnUser)
+        r = UpdateRemoteClient(serverName, '', mode.serverHome, sys.stdout, mode.packageData, svnUser)
         r.update()

@@ -15,7 +15,7 @@ class BomHostField(PinshCmd.PinshCmd):
 
     def possibleHostNames(self, hostName):
         if not self.enabled:
-            yamlFiles = glob.glob(mode.dataPath+"/deploy/client/*.yml")
+            yamlFiles = glob.glob(mode.serverHome+"/deploy/client/*.yml")
             allHostNames = []
             for filename in yamlFiles:
                 allHostNames.append(filename.split('/')[-1].split('.yml')[0])
@@ -27,7 +27,7 @@ class BomHostField(PinshCmd.PinshCmd):
 
     def ipAddress(self, hostName):
         if hostName in self.possibleHostNames(hostName):
-            client = Client.Client(hostName, '', mode.dataPath)
+            client = Client.Client(hostName, '', mode.serverHome)
             client.downloadClient()
             return client.data.get("ipAddress")
         return hostName

@@ -18,8 +18,8 @@ DOT_LENGTH = 20
 
 class BombardierRemoteClient(RemoteClient):
 
-    def __init__(self, hostName, configPasswd, dataPath, outputHandle=sys.stdout, packageData=None):
-        RemoteClient.__init__(self, hostName, dataPath, outputHandle, configPasswd)
+    def __init__(self, hostName, configPasswd, serverHome, outputHandle=sys.stdout, packageData=None):
+        RemoteClient.__init__(self, hostName, serverHome, outputHandle, configPasswd)
         self.hostStatus = {}
         self.configPasswd = configPasswd
         self.localFilename = ''
@@ -46,7 +46,7 @@ class BombardierRemoteClient(RemoteClient):
             self.spkgDir = self.info.get("spkgPath")
 
     def freshen(self):
-        statusFile = os.path.join(self.dataPath, "status", "%s.yml" % self.hostName)
+        statusFile = os.path.join(self.serverHome, "status", "%s.yml" % self.hostName)
         if os.path.isfile(statusFile):
             try:
                 statusData = syck.load(open(statusFile).read())
@@ -57,7 +57,7 @@ class BombardierRemoteClient(RemoteClient):
                     statusData = ''
             if type(statusData) == type({}):
                 self.hostStatus = statusData.get("install-progress", {})
-        self.packageData = syck.load(open(self.dataPath+"/deploy/packages/packages.yml").read())
+        self.packageData = syck.load(open(self.serverHome+"/deploy/packages/packages.yml").read())
         return(RemoteClient.freshen(self))
 
     def actionResult(self, data):
@@ -70,7 +70,7 @@ class BombardierRemoteClient(RemoteClient):
         self.templateOutput(DEBUG_OUTPUT_TEMPLATE, message, message)
 
     def newSendPackage(self, packageName, destPath):
-        filename = self.dataPath+"/deploy/packages/"+packageName
+        filename = self.serverHome+"/deploy/packages/"+packageName
         if not os.path.isfile(filename):
             message = "ERROR: client requested a file that is not on this server: %s" % filename
             self.debugOutput(message, message)
@@ -79,7 +79,7 @@ class BombardierRemoteClient(RemoteClient):
 
     def sendPackage(self, data):
         package, path = data
-        filename = self.dataPath+"/deploy/packages/"+package
+        filename = self.serverHome+"/deploy/packages/"+package
         self.debugOutput("Sending %s..." % package,"")
         if not os.path.isfile(filename):
             message = "ERROR: client requested a file that is not on this server: %s" % filename
@@ -128,7 +128,7 @@ class BombardierRemoteClient(RemoteClient):
     def sendClient(self, data):
         if data:
             pass
-        tmpFilePath = self.dataPath+"/"+TMP_FILE
+        tmpFilePath = self.serverHome+"/"+TMP_FILE
         open(tmpFilePath, 'w').write(yaml.dump( self.info ))
         self.streamFile(tmpFilePath)
         if os.path.isfile(tmpFilePath):
@@ -146,7 +146,7 @@ class BombardierRemoteClient(RemoteClient):
         self.streamData(yaml.dump(thisPackageData))
 
     def sendBom(self, data):
-        filename = self.dataPath+"/deploy/bom/%s.yml" % data
+        filename = self.serverHome+"/deploy/bom/%s.yml" % data
         if not os.path.isfile(filename):
             message = "ERROR: could not find valid bom data for this %s. Exiting." % filename
             self.debugOutput(message, message)
@@ -322,7 +322,7 @@ class BombardierRemoteClient(RemoteClient):
             self.outputHandle.write('\n')
         if action == EXECUTE:
             if self.reportInfo:
-                fileName = self.dataPath+"/output/%s-%s.yml" % (self.hostName, scriptName)
+                fileName = self.serverHome+"/output/%s-%s.yml" % (self.hostName, scriptName)
                 open(fileName, 'w').write(self.reportInfo)
             else:
                 self.getScriptOutput(scriptName)
@@ -334,7 +334,7 @@ class BombardierRemoteClient(RemoteClient):
         return returnCode, []
 
     def clearScriptOutput(self, scriptName):
-        fileName = self.dataPath+"/output/%s-%s.yml" % (self.hostName, scriptName)
+        fileName = self.serverHome+"/output/%s-%s.yml" % (self.hostName, scriptName)
         if os.path.isfile(fileName):
             os.unlink(fileName)
         return 
@@ -344,8 +344,8 @@ class BombardierRemoteClient(RemoteClient):
         self.localFilename  = "%s-%s.yml" % (self.hostName, scriptName)
         self.get("%s/output/%s" % (self.spkgDir, remoteFilename))
         if os.path.isfile(remoteFilename):
-            os.system("mv -f %s %s/output/%s" % (remoteFilename, self.dataPath, self.localFilename) )
-            self.reportInfo = open(self.dataPath+"/output/%s" % self.localFilename).read()
+            os.system("mv -f %s %s/output/%s" % (remoteFilename, self.serverHome, self.localFilename) )
+            self.reportInfo = open(self.serverHome+"/output/%s" % self.localFilename).read()
         return 
 
     def getStatusYml(self):
@@ -360,7 +360,7 @@ class BombardierRemoteClient(RemoteClient):
             yaml.load(statusYml)
         except:
             self.debugOutput("ERROR: status.yml could not be parsed (writing to error.yml)")
-            open( self.dataPath+"/%s/error.yml" %(statusDir), 'w' ).write(statusYml)
+            open( self.serverHome+"/%s/error.yml" %(statusDir), 'w' ).write(statusYml)
             return
-        open( self.dataPath+"/%s/%s.yml" %(statusDir, self.hostName), 'w' ).write(statusYml)
+        open( self.serverHome+"/%s/%s.yml" %(statusDir, self.hostName), 'w' ).write(statusYml)
 

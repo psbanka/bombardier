@@ -87,7 +87,7 @@ class Package(PinshCmd.PinshCmd):
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
         packageName = tokens[2]
-        pkgData = yaml.load(open(mode.dataPath+"/deploy/packages/packages.yml").read())
+        pkgData = yaml.load(open(mode.serverHome+"/deploy/packages/packages.yml").read())
         return OK, ['', packageName, "========================", '', [pkgData.get(packageName)]]
 
 def printify(inputObject):

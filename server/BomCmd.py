@@ -102,11 +102,11 @@ class PackageCommand(PinshCmd.PinshCmd):
     def checkEncryption(self, serverName, packageNames):
         if mode.password != '':
             return OK
-        client = Client.Client(serverName, '', mode.dataPath)
+        client = Client.Client(serverName, '', mode.serverHome)
         client.get()
         encryptedDict = client.getEncryptedEntries()
         if encryptedDict:
-            packageData = syck.load(open(mode.dataPath+"/deploy/packages/packages.yml").read())
+            packageData = syck.load(open(mode.serverHome+"/deploy/packages/packages.yml").read())
             if self.removeVersion:
                 packageNames = [ '-'.join(pkgName.split('-')[:-1]) for pkgName in packageNames.split() ]
             else:

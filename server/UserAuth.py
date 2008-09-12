@@ -63,7 +63,7 @@ class UserAuth:
             self.modifiedSystems = self.modifiedSystems.union([host])
 
     def modifySystemInfo(self):
-        systemInfo      = yaml.load(open(mode.dataPath+'/'+self.systemInfoFile).read())
+        systemInfo      = yaml.load(open(mode.serverHome+'/'+self.systemInfoFile).read())
         systemRights    = systemInfo["system"]["rights"]
         foundUser       = False
 
@@ -188,12 +188,12 @@ class UserAuth:
             return OK
 
         return FAIL
-    
+
     def bombardierUpdate(self):
         overallStatus = OK
         for host in self.modifiedSystems:
             print "HOST:", host
-            serverObject = BombardierRemoteClient(host, self.password, mode.dataPath)
+            serverObject = BombardierRemoteClient(host, self.password, mode.serverHome)
             status1, output = serverObject.process(EXECUTE, ["HostAuthorization"], "setUsers", True)
             if "DbAuthorization" in serverObject.info["packages"]:
                 status2, output = serverObject.process(EXECUTE, ["DbAuthorization"], "setUsers", True)

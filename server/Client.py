@@ -20,11 +20,11 @@ class ClientConfigurationException(Exception):
 
 class Client:
 
-    def __init__(self, systemName, passwd, dataPath):
+    def __init__(self, systemName, passwd, serverHome):
         self.data       = {}
         self.includes   = []
         self.systemName = systemName
-        self.dataPath   = dataPath
+        self.serverHome   = serverHome
         if passwd:
             self.passwd = libCipher.pad(passwd)
         else:
@@ -59,7 +59,7 @@ class Client:
             configName = self.systemName
         else:
             ymlDirectory = "include"
-        fileName = self.dataPath+"/deploy/%s/%s.yml" % (ymlDirectory, configName)
+        fileName = self.serverHome+"/deploy/%s/%s.yml" % (ymlDirectory, configName)
         newData = syck.load( open(fileName, 'r').read() )
         if newData == None:
             newData = {}
@@ -72,7 +72,7 @@ class Client:
         boms = self.data.get("bom", [])
         packages = set(self.data.get("packages", []))
         for bom in boms:
-            fileName = self.dataPath+"/deploy/bom/%s.yml" % (bom)
+            fileName = self.serverHome+"/deploy/bom/%s.yml" % (bom)
             if not os.path.isfile(fileName):
                 errmsg = "%s does not exist" % fileName
                 raise ClientConfigurationException(self.systemName, errmsg)

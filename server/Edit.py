@@ -9,7 +9,7 @@ class Edit(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "edit")
         self.helpText = "edit\tedit a configuration file"
-        self.fileNameField = FileNameField.FileNameField(mode.dataPath+"/deploy")
+        self.fileNameField = FileNameField.FileNameField(mode.serverHome+"/deploy")
         self.children = [self.fileNameField]
         self.level = 0
         self.cmdOwner = 1
@@ -20,7 +20,7 @@ class Edit(PinshCmd.PinshCmd):
             return FAIL, []
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
-        fileName = mode.dataPath+"/deploy/%s" % tokens[1]
+        fileName = mode.serverHome+"/deploy/%s" % tokens[1]
         editor = mode.editor
         os.system("%s %s" % (editor, fileName))
         return OK, []

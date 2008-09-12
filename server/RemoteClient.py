@@ -14,8 +14,8 @@ DOT_LENGTH = 20
 
 CONNECTION_TIMEOUT = 90 * 3600 #90 min
 
-def getClient(serverName, dataPath, password):
-    client = Client.Client(serverName, password, dataPath)
+def getClient(serverName, serverHome, password):
+    client = Client.Client(serverName, password, serverHome)
     status = client.get()
     if status == FAIL:
         raise ClientConfigurationException(serverName)
@@ -43,11 +43,11 @@ class ClientUnavailableException(Exception):
 
 class RemoteClient:
 
-    def __init__(self, hostName, dataPath, outputHandle=sys.stdout, password=''):
+    def __init__(self, hostName, serverHome, outputHandle=sys.stdout, password=''):
         import pxssh, pexpect
         self.debug        = True
         self.hostName     = hostName
-        self.dataPath     = dataPath
+        self.serverHome   = serverHome
         self.outputHandle = outputHandle 
         self.status       = DISCONNECTED
         self.info         = {}
@@ -68,7 +68,7 @@ class RemoteClient:
                 if os.path.isfile("defaultPassword.b64"):
                     msg = "WARNING: using default password"
                     self.debugOutput(msg, msg)
-                    self.password = base64.decodestring(open(self.dataPath+"/"+DEFAULT_PASSWORD).read())
+                    self.password = base64.decodestring(open(self.serverHome+"/"+DEFAULT_PASSWORD).read())
                 else:
                     self.password  = getpass.getpass( "Enter password for %s: "% self.username )
         self.connectTime = 0
@@ -76,7 +76,7 @@ class RemoteClient:
         self.savedDirectory = ''
 
     def refreshConfig(self):
-        self.info = getClient(self.hostName, self.dataPath, self.password)
+        self.info = getClient(self.hostName, self.serverHome, self.password)
     
     def templateOutput(self, template, debugText, noDebugText='.'):
         output = ''

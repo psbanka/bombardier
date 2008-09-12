@@ -15,7 +15,7 @@ class ScriptField(PinshCmd.PinshCmd):
 
     def possibleScriptNames(self, packageName, scriptName):
         #packageName = '-'.join(packageName.split('-')[:-1])
-        data = syck.load(open("%s/deploy/packages/packages.yml" %mode.dataPath).read())
+        data = syck.load(open("%s/deploy/packages/packages.yml" %mode.serverHome).read())
         scriptNames = data[packageName].get("executables", [])
         possibleCompletions = []
         for i in scriptNames:
