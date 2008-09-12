@@ -1,4 +1,4 @@
-#!/opt/python2.5/bin/python
+#!/usr/bin/env python
 
 import yaml, os
 
