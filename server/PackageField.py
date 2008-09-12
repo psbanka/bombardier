@@ -3,17 +3,18 @@
 import PinshCmd
 import BomHostField
 import os, re, glob
+import syck
 import yaml
 from commonUtil import *
 from Client import Client
-from bombardier.miniUtility import getInstalled, stripVersion
+from bombardier.miniUtility import getInstalled, stripVersion, getInstalledUninstalledTimes
 
 def getProgressData(hostName):
     statusYml = mode.dataPath + "/status/%s.yml"%(hostName)
     if not os.path.isfile(statusYml):
         print "\n\n %% Cannot retrieve status (NO FILE: %s)" %statusYml
         return None
-    yml = yaml.load( open(statusYml).read() ) 
+    yml = syck.load( open(statusYml).read() ) 
     if yml == None:
         return {}
     progressData = yml.get("install-progress")
@@ -24,7 +25,12 @@ def getNamesFromProgress(hostName, stripped=False):
     if progressData == None:
          (installedPackageNames, brokenPackageNames) = ([],[])
     else:
-        unstrippedInstPkgs, unstrippedBrokenPkgs = getInstalled(progressData)
+
+        pkgInfo = getInstalledUninstalledTimes(progressData)
+        unstrippedInstPkgs    = [packageName[0] for packageName in pkgInfo["installed"]]
+        unstrippedBrokenPkgs  = [packageName[0] for packageName in pkgInfo["brokenInstalled"]]
+        unstrippedBrokenPkgs += [packageName[0] for packageName in pkgInfo["brokenUninstalled"]]
+
         if stripped:
             installedPackageNames = [ stripVersion(x) for x in unstrippedInstPkgs]
             brokenPackageNames    = [ stripVersion(x) for x in unstrippedBrokenPkgs]
@@ -143,7 +149,7 @@ class PurgablePackageField(PackageField):
 
     def possiblePackageNames(self, hostName, packageName):
         possibleMatches = []
-        packages = getInstalledPackageNames(hostName).union( getBrokenPackageNames(hostName) )
+        packages = getInstalledPackageNames(hostName, False).union( getBrokenPackageNames(hostName))
         for i in packages:
             if i.lower().startswith( packageName.lower() ):
                 possibleMatches.append( i )

@@ -8,6 +8,7 @@ import BomHostField, PackageField, ScriptField, LongList
 from commonUtil import *
 from Mode import HostNotEnabledException
 import yaml
+import syck
 
 def ennumerate(configDictOrList, currentPath):
     configList = []
@@ -105,7 +106,7 @@ class PackageCommand(PinshCmd.PinshCmd):
         client.get()
         encryptedDict = client.getEncryptedEntries()
         if encryptedDict:
-            packageData = yaml.load(open(mode.dataPath+"/deploy/packages/packages.yml").read())
+            packageData = syck.load(open(mode.dataPath+"/deploy/packages/packages.yml").read())
             if self.removeVersion:
                 packageNames = [ '-'.join(pkgName.split('-')[:-1]) for pkgName in packageNames.split() ]
             else:

@@ -23,6 +23,15 @@ def getClient(serverName, dataPath, password):
         client.decryptConfig()
     return client.data
 
+class IncompleteConfigurationException(Exception):
+    def __init__(self, server, errmsg):
+        e = Exception()
+        Exception.__init__(e)
+        self.server = server
+        self.errmsg = errmsg
+    def __repr__(self):
+        return "Server configuration for %s is incomplete (%s)" % (self.server, self.errmsg)
+
 class ClientUnavailableException(Exception):
     def __init__(self, server, errmsg):
         e = Exception()
@@ -44,16 +53,24 @@ class RemoteClient:
         self.info         = {}
         self.password     = password
         self.refreshConfig()
-        self.username     = self.info["defaultUser"]
-        self.ipAddress    = self.info["ipAddress"]
-        self.platform     = self.info["platform"]
-        if 'sharedKeys' not in self.info and self.password == '':
-            if os.path.isfile("defaultPassword.b64"):
-                msg = "WARNING: using default password"
-                self.debugOutput(msg, msg)
-                self.password = base64.decodestring(open(self.dataPath+"/"+DEFAULT_PASSWORD).read())
-            else:
-                self.password  = getpass.getpass( "Enter password for %s: "% self.username )
+        self.username     = self.info.get("defaultUser", None)
+        if self.username == None:
+            raise IncompleteConfigurationException(self.hostName, "'defaultUser' is not defined")
+        self.ipAddress    = self.info.get("ipAddress", None)
+        if self.ipAddress == None:
+            raise IncompleteConfigurationException(self.hostName, "'ipAddress' is not defined")
+        self.platform     = self.info.get("platform", None)
+        if self.platform == None:
+            raise IncompleteConfigurationException(self.hostName, "'platform' is not defined")
+        sharedKeys = self.info.get('sharedKeys', True)
+        if not sharedKeys:
+            if self.password == '':
+                if os.path.isfile("defaultPassword.b64"):
+                    msg = "WARNING: using default password"
+                    self.debugOutput(msg, msg)
+                    self.password = base64.decodestring(open(self.dataPath+"/"+DEFAULT_PASSWORD).read())
+                else:
+                    self.password  = getpass.getpass( "Enter password for %s: "% self.username )
         self.connectTime = 0
         self.cursorPosition = 0
         self.savedDirectory = ''
@@ -98,7 +115,7 @@ class RemoteClient:
         import pxssh, pexpect
         self.s = pxssh.pxssh()
         self.s.timeout = 6000
-        msg = "connecting to %s..." %self.hostName
+        msg = "Connecting to %s..." %self.hostName
         self.debugOutput(msg, msg)
         try:
             if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):
@@ -200,7 +217,7 @@ class RemoteClient:
         connectionAge = time.time() - self.connectTime
         if self.status == DISCONNECTED or connectionAge > CONNECTION_TIMEOUT or self.status == BROKEN:
             if self.status == CONNECTED:
-                msg = "assuming our connection to %s is stale after "\
+                msg = "Assuming our connection to %s is stale after "\
                       "%4.2f minutes. Reconnecting..." % (self.hostName, connectionAge / 60.0)
                 self.debugOutput(msg)
                 self.disconnect()
@@ -215,7 +232,7 @@ class RemoteClient:
             dead = True
 
         if dead:
-            self.debugOutput("our connection handle is dead. Reconnecting...")
+            self.debugOutput("Our connection handle is dead. Reconnecting...")
             try:
                 self.disconnect()
             except:
@@ -247,13 +264,13 @@ class RemoteClient:
 
     def get(self, destFile):
         import pxssh, pexpect
-        self.debugOutput( "getting %s" % destFile)
+        self.debugOutput( "Getting %s" % destFile)
         s = pexpect.spawn('scp -v %s@%s:%s .' % (self.username, self.ipAddress, destFile), timeout=30)
         return self.processScp(s)
 
     def scp(self, source, dest):
         import pxssh, pexpect
-        self.debugOutput("sending %s to %s:%s" % (source, self.ipAddress, dest))
+        self.debugOutput("Sending %s to %s:%s" % (source, self.ipAddress, dest))
         s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest), timeout=90)
         sshNewkey = 'Are you sure you want to continue connecting'
         i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=90)
@@ -271,7 +288,7 @@ class RemoteClient:
                 raise ClientUnavailableException(dest, errMsg)
             s.sendline(self.password)
         if i == 2:
-            self.debugOutput('using password authentication')
+            self.debugOutput('Using password authentication')
             s.sendline(self.password)
         if i == 3:
             pass

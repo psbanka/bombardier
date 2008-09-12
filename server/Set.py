@@ -5,6 +5,7 @@ import PinshCmd, Mode, libUi, ConfigField, Expression, JobNameField, Integer, Mu
 import SecureCommSocket
 from commonUtil import *
 import Client, libCipher
+import yaml, syck
 
 def resetMaster():
     directories = ["include", "client"]
@@ -16,7 +17,7 @@ def resetMaster():
             baseName = fileName.split(os.path.sep)[-1]
             print fileName
             #print '.',
-            oldData = yaml.load(open(fileName).read())
+            oldData = syck.load(open(fileName).read())
             newData = libCipher.changePass(oldData, oldPassword, newPassword)
             open(fileName % (directory, baseName), 'w').write(yaml.dump(newData))
 

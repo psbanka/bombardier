@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
-import readline, socket, sys, os, yaml
+import readline, socket, sys, os
+import stat
+import yaml, syck
 from BombardierRemoteClient import BombardierRemoteClient
 
-CONFIG_FILE = "%s/.bomsh_config" % os.environ.get("HOME")
+PERSONAL_CONFIG_FILE = "%s/.bomsh_config" % os.environ.get("HOME")
+GLOBAL_CONFIG_FILE = "/etc/bombardier.yml"
 
 OK = 0
 FAIL = 1
@@ -50,46 +53,54 @@ class Mode:
         self.password = ''
         self.commentCommands = []
         self.bomConnections = {}
+        self.enabledSystems = []
         self.getTermInfo()
         self.debug = True
         self.config = {}
         self.username = os.environ.get("USER")
         self.autoEnable = False
+        self.editor = "/usr/bin/vim"
         self.setPrompt()
         self.dataPath = os.getcwd() #! FIXME!!
         self.childProcesses = []
 
-    def addConfigList(self, option, value):
+    def addPersonalConfigList(self, option, value):
         if self.config.get(option):
             self.config[option].append(value)
         else:
             self.config[option] = [value]
-        open(CONFIG_FILE, 'w').write(yaml.dump(self.config))
+        open(PERSONAL_CONFIG_FILE, 'w').write(yaml.dump(self.config))
 
     def writeConfig(self, option, value):
         self.config[option] = value
-        open(CONFIG_FILE, 'w').write(yaml.dump(self.config))
+        open(GLOBAL_CONFIG_FILE, 'w').write(yaml.dump(self.config))
 
     def loadConfig(self):
-        import stat
-        st = os.stat(CONFIG_FILE)
-        mode = st[stat.ST_MODE]
-        permission = stat.S_IMODE(mode)
-        if mode & stat.S_IRWXG or mode & stat.S_IRWXO:
-            print "%% The permissions on your configuration file (%s) are too liberal (%d)" % (CONFIG_FILE, permission)
-        if os.path.isfile(CONFIG_FILE+".yml"):
-            print "%% Configuration file should be called %s, not %s.yml. Please rename it." % (CONFIG_FILE, CONFIG_FILE)
-        if os.path.isfile(CONFIG_FILE):
-            self.config=yaml.load(open(CONFIG_FILE).read())
-        debug = self.config.get("debug")
-        if type(debug) == type(True):
-            self.debug = debug
-            #print "  Setting debugging to %s" % self.debug
-        if not self.config.has_key("enabledSystems"):
-            self.config["enabledSystems"] = []
-        if not self.config.has_key("tmpPath"):
-            self.config["tmpPath"] = "/tmp"
-        self.autoEnable = self.config.get("autoEnable")
+        if os.path.isfile(GLOBAL_CONFIG_FILE):
+            st = os.stat(GLOBAL_CONFIG_FILE)
+            mode = st[stat.ST_MODE]
+            permission = stat.S_IMODE(mode)
+            if mode & stat.S_IROTH:
+            #if mode & stat.S_IRWXO:
+                print "%% The permissions on your configuration file (%s) "\
+                      "are too liberal (%d)" % (GLOBAL_CONFIG_FILE, permission)
+                sys.exit(1)
+            self.config=syck.load(open(GLOBAL_CONFIG_FILE).read())
+            if not self.config.has_key("tmpPath"):
+                self.config["tmpPath"] = "/tmp"
+        else:
+            print "%% The global Bombardier configuration file %s is missing or "\
+                  "the permissions don't allow for reading." % GLOBAL_CONFIG_FILE
+            sys.exit(1)
+
+        if os.path.isfile(PERSONAL_CONFIG_FILE):
+            self.personal_config=syck.load(open(PERSONAL_CONFIG_FILE).read())
+            self.enabledSystems = self.personal_config.get("enabledSystems", [])
+            self.autoEnable = self.personal_config.get("autoEnable")
+            debug = self.personal_config.get("debug")
+            if type(debug) == type(True):
+                self.debug = debug
+            self.editor = self.personal_config.get("editor", "/usr/bin/vim")
 
     def getTermInfo(self):
         try:
@@ -103,7 +114,7 @@ class Mode:
             self.termwidth = 80
 
     def getBomConnection(self, hostName, outputHandle=sys.stdout, ignoreConfig=False):
-        if not ignoreConfig and not hostName in self.config["enabledSystems"]:
+        if not ignoreConfig and not hostName in self.enabledSystems:
             raise HostNotEnabledException(hostName)
         if not hostName in self.bomConnections:
             brc = BombardierRemoteClient(hostName, self.password, self.dataPath, outputHandle)

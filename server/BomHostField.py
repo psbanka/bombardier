@@ -19,9 +19,9 @@ class BomHostField(PinshCmd.PinshCmd):
             allHostNames = []
             for filename in yamlFiles:
                 allHostNames.append(filename.split('/')[-1].split('.yml')[0])
-            hostNames = list(set(allHostNames) - set(mode.config["enabledSystems"]))
+            hostNames = list(set(allHostNames) - set(mode.enabledSystems))
         else:
-            hostNames = mode.config["enabledSystems"]
+            hostNames = mode.enabledSystems
         possibleMatches = [ hn for hn in hostNames if hn.lower().startswith(hostName.lower()) ]
         return possibleMatches
 

@@ -31,8 +31,8 @@ class LongList(PinshCmd.PinshCmd):
                     output.append(tokens[i])
                     continue
                 else:
-                    print "ACCEPTABLE NAMES SHOULDN'T HAVE ALLOWED %s" % tokens[i]
-                    print ">>",tokenNames
+                    #print "ACCEPTABLE NAMES SHOULDN'T HAVE ALLOWED %s" % tokens[i]
+                    #print ">>",tokenNames
                     return ''
             for tokenName in tokenNames:
                 if self.unique:
@@ -48,29 +48,42 @@ class LongList(PinshCmd.PinshCmd):
         for i in range(index, len(tokens)):
             newTokens = previousTokens + [tokens[i]]
             tokenNames = self.item.acceptableNames(newTokens, index)
+            #print "::: ",tokenNames
             if len(tokenNames) == 1:
                 if tokenNames[0] in output and self.unique:
+                    #print '1'
                     break
                 output.append(tokenNames[0])
             if len(tokenNames) == 0:
+                #print '2'
                 break
             if len(tokenNames) > 1:
                 base = ' '.join(output)
+                #print ">>>base:",base
                 if base:
-                    return [ "%s %s" % (base, t) for t in tokenNames if t != base]
+                    #output = [ "%s %s" % (base, t) for t in tokenNames if t != base]
+                    output = [ "%s" % (t) for t in tokenNames if t != base]
+                    #print "A", output
+                    return output
                 else:
+                    #print "B"
                     return tokenNames
         if not output:
+            #print "C"
             return []
         returnValue = ' '.join(output)
+        #returnValue = [output[-1]]
         if returnValue:
-            return [' '.join(output)]
+            #print "D", returnValue
+            return returnValue
         else:
+            #print "E"
             return []
 
     def match(self, tokens, index):
         #print "\nM>",tokens, index
         names = self.preferredNames(tokens, index)
+        #print "M:",names
         if names == []:
             return NO_MATCH, 1
         lengthOfMatch = len(names[0].split(' '))
@@ -102,12 +115,12 @@ if __name__ == "__main__":
     bhf = BomHostField.BomHostField()
     ll3 = LongList(bhf, unique=True)
     status = runTest(ll3.preferredNames, [["lilap", "biga"], 0], ["lilap bigap"], status)
-    mode.config["enabledSystems"] = [ "lilap", "bigap" ]
+    mode.enabledSystems = [ "lilap", "bigap" ]
     status = runTest(ll3.preferredNames, [["lilap", ""], 0], [ "lilap bigap" ], status)
 
     pf = PackageField.PurgablePackageField()
     ll2 = LongList(pf, unique=True)
-    mode.config["enabledSystems"] += [ "testdb" ]
+    mode.enabledSystems += [ "testdb" ]
     status = runTest(ll2.preferredNames, [["testdb", "Sql"], 1], ["SqlBackup-8"], status)
     output2 = [ o for o in output if o.startswith("uhrDB") ]
     sqlPlusOutput = ["SqlBackup-8 "+o for o in output if o != "SqlBackup-8" ]

@@ -21,6 +21,6 @@ class Edit(PinshCmd.PinshCmd):
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
         fileName = mode.dataPath+"/deploy/%s" % tokens[1]
-        editor = mode.config.get("editor", "/usr/bin/vim")
+        editor = mode.editor
         os.system("%s %s" % (editor, fileName))
         return OK, []

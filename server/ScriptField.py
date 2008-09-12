@@ -1,24 +1,8 @@
 #!/usr/bin/python
 
 import PinshCmd, PackageField, BomHostField
-import yaml
+import yaml, syck
 from commonUtil import *
-
-def getSubsection(name):
-    d = open("%s/deploy/packages/packages.yml" %mode.dataPath).readlines()
-    output = []
-    collect = False
-    for line in d:
-        if collect:
-            output.append(line)
-            if line[0] != ' ':
-                return yaml.load('\n'.join(output))
-        if line[0] == ' ':
-            continue
-        if line == '%s:\n' % name:
-            output.append(line)
-            collect = True
-    return {}
 
 class ScriptField(PinshCmd.PinshCmd):
     def __init__(self, name = "packageName"):
@@ -31,7 +15,7 @@ class ScriptField(PinshCmd.PinshCmd):
 
     def possibleScriptNames(self, packageName, scriptName):
         #packageName = '-'.join(packageName.split('-')[:-1])
-        data = getSubsection(packageName)
+        data = syck.load(open("%s/deploy/packages/packages.yml" %mode.dataPath).read())
         scriptNames = data[packageName].get("executables", [])
         possibleCompletions = []
         for i in scriptNames:

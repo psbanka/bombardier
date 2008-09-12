@@ -1,7 +1,7 @@
 #!/opt/python2.5/bin/python
 import bombardier.miniUtility as miniUtility
 import os
-import yaml
+import yaml, syck
 import getpass
 import libCipher
 from Crypto.Cipher import AES
@@ -60,7 +60,7 @@ class Client:
         else:
             ymlDirectory = "include"
         fileName = self.dataPath+"/deploy/%s/%s.yml" % (ymlDirectory, configName)
-        newData = yaml.load( open(fileName, 'r').read() )
+        newData = syck.load( open(fileName, 'r').read() )
         if newData == None:
             newData = {}
         self.data = miniUtility.addDictionaries(self.data, newData)
@@ -76,7 +76,7 @@ class Client:
             if not os.path.isfile(fileName):
                 errmsg = "%s does not exist" % fileName
                 raise ClientConfigurationException(self.systemName, errmsg)
-            packages = packages.union(set(yaml.load(open(fileName).read())))
+            packages = packages.union(set(syck.load(open(fileName).read())))
         self.data["packages"] = list(packages)
         if self.data.get("bom"):
             del self.data["bom"]

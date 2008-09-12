@@ -64,7 +64,7 @@ class Enable(PinshCmd.PinshCmd):
         if not os.path.isfile(pubKeyFile):
             return FAIL, ['You must generate a DSA ssh key with "ssh-keygen -t dsa"']
         try:
-            hostNames = self.hostList.preferredNames(tokens, 1)[0]
+            hostNames = self.hostList.preferredNames(tokens, 1)
         except:
             return FAIL, ["Invalid host name: %s" % tokens[2]]
         overallStatus = OK
@@ -82,7 +82,8 @@ class Enable(PinshCmd.PinshCmd):
             r.password = ''
             r.sharedKey = True
             if status == OK:
-                mode.addConfigList("enabledSystems", hostName)
+                mode.addPersonalConfigList("enabledSystems", hostName)
+                mode.enabledSystems.append(hostName)
                 overallOutput.append("Added key to %s" % hostName)
             else:
                 overallStatus = FAIL

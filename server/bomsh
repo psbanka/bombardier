@@ -2,7 +2,13 @@
 
 import yaml, os
 
-configFile = "/etc/serverConfig.yml"
+configFile = "/etc/bombardier.yml"
+if not os.path.isfile(configFile):
+    print "%% Error. The configuration file %s does not exist."
+    print "%% Please create it with at least the following"
+    print "%% information:"
+    print "---"
+    print "dataPath: %s" % os.getcwd()
 os.chdir(yaml.load(open(configFile).read()).get("dataPath"))
 
 import exceptions

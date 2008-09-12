@@ -6,13 +6,11 @@ from BombardierRemoteClient import BombardierRemoteClient
 
 class UpdateRemoteClient(BombardierRemoteClient):
 
-    def __init__(self, hostName, password, dataPath, outputHandle, svnPath = '', svnUser=''):
-        BombardierRemoteClient.__init__(self, hostName, password, dataPath, outputHandle)
-        self.svnUser = svnUser
-        if svnPath:
-            self.svnPath = svnPath
-        else:
-            self.svnPath = 'svn'
+    def __init__(self, hostName, mode, outputHandle):
+        BombardierRemoteClient.__init__(self, hostName, mode.password, mode.dataPath, outputHandle)
+        self.tmpPath       = mode.config.get("tmpPath")
+        self.bombardierSvn = mode.config.get("bombardierSvn")
+        self.svnPath       = mode.config.get("svnPath")
 
     def srcUpdate(self):
         self.debugOutput("running srcUpdate")
@@ -21,26 +19,48 @@ class UpdateRemoteClient(BombardierRemoteClient):
         self.debugOutput(self.s.before)
 
     def updateSource(self):
-        self.debugOutput("updating client")
-        userStr = ''
-        if self.svnUser:
-            userStr = " --no-auth-cache --username %s"%self.svnUser
-        status, output = commands.getstatusoutput("%s %s update"% (self.svnPath, userStr))
+        version = self.info.get("clientVersion")
+        versionStr = ''
+        if not self.bombardierSvn:
+            self.debugOutput("bombardierSvn is not defined in ~/.bomsh_config")
+            raise Exception
+        if version:
+            self.debugOutput("Updating client to version %d" % version)
+            versionStr = "-r%d" % version
+        else:
+            self.debugOutput("Updating client to most recent version")
+        exportPath = os.path.join(self.svnPath, self.tmpPath, self.bombardierSvn)
+        status = os.system("rm -rf client")
+        cmd = "%s export %s %s/client" % (self.svnPath, versionStr, self.bombardierSvn)
+        status, output = commands.getstatusoutput(cmd)
         if status != OK:
             self.debugOutput("failed to update bombardier client")
             raise Exception
 
+    def getVersion(self):
+        version = self.info.get("clientVersion")
+        if not version:
+            status, output = commands.getstatusoutput("%s info %s" % (self.svnPath, self.bombardierSvn))
+            if status != OK:
+                self.debugOutput("failed to determine version of bombardier client (%s)" % output)
+                raise Exception
+            version = int(re.compile("Last Changed Rev\: (\d+)").findall(output)[0])
+        return version
+
     def prepareBombardierClient(self):
         cwd = os.getcwd()
-        os.chdir(self.dataPath+"/../client")
-        #self.updateSource()
-        status, output = commands.getstatusoutput("%s info" % self.svnPath)
-        if status != OK:
-            self.debugOutput("failed to determine version of bombardier client (%s)" % output)
+        if not self.tmpPath:
+            self.debugOutput("tmpPath is not defined in ~/.bomsh_config")
             raise Exception
-        version = int(re.compile("Last Changed Rev\: (\d+)").findall(output)[0])
+        os.chdir(os.path.join(self.tmpPath))
+        self.updateSource()
+        os.chdir(os.path.join(self.tmpPath, "client"))
+        #os.chdir(self.dataPath+"/../client")
+        version = self.getVersion()
         self.fileName = "bomClient-%d.tar.gz" % version
-        cmd = 'tar -czvf /tmp/%s --exclude "*.pyc" .svn *' % self.fileName
+        self.tarFile = os.path.join(self.tmpPath, self.fileName)
+        #cmd = 'tar -czvf %s --exclude "*.pyc" .svn *' % self.tarFile
+        cmd = 'tar -czvf %s *' % self.tarFile
         self.debugOutput("creating tarball...")
         status, output = commands.getstatusoutput(cmd)
         if status != OK:
@@ -74,11 +94,11 @@ class UpdateRemoteClient(BombardierRemoteClient):
     def update(self):
         self.prepareBombardierClient()
         self.connect()
-        self.scp("/tmp/%s" % self.fileName, self.fileName)
+        self.scp(self.tarFile, self.fileName)
         self.unpackClient()
         self.srcUpdate()
         self.disconnect()
-        os.unlink("/tmp/%s" % self.fileName)
+        os.unlink(self.tarFile)
 
 if __name__ == "__main__":
     from commonUtil import *

@@ -2,7 +2,8 @@
 
 import glob
 
-import PinshCmd, BomHostField, yaml, libCipher
+import PinshCmd, BomHostField, libCipher
+import yaml, syck
 import Client
 from commonUtil import *
 from bombardier.staticData import CENSORED
@@ -46,7 +47,7 @@ class ConfigField(PinshCmd.PinshCmd):
             client.get()
             data = client.data
         else:
-            data = yaml.load(open("%s/%s.yml" % (self.directory, firstTokenName)).read())
+            data = syck.load(open("%s/%s.yml" % (self.directory, firstTokenName)).read())
         if decrypt:
             data = libCipher.decrypt(data, '')
         return [firstTokenName], data

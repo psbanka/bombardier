@@ -48,7 +48,13 @@ class BombardierRemoteClient(RemoteClient):
     def freshen(self):
         statusFile = os.path.join(self.dataPath, "status", "%s.yml" % self.hostName)
         if os.path.isfile(statusFile):
-            statusData = syck.load(open(statusFile).read())
+            try:
+                statusData = syck.load(open(statusFile).read())
+            except Exception, e:
+                if e[0] == "syntax error":
+                    msg = "ERROR: Syntax error in status information for %s" % self.hostName
+                    self.debugOutput(msg, msg)
+                    statusData = ''
             if type(statusData) == type({}):
                 self.hostStatus = statusData.get("install-progress", {})
         self.packageData = syck.load(open(self.dataPath+"/deploy/packages/packages.yml").read())
@@ -97,7 +103,7 @@ class BombardierRemoteClient(RemoteClient):
         totalLines = len(encoded.split()) / BLK_SIZE
         printFrequency = totalLines / DOT_LENGTH
         if self.debug:
-            self.outputHandle.write("==> sending configuration information:")
+            self.outputHandle.write("==> Sending configuration information:")
             self.outputHandle.flush()
         if printFrequency < 1:
             printFrequency = 1
@@ -177,7 +183,7 @@ class BombardierRemoteClient(RemoteClient):
             return returnCode, output
         except Exception, e:
             self.debugOutput(str(e))
-            self.debugOutput("invalid returncode: ('%s')" % self.s.before)
+            self.debugOutput("ERROR: Invalid returncode: ('%s')" % self.s.before)
             return FAIL, output
 
     def dumpTrace(self):
@@ -208,24 +214,37 @@ class BombardierRemoteClient(RemoteClient):
                 message = "CLIENT TRACEBACK: %s" % line
                 self.debugOutput(message, message)
 
+    def sendAllClientData(self):
+        sendData = {"configData": self.info, "packageData": {}}
+        for packageName in self.info.get("packages"):
+            thisPackageData = self.packageData.get(packageName) 
+            if not thisPackageData:
+                message = "ERROR: could not find package data for %s." % packageName
+                self.debugOutput(message, message)
+                raise ClientConfigurationException(self.hostName)
+            sendData["packageData"][packageName] = thisPackageData
+        self.streamData(yaml.dump(sendData))
+
     def runBc(self, action, packageNames, scriptName, debug):
-        print "RUNNING BC"
         self.s.sendline ('cd %s' %self.spkgDir)
         self.s.prompt()
         packageString = ' '.join(packageNames)
-        cmd = '%s bc.py %s %s %s %s' % (self.python, ACTION_DICT[action], self.hostName, packageString, scriptName)
+        cmd = '%s bc.py %s %s %s %s' % (self.python, ACTION_DICT[action], self.hostName, 
+                                        packageString, scriptName)
         self.s.sendline(cmd)
+        if int(self.info.get("clientVersion", 0)) > 583:
+            self.sendAllClientData()
         foundIndex = 0
         while True:
             foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=6000)
-            if foundIndex == 1: # Stack track
+            if foundIndex == 1: # Stack trace
                 self.dumpTrace()
                 self.s.prompt()
                 self.getStatusYml()
                 return FAIL, ["Client raised an exception."]
             if foundIndex == 0: # BC exited
                 if self.s.before.strip():
-                    self.debugOutput("remaining output: %s" % self.s.before.strip())
+                    self.debugOutput("Remaining output: %s" % self.s.before.strip())
                 self.s.setecho(False)
                 self.s.sendline("echo $?")
                 self.s.prompt()
@@ -233,7 +252,7 @@ class BombardierRemoteClient(RemoteClient):
                     returnCode = int(str(self.s.before.split()[0].strip()))
                 except Exception, e:
                     self.debugOutput( str(e) )
-                    self.debugOutput( "invalid returncode: ('%s')" % self.s.before)
+                    self.debugOutput( "ERROR: invalid returncode: ('%s')" % self.s.before)
                     returnCode = FAIL
                 break
             messageType, message = self.s.match.groups()
@@ -254,7 +273,7 @@ class BombardierRemoteClient(RemoteClient):
                         newestPackageData = self.packageData.get(packageName, {})
                         newestPackageName = newestPackageData.get("install", {}).get("fullName")
                         if not newestPackageName:
-                            errmsg = "Host has installed %s which is not in the DSL" % packageName
+                            errmsg = "ERROR: Host has installed %s which is not in the DSL" % packageName
                             self.debugOutput(errmsg, errmsg)
                             return
                         if installedPackageName != newestPackageName:
@@ -278,9 +297,9 @@ class BombardierRemoteClient(RemoteClient):
             self.uploadPackages(packageNames)
             self.runBc(action, packageNames, scriptName, debug)
         except KeyboardInterrupt:
-            self.debugOutput("cleaning up...", "\ncleaning up...")
+            self.debugOutput("Cleaning up...", "\ncleaning up...")
             if self.terminate() == OK:
-                self.debugOutput("disconnected", "\ndisconnected")
+                self.debugOutput("Disconnected", "\ndisconnected")
             else:
                 self.debugOutput("ERROR: could not disconnect", "\nERROR: could not disconnect")
             raise KeyboardInterrupt
