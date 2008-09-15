@@ -9,6 +9,7 @@ from staticData import *
 import Mode
 
 HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
+TEST_CIPHER  = "The Quick Brown Fox Jumped Over The Lazy Dog"
 mode = Mode.Mode(Mode.USER, '>')
 mode.loadConfig()
 

@@ -1,17 +1,44 @@
 #!/usr/bin/env python
 
 import syck, os, sys
+GLOBAL_CONFIG_FILE = "/etc/bombardier.yml"
 
-configFile = "/etc/bombardier.yml"
-if not os.path.isfile(configFile):
-    print "%% Error. The configuration file %s does not exist." % configFile
-    print "%% Please create it with at least the following"
-    print "%% information:"
-    print "---"
-    print "serverHome: %s" % os.getcwd()
-    print
-    sys.exit(1)
-os.chdir(syck.load(open(configFile).read()).get("serverHome"))
+def checkConfig():
+    if not os.path.isfile(GLOBAL_CONFIG_FILE):
+        if os.path.isdir("deploy"):
+            print "%% Error. The configuration file %s does not exist." % GLOBAL_CONFIG_FILE
+            print "%% Please create it with at least the following"
+            print "%% information:"
+            print "---"
+            print "serverHome: %s" % os.getcwd()
+            print
+            sys.exit(1)
+        else:
+            print "This looks like a new installation of Bombardier."
+            result = ''
+            prompt = "Perform initial environment setup? (Y/n): "
+            while result == '':
+                instr = raw_input(prompt)
+                if len(instr) == 0:
+                    break
+                if instr.lower()[0] == 'y':
+                    break
+                elif instr.lower()[0] == 'n':
+                    sys.exit(1)
+            print "==> Making directories..."
+            os.makedirs("deploy/client")
+            os.makedirs("deploy/include")
+            os.makedirs("deploy/bom")
+            os.makedirs("deploy/packages")
+            print "==> Making configuration file..."
+            fh=open(GLOBAL_CONFIG_FILE, 'w')
+            fh.write("---\n")
+            fh.write("serverHome: %s\n" % os.getcwd())
+            fh.close()
+            os.system("chmod 600 %s" % GLOBAL_CONFIG_FILE)
+    os.chdir(syck.load(open(GLOBAL_CONFIG_FILE).read()).get("serverHome"))
+
+checkConfig()
 
 import exceptions
 import sys, os, readline, signal

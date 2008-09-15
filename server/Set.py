@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, time
+import sys, time, glob
 import PinshCmd, Mode, libUi, ConfigField, Expression, JobNameField, Integer, MultipleChoice, Variable
 import SecureCommSocket
 from commonUtil import *
@@ -22,33 +22,28 @@ def resetMaster():
             open(fileName % (directory, baseName), 'w').write(yaml.dump(newData))
 
 def setPassword(slash):
-    if not 'password' in mode.config:
-        masterPass = libUi.pwdInput("Enter master password to authorize this user: ")
-        client = Client.Client("test", masterPass, mode.serverHome)
-        client.downloadClient()
-        try:
-            client.decryptConfig()
-        except:
-            return FAIL, ['Incorrect master password']
-        mode.password = masterPass
+    if mode.auth == ADMIN or 'password' not in mode.config:
+        # MASTER PASSWORD HAS NEVER BEEN SET
+        print "\n"
+        masterPass1 = libUi.pwdInput("Enter new master password: ")
+        if masterPass1 == '':
+            return FAIL, ["Aborted"]
+        masterPass2 = libUi.pwdInput("Verify new master password: ")
+        if masterPass1 != masterPass2:
+            return FAIL, ['Passwords do not match']
+        mode.password = masterPass1
         print "% Password correct, continue"
     else:
-        if mode.auth != ADMIN:
-            return FAIL, ["Must be done from enable mode"]
-    testPass1 = libUi.pwdInput("new password: ")
-    if testPass1 == '':
-        return FAIL, ["Aborted"]
-    testPass2 = libUi.pwdInput("new password (confirm): ")
-    if testPass1 != testPass2:
-        return FAIL, ["Passwords do not match"]
-    resetMaster = libUi.askYesNo("Reset master password?", NO)
-    mode.myPassword = testPass1
+        return FAIL, ["Must be done from enable mode"]
+
+    if mode.auth == ADMIN:
+        if libUi.askYesNo("Reset master password?", NO) == YES:
+            resetMaster()
     try:
-        cipherMasterPass = libCipher.encrypt(mode.password, mode.myPassword)
+        cipherMasterPass = libCipher.encrypt(TEST_CIPHER, mode.password)
         mode.writeConfig("password", cipherMasterPass)
     except:
         mode.password = ''
-        mode.myPassword = ''
         return FAIL, ["Could not encrypt password"]
     if mode.auth != ADMIN:
         mode.auth = ADMIN
@@ -110,7 +105,7 @@ def setJob(tokens, noFlag):
             return sendMessage(TB_DISABLE, [jobName], "Job %s disabled." % jobName)
         else:
             return sendMessage(TB_ENABLE, [jobName], "Job %s enabled." % jobName)
-        
+
     freq = int(tokens[3])
     multiplier = 60
     if len(tokens) > 4:

@@ -8,13 +8,12 @@ from commonUtil import *
 
 def performEnable(slash):
     cipherPass = mode.config.get("password")
-    mode.myPassword = libUi.pwdInput("password: ")
+    mode.password = libUi.pwdInput("password: ")
     try:
-        padPassword = libCipher.pad(mode.myPassword)
+        padPassword = libCipher.pad(mode.password)
         mode.password = libCipher.decryptString(cipherPass, padPassword)
     except:
         mode.password = ''
-        mode.myPassword = ''
         return FAIL, ["Invalid password"]
     mode.auth = ADMIN
     mode.pushPrompt(slash, "#", Mode.ENABLE)
