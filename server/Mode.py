@@ -185,7 +185,7 @@ class Mode:
 
     def currentState(self):
         return self.state[-1]
-    
+
 if __name__ == "__main__":
     from libTest import startTest, runTest, endTest 
     from Slash import slash
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     startTest()
     mode = Mode(1,"#")
     PROMPTY="vmwareserver (root)"
-    
+
     status = runTest(mode.reprompt, [], None, status)
     status = runTest(mode.setPrompt, [], None, status)
     status = runTest(mode.getPrompt, [], PROMPTY + "# ", status)
@@ -202,5 +202,5 @@ if __name__ == "__main__":
     status = runTest(mode.popPrompt, [], OK, status)
     status = runTest(mode.getPrompt, [], PROMPTY + "# ", status)
     status = runTest(mode.currentState, [], 1, status)
-    
+
     endTest(status)

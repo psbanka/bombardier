@@ -33,7 +33,7 @@ def changePass(dict, oldPasswd, newPasswd):
 
 def changeLoop(dict, oldPasswd, newPasswd):
     if type(dict) != type({}):
-        return 
+        return
     for key in dict:
         t = type(dict[key])
         if t == type('') and type(key) == type('') and key.startswith('enc_'):
@@ -46,7 +46,7 @@ def changeLoop(dict, oldPasswd, newPasswd):
                 pyChucker(e)
                 print e
                 raise InvalidData(key, dict[key], "Unable to decrypt")
-    
+
 def decrypt(dict, passwd):
     if passwd:
         passwd = pad(passwd)
@@ -55,7 +55,7 @@ def decrypt(dict, passwd):
 
 def decryptLoop(dict, passwd):
     if type(dict) != type({}):
-        return 
+        return
     for key in dict:
         t = type(dict[key])
         if t == type('') and type(key) == type('') and key.startswith('enc_'):
@@ -72,7 +72,7 @@ def decryptLoop(dict, passwd):
                 pyChucker(e)
                 print e
                 raise InvalidData(key, dict[key], "Unable to decrypt")
-    
+
 def decryptString(b64CipherB64Str, passwd, validChars=VALID_CHARS):
     #print "b64CipherB64Str: (%s)"%b64CipherB64Str
     if len(passwd) % 16:
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     status = OK
     startTest()
     assert newData["thing1"] == "hello"
-    assert newData["thing2"] == "hello" 
+    assert newData["thing2"] == "hello"
     value = encrypt("hello", "abcd1234")
     assert value == "Ujlr68WRWt5tkfR/a0sE9g=="
     endTest(status)

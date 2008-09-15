@@ -163,9 +163,9 @@ def pwdInput(prompt):
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     redaction = "\b" * len(passwd) + " " * len(passwd)
     sys.stdout.write(redaction)
-    print 
+    print
     return passwd
-    
+
 def getPassword(prompt = "enter password:"):
     while 1 == 1:
         passwd1 = pwdInput(prompt)
