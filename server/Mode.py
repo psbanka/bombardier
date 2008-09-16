@@ -113,15 +113,16 @@ class Mode:
             self.termlen = 23
             self.termwidth = 80
 
-    def getBomConnection(self, hostName, outputHandle=sys.stdout, ignoreConfig=False):
+    def getBomConnection(self, hostName, outputHandle=sys.stdout, ignoreConfig=False, enabled=True):
         if not ignoreConfig and not hostName in self.enabledSystems:
             raise HostNotEnabledException(hostName)
         if not hostName in self.bomConnections:
-            brc = BombardierRemoteClient(hostName, self.password, self.serverHome, outputHandle)
+            brc = BombardierRemoteClient(hostName, self.password, self.serverHome,
+                                         outputHandle, enabled=enabled)
             self.bomConnections[hostName] = brc
         else:
             if self.password:
-                self.bomConnections[hostName].configPasswd = self.password
+                self.bomConnections[hostName].setConfigPass(self.password)
             self.bomConnections[hostName].debug = self.debug
             self.bomConnections[hostName].refreshConfig()
         return self.bomConnections[hostName]

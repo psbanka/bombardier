@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import pxssh, pexpect
+import struct, fcntl, termios, signal
 import sys, os, getpass, base64, time
 import Client
 from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
@@ -9,17 +11,16 @@ DISCONNECTED = 0
 CONNECTED    = 1
 BROKEN       = 2
 
-DEFAULT_PASSWORD = "defaultPassword.b64"
 DOT_LENGTH = 20
 
 CONNECTION_TIMEOUT = 90 * 3600 #90 min
 
-def getClient(serverName, serverHome, password):
-    client = Client.Client(serverName, password, serverHome)
+def getClient(serverName, serverHome, configPass):
+    client = Client.Client(serverName, configPass, serverHome)
     status = client.get()
     if status == FAIL:
         raise ClientConfigurationException(serverName)
-    if password:
+    if configPass:
         client.decryptConfig()
     return client.data
 
@@ -43,15 +44,15 @@ class ClientUnavailableException(Exception):
 
 class RemoteClient:
 
-    def __init__(self, hostName, serverHome, outputHandle=sys.stdout, password=''):
-        import pxssh, pexpect
+    def __init__(self, hostName, serverHome, outputHandle=sys.stdout, configPass='', enabled=True):
         self.debug        = True
         self.hostName     = hostName
         self.serverHome   = serverHome
-        self.outputHandle = outputHandle 
+        self.outputHandle = outputHandle
         self.status       = DISCONNECTED
         self.info         = {}
-        self.password     = password
+        self.configPass   = configPass
+        self.sshPass      = ''
         self.refreshConfig()
         self.username     = self.info.get("defaultUser", None)
         if self.username == None:
@@ -63,21 +64,15 @@ class RemoteClient:
         if self.platform == None:
             raise IncompleteConfigurationException(self.hostName, "'platform' is not defined")
         sharedKeys = self.info.get('sharedKeys', True)
-        if not sharedKeys:
-            if self.password == '':
-                if os.path.isfile("defaultPassword.b64"):
-                    msg = "WARNING: using default password"
-                    self.debugOutput(msg, msg)
-                    self.password = base64.decodestring(open(self.serverHome+"/"+DEFAULT_PASSWORD).read())
-                else:
-                    self.password  = getpass.getpass( "Enter password for %s: "% self.username )
+        if not sharedKeys or not enabled:
+            self.sshPass = getpass.getpass( "Enter password for %s@%s: "% (self.username, self.hostName ) )
         self.connectTime = 0
         self.cursorPosition = 0
         self.savedDirectory = ''
 
     def refreshConfig(self):
-        self.info = getClient(self.hostName, self.serverHome, self.password)
-    
+        self.info = getClient(self.hostName, self.serverHome, self.configPass)
+
     def templateOutput(self, template, debugText, noDebugText='.'):
         output = ''
         if self.debug:
@@ -104,6 +99,32 @@ class RemoteClient:
         template = "==> [From %s]: " % self.hostName
         self.templateOutput(template + "%s\n", fromText)
 
+    def sigwinch_passthrough (self, sig, data):
+        s = struct.pack("HHHH", 0, 0, 0, 0)
+        a = struct.unpack('hhhh', fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ , s))
+        self.s.setwinsize(a[0],a[1])
+
+    def interact(self):
+        self.freshen()
+        print " Press ^] to exit your session."
+        signal.signal(signal.SIGWINCH, self.sigwinch_passthrough)
+        self.s.sendline("stty sane")
+        self.s.prompt()
+        self.s.sendline('export OLD_PROMPT=$PS1')
+        self.s.sendline('export ORIG_PATH=$(pwd)')
+        self.s.prompt()
+        self.s.sendline('export PS1="\h:\w# "')
+        self.s.interact()
+        print "\n ...Returning to the bombardier shell."
+        try:
+            self.s.sendline('export PS1=$OLD_PROMPT')
+            self.s.prompt()
+            self.s.sendline('cd "$ORIG_PATH"')
+            self.s.prompt()
+        except pexpect.EOF:
+            print " %% Detected terminal disconnect."
+            print " %% To preserve your session, Press ^] to exit."
+
     def terminate(self):
         result = self.s.terminate()
         if result:
@@ -118,11 +139,11 @@ class RemoteClient:
         msg = "Connecting to %s..." %self.hostName
         self.debugOutput(msg, msg)
         try:
-            if not self.s.login (self.ipAddress, self.username, self.password, login_timeout=30):
-                raise Exception
+            if not self.s.login(self.ipAddress, self.username, self.sshPass, login_timeout=6000):
+                raise ClientUnavailableException
             self.s.sendline('stty -echo')
             self.s.prompt()
-        except:
+        except (ClientUnavailableException, pexpect.TIMEOUT):
             message = "SSH session failed on login."
             self.debugOutput(message, message)
             self.status = BROKEN
@@ -143,7 +164,7 @@ class RemoteClient:
         else:
             cmd += "%s@%s:%s %s" % (self.username, self.ipAddress, remotePath, localPath)
         cmd += "'"
-        #self.debugOutput("EXECUTING: %s" % cmd)
+        self.debugOutput("EXECUTING: %s" % cmd, cmd) #^^ COMMENT THIS OUT
         stdout, stdin = os.popen4(cmd)
         s = pexpect.spawn(cmd, timeout=5000)
         sshNewkey = 'Are you sure you want to continue connecting'
@@ -157,7 +178,7 @@ class RemoteClient:
                 s.sendline('yes')
                 continue
             if i == 2:
-                s.sendline(self.password)
+                s.sendline(self.sshPass)
                 continue
             if i == 3 or i == 4:
                 break
@@ -239,7 +260,7 @@ class RemoteClient:
                 pass
             if self.connect() != OK:
                 return FAIL
-        return OK 
+        return OK
 
     def processScp(self, s):
         import pxssh, pexpect
@@ -253,9 +274,9 @@ class RemoteClient:
             i = s.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=50)
             if i == 0:
                 raise ClientUnavailableException(self.hostName, s.before+'|'+s.after)
-            s.sendline(self.password)
+            s.sendline(self.sshPass)
         if i == 2:
-            s.sendline(self.password)
+            s.sendline(self.sshPass)
         if i == 3:
             pass
         s.expect(pexpect.EOF)
@@ -265,15 +286,19 @@ class RemoteClient:
     def get(self, destFile):
         import pxssh, pexpect
         self.debugOutput( "Getting %s" % destFile)
-        s = pexpect.spawn('scp -v %s@%s:%s .' % (self.username, self.ipAddress, destFile), timeout=30)
+        cmd = 'scp -v %s@%s:%s .' % (self.username, self.ipAddress, destFile)
+        self.debugOutput("EXECUTING: %s" % cmd, cmd) #^^ COMMENT THIS OUT
+        s = pexpect.spawn(cmd, timeout=30)
         return self.processScp(s)
 
     def scp(self, source, dest):
         import pxssh, pexpect
         self.debugOutput("Sending %s to %s:%s" % (source, self.ipAddress, dest))
-        s = pexpect.spawn('scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest), timeout=90)
+        cmd = 'scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest)
+        self.debugOutput("RUNNING: %s" % cmd)
+        s = pexpect.spawn(cmd, timeout=600)
         sshNewkey = 'Are you sure you want to continue connecting'
-        i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=90)
+        i = s.expect([pexpect.TIMEOUT, sshNewkey, '[pP]assword: ', 'Exit status'], timeout=600)
         if i == 0:
             raise ClientUnavailableException(dest, s.before+'|'+s.after)
         if i == 1:
@@ -286,16 +311,16 @@ class RemoteClient:
                 else:
                     errMsg = "s.before: (%s) s.after: (%s)" % (s.before, s.after)
                 raise ClientUnavailableException(dest, errMsg)
-            s.sendline(self.password)
+            s.sendline(self.sshPass)
         if i == 2:
             self.debugOutput('Using password authentication')
-            s.sendline(self.password)
+            s.sendline(self.sshPass)
         if i == 3:
             pass
         s.expect(pexpect.EOF)
         s.close()
         return OK
-    
+
     def checkResult(self):
         self.s.setecho(False)
         self.s.sendline("echo $?")
@@ -312,7 +337,7 @@ class RemoteClient:
         self.s.sendline("pwd")
         self.s.prompt()
         self.savedDirectory = self.s.before.split()[0]
-        
+
     def returnToStart(self):
         if self.savedDirectory:
             self.s.setecho(False)
@@ -363,7 +388,7 @@ class RemoteClient:
         return d
 
     def getobj(self, sectionString, default, expType, optional):
-        value = self.parseSection(sectionString, default, optional)        
+        value = self.parseSection(sectionString, default, optional)
         if type(expType) == type("string"):
             if type(value) == type(1234) or type(value) == type(123.32):
                 value = str(value)

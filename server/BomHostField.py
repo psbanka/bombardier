@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import glob
+import glob, os
 
 import PinshCmd, Client
 from commonUtil import *
@@ -15,7 +15,8 @@ class BomHostField(PinshCmd.PinshCmd):
 
     def possibleHostNames(self, hostName):
         if not self.enabled:
-            yamlFiles = glob.glob(mode.serverHome+"/deploy/client/*.yml")
+            globPath = os.path.join(mode.serverHome, "client", "*.yml")
+            yamlFiles = glob.glob(globPath)
             allHostNames = []
             for filename in yamlFiles:
                 allHostNames.append(filename.split('/')[-1].split('.yml')[0])

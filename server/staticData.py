@@ -1,3 +1,4 @@
+import os
 from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
 
 # RESULT CODES
@@ -6,6 +7,8 @@ FAIL = 1
 UNKNOWN = -1
 DEBUG     = False
 
+PACKAGES_FILE = os.path.join("packages", "packages.yml")
+GLOBAL_CONFIG_FILE = "/etc/bombardier.yml"
 
 UNINSTALL = 0
 CONFIGURE = 1

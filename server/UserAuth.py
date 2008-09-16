@@ -1,6 +1,6 @@
 #!/opt/python2.5/bin/python
 from commonUtil import *
-import yaml, random, time
+import yaml, random, time, os
 from commands import getstatusoutput
 from bcs import BombardierRemoteClient, EXECUTE
 import libCipher
@@ -138,7 +138,8 @@ class UserAuth:
 
     def createVpnCert(self):
         start = os.getcwd()
-        caData = yaml.load(open("deploy/include/OpenVpnCerts.yml").read())
+        certsPath = os.path.join(mode.serverHome, "include", "OpenVpnCerts.yml")
+        caData = yaml.load(open(certsPath).read())
         libCipher.decryptLoop(caData, self.password)
         os.chdir("CA")
         open("%s-CA.crt" % self.environment, "w").write(caData["openvpn"]["CA_CRT"])
@@ -164,7 +165,8 @@ class UserAuth:
         inputFile.write(self.createEntry("VPN_certificate", self.vpnPass, "This will unlock your VPN certificate")+'\n')
         for host in self.hostAccess:
             notes = "rights: %s" % str(list(self.hostAccess[host]))
-            ipAddress = yaml.load(open("deploy/client/%s.yml" % host).read())["ipAddress"]
+            hostPath = os.path.join(mode.serverHome, "client", "%s.yml" % host)
+            ipAddress = yaml.load(open(hostPath).read())["ipAddress"]
             inputFile.write(self.createEntry("%s-%s" % (host, ipAddress), self.hostPass, notes)+'\n')
         inputFile.close()
         getstatusoutput("bash -c 'cat %s.pass | ./pw.sh' 2&> /dev/null" % self.name)

@@ -18,10 +18,10 @@ DOT_LENGTH = 20
 
 class BombardierRemoteClient(RemoteClient):
 
-    def __init__(self, hostName, configPasswd, serverHome, outputHandle=sys.stdout, packageData=None):
-        RemoteClient.__init__(self, hostName, serverHome, outputHandle, configPasswd)
+    def __init__(self, hostName, configPass, serverHome, outputHandle=sys.stdout,
+                 packageData=None, enabled=True):
+        RemoteClient.__init__(self, hostName, serverHome, outputHandle, configPass, enabled)
         self.hostStatus = {}
-        self.configPasswd = configPasswd
         self.localFilename = ''
         self.reportInfo = ''
         self.stateMachine = []
@@ -45,6 +45,9 @@ class BombardierRemoteClient(RemoteClient):
         if self.info.get("spkgPath"):
             self.spkgDir = self.info.get("spkgPath")
 
+    def setConfigPass(self, configPass):
+        self.configPass = configPass
+
     def freshen(self):
         statusFile = os.path.join(self.serverHome, "status", "%s.yml" % self.hostName)
         if os.path.isfile(statusFile):
@@ -57,7 +60,7 @@ class BombardierRemoteClient(RemoteClient):
                     statusData = ''
             if type(statusData) == type({}):
                 self.hostStatus = statusData.get("install-progress", {})
-        self.packageData = syck.load(open(self.serverHome+"/deploy/packages/packages.yml").read())
+        self.packageData = syck.load(open(os.path.join(self.serverHome, PACKAGES_FILE)).read())
         return(RemoteClient.freshen(self))
 
     def actionResult(self, data):
@@ -70,7 +73,7 @@ class BombardierRemoteClient(RemoteClient):
         self.templateOutput(DEBUG_OUTPUT_TEMPLATE, message, message)
 
     def newSendPackage(self, packageName, destPath):
-        filename = self.serverHome+"/deploy/packages/"+packageName
+        filename = os.path.join(self.serverHome, "packages", packageName)
         if not os.path.isfile(filename):
             message = "ERROR: client requested a file that is not on this server: %s" % filename
             self.debugOutput(message, message)
@@ -79,7 +82,7 @@ class BombardierRemoteClient(RemoteClient):
 
     def sendPackage(self, data):
         package, path = data
-        filename = self.serverHome+"/deploy/packages/"+package
+        filename = os.path.join(self.serverHome, "packages", package)
         self.debugOutput("Sending %s..." % package,"")
         if not os.path.isfile(filename):
             message = "ERROR: client requested a file that is not on this server: %s" % filename
@@ -146,7 +149,7 @@ class BombardierRemoteClient(RemoteClient):
         self.streamData(yaml.dump(thisPackageData))
 
     def sendBom(self, data):
-        filename = self.serverHome+"/deploy/bom/%s.yml" % data
+        filename = os.path.join(self.serverHome, "bom", "%s.yml" % data)
         if not os.path.isfile(filename):
             message = "ERROR: could not find valid bom data for this %s. Exiting." % filename
             self.debugOutput(message, message)

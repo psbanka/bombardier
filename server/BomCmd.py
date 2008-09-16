@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, time
+import sys, os, time
 from staticData import *
 import Client
 import PinshCmd
@@ -20,7 +20,7 @@ def ennumerate(configDictOrList, currentPath):
         else:
             index = configDictOrList.index(thing)
         value = configDictOrList[index]
-        vt = type(value) 
+        vt = type(value)
         myCurrentPath = "%s/%s" % (currentPath, index)
         if vt in [ type('string'), type(1) ]:
             configList.append("%s/%s" % (myCurrentPath, value))
@@ -106,7 +106,8 @@ class PackageCommand(PinshCmd.PinshCmd):
         client.get()
         encryptedDict = client.getEncryptedEntries()
         if encryptedDict:
-            packageData = syck.load(open(mode.serverHome+"/deploy/packages/packages.yml").read())
+            packageInfoPath = os.path.join(mode.serverHome, "packages", "packages.yml")
+            packageData = syck.load(open(packageInfoPath).read())
             if self.removeVersion:
                 packageNames = [ '-'.join(pkgName.split('-')[:-1]) for pkgName in packageNames.split() ]
             else:

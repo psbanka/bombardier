@@ -25,14 +25,19 @@ class Ssh(PinshCmd.PinshCmd):
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
         hostName = tokens[1]
-        client = Client.Client(hostName, '', mode.serverHome)
-        client.get()
-        username = client.data.get("defaultUser")
-        address  = client.data.get("ipAddress")
-        if len(tokens) > 2:
-            command = '"%s"'%(' '.join(tokens[2:]))
-        else:
-            command = ''
-        if username and address:
-            os.system('%s %s@%s %s'%(SSH,username,address,command))
+
+        r = mode.getBomConnection(hostName)
+        r.interact()
         return OK, []
+
+        #client = Client.Client(hostName, '', mode.serverHome)
+        #client.get()
+        #username = client.data.get("defaultUser")
+        #address  = client.data.get("ipAddress")
+        #if len(tokens) > 2:
+            #command = '"%s"'%(' '.join(tokens[2:]))
+        #else:
+            #command = ''
+        #if username and address:
+            #os.system('%s %s@%s %s'%(SSH,username,address,command))
+        #return OK, []

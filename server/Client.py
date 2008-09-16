@@ -59,7 +59,7 @@ class Client:
             configName = self.systemName
         else:
             ymlDirectory = "include"
-        fileName = self.serverHome+"/deploy/%s/%s.yml" % (ymlDirectory, configName)
+        fileName = os.path.join(self.serverHome, ymlDirectory, "%s.yml" % configName)
         newData = syck.load( open(fileName, 'r').read() )
         if newData == None:
             newData = {}
@@ -72,7 +72,7 @@ class Client:
         boms = self.data.get("bom", [])
         packages = set(self.data.get("packages", []))
         for bom in boms:
-            fileName = self.serverHome+"/deploy/bom/%s.yml" % (bom)
+            fileName = os.path.join(self.serverHome, "bom", "%s.yml" % bom)
             if not os.path.isfile(fileName):
                 errmsg = "%s does not exist" % fileName
                 raise ClientConfigurationException(self.systemName, errmsg)

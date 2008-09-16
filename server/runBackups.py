@@ -7,7 +7,7 @@ import Client
 import logging
 import logging.handlers
 
-## TODOS: 
+## TODOS:
 
 ####################################################
 DATA_PATH = os.getcwd()
@@ -456,7 +456,6 @@ if __name__ == "__main__":
     if CLEAR_LOCKS in OPTIONS:
         status = os.system('rm -f output/*lock')
         logger.info("Clearing all locks... (%s)" % status)
-    
 
     try:
         status = OK

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, readline, time
+import sys, os, readline, time
 import yaml
 import PinshCmd, ConfigField, Integer, BomHostField, PackageField, JobNameField
 from commonUtil import *
@@ -87,7 +87,8 @@ class Package(PinshCmd.PinshCmd):
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
         packageName = tokens[2]
-        pkgData = yaml.load(open(mode.serverHome+"/deploy/packages/packages.yml").read())
+        packagesPath = os.path.join(mode.serverHome, "packages", "packages.yml")
+        pkgData = yaml.load(open(packagesPath).read())
         return OK, ['', packageName, "========================", '', [pkgData.get(packageName)]]
 
 def printify(inputObject):
@@ -121,7 +122,7 @@ class Status(PinshCmd.PinshCmd):
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
         hostName = tokens[2]
-        statusFile = "status/%s.yml" % hostName
+        statusFile = os.path.join(mode.serverHome, "status", "%s.yml" % hostName)
         if not os.path.isfile(statusFile):
             return FAIL, ["No status on file (%s)" % statusFile]
         installed, broken = PackageField.getNamesFromProgress(hostName, False)

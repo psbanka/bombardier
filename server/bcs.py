@@ -53,7 +53,7 @@ if __name__ == "__main__":
             sys.exit(1)
         packageNames = [args[1]]
         scriptName   = args[2]
-        
+
     elif options.action not in [STATUS, RECONCILE]:
         print "ARGS:", args
         if len(args) < 2:

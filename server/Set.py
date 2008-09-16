@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, time, glob
+import sys, os, time, glob
 import PinshCmd, Mode, libUi, ConfigField, Expression, JobNameField, Integer, MultipleChoice, Variable
 import SecureCommSocket
 from commonUtil import *
@@ -11,8 +11,8 @@ def resetMaster():
     directories = ["include", "client"]
     print "Re-encrypting files...",
     for directory in directories:
-        fullPath = "%s/deploy/%s" % (mode.serverHome, directory)
-        files = glob.glob("%s/*.yml" % fullPath)
+        fullGlobPath = os.path.join(mode.serverHome, directory, "*.yml")
+        files = glob.glob(fullGlobPath)
         for fileName in files:
             baseName = fileName.split(os.path.sep)[-1]
             print fileName
@@ -24,7 +24,6 @@ def resetMaster():
 def setPassword(slash):
     if mode.auth == ADMIN or 'password' not in mode.config:
         # MASTER PASSWORD HAS NEVER BEEN SET
-        print "\n"
         masterPass1 = libUi.pwdInput("Enter new master password: ")
         if masterPass1 == '':
             return FAIL, ["Aborted"]
@@ -32,7 +31,6 @@ def setPassword(slash):
         if masterPass1 != masterPass2:
             return FAIL, ['Passwords do not match']
         mode.password = masterPass1
-        print "% Password correct, continue"
     else:
         return FAIL, ["Must be done from enable mode"]
 
@@ -152,7 +150,7 @@ def setLock(noFlag, lockName):
     except IOError, e:
         return FAIL, ["Lock file %s cannot be set (%s)" % (lockName, str(e))]
     return OK, ["Lock %s has been set." % lockName]
-    
+
 class Set(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "set", "set\tset a configuration value")
@@ -217,7 +215,7 @@ class Set(PinshCmd.PinshCmd):
             if noFlag:
                 newValue = ''
             else:
-                newValue = libUi.pwdInput("Enter configuration value: ")                
+                newValue = libUi.pwdInput("Enter configuration value: ")
         return newValue
 
     def modifyList(self, noFlag, tokens, currentValue, newValue, fieldObject):
@@ -270,7 +268,7 @@ class Set(PinshCmd.PinshCmd):
             return self.modifyList(noFlag, tokens, currentValue, newValue, fieldObject)
         elif type(currentValue) in [type('string'), type(1), type(True)]:
             if currentValue == newValue:
-                return FAIL, ["New value and old value are identical."] 
+                return FAIL, ["New value and old value are identical."]
             return self.modifyScalar(noFlag, tokens, newValue, fieldObject)
 
 

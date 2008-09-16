@@ -82,7 +82,8 @@ class UpdateRemoteClient(BombardierRemoteClient):
 
     def sendFile(self, fileNamePattern):
         startDir = os.getcwd()
-        os.chdir("%s/deploy/packages" % self.serverHome)
+        pkgsPath = os.path.join(self.serverHome, "packages")
+        os.chdir(pkgsPath)
         fileNames = glob.glob(fileNamePattern)
         if len(fileNames) > 1:
             message = "Unknown file to deploy"

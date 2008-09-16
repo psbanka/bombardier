@@ -107,7 +107,8 @@ class BasicPackageField(PackageField):
     def possiblePackageNames(self, hostName, packageName):
         pyChucker(hostName)
         r = re.compile('([\w\-]+)\-\d+')
-        files = glob.glob(mode.serverHome+"/deploy/packages/*.spkg")
+        packagesGlob = os.path.join(mode.serverhome, "packages", "*.spkg")
+        files = glob.glob(packagesGlob)
         clippedFiles = [ f.split('.spkg')[0].split('/')[-1] for f in files ]
         pkgNames = [ r.findall(c)[0] for c in clippedFiles ]
         filteredNames = [ pkgName for pkgName in pkgNames if pkgName.lower().startswith(packageName.lower()) ]

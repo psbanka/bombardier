@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys,glob
+import sys, glob
 
 import PinshCmd
 from commonUtil import *
@@ -14,7 +14,7 @@ class FileNameField(PinshCmd.PinshCmd):
         self.allowAny = allowAny
 
     def match(self, tokens, index):
-        names = self.acceptableNames(tokens, index) 
+        names = self.acceptableNames(tokens, index)
         if len(names) == 0:
             return NO_MATCH, 1
         if len(names) > 1:
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     status = runTest(fileNameField.match, [[""], 0], (PARTIAL, 1), status)
     status = runTest(fileNameField.match, [["/bin/bas"], 0], (COMPLETE, 1), status)
     status = runTest(fileNameField.match, [["/bin/bash"], 0], (COMPLETE, 1), status)
-    fnf2 = FileNameField(startDir="deploy")
+    fnf2 = FileNameField(startDir=mode.serverHome)
     status = runTest(fnf2.match, [["include"], 0], (COMPLETE, 1), status)
     status = runTest(fnf2.match, [["include/test"], 0], (PARTIAL, 1), status)
     status = runTest(fnf2.preferredNames, [["include/testI"], 0], ["include/testInclude.yml"], status)

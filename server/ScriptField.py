@@ -2,6 +2,7 @@
 
 import PinshCmd, PackageField, BomHostField
 import yaml, syck
+import os
 from commonUtil import *
 
 class ScriptField(PinshCmd.PinshCmd):
@@ -15,7 +16,8 @@ class ScriptField(PinshCmd.PinshCmd):
 
     def possibleScriptNames(self, packageName, scriptName):
         #packageName = '-'.join(packageName.split('-')[:-1])
-        data = syck.load(open("%s/deploy/packages/packages.yml" %mode.serverHome).read())
+        packageInfoPath = os.path.join(mode.serverHome, "packages", "packages.yml")
+        data = syck.load(open(packageInfoPath).read())
         scriptNames = data[packageName].get("executables", [])
         possibleCompletions = []
         for i in scriptNames:

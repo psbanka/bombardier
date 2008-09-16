@@ -44,7 +44,7 @@ class Cmdb(PinshCmd.PinshCmd):
         self.log    = PinshCmd.PinshCmd("log","log\treview the changes that have been made")
         self.comment = Expression.Expression()
 
-        self.fileNameField = FileNameField.FileNameField(mode.serverHome+"/deploy")
+        self.fileNameField = FileNameField.FileNameField(mode.serverHome)
         self.diff.children = [self.fileNameField]
         self.add.children = [self.fileNameField]
 
@@ -78,7 +78,7 @@ class Cmdb(PinshCmd.PinshCmd):
     def runSvn(self, tokens, action):
         if len(tokens) < 3:
             return FAIL, ["Incomplete command"]
-        fileName = mode.serverHome+"/deploy/%s" % tokens[2]
+        fileName = os.path.join(mode.serverHome, tokens[2])
         if not os.path.isfile(fileName):
             return FAIL, ["Unknown file: %s" % fileName]
         cmd = "%s %s %s" % (self.svnCmd, action, fileName)
@@ -95,7 +95,8 @@ class Cmdb(PinshCmd.PinshCmd):
         cmdOutput = {}
         for directory in directories:
             cmdOutput[directory] = []
-            cmd = "%s %s %s/deploy/%s %s" % (self.svnCmd, action, mode.serverHome, directory, argString)
+            directoryPath = os.path.join(mode.serverHome, directory)
+            cmd = "%s %s %s %s" % (self.svnCmd, action, directoryPath, argString)
             status, output = gso(cmd)
             if status != OK:
                 errmsg = ["Repository is corrupt. Please examine it manually"]

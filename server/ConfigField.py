@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import glob
+import glob, os
 
 import PinshCmd, BomHostField, libCipher
 import yaml, syck
@@ -14,19 +14,20 @@ INCLUDE = 3
 BOM = 4
 
 class ConfigField(PinshCmd.PinshCmd):
-    def __init__(self, name = "configField", dataType=MERGED):
+    def __init__(self, name = "configField", dataType=MERGED, strict=True):
         PinshCmd.PinshCmd.__init__(self, name, tokenDelimiter = '')
         self.helpText = "<configurationField>\ta dot-delimeted configuration value"
         self.bomHostField = BomHostField.BomHostField()
         self.level = 99
         self.dataType = dataType
         self.cmdOwner = 0
+        self.strict = strict
         if dataType in [CLIENT, MERGED]:
-            self.directory = mode.serverHome+"/deploy/client"
+            self.directory = os.path.join(mode.serverHome, "client")
         if dataType == INCLUDE:
-            self.directory = mode.serverHome+"/deploy/include"
+            self.directory = os.path.join(mode.serverHome, "include")
         if dataType == BOM:
-            self.directory = mode.serverHome+"/deploy/bom"
+            self.directory = os.path.join(mode.serverHome, "bom")
 
     def getTopLevelData(self, tokens, index, decrypt):
         partialFirst = tokens[index].split('.')[0]
@@ -110,6 +111,8 @@ class ConfigField(PinshCmd.PinshCmd):
 
     def preferredNames(self, tokens, index):
         tokens[index] = tokens[index].replace('"', '')
+        if not self.strict:
+            return [tokens[index:]]
         firstTokenNames, data = self.getTopLevelData(tokens, index, True)
         if len(firstTokenNames) == 0:
             return []
@@ -144,7 +147,7 @@ class ConfigField(PinshCmd.PinshCmd):
                     possibleMatches.append("%s.%s.%s" % (firstTokenName, prefix, item))
                 else:
                     possibleMatches.append("%s.%s" % (firstTokenName, item))
-        
+
         if possibleMatches:
             return possibleMatches
         return []

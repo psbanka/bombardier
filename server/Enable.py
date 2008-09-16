@@ -69,15 +69,16 @@ class Enable(PinshCmd.PinshCmd):
         overallStatus = OK
         overallOutput = ['\n']
         for hostName in hostNames.split():
-            r = mode.getBomConnection(hostName, ignoreConfig=True)
-            r.password = mode.password
+            r = mode.getBomConnection(hostName, ignoreConfig=True, enabled=False)
             r.sharedKey = False
             remoteKeyFile = "%s_id_dsa.pub" % os.environ["USER"]
             try:
                 r.scp(pubKeyFile, ".ssh/%s" % remoteKeyFile)
             except ClientUnavailableException:
-                return FAIL, ['\n', "Client %s (IP: %s) will not accept an SCP connection." % (hostName, r.ipAddress)]
+                msg = "Client %s (IP: %s) will not accept an SCP connection." % (hostName, r.ipAddress)
+                return FAIL, ['\n', msg]
             status, output = r.runCmd("cd ~/.ssh && cat %s >> authorized_keys2" % remoteKeyFile)
+            status, output = r.runCmd("rm -f ~/.ssh/%s" % remoteKeyFile)
             r.password = ''
             r.sharedKey = True
             if status == OK:
