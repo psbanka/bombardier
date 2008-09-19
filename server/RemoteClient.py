@@ -104,26 +104,38 @@ class RemoteClient:
         a = struct.unpack('hhhh', fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ , s))
         self.s.setwinsize(a[0],a[1])
 
-    def interact(self):
+    def interact(self, command=''):
         self.freshen()
-        print " Press ^] to exit your session."
-        signal.signal(signal.SIGWINCH, self.sigwinch_passthrough)
-        self.s.sendline("stty sane")
-        self.s.prompt()
-        self.s.sendline('export OLD_PROMPT=$PS1')
-        self.s.sendline('export ORIG_PATH=$(pwd)')
-        self.s.prompt()
-        self.s.sendline('export PS1="\h:\w# "')
-        self.s.interact()
-        print "\n ...Returning to the bombardier shell."
-        try:
-            self.s.sendline('export PS1=$OLD_PROMPT')
+        if not command:
+            print " Press ^] to exit your session."
+            signal.signal(signal.SIGWINCH, self.sigwinch_passthrough)
+            self.s.sendline("stty sane")
             self.s.prompt()
-            self.s.sendline('cd "$ORIG_PATH"')
+            self.s.sendline('export OLD_PROMPT=$PS1')
+            self.s.sendline('export ORIG_PATH=$(pwd)')
             self.s.prompt()
-        except pexpect.EOF:
-            print " %% Detected terminal disconnect."
-            print " %% To preserve your session, Press ^] to exit."
+            self.s.sendline('export PS1="\h:\w# "')
+            self.s.interact()
+            print "\n ...Returning to the bombardier shell."
+            try:
+                self.s.sendline('export PS1=$OLD_PROMPT')
+                self.s.prompt()
+                self.s.sendline('cd "$ORIG_PATH"')
+                self.s.prompt()
+            except pexpect.EOF:
+                print " %% Detected terminal disconnect."
+                print " %% To preserve your session, Press ^] to exit."
+        else:
+            self.s.sendline(command)
+            self.s.prompt()
+            print "Output from command: %s" %command
+            output_lines = self.s.before.split('\n')
+            if not output_lines[-1].strip():
+                output_lines = output_lines[:-1]
+            for line in output_lines:
+                print "--> %s" %line.strip()
+            print
+            
 
     def terminate(self):
         result = self.s.terminate()

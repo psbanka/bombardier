@@ -113,7 +113,6 @@ def checkConfig():
         fh.close()
         os.system("chmod 600 %s" % pkgsFile)
         os.system("cp banner.txt %s" % serverHome)
-    os.chdir(syck.load(open(GLOBAL_CONFIG_FILE).read()).get("serverHome"))
 
 testModules()
 import syck
@@ -154,9 +153,7 @@ if __name__ == "__main__":
                 status = cmdStatus
         sys.exit(status)
     else:
-        print "MOTD", os.getcwd()
         libUi.motd(mode.serverHome, slash.fpOut)
-        print "MOTD"
         if os.path.isfile(HISTORY_FILE):
             try:
                 readline.read_history_file(HISTORY_FILE)

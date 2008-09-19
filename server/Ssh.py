@@ -27,7 +27,11 @@ class Ssh(PinshCmd.PinshCmd):
         hostName = tokens[1]
 
         r = mode.getBomConnection(hostName)
-        r.interact()
+        if len(tokens) > 2:
+            command = '%s'%(' '.join(tokens[2:]))
+        else:
+            command = ''
+        r.interact(command)
         return OK, []
 
         #client = Client.Client(hostName, '', mode.serverHome)

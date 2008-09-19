@@ -61,7 +61,7 @@ class Mode:
         self.autoEnable = False
         self.editor = "/usr/bin/vim"
         self.setPrompt()
-        self.serverHome = os.getcwd() #! FIXME!!
+        self.serverHome = None
         self.childProcesses = []
 
     def addPersonalConfigList(self, option, value):
@@ -88,6 +88,7 @@ class Mode:
             self.config=syck.load(open(GLOBAL_CONFIG_FILE).read())
             if not self.config.has_key("tmpPath"):
                 self.config["tmpPath"] = "/tmp"
+            self.serverHome = syck.load(open(GLOBAL_CONFIG_FILE).read()).get("serverHome")
         else:
             print "%% The global Bombardier configuration file %s is missing or "\
                   "the permissions don't allow for reading." % GLOBAL_CONFIG_FILE

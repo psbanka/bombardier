@@ -121,7 +121,7 @@ if __name__ == "__main__":
     passwd = ''
     if not options.insecure:
         passwd = getpass.getpass("Enter decryption password: ")
-    config = Client(client, passwd, os.getcwd())
+    config = Client(client, passwd, mode.serverHome)
     status = config.get()
     if status == FAIL:
         print "Bad config file."
