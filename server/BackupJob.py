@@ -31,6 +31,8 @@ def get_my_databases(config):
     my_databases = {}
     apps = config.dictionary("apps")
     for app in apps:
+        if type(apps[app]) != type({}):
+            continue
         database_name = apps[app].get("dbName")
         db_options    = apps[app].get("dbOptions", [])
         if "backup" in db_options:
@@ -165,6 +167,7 @@ class BackupJob:
             backup_file = "%s-backupLog.yml" % self.backup_server.hostName
 
         backup_report = os.path.join(self.options.status_path, "output", backup_file)
+        print "BACKUP REPORT:",backup_report
         backup_data = self.filesystem.loadYaml(backup_report)
         self.backup_stamp = backup_data["startTime"]
         self.report["backup time"] = self.backup_stamp
