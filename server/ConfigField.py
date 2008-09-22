@@ -21,7 +21,7 @@ class ConfigField(PinshCmd.PinshCmd):
         self.level = 99
         self.dataType = dataType
         self.cmdOwner = 0
-        self.strict = strict
+        self.strict = strict # take only exact matches
         if dataType in [CLIENT, MERGED]:
             self.directory = os.path.join(mode.serverHome, "client")
         if dataType == INCLUDE:
@@ -112,7 +112,7 @@ class ConfigField(PinshCmd.PinshCmd):
     def preferredNames(self, tokens, index):
         tokens[index] = tokens[index].replace('"', '')
         if not self.strict:
-            return [tokens[index:]]
+            return tokens[index:]
         firstTokenNames, data = self.getTopLevelData(tokens, index, True)
         if len(firstTokenNames) == 0:
             return []
