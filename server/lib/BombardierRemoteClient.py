@@ -389,7 +389,7 @@ class BombardierRemoteClient(RemoteClient):
         self.s.sendline ('cat %s/%s/status.yml' % (self.spkgDir, self.hostName))
         self.s.prompt()
         statusYml = str(self.s.before).split("status:")[0]
-        statusYml.replace('\r','')
+        statusYml = statusYml.replace('\r','')
         try:
             syck.load(statusYml)
         except:
