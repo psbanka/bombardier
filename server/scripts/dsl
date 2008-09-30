@@ -1,0 +1,178 @@
+#!/usr/bin/env python
+
+import os, shutil, sys, md5, random, re
+import optparse, glob
+import yaml, syck
+import tarfile
+import ConfigParser
+import commands
+
+import bombardier.Linux
+import bombardier.Filesystem as Filesystem
+import bombardier.Spkg as Spkg
+import bombardier.utility as utility
+from bombardier_server.commonUtil import mode, OK, FAIL
+
+class ImportException(Exception):
+    def __init__(self, fileName, reason):
+        Exception.__init__(self)
+        self.fileName = fileName
+        self.reason   = reason
+    def __repr__(self):
+        return "%s could not be imported because %s" % (self.fileName, self.reason)
+    def __str__(self):
+        return self.__repr__()
+
+class DeleteException(Exception):
+    def __init__(self, fileName, reason):
+        Exception.__init__(self)
+        self.fileName = fileName
+        self.reason   = reason
+    def __repr__(self):
+        return "%s could not be deleted from the DSL because %s" % (self.fileName, self.reason)
+    def __str__(self):
+        return self.__repr__()
+
+def getChecksum( spkgFileName ):
+    fp = open( spkgFileName, 'rb' )
+    checkSum = md5.new( fp.read() ).hexdigest()
+    fp.close()
+    return( checkSum )
+
+def validateMetadata(spkgFileName, metaData):
+    if not metaData or type(metaData) != type({}):
+        raise ImportException(spkgFileName, "no metadata was found in the package")
+    if not metaData.has_key("install"):
+        raise ImportException(spkgFileName, "has invalid metadata.")
+
+def validateSpkgFile(spkgFileName):
+    fileNameFormat = re.compile("(\S+)\-(\d+)\.spkg")
+    for chr in ['\n', '\b', '\\', '/', '*', '!', '(', ')', '~', ' ']:
+        if chr in spkgFileName:
+            raise ImportException(spkgFileName, "file has invalid characters ('%s') in name" % chr)
+    match = fileNameFormat.findall(spkgFileName)
+    if not match:
+        raise ImportException(spkgFileName, "file is not named properly.")
+    packageName = match[0][0]
+    packageVersion = match[0][1]
+    if not os.path.isfile(spkgFileName):
+        raise ImportException(spkgFileName, "file was not found")
+    if not tarfile.is_tarfile(spkgFileName):
+        raise ImportException(spkgFileName, "file was not in the right format")
+    return packageName, packageVersion
+
+def getMetaData(spkgFileName):
+    baseName = spkgFileName.split('.spkg')[0]
+    tar = tarfile.open(spkgFileName, "r:gz")
+    metaData = {}
+    for tarInfo in tar:
+        fileName = tarInfo.name.split(baseName)[1][1:]
+        if tarInfo.isreg() and fileName == "METADATA":
+            randomstr = ''.join(random.sample("abcdefghijklmnopqrstuvwxyz", 10))
+            tmpFilePath = os.path.join(mode.tmpPath, "METADATA%s.yml" % randomstr)
+            tar.extract(tarInfo, tmpFilePath)
+            metaData = syck.load(open(os.path.join(tmpFilePath, baseName, "METADATA")).read())
+            shutil.rmtree(tmpFilePath)
+            break
+    tar.close()
+    validateMetadata(spkgFileName, metaData)
+    return metaData
+
+def importSpkg(spkgFileNames):
+    packageInfoFile = os.path.join(mode.serverHome, "packages", "packages.yml")
+    pkgData = syck.load(open(packageInfoFile).read())
+
+    for spkgFileName in spkgFileNames:
+        packageName, packageVersion = validateSpkgFile(spkgFileName)
+        packageDest = os.path.join(mode.serverHome, "packages", spkgFileName)
+
+        tar = tarfile.open(spkgFileName, "r:gz")
+        metaData = getMetaData(spkgFileName)
+
+        if packageName in pkgData:
+            print "==> Updating entry in dsl for %s" % packageName
+        else:
+            print "==> Creating new entry in dsl for %s" % packageName
+        checksum = getChecksum(spkgFileName)
+        pkgData[packageName] = metaData
+        pkgData[packageName]["install"]["md5sum"] = checksum
+        if not os.path.isfile(packageDest):
+            print "==> Copying package into dsl directory..."
+            shutil.copy(spkgFileName, os.path.join(mode.serverHome, "packages", spkgFileName))
+        open(packageInfoFile, 'w').write(yaml.dump(pkgData))
+        print "==> Finished importing %s into dsl directory." % spkgFileName
+
+def delPackages(packageNames):
+    packageInfoFile = os.path.join(mode.serverHome, "packages", "packages.yml")
+    pkgData = syck.load(open(packageInfoFile).read())
+    for packageName in packageNames:
+        if packageName not in pkgData:
+            raise DeleteException(packageName, "it does not exist in the database")
+        del pkgData[packageName]
+        print "==> Deleting %s from the DSL directory." % packageName
+    open(packageInfoFile, 'w').write(yaml.dump(pkgData))
+
+def getConfigs(packageData, mandatory=0, optional=0):
+    for key in packageData:
+        item = packageData[key]
+        if type(item) == type({}):
+            mandatory, optional = getConfigs(item, mandatory, optional)
+        elif type(item) == type(["list"]):
+            if len(item) == 2:
+                if item[1].upper() == "MANDATORY":
+                    mandatory += 1
+                elif item[1].upper() == "OPTIONAL":
+                    optional += 1
+    return mandatory, optional
+
+def listPackages():
+    packageInfoFile = os.path.join(mode.serverHome, "packages", "packages.yml")
+    pkgData = syck.load(open(packageInfoFile).read())
+    template = "%15s | %18s | %25s | %10s | %3s | %3s | %3s"
+    print "\nPackages in database:\n"
+    print template % ("NAME", "FULL", "DESCRIPTION",
+                      "AUTHOR", "MAN", "OPT", "EXE")
+    for packageName in pkgData:
+        fullName = pkgData[packageName]["install"].get("fullName", "")
+        shortDescription = pkgData[packageName].get("shortDescription", '')
+        author = pkgData[packageName].get("author", '')
+        mandatory, optional = getConfigs(pkgData[packageName].get("configuration", {}))
+        executables = len(pkgData[packageName].get("executables", []))
+        print template % (packageName[:15], fullName[:18], shortDescription[:25],
+                          author[:10], mandatory, optional, executables)
+    print
+
+if __name__ == "__main__":
+    usage  = ["usage: %prog add PACKAGE-FILE | "]
+    usage += ["       %prog del PACKAGE-NAME | "]
+    usage += ["       %prog list"]
+    usage += [""]
+    usage += ["where:"]
+    usage += ["  PACKAGE-FILE := The path to a Bombardier package file (ends in .spkg)"]
+    usage += ["  PACKAGE-NAME := The name of a Bombardier package (no .spkg)"]
+    usage += [""]
+    parser = optparse.OptionParser('\n'.join(usage))
+
+    (options, args) = parser.parse_args()
+
+    if not args:
+        print "ERROR: Need to provide a command (add, del, list)"
+        parser.print_help()
+        sys.exit(1)
+
+    command = args[0].lower()
+    if command in ["ls", "list"]:
+        sys.exit(listPackages())
+
+    if len(args) < 2:
+        print "ERROR: Need to provide at least one argument for this command"
+        parser.print_help()
+        sys.exit(1)
+
+    if command in ["add"]:
+        spkgFiles = args[1:]
+        importSpkg(spkgFiles)
+    elif command in ["del", "rm"]:
+        packageNames = args[1:]
+        delPackages(packageNames)
+
