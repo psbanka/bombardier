@@ -389,8 +389,9 @@ class BombardierRemoteClient(RemoteClient):
         self.s.sendline ('cat %s/%s/status.yml' % (self.spkgDir, self.hostName))
         self.s.prompt()
         statusYml = str(self.s.before).split("status:")[0]
+        statusYml.replace('\r','')
         try:
-            yaml.load(statusYml)
+            syck.load(statusYml)
         except:
             self.debugOutput("ERROR: status.yml could not be parsed (writing to error.yml)")
             open( os.path.join(statusDir, "error.yml"), 'w' ).write(statusYml)
