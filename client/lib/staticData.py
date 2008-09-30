@@ -24,7 +24,7 @@ from _version import version_info
 
 # ================================================== Statics
 
-VERSION       = "%(branch_nick)s-%(revno)d" % version_info
+VERSION       = str("%(branch_nick)s-%(revno)d" % version_info)
 TEST_RELEASE  = False
 
 HEADER_TEXT   = """Bombardier-%s, Copyright (C) 2005 Peter Banka et. al \n
