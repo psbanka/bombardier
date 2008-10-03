@@ -166,12 +166,20 @@ def getBc(instanceName, env):
     return bc
 
 def instanceSetup(instanceName):
-    statusDct = {"status": {"newInstall": "True"}}
+    progressPath = getProgressPath(instanceName)
+    statusDct = None
+    if os.path.isfile(progressPath):
+        try:
+            statusDct = yaml.load(open(progressPath).read())
+        except:
+            logger.warning("Unable to load existing yaml from %s" %progressPath)
+    if type(statusDct) != type({}):
+        statusDct = {"status": {"newInstall": "True"}}
     statusDct["clientVersion"] = VERSION
     pkgDir = "%s/packages" % instanceName
     if not os.path.isdir(pkgDir):
         os.makedirs(pkgDir)
-    open(getProgressPath(instanceName), 'w').write(yaml.dump(statusDct))
+    open(progressPath, 'w').write(yaml.dump(statusDct))
 
 def processAction(action, instanceName, packageName, scriptName, packageFactory, env):
     if action == INIT:

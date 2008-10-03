@@ -175,8 +175,11 @@ class BombardierRemoteClient(RemoteClient):
     def getReturnCode(self):
         self.s.sendline("echo $?")
         self.s.prompt()
+        print ">>>>>>>", self.s.before
+        returnCodeStr = str(self.s.before.split()[0].strip())
+        print ">>REtunrcodestr>>>", returnCodeStr
         try:
-            returnCode = int(str(self.s.before.split()[0].strip()))
+            returnCode = int(returnCodeStr)
             return returnCode
         except Exception, e:
             self.debugOutput(str(e))
@@ -194,7 +197,7 @@ class BombardierRemoteClient(RemoteClient):
         status = self.getReturnCode()
         if status != OK and raiseOnError:
             msg = "Update failed: Error running %s (%s)" % (cmd, output)
-            raise ClientUpdateException(msg)
+            raise ClientConfigurationException(msg)
         return output
 
     def runCmd(self, commandString):
