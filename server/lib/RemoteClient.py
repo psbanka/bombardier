@@ -83,7 +83,7 @@ class RemoteClient:
             try:
                 while debugText:
                     grabLength = self.termwidth - len(prefix)
-                    if grabLength > len(debugText):
+                    if grabLength >= len(debugText):
                         grabLength = len(debugText)
                     elif debugText[grabLength] != ' ':
                         for i in range(grabLength, grabLength-10, -1):

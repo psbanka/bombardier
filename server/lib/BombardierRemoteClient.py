@@ -39,7 +39,7 @@ class BombardierRemoteClient(RemoteClient):
             self.python  = '/cygdrive/c/Python25/python.exe'
             self.spkgDir = '/cygdrive/c/spkg'
         else:
-            self.python  = '/usr/local/bin/python2.4'
+            self.python  = '/usr/bin/python'
             self.spkgDir = '/opt/spkg'
         if self.info.get("pythonPath"):
             self.python = self.info.get("pythonPath")
@@ -175,9 +175,7 @@ class BombardierRemoteClient(RemoteClient):
     def getReturnCode(self):
         self.s.sendline("echo $?")
         self.s.prompt()
-        print ">>>>>>>", self.s.before
         returnCodeStr = str(self.s.before.split()[0].strip())
-        print ">>REtunrcodestr>>>", returnCodeStr
         try:
             returnCode = int(returnCodeStr)
             return returnCode
@@ -263,10 +261,12 @@ class BombardierRemoteClient(RemoteClient):
             cmd = "cat /proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/Python/PythonCore/2.5/InstallPath/@"
             pythonHome = self.gso(cmd)
             self.getStatusYml()
-            cmd = "%s '%sScripts\\bc.py' %s %s %s %s" % (self.python, pythonHome,
+            cmd = "%spython.exe '%sScripts\\bc.py' %s %s %s %s" % (pythonHome, pythonHome,
                   ACTION_DICT[action], self.hostName, packageString, scriptName)
         else:
-            cmd = 'bc.py %s %s %s %s' % (self.python, ACTION_DICT[action], self.hostName,
+            cmd = "export PYTHON_HOME=$(%s -c 'import sys; print sys.prefix')" %self.python
+            gsoOut = self.gso(cmd)
+            cmd = '$PYTHON_HOME/bin/python $PYTHON_HOME/bin/bc.py %s %s %s %s' % (ACTION_DICT[action], self.hostName,
                                          packageString, scriptName)
         self.s.sendline(cmd)
         self.sendAllClientData()

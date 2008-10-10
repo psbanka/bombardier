@@ -1,23 +1,22 @@
 #!/usr/bin/python
 
-import sys, os
+import sys, os, md5
 import libCipher, libUi
 import PinshCmd, Mode, BomHostField, LongList
 from RemoteClient import ClientUnavailableException
 from commonUtil import *
 
 def performEnable(slash):
-    cipherPass = mode.config.get("password")
+    salt, hashPass = mode.config.get("password")
     mode.password = libUi.pwdInput("password: ")
-    try:
-        padPassword = libCipher.pad(mode.password)
-        mode.password = libCipher.decryptString(cipherPass, padPassword)
-    except:
-        mode.password = ''
-        return FAIL, ["Invalid password"]
-    mode.auth = ADMIN
-    mode.pushPrompt(slash, "#", Mode.ENABLE)
-    return OK, []
+    passwordHashTest = md5.new()
+    passwordHashTest.update(salt)
+    passwordHashTest.update(mode.password)
+    if passwordHashTest.hexdigest() == hashPass:
+        mode.auth = ADMIN
+        mode.pushPrompt(slash, "#", Mode.ENABLE)
+        return OK, []
+    return FAIL, ["Invalid password"]
 
 class Enable(PinshCmd.PinshCmd):
     def __init__(self):
