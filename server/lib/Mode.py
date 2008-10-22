@@ -96,7 +96,7 @@ class Mode:
     def writeConfig(self, option, value):
         self.global_config[option] = value
         open(GLOBAL_CONFIG_FILE, 'w').write(yaml.dump(self.global_config))
-        os.system("chgrp %s %s 2> /dev/null" % (mode.defaultGroup, GLOBAL_CONFIG_FILE))
+        os.system("chgrp %s %s 2> /dev/null" % (self.defaultGroup, GLOBAL_CONFIG_FILE))
         os.system("chmod 660 %s 2> /dev/null" % (GLOBAL_CONFIG_FILE))
 
     def loadConfig(self):
