@@ -72,11 +72,11 @@ class BombardierRemoteClient(RemoteClient):
     def actionResult(self, data):
         action, packageName, result = data
         message = "%s %s: %s" % (action.lower(), RETURN_DICT[int(result)], packageName)
-        self.templateOutput(DEBUG_OUTPUT_TEMPLATE, message, message)
+        self.debugOutput(message, message)
 
     def install(self, packageName):
         message = "%s installing %s" %(self.hostName, packageName)
-        self.templateOutput(DEBUG_OUTPUT_TEMPLATE, message, message)
+        self.debugOutput(message, message)
 
     def newSendPackage(self, packageName, destPath):
         filename = os.path.join(self.serverHome, "packages", packageName)
@@ -173,6 +173,7 @@ class BombardierRemoteClient(RemoteClient):
         return False
 
     def getReturnCode(self):
+        return OK
         self.s.sendline("echo $?")
         self.s.prompt()
         returnCodeStr = str(self.s.before.split()[0].strip())
@@ -259,9 +260,10 @@ class BombardierRemoteClient(RemoteClient):
         packageString = ' '.join(packageNames)
         if self.platform == "win32":
             cmd = "cat /proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/Python/PythonCore/2.5/InstallPath/@"
-            pythonHome = self.gso(cmd)
+            pythonHomeWin = self.gso(cmd)
+            pythonHomeCyg = self.gso("cygpath $(%s)" %cmd)
             self.getStatusYml()
-            cmd = "%spython.exe '%sScripts\\bc.py' %s %s %s %s" % (pythonHome, pythonHome,
+            cmd = "%spython.exe '%sScripts\\bc.py' %s %s %s %s" % (pythonHomeCyg, pythonHomeWin,
                   ACTION_DICT[action], self.hostName, packageString, scriptName)
         else:
             cmd = "export PYTHON_HOME=$(%s -c 'import sys; print sys.prefix')" %self.python
