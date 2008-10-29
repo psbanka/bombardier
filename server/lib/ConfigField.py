@@ -53,7 +53,8 @@ class ConfigField(PinshCmd.PinshCmd):
             data = libCipher.decrypt(data, '')
         return [firstTokenName], data
 
-    def setValue(self, tokens, index, newValue):
+    def setValue(self, tokens, index, newValue, encrypt):
+        # FIXME: Need RemoveValue when converting to encrypted
         if self.dataType == MERGED:
             return FAIL, []
         firstTokenNames, clearData = self.getTopLevelData(tokens, index, True)
@@ -70,7 +71,7 @@ class ConfigField(PinshCmd.PinshCmd):
         else:
             for configValue in configName[0].split('.')[1:]:
                 currentDict = currentDict.get(configValue)
-                if currentDict == CENSORED:
+                if currentDict == CENSORED or encrypt:
                     cmd += "['enc_%s']" % configValue
                     if not mode.password:
                         return FAIL, ["Cannot encipher data except in enable mode"]
