@@ -1,23 +1,22 @@
 #!/usr/bin/python
 
-import sys, os
+import sys, os, md5
 import libCipher, libUi
 import PinshCmd, Mode, BomHostField, LongList
 from RemoteClient import ClientUnavailableException
 from commonUtil import *
 
 def performEnable(slash):
-    cipherPass = mode.config.get("password")
+    salt, hashPass = mode.config.get("password")
     mode.password = libUi.pwdInput("password: ")
-    try:
-        padPassword = libCipher.pad(mode.password)
-        mode.password = libCipher.decryptString(cipherPass, padPassword)
-    except:
-        mode.password = ''
-        return FAIL, ["Invalid password"]
-    mode.auth = ADMIN
-    mode.pushPrompt(slash, "#", Mode.ENABLE)
-    return OK, []
+    passwordHashTest = md5.new()
+    passwordHashTest.update(salt)
+    passwordHashTest.update(mode.password)
+    if passwordHashTest.hexdigest() == hashPass:
+        mode.auth = ADMIN
+        mode.pushPrompt(slash, "#", Mode.ENABLE)
+        return OK, []
+    return FAIL, ["Invalid password"]
 
 class Enable(PinshCmd.PinshCmd):
     def __init__(self):
@@ -25,7 +24,7 @@ class Enable(PinshCmd.PinshCmd):
         self.level = Mode.ENABLE
         self.bomHostField = BomHostField.BomHostField(enabled = False)
         self.hostList = LongList.LongList(self.bomHostField, unique=True)
-        self.children = [self.hostList]
+        self.children = [self.bomHostField]
         self.auth = USER
         self.cmdOwner = 1
 
@@ -63,29 +62,35 @@ class Enable(PinshCmd.PinshCmd):
         if not os.path.isfile(pubKeyFile):
             return FAIL, ['You must generate a DSA ssh key with "ssh-keygen -t dsa"']
         try:
-            hostNames = self.hostList.preferredNames(tokens, 1)
+            hostNames = self.bomHostField.preferredNames(tokens, 1)
         except:
             return FAIL, ["Invalid host name: %s" % tokens[2]]
         overallStatus = OK
         overallOutput = ['\n']
-        for hostName in hostNames.split():
-            r = mode.getBomConnection(hostName, ignoreConfig=True, enabled=False)
-            r.sharedKey = False
-            remoteKeyFile = "%s_id_dsa.pub" % os.environ["USER"]
-            try:
-                r.scp(pubKeyFile, ".ssh/%s" % remoteKeyFile)
-            except ClientUnavailableException:
-                msg = "Client %s (IP: %s) will not accept an SCP connection." % (hostName, r.ipAddress)
-                return FAIL, ['\n', msg]
-            status, output = r.runCmd("cd ~/.ssh && cat %s >> authorized_keys2" % remoteKeyFile)
-            status, output = r.runCmd("rm -f ~/.ssh/%s" % remoteKeyFile)
-            r.password = ''
-            r.sharedKey = True
-            if status == OK:
-                mode.addPersonalConfigList("enabledSystems", hostName)
-                mode.enabledSystems.append(hostName)
-                overallOutput.append("Added key to %s" % hostName)
+        if len(hostNames) > 1:
+            if tokens[1] in hostNames:
+                hostName = tokens[1]
             else:
-                overallStatus = FAIL
-                overallOutput.append("Unable to add key to %s." % hostName)
+                return FAIL, ["Ambiguous host name: %s" % tokens[1]]
+        else:
+            hostName = hostNames[0]
+        r = mode.getBomConnection(hostName, ignoreConfig=True, enabled=False)
+        r.sharedKey = False
+        remoteKeyFile = "%s_id_dsa.pub" % os.environ["USER"]
+        try:
+            r.scp(pubKeyFile, ".ssh/%s" % remoteKeyFile)
+        except ClientUnavailableException:
+            msg = "Client %s (IP: %s) will not accept an SCP connection." % (hostName, r.ipAddress)
+            return FAIL, ['\n', msg]
+        status, output = r.runCmd("cd ~/.ssh && cat %s >> authorized_keys2" % remoteKeyFile)
+        status, output = r.runCmd("rm -f ~/.ssh/%s" % remoteKeyFile)
+        r.password = ''
+        r.sharedKey = True
+        if status == OK:
+            mode.addPersonalConfigList("enabledSystems", hostName)
+            mode.enabledSystems.append(hostName)
+            overallOutput.append("Added key to %s" % hostName)
+        else:
+            overallStatus = FAIL
+            overallOutput.append("Unable to add key to %s." % hostName)
         return overallStatus, overallOutput

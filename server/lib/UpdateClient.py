@@ -38,7 +38,7 @@ class UpdateRemoteClient(BombardierRemoteClient):
             cmd = 'regtool set -v "/HKEY_LOCAL_MACHINE/SOFTWARE/Bombardier/InstallPath" "%s"' % spkgDosDir
             self.gso(cmd)
         else:
-            self.s.sendline( 'echo spkgPath: %s > /etc/bombardier.yml' % self.spkgDir )
+            cmd = 'echo spkgPath: %s > /etc/bombardier.yml' % self.spkgDir
             self.gso(cmd)
         self.debugOutput("Testing client...")
         status, info = self.process(INIT, '', '', True)

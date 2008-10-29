@@ -4,7 +4,7 @@ from distutils.core import setup
 from lib._version import version_info
 setup (name = "bombardier",
        description = "Open Source Configuration management and package delivery: client components",
-       version = "%(branch_nick)s-%(revno)d" % version_info,
+       version = str("%(branch_nick)s-%(revno)d" % version_info),
        packages = ["bombardier"],
        scripts = ["scripts/bc.py"],
        package_dir = {"bombardier": "lib"},

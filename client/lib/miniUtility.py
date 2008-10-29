@@ -243,10 +243,18 @@ def getInstalledUninstalledTimes(progressData):
     output["uninstalled"].sort(datesort)
     return output
 
+def rpartition(str, chr):
+    chunks = str.split(chr)
+    if len(chunks) == 1:
+        return ('', '', str)
+    first = chr.join(chunks[:-1])
+    last = chunks[-1]
+    return (first, chr, last)
+
 def checkToRemove(basePackageName, actionTime, comparisonList):
     remove = False
     for fullPackageName2, actionTime2 in comparisonList:
-        basePackageName2 = fullPackageName2.rpartition('-')[0]
+        basePackageName2 = rpartition(fullPackageName2, '-')[0]
         if basePackageName == basePackageName2:
             if actionTime2 > actionTime:
                 remove = True
@@ -258,7 +266,7 @@ def stripVersionInfo(pkgInfo):
     packageListNames = output.keys()
     for packageListName in packageListNames: # look at packageListName for duplicates in other listTypes
         for fullPackageName, actionTime in pkgInfo[packageListName]: # do other package lists have this basename?
-            basePackageName = fullPackageName.rpartition('-')[0]
+            basePackageName = rpartition(fullPackageName, '-')[0]
             otherTypes = output.keys()
             otherTypes.remove(packageListName)
             for compareList in otherTypes:

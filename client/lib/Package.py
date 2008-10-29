@@ -41,13 +41,20 @@ class JobThread(Thread):
 
     def run(self):
         Logger.info("Running %s..." % self.cmd)
-        #if 1 == 1:
         try:
             exec(self.importString)
             exec("self.cmdStatus = %s" % self.cmd)
-        except:
-        #else:
+        except StandardError, e:
             Logger.error( "Failed to run %s" % self.cmd )
+            e = StringIO.StringIO()
+            traceback.print_exc(file=e)
+            e.seek(0)
+            data = e.read()
+            ermsg = ''
+            for line in data.split('\n'):
+                ermsg += "\n||>>>%s" % line
+            Logger.error(ermsg)
+            self.cmdStatus = FAIL
 
 class Job:
     def __init__(self, importString, cmd, config):

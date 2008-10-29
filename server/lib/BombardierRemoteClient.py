@@ -39,7 +39,7 @@ class BombardierRemoteClient(RemoteClient):
             self.python  = '/cygdrive/c/Python25/python.exe'
             self.spkgDir = '/cygdrive/c/spkg'
         else:
-            self.python  = '/usr/local/bin/python2.4'
+            self.python  = '/usr/bin/python'
             self.spkgDir = '/opt/spkg'
         if self.info.get("pythonPath"):
             self.python = self.info.get("pythonPath")
@@ -72,11 +72,11 @@ class BombardierRemoteClient(RemoteClient):
     def actionResult(self, data):
         action, packageName, result = data
         message = "%s %s: %s" % (action.lower(), RETURN_DICT[int(result)], packageName)
-        self.templateOutput(DEBUG_OUTPUT_TEMPLATE, message, message)
+        self.debugOutput(message, message)
 
     def install(self, packageName):
         message = "%s installing %s" %(self.hostName, packageName)
-        self.templateOutput(DEBUG_OUTPUT_TEMPLATE, message, message)
+        self.debugOutput(message, message)
 
     def newSendPackage(self, packageName, destPath):
         filename = os.path.join(self.serverHome, "packages", packageName)
@@ -173,10 +173,12 @@ class BombardierRemoteClient(RemoteClient):
         return False
 
     def getReturnCode(self):
+        return OK
         self.s.sendline("echo $?")
         self.s.prompt()
+        returnCodeStr = str(self.s.before.split()[0].strip())
         try:
-            returnCode = int(str(self.s.before.split()[0].strip()))
+            returnCode = int(returnCodeStr)
             return returnCode
         except Exception, e:
             self.debugOutput(str(e))
@@ -194,7 +196,7 @@ class BombardierRemoteClient(RemoteClient):
         status = self.getReturnCode()
         if status != OK and raiseOnError:
             msg = "Update failed: Error running %s (%s)" % (cmd, output)
-            raise ClientUpdateException(msg)
+            raise ClientConfigurationException(msg)
         return output
 
     def runCmd(self, commandString):
@@ -258,12 +260,15 @@ class BombardierRemoteClient(RemoteClient):
         packageString = ' '.join(packageNames)
         if self.platform == "win32":
             cmd = "cat /proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/Python/PythonCore/2.5/InstallPath/@"
-            pythonHome = self.gso(cmd)
+            pythonHomeWin = self.gso(cmd)
+            pythonHomeCyg = self.gso("cygpath $(%s)" %cmd)
             self.getStatusYml()
-            cmd = "%s '%sScripts\\bc.py' %s %s %s %s" % (self.python, pythonHome,
+            cmd = "%spython.exe '%sScripts\\bc.py' %s %s %s %s" % (pythonHomeCyg, pythonHomeWin,
                   ACTION_DICT[action], self.hostName, packageString, scriptName)
         else:
-            cmd = 'bc.py %s %s %s %s' % (self.python, ACTION_DICT[action], self.hostName,
+            cmd = "export PYTHON_HOME=$(%s -c 'import sys; print sys.prefix')" %self.python
+            gsoOut = self.gso(cmd)
+            cmd = '$PYTHON_HOME/bin/python $PYTHON_HOME/bin/bc.py %s %s %s %s' % (ACTION_DICT[action], self.hostName,
                                          packageString, scriptName)
         self.s.sendline(cmd)
         self.sendAllClientData()
@@ -389,8 +394,9 @@ class BombardierRemoteClient(RemoteClient):
         self.s.sendline ('cat %s/%s/status.yml' % (self.spkgDir, self.hostName))
         self.s.prompt()
         statusYml = str(self.s.before).split("status:")[0]
+        statusYml = statusYml.replace('\r','')
         try:
-            yaml.load(statusYml)
+            syck.load(statusYml)
         except:
             self.debugOutput("ERROR: status.yml could not be parsed (writing to error.yml)")
             open( os.path.join(statusDir, "error.yml"), 'w' ).write(statusYml)

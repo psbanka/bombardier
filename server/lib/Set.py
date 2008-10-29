@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, time, glob
+import sys, os, time, glob, md5, random
 import PinshCmd, Mode, libUi, ConfigField, Expression, JobNameField, Integer, MultipleChoice, Variable
 import SecureCommSocket
 from commonUtil import *
@@ -38,8 +38,11 @@ def setPassword(slash):
         if libUi.askYesNo("Reset master password?", NO) == YES:
             resetMaster()
     try:
-        cipherMasterPass = libCipher.encrypt(TEST_CIPHER, mode.password)
-        mode.writeConfig("password", cipherMasterPass)
+        salt = ''.join(random.sample(libCipher.VALID_CHARS, 20))
+        makeMd5 = md5.new()
+        makeMd5.update(salt)
+        makeMd5.update(mode.password)
+        mode.writeConfig("password", (salt, makeMd5.hexdigest()))
     except:
         mode.password = ''
         return FAIL, ["Could not encrypt password"]
