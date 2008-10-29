@@ -7,7 +7,7 @@ fi
 if [ $(bzr info | awk '/^Checkout .*/' | wc -l) != 0 ]; then
     bzr version-info --format python > lib/_version.py
     python setup.py sdist
-else:
+else
     echo "Bind and update before building."
     exit 1
 fi
