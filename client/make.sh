@@ -1,4 +1,11 @@
 #!/bin/bash
-echo "Be sure you are checked in correctly before versioning a build."
-bzr version-info --format python > lib/_version.py
-python setup.py sdist
+
+if [ $(bzr stat | awk '/^modified:/' | wc -l) ]; then
+    echo "Check in and commit changes to upstream branch before building."
+    exit
+fi
+if [ $(bzr info | awk '/^Checkout .*/' | wc -l) ]; then
+    bzr version-info --format python > lib/_version.py
+    python setup.py sdist
+else:
+    echo "Bind and 
