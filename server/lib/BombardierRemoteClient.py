@@ -6,6 +6,7 @@ import StringIO
 import traceback
 from RemoteClient import RemoteClient
 from Client import ClientConfigurationException
+from bombardier.miniUtility import stripVersion
 from staticData import *
 try:
     import syck
@@ -243,9 +244,25 @@ class BombardierRemoteClient(RemoteClient):
                 message = "CLIENT TRACEBACK: %s" % line
                 self.debugOutput(message, message)
 
+    def getPackageNamesFromProgress(self):
+        #CANNIBALIZED FROM PackageField.py
+        statusYml = self.serverHome + "/status/%s.yml"%(self.hostName)
+        if not os.path.isfile(statusYml):
+            self.debugOutput("Cannot retrieve status (NO FILE: %s)" %statusYml)
+            return []
+        yml = syck.load( open(statusYml).read() ) 
+        if yml == None:
+            self.debugOutput("Cannot retrieve status (EMPTY FILE: %s)" %statusYml)
+            return []
+        progressData = yml.get("install-progress")
+        return progressData.keys()
+
     def sendAllClientData(self):
         sendData = {"configData": self.info, "packageData": {}}
-        for packageName in self.info.get("packages"):
+        packageNames = set(self.getPackageNamesFromProgress())
+        packageNames.union(set(self.info.get("packages")))
+        packageNames = [stripVersion(x) for x in packageNames]
+        for packageName in packageNames:
             thisPackageData = self.packageData.get(packageName) 
             if not thisPackageData:
                 message = "ERROR: could not find package data for %s." % packageName
