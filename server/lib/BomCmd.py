@@ -7,6 +7,7 @@ import PinshCmd
 import BomHostField, PackageField, ScriptField, LongList
 from commonUtil import *
 from Mode import HostNotEnabledException
+from Client import ClientConfigurationException
 import yaml
 import syck
 
@@ -53,7 +54,10 @@ class BomCmd(PinshCmd.PinshCmd):
             r = mode.getBomConnection(hostName, slash.fpOut)
         except HostNotEnabledException:
             return FAIL, ["Host not enabled for this user"]
-        status, output = r.process(self.action, [], '', mode.debug)
+        try:
+            status, output = r.process(self.action, [], '', mode.debug)
+        except ClientConfigurationException:
+            return FAIL, []
         if status == FAIL:
             return FAIL, output
         else:
@@ -96,7 +100,10 @@ class PackageCommand(PinshCmd.PinshCmd):
 
     def processObject(self, r, packageNames, tokens):
         pyChucker(tokens)
-        status, output = r.process(self.action, packageNames.split(), '', mode.debug)
+        try:
+            status, output = r.process(self.action, packageNames.split(), '', mode.debug)
+        except ClientConfigurationException:
+            return FAIL, []
         return status, output
 
     def checkEncryption(self, serverName, packageNames):
@@ -255,7 +262,10 @@ class Execute(PackageCommand):
                 return FAIL, ["Ambiguous scriptName"]
         if self.checkEncryption(self.hostName, packageName) == FAIL:
             return FAIL, ["This package requires sensitive data."]
-        status, output = r.process(self.action, [packageName], scriptNames[0], mode.debug)
+        try:
+            status, output = r.process(self.action, [packageName], scriptNames[0], mode.debug)
+        except ClientConfigurationException:
+            return FAIL, []
         return status, output
 
 if __name__ == "__main__":

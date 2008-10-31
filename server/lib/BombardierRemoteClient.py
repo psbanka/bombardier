@@ -359,6 +359,8 @@ class BombardierRemoteClient(RemoteClient):
                 self.debugOutput("ERROR: could not disconnect", "\nERROR: could not disconnect")
             raise KeyboardInterrupt
 
+        except ClientConfigurationException:
+            return FAIL, []
         except Exception, e:
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
