@@ -130,9 +130,10 @@ class Package:
         self.downloaded   = False
         self.dependencyErrors = []
 
-    def invalidate(self):
+    def invalidate(self, exceptionObject):
         erstr = "INVALID PACKAGE: %s" % self.name
         Logger.error(erstr)
+        Logger.error(str(exceptionObject))
         self.status = FAIL
         
     def getConfiguration(self):
@@ -200,7 +201,11 @@ class Package:
             raise BadPackage, (self.name, msg)
 
     def initialize(self):
-        self.metaData = self.repository.getMetaData(self.name)
+        try:
+            self.metaData = self.repository.getMetaData(self.name)
+        except BadPackage, bp:
+            self.invalidate(bp)
+            return
         self.checkMetaData()
         self.checksum = self.metaData.data['install'].get('md5sum')
         if not self.checksum:
@@ -243,7 +248,8 @@ class Package:
             raise BadPackage(self.name, errmsg)
 
     def configure(self):
-        self.download()
+        if self.download() != OK:
+            return FAIL
         return self.findCmd(CONFIGURE)
 
     def findCmd(self, action, packageList=[], dryRun=False):
@@ -371,12 +377,18 @@ class Package:
 
     def download(self):
         if not self.downloaded:
-            self.repository.getPackage(self.name, checksum=self.checksum)
-            self.initializeFromFilesystem()
-            self.downloaded = True
+            try:
+                self.repository.getPackage(self.name, checksum=self.checksum)
+                self.initializeFromFilesystem()
+                self.downloaded = True
+            except BadPackage, bp:
+                self.invalidate(bp)
+                return FAIL
+        return OK
     
     def installAndVerify(self, packageList=[], dryRun=False):
-        self.download()
+        if self.download() != OK:
+            return FAIL
         if self.action == INSTALL:
             status = self.install(packageList, dryRun=dryRun)
             if not dryRun:
@@ -397,7 +409,8 @@ class Package:
         dryRunString = ""
         if dryRun:
             dryRunString = " --DRY_RUN-- "
-        self.download()
+        if self.download() != OK:
+            return FAIL
         message = "Beginning installation of (%s)%s" % (self.fullName, dryRunString)
         Logger.info(message)
         self.status = self.findCmd(INSTALL, packageList, dryRun=dryRun)
@@ -405,7 +418,8 @@ class Package:
         return self.status
 
     def executeMaintScript(self, scriptName):
-        self.download()
+        if self.download() != OK:
+            return FAIL
         # remove old history
         outputPath = os.path.join(miniUtility.getSpkgPath(), self.instanceName, 
                                   "output", "%s-output.yml" % scriptName)
@@ -436,7 +450,8 @@ class Package:
 
     # TESTED
     def verify(self): 
-        self.download()
+        if self.download() != OK:
+            return FAIL
         message = "Verifying package %s" % self.fullName
         Logger.info(message)
         self.status = self.findCmd(VERIFY)
@@ -448,7 +463,10 @@ class Package:
     # TESTED
     def uninstall(self, dryRun=False):
         self.action = UNINSTALL
-        self.download()
+        if self.download() != OK:
+            return FAIL
+        if self.status != OK:
+            return self.status
         dryRunString = ""
         if dryRun:
             dryRunString = " --DRY_RUN-- "

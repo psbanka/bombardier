@@ -78,7 +78,7 @@ class Repository:
     # TESTED
     def getMetaData(self, name):
         if not name in self.packageData:
-            raise Exceptions.ServerUnavailable, ("packageInfo", name)
+            raise Exceptions.BadPackage(name,"Package not found in Definitive Software Library." )
         pkgData = self.packageData.get(name)
         return MetaData.MetaData(pkgData)
 
@@ -140,7 +140,7 @@ class Repository:
         try:
             fullPackageName = self.packageData[packageName]['install'][FULL_NAME]
         except KeyError:
-            errmsg = "package %s is not in the package database" % packageName
+            errmsg = "Package not found in Definitive Software Library."
             Logger.info("packages: (%s)" % " ".join(self.packageData.keys()))
             raise Exceptions.BadPackage(packageName, errmsg)
         if self.filesystem.isdir(os.path.join(packagePath, fullPackageName)):

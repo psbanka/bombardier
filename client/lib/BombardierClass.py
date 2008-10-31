@@ -481,7 +481,7 @@ class Bombardier:
             return FAIL
         status = self.uninstallPackages(delPackageDict, uninstallOrder, dryRun)
         if status == FAIL:
-            errmsg = "Uninstallation failed on %s. Aborting reconcile." % packageName
+            errmsg = "Uninstallation failed. Aborting reconcile."
             Logger.error(errmsg)
             return self.cleanup(FAIL, logmessage="Finished installing (ERRORS ENCOUNTERED).")
 
@@ -527,7 +527,13 @@ class Bombardier:
 
     def uninstallPackages(self, delPackageDict, uninstallOrder, dryRun=False):
         status = OK
-        removeFullPackageNames = [delPackageDict[x].fullName for x in uninstallOrder]
+        removeFullPackageNames = []
+        for name in uninstallOrder:
+            if delPackageDict[name].fullName:
+                nameStr = delPackageDict[name].fullName
+            else:
+                nameStr = name
+            removeFullPackageNames.append(nameStr)
         Logger.info("Packages to remove: %s" % removeFullPackageNames)
         for packageName in uninstallOrder:
             uninstallStatus = delPackageDict[packageName].uninstall(dryRun)
