@@ -57,8 +57,8 @@ class Edit(PinshCmd.PinshCmd):
         if not os.path.isfile(filePath):
             if clientFile:
                 minimumConfig = {"ipAddress": "127.0.0.1",
-                                 "platform": mode.config.get("defaultPlatform", "linux"),
-                                 "defaultUser": mode.config.get("defaultUser", "root")}
+                                 "platform": mode.global_config.get("defaultPlatform", "linux"),
+                                 "defaultUser": mode.global_config.get("defaultUser", "root")}
                 open(filePath, 'w').write(yaml.dump(minimumConfig, default_flow_style=False))
             output.append("New file: %s" % filePath)
         os.system("%s %s" % (editor, filePath))

@@ -52,7 +52,7 @@ class Cmdb(PinshCmd.PinshCmd):
         self.commit.children = [self.comment]
         self.cmdOwner = 1
         #self.logCommand = True
-        self.svnCmd = mode.config.get("svnPath")
+        self.svnCmd = mode.global_config.get("svnPath")
         if not self.svnCmd:
             self.svnCmd = "svn"
 

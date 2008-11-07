@@ -67,7 +67,7 @@ class Rsync(PinshCmd.PinshCmd):
                     localDir  = source.split(':')[0]+'-'+dest.split(':')[1][:-1].replace('/','-')
                 else:
                     localDir  = source.split(':')[0]+'-'+dest.split(':')[1].replace('/','-')
-                localPath = mode.config["tmpPath"]+'/'+localDir
+                localPath = mode.global_config["tmpPath"]+'/'+localDir
                 deleteFlag = True
             else:
                 localPath = dest

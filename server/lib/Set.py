@@ -22,7 +22,7 @@ def resetMaster():
             open(fileName % (directory, baseName), 'w').write(yaml.dump(newData))
 
 def setPassword(slash):
-    if mode.auth == ADMIN or 'password' not in mode.config:
+    if mode.auth == ADMIN or 'password' not in mode.global_config:
         # MASTER PASSWORD HAS NEVER BEEN SET
         masterPass1 = libUi.pwdInput("Enter new master password: ")
         if masterPass1 == '':
@@ -124,7 +124,7 @@ def setJob(tokens, noFlag):
     return sendMessage(TB_ADD, [bomshCmd, freq * multiplier, jobName, mode.username], "Job submitted.")
     
 def setLock(noFlag, lockName):
-    lockPath = "%s/%s" % (mode.config["tmpPath"], lockName)
+    lockPath = "%s/%s" % (mode.global_config["tmpPath"], lockName)
     if noFlag:
         setTime = 0
         if not os.path.isfile(lockPath):
@@ -275,7 +275,7 @@ class Lock(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "lock")
         self.helpText = "lock\tset a lock"
-        #self.children = [FileNameField.FileNameField(mode.config["tmpPath"], crusty=False)]
+        #self.children = [FileNameField.FileNameField(mode.global_config["tmpPath"], crusty=False)]
         self.children = [Variable.Variable()]
         self.level = 0
         self.cmdOwner = 1

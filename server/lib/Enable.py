@@ -7,7 +7,7 @@ from RemoteClient import ClientUnavailableException
 from commonUtil import *
 
 def performEnable(slash):
-    salt, hashPass = mode.config.get("password")
+    salt, hashPass = mode.global_config.get("password")
     mode.password = libUi.pwdInput("password: ")
     passwordHashTest = md5.new()
     passwordHashTest.update(salt)
@@ -31,7 +31,7 @@ class Enable(PinshCmd.PinshCmd):
     def enableUser(self, noFlag, slash):
         if noFlag:
             return self.exit(slash)
-        if not mode.config.get("password"):
+        if not mode.global_config.get("password"):
             output = [ "User denied: Use the 'set password' command to authorize." ]
             return FAIL, output
         if mode.auth == ADMIN:

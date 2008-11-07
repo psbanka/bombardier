@@ -56,7 +56,8 @@ class Mode:
         self.enabledSystems = []
         self.getTermInfo()
         self.debug = True
-        self.config = {}
+        self.global_config = {}
+        self.personal_config = {}
         self.username = os.environ.get("USER")
         self.autoEnable = False
         self.editor = "/usr/bin/vim"
@@ -66,15 +67,15 @@ class Mode:
         self.childProcesses = []
 
     def addPersonalConfigList(self, option, value):
-        if self.config.get(option):
-            self.config[option].append(value)
+        if self.personal_config.get(option):
+            self.personal_config[option].append(value)
         else:
-            self.config[option] = [value]
-        open(PERSONAL_CONFIG_FILE, 'w').write(yaml.dump(self.config))
+            self.personal_config[option] = [value]
+        open(PERSONAL_CONFIG_FILE, 'w').write(yaml.dump(self.personal_config))
 
     def writeConfig(self, option, value):
-        self.config[option] = value
-        open(GLOBAL_CONFIG_FILE, 'w').write(yaml.dump(self.config))
+        self.global_config[option] = value
+        open(GLOBAL_CONFIG_FILE, 'w').write(yaml.dump(self.global_config))
 
     def loadConfig(self):
         if os.path.isfile(GLOBAL_CONFIG_FILE):
@@ -86,10 +87,10 @@ class Mode:
                 print "%% The permissions on your configuration file (%s) "\
                       "are too liberal (%d)" % (GLOBAL_CONFIG_FILE, permission)
                 sys.exit(1)
-            self.config=syck.load(open(GLOBAL_CONFIG_FILE).read())
-            if not self.config.has_key("tmpPath"):
-                self.config["tmpPath"] = "/tmp"
-            self.tmpPath = self.config["tmpPath"]
+            self.global_config=syck.load(open(GLOBAL_CONFIG_FILE).read())
+            if not self.global_config.has_key("tmpPath"):
+                self.global_config["tmpPath"] = "/tmp"
+            self.tmpPath = self.global_config["tmpPath"]
             self.serverHome = syck.load(open(GLOBAL_CONFIG_FILE).read()).get("serverHome")
         else:
             print "%% The global Bombardier configuration file %s is missing or "\
@@ -100,6 +101,8 @@ class Mode:
             self.personal_config=syck.load(open(PERSONAL_CONFIG_FILE).read())
             self.enabledSystems = self.personal_config.get("enabledSystems", [])
             self.autoEnable = self.personal_config.get("autoEnable")
+            if self.personal_config.get("termwidth"):
+                self.termwidth = self.personal_config.get("termwidth")
             debug = self.personal_config.get("debug")
             if type(debug) == type(True):
                 self.debug = debug
@@ -127,6 +130,7 @@ class Mode:
             if self.password:
                 self.bomConnections[hostName].setConfigPass(self.password)
             self.bomConnections[hostName].debug = self.debug
+            self.bomConnections[hostName].termwidth = self.termwidth
             self.bomConnections[hostName].refreshConfig()
         return self.bomConnections[hostName]
 

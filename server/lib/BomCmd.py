@@ -53,6 +53,8 @@ class BomCmd(PinshCmd.PinshCmd):
             return FAIL, ["Reconcile must be run in enable mode"]
         try:
             r = mode.getBomConnection(hostName, slash.fpOut)
+        except EnableRequiredException:
+            return FAIL, ["Must be in enable mode to contact this system."]
         except HostNotEnabledException:
             return FAIL, ["Host not enabled for this user"]
         try:
