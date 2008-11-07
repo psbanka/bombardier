@@ -333,7 +333,7 @@ class Bombardier:
         packages = {}
         for packageName in addPackageNames:
             try:
-                Logger.info("ATTEMPTING TO ADD A PACKAGE NAMED %s" % packageName)
+                Logger.warning("Preparing to ADD package: %s" % packageName)
                 newPackage = Package.Package(packageName, self.repository, self.config, self.filesystem,
                                              self.operatingSystem, self.instanceName)
                 newPackage.initialize()
@@ -349,7 +349,7 @@ class Bombardier:
         packageDict = {}
         for packageName in packageList:
             if action == UNINSTALL:
-                Logger.info("Adding to package removal list: %s" % packageName)
+                Logger.warning("Preparing to REMOVE package: %s" % packageName)
             try:
                 newPackage = Package.Package(packageName, self.repository, self.config, self.filesystem,
                                              self.operatingSystem, self.instanceName)

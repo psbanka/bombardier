@@ -260,9 +260,8 @@ class BombardierRemoteClient(RemoteClient):
     def sendAllClientData(self, action):
         sendData = {"configData": self.info, "packageData": {}}
         if action != PURGE:
-            packageNames = set(self.getPackageNamesFromProgress())
-            packageNames.union(set(self.info.get("packages")))
-            packageNames = [stripVersion(x) for x in packageNames]
+            packageNames = set([stripVersion(x) for x in self.getPackageNamesFromProgress()])
+            packageNames = packageNames.union(set(self.info.get("packages")))
             for packageName in packageNames:
                 thisPackageData = self.packageData.get(packageName) 
                 if not thisPackageData:
