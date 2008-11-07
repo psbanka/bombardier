@@ -16,6 +16,9 @@ except:
 
 TMP_FILE = "tmp.yml"
 DOT_LENGTH = 20
+COLOR = True
+PROGRESS = "install-progress"
+LOCAL_PACKAGES = "local-packages"
 
 class BombardierRemoteClient(RemoteClient):
 
@@ -23,7 +26,7 @@ class BombardierRemoteClient(RemoteClient):
                  outputHandle=sys.stdout, packageData=None, enabled=True):
         RemoteClient.__init__(self, hostName, serverHome, termwidth,
                               outputHandle, configPass, enabled)
-        self.hostStatus = {}
+        self.statusData = {}
         self.localFilename = ''
         self.reportInfo = ''
         self.stateMachine = []
@@ -47,36 +50,50 @@ class BombardierRemoteClient(RemoteClient):
         if self.info.get("spkgPath"):
             self.spkgDir = self.info.get("spkgPath")
         self.cmdDebug = None
+        self.packageData = {}
 
     def setConfigPass(self, configPass):
         self.configPass = configPass
 
     def freshen(self):
         statusFile = os.path.join(self.serverHome, "status", "%s.yml" % self.hostName)
-        statusData = ''
+        self.statusData = ''
         if os.path.isfile(statusFile):
             try:
-                statusData = syck.load(open(statusFile).read())
+                self.statusData = syck.load(open(statusFile).read())
             except Exception, e:
                 if e[0] == "syntax error":
                     msg = "ERROR: Syntax error in status information for %s" % self.hostName
                     self.debugOutput(msg, msg)
-                    statusData = ''
-            if type(statusData) == type({}):
-                self.hostStatus = statusData.get("install-progress", {})
-            else:
-                msg = "ERROR: Invalid status data: %s" % statusData
-                self.debugOutput(msg, msg)
+                    self.statusData = ''
+            if type(self.statusData) != type({}) \
+                or PROGRESS not in self.statusData \
+                or LOCAL_PACKAGES not in self.statusData:
+                    msg = "ERROR: Invalid status data: %s" % self.statusData
+                    self.debugOutput(msg, msg)
         self.packageData = syck.load(open(os.path.join(self.serverHome, PACKAGES_FILE)).read())
         return(RemoteClient.freshen(self))
 
     def actionResult(self, data):
         action, packageName, result = data
-        message = "%s %s: %s" % (action.lower(), RETURN_DICT[int(result)], packageName)
+        if COLOR:
+            if result == OK:
+                colorCode = '[0;32'
+            else:
+                colorCode = '[0;31'
+            message = "\033%s%s %s: %s\033[m" % (colorCode, action.lower(), RETURN_DICT[int(result)], packageName)
+        else:
+            message = "%s %s: %s" % (action.lower(), RETURN_DICT[int(result)], packageName)
+        print "============="
+        print message
+        print "============="
         self.debugOutput(message, message)
 
     def install(self, packageName):
-        message = "%s installing %s" %(self.hostName, packageName)
+        if COLOR:
+            message = "'\033[0;33%s installing %s\033[m" %(self.hostName, packageName)
+        else:
+            message = "%s installing %s" %(self.hostName, packageName)
         self.debugOutput(message, message)
 
     def newSendPackage(self, packageName, destPath):
@@ -257,11 +274,15 @@ class BombardierRemoteClient(RemoteClient):
         progressData = yml.get("install-progress")
         return progressData.keys()
 
+    def getAllPackageNames(self):
+        packageNames = set([stripVersion(x) for x in self.getPackageNamesFromProgress()])
+        packageNames = packageNames.union(set(self.info.get("packages")))
+        return list(packageNames)
+
     def sendAllClientData(self, action):
         sendData = {"configData": self.info, "packageData": {}}
         if action != PURGE:
-            packageNames = set([stripVersion(x) for x in self.getPackageNamesFromProgress()])
-            packageNames = packageNames.union(set(self.info.get("packages")))
+            packageNames = self.getAllPackageNames()
             for packageName in packageNames:
                 thisPackageData = self.packageData.get(packageName) 
                 if not thisPackageData:
@@ -319,22 +340,21 @@ class BombardierRemoteClient(RemoteClient):
             if not self.processMessage(message):
                 self.fromOutput(message)
 
-    def uploadPackages(self, packageNames):
-        import bombardier.miniUtility
+    def uploadNewPackages(self):
+        packageNames = self.getAllPackageNames()
         for packageName in packageNames:
-            for installedPackageName in self.hostStatus:
-                if installedPackageName.startswith(packageName):
-                    if self.hostStatus[installedPackageName].get("INSTALLED", "NA") != "NA":
-                        newestPackageData = self.packageData.get(packageName, {})
-                        newestPackageName = newestPackageData.get("install", {}).get("fullName")
-                        if not newestPackageName:
-                            errmsg = "ERROR: Host has installed %s which is not in the DSL" % packageName
-                            self.debugOutput(errmsg, errmsg)
-                            return
-                        if installedPackageName != newestPackageName:
-                            self.debugOutput('', "Need to send package: %s" % newestPackageName)
-                            destPath = "%s/%s/packages" % (self.spkgDir, self.hostName)
-                            self.newSendPackage(newestPackageName+".spkg", destPath)
+            basePackageName = stripVersion(packageName)
+            localPackages = self.statusData.get(LOCAL_PACKAGES, [])
+            newestPackageData = self.packageData.get(basePackageName, {})
+            newestPackageName = newestPackageData.get("install", {}).get("fullName")
+            if not newestPackageName:
+                errmsg = "ERROR: Host has installed %s which is not in the DSL" % basePackageName
+                self.debugOutput(errmsg, errmsg)
+                return
+            if newestPackageName != packageName:
+                self.debugOutput('', "Need to send package: %s" % newestPackageName)
+                destPath = "%s/%s/packages" % (self.spkgDir, self.hostName)
+                self.newSendPackage(newestPackageName+".spkg", destPath)
 
     def process(self, action, packageNames, scriptName, debug):
         self.reportInfo = ''
@@ -349,7 +369,7 @@ class BombardierRemoteClient(RemoteClient):
             return FAIL, ["UNABLE TO CONNECT TO %s. No actions are available." % self.hostName]
         returnCode = OK
         try:
-            self.uploadPackages(packageNames)
+            self.uploadNewPackages()
             self.runBc(action, packageNames, scriptName, debug)
         except KeyboardInterrupt:
             self.debugOutput("Cleaning up...", "\ncleaning up...")

@@ -145,6 +145,7 @@ class Bombardier:
         self.operatingSystem = operatingSystem
         self.instanceName    = instanceName
         self.recordErrors = True
+        self.repository.checkLocalPackages()
         
     ### TESTED
     def getDependencyErrors(self, bomPackageNames, progressData):

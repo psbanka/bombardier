@@ -342,7 +342,7 @@ class RemoteClient:
 
     def scp(self, source, dest):
         import pxssh, pexpect
-        self.debugOutput("Sending %s to %s:%s" % (source, self.ipAddress, dest))
+        self.debugOutput("Sending %s to %s:%s" % (source, self.hostName, dest))
         cmd = 'scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest)
         try:
             s = pexpect.spawn(cmd, timeout=600)

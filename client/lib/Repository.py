@@ -75,6 +75,27 @@ class Repository:
             return filePath
         raise Exceptions.FileNotFound(filePath, "did not receive from the server")
 
+    def checkLocalPackages(self):
+        localPackages = []
+        packagesPath = miniUtility.getPackagePath(self.instanceName)
+        inodes = self.filesystem.glob("%s/*" % packagesPath)
+        for inode in inodes: 
+            shortName = inode.split(packagesPath+'/')[1]
+            if self.filesystem.isfile(inode):
+                if inode.endswith('.spkg'):
+                    localPackages.append(shortName.split(".spkg")[0])
+                else:
+                    Logger.warning("Unknown file in local repository: %s" % inode)
+            elif self.filesystem.isdir(inode):
+                localPackages.append(shortName)
+            else:
+                Logger.warning("Unknown inode in local repository: %s" % shortName)
+
+        fileName = miniUtility.getProgressPath(self.instanceName)
+        statusData = self.filesystem.loadYaml(fileName)
+        statusData["local-packages"] = localPackages
+        self.filesystem.dumpYaml(fileName, statusData)
+
     # TESTED
     def getMetaData(self, name):
         if not name in self.packageData:
