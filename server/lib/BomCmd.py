@@ -5,6 +5,7 @@ from staticData import *
 import Client
 import PinshCmd
 import BomHostField, PackageField, ScriptField, LongList
+from RemoteClient import IncompleteConfigurationException, EnableRequiredException
 from commonUtil import *
 from Mode import HostNotEnabledException
 from Client import ClientConfigurationException
@@ -155,8 +156,14 @@ class PackageCommand(PinshCmd.PinshCmd):
             packageName = packageNames[0]
             try:
                 r = mode.getBomConnection(self.hostName, slash.fpOut)
+            except EnableRequiredException:
+                return FAIL, ["Must be in enable mode to contact this system."]
             except HostNotEnabledException:
                 return FAIL, ["Host not enabled for this user."]
+            except IncompleteConfigurationException, ice:
+                msg =  ["Host configuration is not complete"]
+                msg += ["%s" % ice]
+                return FAIL, msg
             status, output = self.processObject(r, packageName, tokens)
         else:
             packageNames = self.packageList.workingNames(tokens, 2)
@@ -164,8 +171,14 @@ class PackageCommand(PinshCmd.PinshCmd):
                 return FAIL, "No package names match %s. Check system status" % tokens[2]
             try:
                 r = mode.getBomConnection(self.hostName, slash.fpOut)
+            except EnableRequiredException:
+                return FAIL, ["Must be in enable mode to contact this system."]
             except HostNotEnabledException:
                 return FAIL, ["Host not enabled for this user."]
+            except IncompleteConfigurationException, ice:
+                msg =  ["Host configuration is not complete"]
+                msg += ["%s" % ice]
+                return FAIL, msg
             if self.requireDecryption and self.checkEncryption(self.hostName, packageNames) == FAIL:
                 return FAIL, ["This package requires sensitive data."]
             status, output = self.processObject(r, packageNames, tokens)

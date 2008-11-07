@@ -167,22 +167,24 @@ class Set(PinshCmd.PinshCmd):
         self.lock = PinshCmd.PinshCmd("lock", "lock\tset a lock")
         self.children = [self.client, self.bom, self.include, self.password, self.job, self.lock]
 
-        encrypted = PinshCmd.PinshCmd("encrypted","encrypted\tencrypt the confiuration value")
+        expression = Expression.Expression()
+        encrypt = PinshCmd.PinshCmd("encrypt","encrypt\tencrypt the confiuration value")
+        encrypt.children = [expression]
 
         # CLIENT
         self.clientConfigField = ConfigField.ConfigField(dataType=ConfigField.CLIENT)
         self.client.children = [self.clientConfigField]
-        self.clientConfigField.children = [encrypted]
+        self.clientConfigField.children = [expression, encrypt]
 
         # INCLUDE
         self.includeConfigField = ConfigField.ConfigField(dataType=ConfigField.INCLUDE)
         self.include.children += [self.includeConfigField]
-        self.includeConfigField.children = [encrypted]
+        self.includeConfigField.children = [expression]
 
         # BOM
         self.bomConfigField = ConfigField.ConfigField(dataType=ConfigField.BOM)
         self.bom.children += [self.bomConfigField]
-        self.bomConfigField.children = [encrypted]
+        self.bomConfigField.children = [expression]
 
         # JOB
         self.jobNameField = JobNameField.JobNameField()
@@ -212,29 +214,18 @@ class Set(PinshCmd.PinshCmd):
             fieldObject = None
         return fieldObject
 
-    def getNewValue(self, noFlag, encrypt, default=''):
-        if noFlag:
-            newValue = ''
-        elif encrypt:
+    def getNewValue(self, tokens, encrypt, default=''):
+        if type(default) != type("string"):
+            default = ''
+        if encrypt:
             newValue = libUi.pwdInput("Enter value to encrypt: ")
-        else:
+        elif len(tokens) < 4:
             newValue = libUi.getDefault("Enter value", default)
+        else:
+            newValue = ' '.join(tokens[3:])
         return newValue
 
-    def modifyList(self, noFlag, tokens, currentValue, newValue, fieldObject, encrypt):
-        if noFlag:
-            if newValue in currentValue:
-                currentValue.remove(newValue)
-                status, output = fieldObject.setValue(tokens, 2, currentValue)
-                return status, output + ["%s removed from list" % newValue]
-            try:
-                if int(newValue) in currentValue:
-                    currentValue.remove(int(newValue))
-                    status, output = fieldObject.setValue(tokens, 2, currentValue)
-                    return status, output + ["%s removed from list" % newValue]
-            except:
-                pass
-            return FAIL, ["%s is not in the current list of values." % newValue]
+    def modifyList(self, tokens, currentValue, newValue, fieldObject, encrypt):
         newValue = makeSameType(currentValue, newValue)
         currentValue.append(newValue)
         try:
@@ -243,28 +234,27 @@ class Set(PinshCmd.PinshCmd):
         except:
             return FAIL, ["Unable to set. Check your configuration path."]
 
-    def modifyScalar(self, noFlag, tokens, newValue, fieldObject, encrypt):
-        if noFlag:
-            fieldObject.setValue(tokens, 2, '')
-            return OK, ["Value removed."]
+    def modifyScalar(self, tokens, newValue, fieldObject, encrypt):
         status, output = fieldObject.setValue(tokens, 2, newValue, encrypt)
         return status, output + ["Value set."]
 
     def setConfigValue(self, tokens, noFlag):
-        encrypt = False
-        if len(tokens) == 4 and tokens[-1].lower().startswith('e'):
-            encrypt = True
         fieldObject = self.getFieldObject(tokens)
+        if noFlag:
+            return fieldObject.removeValue(tokens, 2)
+        encrypt = False
+        if len(tokens) == 4 and tokens[-1].lower() == 'encrypt':
+            encrypt = True
         if not fieldObject:
             return FAIL, ["Unknown configuration item: %s" % tokens[2]]
         currentValue = fieldObject.getSpecificData(tokens, 2)
-        newValue = self.getNewValue(noFlag, encrypt, currentValue)
+        newValue = self.getNewValue(tokens, encrypt, currentValue)
         if type(currentValue) == type(['list']):
-            return self.modifyList(noFlag, tokens, currentValue, newValue, fieldObject, encrypt)
+            return self.modifyList(tokens, currentValue, newValue, fieldObject, encrypt)
         elif type(currentValue) in [type('string'), type(1), type(True)]:
             if currentValue == newValue and not encrypt:
                 return FAIL, ["New value and old value are identical."]
-            return self.modifyScalar(noFlag, tokens, newValue, fieldObject, encrypt)
+            return self.modifyScalar(tokens, newValue, fieldObject, encrypt)
 
     def cmd(self, tokens, noFlag, slash):
         if tokens[1].lower().startswith('l'):

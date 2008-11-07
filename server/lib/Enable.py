@@ -74,7 +74,13 @@ class Enable(PinshCmd.PinshCmd):
                 return FAIL, ["Ambiguous host name: %s" % tokens[1]]
         else:
             hostName = hostNames[0]
-        r = mode.getBomConnection(hostName, ignoreConfig=True, enabled=False)
+        try:
+            r = mode.getBomConnection(hostName, ignoreConfig=True, enabled=False)
+        except libCipher.InvalidData, id:
+            msg =  ["Unable to connect to %s due to configuration error." % hostName]
+            msg += ["Data in the configuration file cannot be decrypted."]
+            msg += ["%s" % id]
+            return FAIL, msg
         r.sharedKey = False
         remoteKeyFile = "%s_id_dsa.pub" % os.environ["USER"]
         try:

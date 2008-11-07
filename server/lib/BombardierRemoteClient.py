@@ -257,18 +257,19 @@ class BombardierRemoteClient(RemoteClient):
         progressData = yml.get("install-progress")
         return progressData.keys()
 
-    def sendAllClientData(self):
+    def sendAllClientData(self, action):
         sendData = {"configData": self.info, "packageData": {}}
-        packageNames = set(self.getPackageNamesFromProgress())
-        packageNames.union(set(self.info.get("packages")))
-        packageNames = [stripVersion(x) for x in packageNames]
-        for packageName in packageNames:
-            thisPackageData = self.packageData.get(packageName) 
-            if not thisPackageData:
-                message = "ERROR: could not find package data for %s." % packageName
-                self.debugOutput(message, message)
-                raise ClientConfigurationException(self.hostName)
-            sendData["packageData"][packageName] = thisPackageData
+        if action != PURGE:
+            packageNames = set(self.getPackageNamesFromProgress())
+            packageNames.union(set(self.info.get("packages")))
+            packageNames = [stripVersion(x) for x in packageNames]
+            for packageName in packageNames:
+                thisPackageData = self.packageData.get(packageName) 
+                if not thisPackageData:
+                    message = "ERROR: could not find package data for %s." % packageName
+                    self.debugOutput(message, message)
+                    raise ClientConfigurationException(self.hostName)
+                sendData["packageData"][packageName] = thisPackageData
         self.streamData(yaml.dump(sendData))
 
     def runBc(self, action, packageNames, scriptName, debug):
@@ -288,7 +289,7 @@ class BombardierRemoteClient(RemoteClient):
             cmd = '$PYTHON_HOME/bin/python $PYTHON_HOME/bin/bc.py %s %s %s %s' % (ACTION_DICT[action], self.hostName,
                                          packageString, scriptName)
         self.s.sendline(cmd)
-        self.sendAllClientData()
+        self.sendAllClientData(action)
         foundIndex = 0
         while True:
             foundIndex = self.s.expect([self.s.PROMPT, self.traceMatcher, self.logMatcher], timeout=6000)

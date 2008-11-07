@@ -43,8 +43,6 @@ def changeLoop(dict, oldPasswd, newPasswd):
             try:
                 changeLoop(dict[key], oldPasswd, newPasswd)
             except DecryptionException, e:
-                pyChucker(e)
-                print e
                 raise InvalidData(key, dict[key], "Unable to decrypt")
 
 def decrypt(dict, passwd):
@@ -69,8 +67,6 @@ def decryptLoop(dict, passwd):
             try:
                 decryptLoop(dict[key], passwd)
             except DecryptionException, e:
-                pyChucker(e)
-                print e
                 raise InvalidData(key, dict[key], "Unable to decrypt")
 
 def decryptString(b64CipherB64Str, passwd, validChars=VALID_CHARS):
@@ -94,8 +90,8 @@ def decryptString(b64CipherB64Str, passwd, validChars=VALID_CHARS):
         raise DecryptionException(b64CipherB64Str, "Invalid characters in the decrypted text 1")
     invalidChars = getInvalidChars( plainStr, validChars )
     if invalidChars:
-        print "Invalid characters in the decrypted text: %s" %invalidChars
-        raise DecryptionException(b64CipherB64Str, "HOLYCRAP")
+        reason = "Invalid characters in the decrypted text: %s" %invalidChars
+        raise DecryptionException(b64CipherB64Str, reason)
     return plainStr
 
 class InvalidData(Exception):

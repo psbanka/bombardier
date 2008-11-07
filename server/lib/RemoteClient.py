@@ -24,6 +24,15 @@ def getClient(serverName, serverHome, configPass):
         client.decryptConfig()
     return client.data
 
+class EnableRequiredException(Exception):
+    def __init__(self):
+        e = Exception()
+        Exception.__init__(e)
+    def __repr__(self):
+        return "Must be in enable mode to connect to this server"
+    def __str__(self):
+        return self.__repr__()
+
 class IncompleteConfigurationException(Exception):
     def __init__(self, server, errmsg):
         e = Exception()
@@ -32,6 +41,8 @@ class IncompleteConfigurationException(Exception):
         self.errmsg = errmsg
     def __repr__(self):
         return "Server configuration for %s is incomplete (%s)" % (self.server, self.errmsg)
+    def __str__(self):
+        return self.__repr__()
 
 class ClientUnavailableException(Exception):
     def __init__(self, server, errmsg):
@@ -41,6 +52,8 @@ class ClientUnavailableException(Exception):
         self.errmsg = errmsg
     def __repr__(self):
         return "Unable to connect to %s (%s)" % (self.server, self.errmsg)
+    def __str__(self):
+        return self.__repr__()
 
 class RemoteClient:
 
@@ -58,12 +71,18 @@ class RemoteClient:
         self.refreshConfig()
         self.username     = self.info.get("defaultUser", None)
         if self.username == None:
+            if self.info.get("enc_username"):
+                raise EnableRequiredException()
             raise IncompleteConfigurationException(self.hostName, "'defaultUser' is not defined")
         self.ipAddress    = self.info.get("ipAddress", None)
         if self.ipAddress == None:
+            if self.info.get("enc_ipAddress"):
+                raise EnableRequiredException()
             raise IncompleteConfigurationException(self.hostName, "'ipAddress' is not defined")
         self.platform     = self.info.get("platform", None)
         if self.platform == None:
+            if self.info.get("enc_platform"):
+                raise EnableRequiredException()
             raise IncompleteConfigurationException(self.hostName, "'platform' is not defined")
         sharedKeys = self.info.get('sharedKeys', True)
         if not sharedKeys or not enabled:
