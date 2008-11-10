@@ -22,10 +22,11 @@ LOCAL_PACKAGES = "local-packages"
 
 class BombardierRemoteClient(RemoteClient):
 
-    def __init__(self, hostName, configPass, serverHome, termwidth,
+    def __init__(self, hostName, configPass, serverHome, termwidth, termcolor,
                  outputHandle=sys.stdout, packageData=None, enabled=True):
         RemoteClient.__init__(self, hostName, serverHome, termwidth,
                               outputHandle, configPass, enabled)
+        self.termcolor = termcolor
         self.statusData = {}
         self.localFilename = ''
         self.reportInfo = ''
@@ -34,7 +35,7 @@ class BombardierRemoteClient(RemoteClient):
         self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendClient])
         self.stateMachine.append([re.compile("\=\=REQUEST-PKGINFO\=\=:(.+)"), self.sendPkgInfo])
         self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)"), self.sendBom])
-        self.stateMachine.append([re.compile("\=\=REQUEST-PACKAGE\=\=:(.+):(.+)"), self.sendPackage])
+        self.stateMachine.append([re.compile("\=\=REQUEST-PACKAGE\=\=:(.+):(.+)"), self.oldSendPackage])
         self.stateMachine.append([re.compile("Beginning installation of \((\S+)\)"), self.install])
         self.stateMachine.append([re.compile("(\S+) result for (\S+) : (\d)"), self.actionResult])
         self.logMatcher = re.compile( "\d+\-\d+\-\d+\s\d+\:\d+\:\d+\,\d+\|([A-Z]+)\|(.+)\|" )
@@ -78,25 +79,22 @@ class BombardierRemoteClient(RemoteClient):
         action, packageName, result = data
         if COLOR:
             if result == OK:
-                colorCode = '[0;32'
+                colorCode = '[0;32m'
             else:
-                colorCode = '[0;31'
+                colorCode = '[0;31m'
             message = "\033%s%s %s: %s\033[m" % (colorCode, action.lower(), RETURN_DICT[int(result)], packageName)
         else:
             message = "%s %s: %s" % (action.lower(), RETURN_DICT[int(result)], packageName)
-        print "============="
-        print message
-        print "============="
         self.debugOutput(message, message)
 
     def install(self, packageName):
         if COLOR:
-            message = "'\033[0;33%s installing %s\033[m" %(self.hostName, packageName)
+            message = "'\033[0;33m%s installing %s\033[m" %(self.hostName, packageName)
         else:
             message = "%s installing %s" %(self.hostName, packageName)
         self.debugOutput(message, message)
 
-    def newSendPackage(self, packageName, destPath):
+    def sendPackage(self, packageName, destPath):
         filename = os.path.join(self.serverHome, "packages", packageName)
         if not os.path.isfile(filename):
             message = "ERROR: client requested a file that is not on this server: %s" % filename
@@ -104,7 +102,7 @@ class BombardierRemoteClient(RemoteClient):
             self.s.send(`FAIL`)
         self.scp(filename, destPath)
 
-    def sendPackage(self, data):
+    def oldSendPackage(self, data):
         package, path = data
         filename = os.path.join(self.serverHome, "packages", package)
         self.debugOutput("Sending %s..." % package,"")
@@ -271,11 +269,10 @@ class BombardierRemoteClient(RemoteClient):
         if yml == None:
             self.debugOutput("Cannot retrieve status (EMPTY FILE: %s)" %statusYml)
             return []
-        progressData = yml.get("install-progress")
-        return progressData.keys()
+        return yml
 
     def getAllPackageNames(self):
-        packageNames = set([stripVersion(x) for x in self.getPackageNamesFromProgress()])
+        packageNames = set([stripVersion(x) for x in self.getPackageNamesFromProgress()[PROGRESS]])
         packageNames = packageNames.union(set(self.info.get("packages")))
         return list(packageNames)
 
@@ -291,6 +288,37 @@ class BombardierRemoteClient(RemoteClient):
                     raise ClientConfigurationException(self.hostName)
                 sendData["packageData"][packageName] = thisPackageData
         self.streamData(yaml.dump(sendData))
+
+    def getNewestExistingPackages(self):
+        output = []
+        existingPackages = self.getPackageNamesFromProgress()[LOCAL_PACKAGES]
+        basePackageNames = [stripVersion(x) for x in existingPackages]
+        basePackageNames = list(set(basePackageNames)) # eliminates dups
+        for basePackageName in basePackageNames:
+            packageVersions = [int(x.rpartition('-')[-1]) for x in existingPackages if x.startswith(basePackageName)]
+            packageVersions.sort()
+            newestExisting = "%s-%d" % (basePackageName, packageVersions[-1])
+            output.append(newestExisting)
+        return output
+
+    def uploadNewPackages(self):
+        import copy
+        newPackages = copy.deepcopy(self.info.get("packages"))
+        newestExistingPackages = self.getNewestExistingPackages()
+        for fullPackageName in newestExistingPackages:
+            basePackageName = stripVersion(fullPackageName)
+            newestPackageData = self.packageData.get(basePackageName, {})
+            newestPackageName = newestPackageData.get("install", {}).get("fullName")
+            if newestPackageName != fullPackageName:
+                self.debugOutput('', "Need to send package: %s" % newestPackageName)
+                destPath = "%s/%s/packages" % (self.spkgDir, self.hostName)
+                self.sendPackage(newestPackageName+".spkg", destPath)
+            if basePackageName in newPackages:
+                newPackages.remove(basePackageName)
+        for basePackageName in newPackages:
+            newestPackageData = self.packageData.get(basePackageName, {})
+            newestPackageName = newestPackageData.get("install", {}).get("fullName")
+            self.sendPackage(newestPackageName+".spkg", destPath)
 
     def runBc(self, action, packageNames, scriptName, debug):
         self.s.sendline ('cd %s' %self.spkgDir)
@@ -318,7 +346,7 @@ class BombardierRemoteClient(RemoteClient):
                 self.s.prompt()
                 self.getStatusYml()
                 return FAIL, ["Client raised an exception."]
-            if foundIndex == 0: # BC exited
+            elif foundIndex == 0: # BC exited
                 if self.s.before.strip():
                     self.debugOutput("Remaining output: %s" % self.s.before.strip())
                 self.s.setecho(False)
@@ -331,30 +359,14 @@ class BombardierRemoteClient(RemoteClient):
                     self.debugOutput( "ERROR: invalid returncode: ('%s')" % self.s.before)
                     returnCode = FAIL
                 break
-            messageType, message = self.s.match.groups()
-            if messageType == "DEBUG":
-                if DEBUG:
+            elif foundIndex == 2: # Log message
+                messageType, message = self.s.match.groups()
+                if messageType == "DEBUG" and DEBUG:
                     self.fromOutput(message)
-                continue
-            message=message.strip()
-            if not self.processMessage(message):
+                message=message.strip()
+                if COLOR and messageType in ["WARNING", "ERROR", "CRITICAL"]:
+                    message = "\033[0;31m%s\033[m" % message
                 self.fromOutput(message)
-
-    def uploadNewPackages(self):
-        packageNames = self.getAllPackageNames()
-        for packageName in packageNames:
-            basePackageName = stripVersion(packageName)
-            localPackages = self.statusData.get(LOCAL_PACKAGES, [])
-            newestPackageData = self.packageData.get(basePackageName, {})
-            newestPackageName = newestPackageData.get("install", {}).get("fullName")
-            if not newestPackageName:
-                errmsg = "ERROR: Host has installed %s which is not in the DSL" % basePackageName
-                self.debugOutput(errmsg, errmsg)
-                return
-            if newestPackageName != packageName:
-                self.debugOutput('', "Need to send package: %s" % newestPackageName)
-                destPath = "%s/%s/packages" % (self.spkgDir, self.hostName)
-                self.newSendPackage(newestPackageName+".spkg", destPath)
 
     def process(self, action, packageNames, scriptName, debug):
         self.reportInfo = ''

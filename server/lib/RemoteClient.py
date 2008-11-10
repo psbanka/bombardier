@@ -15,15 +15,6 @@ DOT_LENGTH = 20
 
 CONNECTION_TIMEOUT = 90 * 3600 #90 min
 
-def getClient(serverName, serverHome, configPass):
-    client = Client.Client(serverName, configPass, serverHome)
-    status = client.get()
-    if status == FAIL:
-        raise ClientConfigurationException(serverName)
-    if configPass:
-        client.decryptConfig()
-    return client.data
-
 class EnableRequiredException(Exception):
     def __init__(self):
         e = Exception()
@@ -92,7 +83,13 @@ class RemoteClient:
         self.savedDirectory = ''
 
     def refreshConfig(self):
-        self.info = getClient(self.hostName, self.serverHome, self.configPass)
+        client = Client.Client(self.hostName, self.configPass, self.serverHome)
+        status = client.get()
+        if status == FAIL:
+            raise ClientConfigurationException(serverName)
+        if self.configPass:
+            client.decryptConfig()
+        self.info = client.data
 
     def formatOutput(self, prefix, debugText, noDebugText='.'):
         output = ''
@@ -159,6 +156,9 @@ class RemoteClient:
                 self.s.prompt()
                 self.s.sendline('cd "$ORIG_PATH"')
                 self.s.prompt()
+            except OSError:
+                print " %% Detected terminal disconnect."
+                print " %% To preserve your session, Press ^] to exit."
             except pexpect.EOF:
                 print " %% Detected terminal disconnect."
                 print " %% To preserve your session, Press ^] to exit."

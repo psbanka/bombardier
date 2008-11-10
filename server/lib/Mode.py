@@ -65,6 +65,9 @@ class Mode:
         self.serverHome = None
         self.tmpPath = None
         self.childProcesses = []
+        self.termwidth = 80
+        self.termlen   = 23
+        self.termcolor = False
 
     def addPersonalConfigList(self, option, value):
         if self.personal_config.get(option):
@@ -103,6 +106,8 @@ class Mode:
             self.autoEnable = self.personal_config.get("autoEnable")
             if self.personal_config.get("termwidth"):
                 self.termwidth = self.personal_config.get("termwidth")
+            if self.personal_config.get("termcolor"):
+                self.termcolor = self.personal_config.get("termcolor")
             debug = self.personal_config.get("debug")
             if type(debug) == type(True):
                 self.debug = debug
@@ -124,7 +129,8 @@ class Mode:
             raise HostNotEnabledException(hostName)
         if not hostName in self.bomConnections:
             brc = BombardierRemoteClient(hostName, self.password, self.serverHome,
-                                         self.termwidth, outputHandle, enabled=enabled)
+                                         self.termwidth, self.termcolor, outputHandle, 
+                                         enabled=enabled)
             self.bomConnections[hostName] = brc
         else:
             if self.password:
