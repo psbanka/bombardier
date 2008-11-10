@@ -26,22 +26,33 @@ class Ssh(PinshCmd.PinshCmd):
             return FAIL, ["Incomplete command."]
         hostName = tokens[1]
 
-        r = mode.getBomConnection(hostName)
-        if len(tokens) > 2:
-            command = '%s'%(' '.join(tokens[2:]))
-        else:
-            command = ''
-        status = r.interact(command)
-        return status, []
-
-        #client = Client.Client(hostName, '', mode.serverHome)
-        #client.get()
-        #username = client.data.get("defaultUser")
-        #address  = client.data.get("ipAddress")
+        #r = mode.getBomConnection(hostName)
         #if len(tokens) > 2:
-            #command = '"%s"'%(' '.join(tokens[2:]))
+            #command = '%s'%(' '.join(tokens[2:]))
         #else:
             #command = ''
-        #if username and address:
-            #os.system('%s %s@%s %s'%(SSH,username,address,command))
-        #return OK, []
+        #status = r.interact(command)
+        #return status, []
+
+        client = Client.Client(hostName, mode.password, mode.serverHome)
+        client.get()
+        if mode.password:
+            client.decryptConfig()
+        username = client.data.get("defaultUser")
+        address  = client.data.get("ipAddress")
+        if not username or not address:
+            if client.data.get("enc_defaultUser") or \
+                client.data.get("enc_ipAddress"):
+                return FAIL, ["Enable mode is required to connect to this system"]
+            else:
+                msg  = ["ipAddress and defaultUser are required in the system"]
+                msg += ["configuration in order to access this host."]
+                return FAIL, msg
+            return FAIL, ["Cannot log in"]
+        if len(tokens) > 2:
+            command = '"%s"'%(' '.join(tokens[2:]))
+        else:
+            command = ''
+        if username and address:
+            os.system('%s %s@%s %s'%(SSH,username,address,command))
+        return OK, []

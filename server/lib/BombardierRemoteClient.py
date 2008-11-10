@@ -3,6 +3,7 @@
 import sys, re, os, getpass, base64, time
 import yaml
 import StringIO
+import copy
 import traceback
 from RemoteClient import RemoteClient
 from Client import ClientConfigurationException
@@ -70,7 +71,7 @@ class BombardierRemoteClient(RemoteClient):
             if type(self.statusData) != type({}) \
                 or PROGRESS not in self.statusData \
                 or LOCAL_PACKAGES not in self.statusData:
-                    msg = "ERROR: Invalid status data: %s" % self.statusData
+                    msg = "WARNING: Invalid status data, ignoring."
                     self.debugOutput(msg, msg)
         self.packageData = syck.load(open(os.path.join(self.serverHome, PACKAGES_FILE)).read())
         return(RemoteClient.freshen(self))
@@ -272,7 +273,7 @@ class BombardierRemoteClient(RemoteClient):
         return yml
 
     def getAllPackageNames(self):
-        packageNames = set([stripVersion(x) for x in self.getPackageNamesFromProgress()[PROGRESS]])
+        packageNames = set([stripVersion(x) for x in self.getPackageNamesFromProgress().get(PROGRESS, {})])
         packageNames = packageNames.union(set(self.info.get("packages")))
         return list(packageNames)
 
@@ -291,7 +292,7 @@ class BombardierRemoteClient(RemoteClient):
 
     def getNewestExistingPackages(self):
         output = []
-        existingPackages = self.getPackageNamesFromProgress()[LOCAL_PACKAGES]
+        existingPackages = self.getPackageNamesFromProgress().get(LOCAL_PACKAGES, [])
         basePackageNames = [stripVersion(x) for x in existingPackages]
         basePackageNames = list(set(basePackageNames)) # eliminates dups
         for basePackageName in basePackageNames:
@@ -302,16 +303,15 @@ class BombardierRemoteClient(RemoteClient):
         return output
 
     def uploadNewPackages(self):
-        import copy
         newPackages = copy.deepcopy(self.info.get("packages"))
         newestExistingPackages = self.getNewestExistingPackages()
+        destPath = "%s/%s/packages" % (self.spkgDir, self.hostName)
         for fullPackageName in newestExistingPackages:
             basePackageName = stripVersion(fullPackageName)
             newestPackageData = self.packageData.get(basePackageName, {})
             newestPackageName = newestPackageData.get("install", {}).get("fullName")
             if newestPackageName != fullPackageName:
                 self.debugOutput('', "Need to send package: %s" % newestPackageName)
-                destPath = "%s/%s/packages" % (self.spkgDir, self.hostName)
                 self.sendPackage(newestPackageName+".spkg", destPath)
             if basePackageName in newPackages:
                 newPackages.remove(basePackageName)
