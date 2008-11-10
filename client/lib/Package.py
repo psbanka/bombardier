@@ -40,7 +40,7 @@ class JobThread(Thread):
         self.cmdStatus = None
 
     def run(self):
-        Logger.info("Running %s..." % self.cmd)
+        Logger.debug("Running %s..." % self.cmd)
         try:
             exec(self.importString)
             exec("self.cmdStatus = %s" % self.cmd)
@@ -69,7 +69,7 @@ class Job:
         if self.jt:
             if self.jt.isAlive():
                 return True
-            Logger.info("-- status: %s" % (self.jt.cmdStatus))
+            Logger.debug("-- status: %s" % (self.jt.cmdStatus))
             self.jobStatus = self.jt.cmdStatus
         return False
 

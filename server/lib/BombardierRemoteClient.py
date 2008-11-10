@@ -361,12 +361,12 @@ class BombardierRemoteClient(RemoteClient):
                 break
             elif foundIndex == 2: # Log message
                 messageType, message = self.s.match.groups()
-                if messageType == "DEBUG" and DEBUG:
-                    self.fromOutput(message)
-                message=message.strip()
-                if COLOR and messageType in ["WARNING", "ERROR", "CRITICAL"]:
-                    message = "\033[0;31m%s\033[m" % message
-                self.fromOutput(message)
+                if not self.processMessage(message):
+                    message=message.strip()
+                    if DEBUG or messageType != "DEBUG":
+                        if COLOR and messageType in ["WARNING", "ERROR", "CRITICAL"]:
+                            message = "\033[0;31m%s\033[m" % message
+                        self.fromOutput(message)
 
     def process(self, action, packageNames, scriptName, debug):
         self.reportInfo = ''
