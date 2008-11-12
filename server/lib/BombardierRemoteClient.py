@@ -5,7 +5,7 @@ import yaml
 import StringIO
 import copy
 import traceback
-from RemoteClient import RemoteClient
+from RemoteClient import RemoteClient, ClientUnavailableException
 from Client import ClientConfigurationException
 from bombardier.miniUtility import stripVersion
 from staticData import *
@@ -17,7 +17,6 @@ except:
 
 TMP_FILE = "tmp.yml"
 DOT_LENGTH = 20
-COLOR = True
 PROGRESS = "install-progress"
 LOCAL_PACKAGES = "local-packages"
 
@@ -25,18 +24,20 @@ class BombardierRemoteClient(RemoteClient):
 
     def __init__(self, hostName, configPass, serverHome, termwidth, termcolor,
                  outputHandle=sys.stdout, packageData=None, enabled=True):
-        RemoteClient.__init__(self, hostName, serverHome, termwidth,
+        RemoteClient.__init__(self, hostName, serverHome, termwidth, termcolor,
                               outputHandle, configPass, enabled)
-        self.termcolor = termcolor
-        self.statusData = {}
+        self.statusData    = {}
         self.localFilename = ''
-        self.reportInfo = ''
-        self.stateMachine = []
+        self.reportInfo    = ''
+        self.stateMachine  = []
+
         self.stateMachine.append([re.compile("\=\=REPORT\=\=:(.*)"), self.getReport])
         self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendClient])
         self.stateMachine.append([re.compile("\=\=REQUEST-PKGINFO\=\=:(.+)"), self.sendPkgInfo])
         self.stateMachine.append([re.compile("\=\=REQUEST-BOM\=\=:(.+)"), self.sendBom])
         self.stateMachine.append([re.compile("\=\=REQUEST-PACKAGE\=\=:(.+):(.+)"), self.oldSendPackage])
+        self.stateMachine.append([re.compile("Unable to shred before deleting"), self.noReport])
+        self.stateMachine.append([re.compile("Uninstalling package \((\S+)\)"), self.unInstall])
         self.stateMachine.append([re.compile("Beginning installation of \((\S+)\)"), self.install])
         self.stateMachine.append([re.compile("(\S+) result for (\S+) : (\d)"), self.actionResult])
         self.logMatcher = re.compile( "\d+\-\d+\-\d+\s\d+\:\d+\:\d+\,\d+\|([A-Z]+)\|(.+)\|" )
@@ -53,6 +54,7 @@ class BombardierRemoteClient(RemoteClient):
             self.spkgDir = self.info.get("spkgPath")
         self.cmdDebug = None
         self.packageData = {}
+        self.pullReport = True
 
     def setConfigPass(self, configPass):
         self.configPass = configPass
@@ -65,51 +67,61 @@ class BombardierRemoteClient(RemoteClient):
                 self.statusData = syck.load(open(statusFile).read())
             except Exception, e:
                 if e[0] == "syntax error":
-                    msg = "ERROR: Syntax error in status information for %s" % self.hostName
-                    self.debugOutput(msg, msg)
+                    msg = "Syntax error in status information for %s" % self.hostName
+                    self.errorOutput(msg)
                     self.statusData = ''
             if type(self.statusData) != type({}) \
                 or PROGRESS not in self.statusData \
                 or LOCAL_PACKAGES not in self.statusData:
-                    msg = "WARNING: Invalid status data, ignoring."
-                    self.debugOutput(msg, msg)
+                    msg = "Invalid status data. Ignoring."
+                    self.warningOutput(msg)
         self.packageData = syck.load(open(os.path.join(self.serverHome, PACKAGES_FILE)).read())
         return(RemoteClient.freshen(self))
 
     def actionResult(self, data):
         action, packageName, result = data
-        if COLOR:
-            if result == OK:
-                colorCode = '[0;32m'
+        if self.termcolor != NO_COLOR:
+            if int(result) == OK:
+                colorCode = GOOD_COLOR[self.termcolor]
             else:
-                colorCode = '[0;31m'
+                colorCode = WARNING_COLOR[self.termcolor]
             message = "\033%s%s %s: %s\033[m" % (colorCode, action.lower(), RETURN_DICT[int(result)], packageName)
         else:
             message = "%s %s: %s" % (action.lower(), RETURN_DICT[int(result)], packageName)
-        self.debugOutput(message, message)
+        self.fromOutput(message)
 
-    def install(self, packageName):
-        if COLOR:
-            message = "'\033[0;33m%s installing %s\033[m" %(self.hostName, packageName)
+    def actionStart(self, action, packageName):
+        if self.termcolor != NO_COLOR:
+            colorCode = STRONG_COLOR[self.termcolor]
+            message = "\033%s%s %s %s\033[m" %(colorCode, self.hostName, action, packageName)
         else:
             message = "%s installing %s" %(self.hostName, packageName)
-        self.debugOutput(message, message)
+        self.fromOutput(message)
+
+    def install(self, packageName):
+        self.actionStart("installing", packageName)
+
+    def unInstall(self, packageName):
+        self.actionStart("uninstalling", packageName)
+
+    def noReport(self, data):
+        self.pullReport = False
 
     def sendPackage(self, packageName, destPath):
         filename = os.path.join(self.serverHome, "packages", packageName)
         if not os.path.isfile(filename):
-            message = "ERROR: client requested a file that is not on this server: %s" % filename
-            self.debugOutput(message, message)
-            self.s.send(`FAIL`)
-        self.scp(filename, destPath)
+            message = "Client requested a file that is not on this server: %s" % filename
+            self.errorOutput(message)
+            return OK
+        self.scp(filename, destPath, False)
 
     def oldSendPackage(self, data):
         package, path = data
         filename = os.path.join(self.serverHome, "packages", package)
         self.debugOutput("Sending %s..." % package,"")
         if not os.path.isfile(filename):
-            message = "ERROR: client requested a file that is not on this server: %s" % filename
-            self.debugOutput(message, message)
+            message = "Client requested a file that is not on this server: %s" % filename
+            self.errorOutput(message, message)
             self.s.send(`FAIL`)
         self.scp(filename, path)
         self.s.send("OK\n")
@@ -166,16 +178,16 @@ class BombardierRemoteClient(RemoteClient):
     def sendPkgInfo(self, packageName):
         thisPackageData = self.packageData.get(packageName) 
         if not thisPackageData:
-            message = "ERROR: could not find package data for %s." % packageName
-            self.debugOutput(message, message)
+            message = "Could not find package data for %s." % packageName
+            self.errorOutput(message)
             raise ClientConfigurationException(self.hostName)
         self.streamData(yaml.dump(thisPackageData))
 
     def sendBom(self, data):
         filename = os.path.join(self.serverHome, "bom", "%s.yml" % data)
         if not os.path.isfile(filename):
-            message = "ERROR: could not find valid bom data for this %s. Exiting." % filename
-            self.debugOutput(message, message)
+            message = "Could not find valid bom data for this %s. Exiting." % filename
+            self.errorOutput(message)
             raise ClientConfigurationException(self.hostName)
         self.streamFile(filename)
 
@@ -199,7 +211,7 @@ class BombardierRemoteClient(RemoteClient):
             return returnCode
         except Exception, e:
             self.debugOutput(str(e))
-            self.debugOutput("ERROR: command returned non-numeric exit code: ('%s')" % self.s.before)
+            self.errorOutput("Command returned non-numeric exit code: ('%s')" % self.s.before)
         return FAIL
 
     def gso(self, cmd, raiseOnError=True):
@@ -219,8 +231,8 @@ class BombardierRemoteClient(RemoteClient):
     def runCmd(self, commandString):
         self.reportInfo = ''
         if self.freshen() != OK:
-            message = "ERROR: unable to connect to %s." % self.hostName
-            self.debugOutput(message, message)
+            message = "Unable to connect to %s." % self.hostName
+            self.errorOutput(message)
             return FAIL, ''
         returnCode = OK
         self.s.sendline ('cd %s' %self.spkgDir)
@@ -242,8 +254,8 @@ class BombardierRemoteClient(RemoteClient):
 
         data = re.compile("NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'").findall(tString)
         if data:
-            message1 = "ERROR: invalid client configuration data"
-            self.debugOutput(message1, message1)
+            message1 = "Invalid client configuration data"
+            self.errorOutput(message1)
             if len(data) == 2:
                 message2 = "Need option '%s' in section '%s'." % (data[0], data[1])
             else:
@@ -251,24 +263,24 @@ class BombardierRemoteClient(RemoteClient):
             self.debugOutput(message2, message2)
         data = re.compile("NoSectionError\: No section\: \'(\w+)\'").findall(tString)
         if data:
-            message1 = "ERROR: invalid client configuration data"
-            self.debugOutput(message1, message1)
+            message1 = "Invalid client configuration data"
+            self.errorOutput(message1)
             message2 = "Need section '%s'." % (data[0])
             self.debugOutput(message2, message2)
         else:
             for line in traceback:
-                message = "CLIENT TRACEBACK: %s" % line
+                message = "\033[mCLIENT TRACEBACK: %s" % line
                 self.debugOutput(message, message)
 
     def getPackageNamesFromProgress(self):
         #CANNIBALIZED FROM PackageField.py
-        statusYml = self.serverHome + "/status/%s.yml"%(self.hostName)
+        statusYml = os.path.join(self.serverHome, "status", "%s.yml" % self.hostName)
         if not os.path.isfile(statusYml):
-            self.debugOutput("Cannot retrieve status (NO FILE: %s)" %statusYml)
+            self.debugOutput("Cannot retrieve status (NO FILE: %s)" % statusYml)
             return []
         yml = syck.load( open(statusYml).read() ) 
         if yml == None:
-            self.debugOutput("Cannot retrieve status (EMPTY FILE: %s)" %statusYml)
+            self.debugOutput("Cannot retrieve status (EMPTY FILE: %s)" % statusYml)
             return []
         return yml
 
@@ -284,8 +296,8 @@ class BombardierRemoteClient(RemoteClient):
             for packageName in packageNames:
                 thisPackageData = self.packageData.get(packageName) 
                 if not thisPackageData:
-                    message = "ERROR: could not find package data for %s." % packageName
-                    self.debugOutput(message, message)
+                    message = "Could not find package data for %s." % packageName
+                    self.errorOutput(message)
                     raise ClientConfigurationException(self.hostName)
                 sendData["packageData"][packageName] = thisPackageData
         self.streamData(yaml.dump(sendData))
@@ -296,21 +308,30 @@ class BombardierRemoteClient(RemoteClient):
         basePackageNames = [stripVersion(x) for x in existingPackages]
         basePackageNames = list(set(basePackageNames)) # eliminates dups
         for basePackageName in basePackageNames:
-            packageVersions = [int(x.rpartition('-')[-1]) for x in existingPackages if x.startswith(basePackageName)]
+            packageVersions = []
+            for ep in existingPackages:
+                if ep.startswith(basePackageName):
+                    suffix = ep.split(basePackageName)[-1]
+                    matches = re.compile('^\-(\d+)').findall(suffix)
+                    if len(matches) != 1:
+                        #self.errorOutput("Invalid existing package name: %s" % ep)
+                        continue
+                    packageVersions.append(int(matches[0]))
             packageVersions.sort()
-            newestExisting = "%s-%d" % (basePackageName, packageVersions[-1])
-            output.append(newestExisting)
+            if packageVersions:
+                newestExisting = "%s-%d" % (basePackageName, packageVersions[-1])
+                output.append(newestExisting)
         return output
 
     def uploadNewPackages(self):
         newPackages = copy.deepcopy(self.info.get("packages"))
         newestExistingPackages = self.getNewestExistingPackages()
-        destPath = "%s/%s/packages" % (self.spkgDir, self.hostName)
+        destPath = os.path.join(self.spkgDir, self.hostName, "packages")
         for fullPackageName in newestExistingPackages:
             basePackageName = stripVersion(fullPackageName)
             newestPackageData = self.packageData.get(basePackageName, {})
             newestPackageName = newestPackageData.get("install", {}).get("fullName")
-            if newestPackageName != fullPackageName:
+            if newestPackageName and newestPackageName != fullPackageName:
                 self.debugOutput('', "Need to send package: %s" % newestPackageName)
                 self.sendPackage(newestPackageName+".spkg", destPath)
             if basePackageName in newPackages:
@@ -356,7 +377,7 @@ class BombardierRemoteClient(RemoteClient):
                     returnCode = int(str(self.s.before.split()[0].strip()))
                 except Exception, e:
                     self.debugOutput( str(e) )
-                    self.debugOutput( "ERROR: invalid returncode: ('%s')" % self.s.before)
+                    self.errorOutput( "Invalid returncode: ('%s')" % self.s.before)
                     returnCode = FAIL
                 break
             elif foundIndex == 2: # Log message
@@ -364,14 +385,15 @@ class BombardierRemoteClient(RemoteClient):
                 if not self.processMessage(message):
                     message=message.strip()
                     if DEBUG or messageType != "DEBUG":
-                        if COLOR and messageType in ["WARNING", "ERROR", "CRITICAL"]:
-                            message = "\033[0;31m%s\033[m" % message
+                        if self.termcolor != NO_COLOR and messageType in ["WARNING", "ERROR", "CRITICAL"]:
+                            colorCode = WARNING_COLOR[self.termcolor]
+                            message = "\033%s%s\033[m" % (colorCode, message)
                         self.fromOutput(message)
 
     def process(self, action, packageNames, scriptName, debug):
         self.reportInfo = ''
         self.debug = debug
-        self.reportInfo = ''
+        self.pullReport = True
         self.debugOutput("", "Progress: ")
         if action == EXECUTE:
             self.clearScriptOutput(scriptName)
@@ -381,16 +403,18 @@ class BombardierRemoteClient(RemoteClient):
             return FAIL, ["UNABLE TO CONNECT TO %s. No actions are available." % self.hostName]
         returnCode = OK
         try:
-            self.uploadNewPackages()
+            if action != INIT:
+                self.uploadNewPackages()
             self.runBc(action, packageNames, scriptName, debug)
         except KeyboardInterrupt:
             self.debugOutput("Cleaning up...", "\ncleaning up...")
             if self.terminate() == OK:
                 self.debugOutput("Disconnected", "\ndisconnected")
             else:
-                self.debugOutput("ERROR: could not disconnect", "\nERROR: could not disconnect")
+                self.errorOutput("Could not disconnect.")
             raise KeyboardInterrupt
-
+        except ClientUnavailableException:
+            return FAIL, ["Remote system refused connection"]
         except ClientConfigurationException:
             return FAIL, []
         except Exception, e:
@@ -411,10 +435,13 @@ class BombardierRemoteClient(RemoteClient):
             self.outputHandle.write('\n')
         if action == EXECUTE:
             if self.reportInfo:
-                fileName = self.serverHome+"/output/%s-%s.yml" % (self.hostName, scriptName)
+                fileName = os.path.join(self.serverHome, "output", "%s-%s.yml" % (self.hostName, scriptName))
                 open(fileName, 'w').write(self.reportInfo)
             else:
+                if not self.pullReport:
+                    return returnCode, []
                 self.getScriptOutput(scriptName)
+
             try:
                 reportData = yaml.load(self.reportInfo)
             except:
@@ -449,7 +476,7 @@ class BombardierRemoteClient(RemoteClient):
         try:
             syck.load(statusYml)
         except:
-            self.debugOutput("ERROR: status.yml could not be parsed (writing to error.yml)")
+            self.errorOutput("status.yml could not be parsed (writing to error.yml)")
             open( os.path.join(statusDir, "error.yml"), 'w' ).write(statusYml)
             return
         open( os.path.join(statusDir, "%s.yml" % self.hostName), 'w' ).write(statusYml)

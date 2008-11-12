@@ -1,5 +1,13 @@
 import os
 
+NO_COLOR  = 'none'
+DARK      = "dark"
+LIGHT     = "light"
+
+GOOD_COLOR = {LIGHT: '[0;32m', DARK: '[1;32m'}
+WARNING_COLOR = {LIGHT: '[0;31m', DARK: '[1;31m'}
+STRONG_COLOR = {LIGHT: '[0;36m', DARK: '[1;33m'}
+
 # RESULT CODES
 OK      = 0
 FAIL    = 1

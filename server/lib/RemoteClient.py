@@ -5,6 +5,7 @@ import struct, fcntl, termios, signal
 import sys, os, getpass, base64, time
 import Client
 from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
+from staticData import *
 
 #Statuses:
 DISCONNECTED = 0
@@ -13,6 +14,8 @@ BROKEN       = 2
 
 DOT_LENGTH = 20
 
+BAD_BREAK_CHARS = ['[', '\033', 'm', ';', '0', '3', '1']
+GOOD_BREAK_CHARS = ['.', '-', ' ', '\\', '/', '=', ')', ']', '_']
 CONNECTION_TIMEOUT = 90 * 3600 #90 min
 
 class EnableRequiredException(Exception):
@@ -48,12 +51,13 @@ class ClientUnavailableException(Exception):
 
 class RemoteClient:
 
-    def __init__(self, hostName, serverHome, termwidth = 80,
+    def __init__(self, hostName, serverHome, termwidth = 80, termcolor = False,
                  outputHandle=sys.stdout, configPass='', enabled=True):
         self.debug        = True
         self.hostName     = hostName
         self.serverHome   = serverHome
         self.termwidth    = termwidth
+        self.termcolor    = termcolor
         self.outputHandle = outputHandle
         self.status       = DISCONNECTED
         self.info         = {}
@@ -102,12 +106,15 @@ class RemoteClient:
                     if grabLength >= len(debugText):
                         grabLength = len(debugText)
                     elif debugText[grabLength] != ' ':
-                        for i in range(grabLength, grabLength-10, -1):
-                            if debugText[i] == ' ':
+                        stepsBack = 0
+                        for i in range(grabLength, 10, -1):
+                            stepsBack += 1
+                            if debugText[i] in GOOD_BREAK_CHARS:
                                 grabLength = i
                                 break
-                    #if '\n' in debugText[:grabLength]:
-                        #grabLength = debugText.find(' ')
+                            elif stepsBack > 15 and debugText[i] not in BAD_BREAK_CHARS:
+                                grabLength = i
+                                break
                     output = prefix + debugText[:grabLength].strip()
                     debugText = debugText[grabLength:]
                     prefix = ' ' * len(prefix)
@@ -124,6 +131,22 @@ class RemoteClient:
             output = noDebugText
         self.outputHandle.write(output)
         self.outputHandle.flush()
+
+    def errorOutput(self, msg):
+        if self.termcolor:
+            colorCode = WARNING_COLOR[self.termcolor]
+            msg = "\033%sERROR:\033[m %s" % (colorCode, msg)
+        else:
+            msg = "ERROR: %s" % (msg)
+        self.formatOutput("==> ", msg, msg)
+
+    def warningOutput(self, msg):
+        if self.termcolor:
+            colorCode = WARNING_COLOR[self.termcolor]
+            msg = "\033%sWARNING:\033[m %s" % (colorCode, msg)
+        else:
+            msg = "WARNING: %s" % (msg)
+        self.formatOutput("==> ", msg, msg)
 
     def debugOutput(self, debugText, noDebugText='.'):
         self.formatOutput("==> ", debugText, noDebugText)
@@ -340,9 +363,12 @@ class RemoteClient:
         s = pexpect.spawn(cmd, timeout=30)
         return self.processScp(s)
 
-    def scp(self, source, dest):
+    def scp(self, source, dest, verbose=True):
         import pxssh, pexpect
-        self.debugOutput("Sending %s to %s:%s" % (source, self.hostName, dest))
+        if verbose:
+            self.debugOutput("Sending %s to %s:%s" % (source, self.hostName, dest))
+        else:
+            self.debugOutput("Sending %s..." % (source))
         cmd = 'scp -v %s %s@%s:%s' % (source, self.username, self.ipAddress, dest)
         try:
             s = pexpect.spawn(cmd, timeout=600)

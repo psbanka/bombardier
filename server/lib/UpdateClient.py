@@ -26,10 +26,6 @@ class UpdateRemoteClient(BombardierRemoteClient):
         self.release  = self.base_file_name.split('.tar.gz')[0]
 
     def setupSpkgDir(self):
-        #instancePath = os.path.join(self.spkgDir, self.hostName)
-        #packagePath  = os.path.join(instancePath, "packages")
-        #cmd = "mkdir -p %s" % packagePath
-        #self.gso(cmd)
         self.debugOutput("Setting system configuration...")
         if self.platform == "win32":
             spkgDosDir = self.gso("cygpath -w %s" % self.spkgDir)

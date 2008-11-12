@@ -80,7 +80,7 @@ class Repository:
         packagesPath = miniUtility.getPackagePath(self.instanceName)
         inodes = self.filesystem.glob("%s/*" % packagesPath)
         for inode in inodes: 
-            shortName = inode.split(packagesPath+'/')[1]
+            shortName = miniUtility.rpartition(inode, packagesPath+os.path.sep)[-1]
             if self.filesystem.isfile(inode):
                 if inode.endswith('.spkg'):
                     localPackages.append(shortName.split(".spkg")[0])

@@ -8,6 +8,10 @@ from BombardierRemoteClient import BombardierRemoteClient
 PERSONAL_CONFIG_FILE = "%s/.bomsh_config" % os.environ.get("HOME")
 GLOBAL_CONFIG_FILE = "/etc/bombardier.yml"
 
+NO_COLOR  = 'none'
+DARK      = "dark"
+LIGHT     = "light"
+
 OK = 0
 FAIL = 1
 UNKNOWN = -1
@@ -67,7 +71,7 @@ class Mode:
         self.childProcesses = []
         self.termwidth = 80
         self.termlen   = 23
-        self.termcolor = False
+        self.termcolor = NO_COLOR
 
     def addPersonalConfigList(self, option, value):
         if self.personal_config.get(option):
@@ -106,8 +110,12 @@ class Mode:
             self.autoEnable = self.personal_config.get("autoEnable")
             if self.personal_config.get("termwidth"):
                 self.termwidth = self.personal_config.get("termwidth")
-            if self.personal_config.get("termcolor"):
-                self.termcolor = self.personal_config.get("termcolor")
+            termcolor = self.personal_config.get("termcolor")
+            if termcolor:
+                if termcolor.upper().startswith("D"):
+                    self.termcolor = DARK
+                elif termcolor.upper().startswith("L"):
+                    self.termcolor = LIGHT
             debug = self.personal_config.get("debug")
             if type(debug) == type(True):
                 self.debug = debug
@@ -137,6 +145,7 @@ class Mode:
                 self.bomConnections[hostName].setConfigPass(self.password)
             self.bomConnections[hostName].debug = self.debug
             self.bomConnections[hostName].termwidth = self.termwidth
+            self.bomConnections[hostName].termcolor = self.termcolor
             self.bomConnections[hostName].refreshConfig()
         return self.bomConnections[hostName]
 
