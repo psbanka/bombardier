@@ -217,14 +217,21 @@ class BombardierRemoteClient(RemoteClient):
     def gso(self, cmd, raiseOnError=True):
         if self.cmdDebug:
             self.debugOutput("* RUNNING: %s" % cmd)
-        self.s.sendline( cmd )
-        self.s.prompt()
+        try:
+            self.s.sendline( cmd )
+            self.s.prompt()
+        except pexpect.EOF:
+            if raiseOnError:
+                msg = "Error running %s (%s)" % (cmd, output)
+                raise ClientUnavailableException(msg)
+            else:
+                return ""
         output = self.s.before.strip()
         if self.cmdDebug:
             self.debugOutput("* OUTPUT: %s" % output)
         status = self.getReturnCode()
         if status != OK and raiseOnError:
-            msg = "Update failed: Error running %s (%s)" % (cmd, output)
+            msg = "Error running %s (%s)" % (cmd, output)
             raise ClientConfigurationException(msg)
         return output
 
