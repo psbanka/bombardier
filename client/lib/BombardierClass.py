@@ -25,6 +25,12 @@ import sets, os, time, copy
 import miniUtility, Package, Exceptions, Logger
 from staticData import *
 
+def swap(listObj, index1, index2):
+    newList = copy.deepcopy(listObj)
+    newList[index1] = listObj[index2]
+    newList[index2] = listObj[index1]
+    return newList
+
 class PackageChain:
     def __init__(self, priority, startPackageName, packages,
                  installedPackageNames, brokenPackageNames, repository,
@@ -129,7 +135,6 @@ def findDifferences(packageConfig, configDiff, differences=[], chain=[]):
                 continue
             newdif = findDifferences(packageConfig[key], configDiff[key],
                                      output, chain + [key])
-            pyChucker( newdif ) #FIXME!
             continue
         if key in configDiff.keys():
             output.append("%s/%s" % ('/'.join(chain), key))
@@ -362,6 +367,45 @@ class Bombardier:
             packageDict[packageName] = newPackage
         return packageDict
 
+    def sortUninstalledPackages(self, uninstallOrder):
+        "Make sure packages get uninstalled in the right order"
+        dependencyDict = {}
+        if len(uninstallOrder) > 1:
+            Logger.info("Determining uninstallation order...")
+            for packageName in uninstallOrder:
+                dependencyDict[packageName] = []
+
+            for packageName in uninstallOrder:
+                package = Package.Package(packageName, self.repository, self.config, self.filesystem, 
+                                          self.operatingSystem, self.instanceName)
+                package.initialize()
+                for otherPackageName in uninstallOrder:
+                    if otherPackageName in package.dependencies:
+                        dependencyDict[otherPackageName].append(packageName)
+        else:
+            return uninstallOrder
+
+        newProperOrder = copy.deepcopy(uninstallOrder)
+        swapped = True
+
+        while swapped:
+            properOrder = copy.deepcopy(newProperOrder)
+            swapped = False
+            for packageName in properOrder:
+                dependencyList = dependencyDict[packageName]
+                for dependency in dependencyList:
+                    index1 = properOrder.index(dependency)
+                    index2 = properOrder.index(packageName)
+                    if index1 < index2:
+                        newProperOrder = swap(properOrder, index1, index2)
+                        swapped = True
+                        break
+                if swapped:
+                    break
+
+        Logger.info("Uninstallation Order: %s" % newProperOrder)
+        return newProperOrder
+
     def getUninstallPackageDependencies(self, packageDict, delPackageNames, installedPackageNames):
         # add any packages that are installed already
         # which are dependent upon those to the list as well
@@ -372,7 +416,6 @@ class Bombardier:
             newDependencyNames = []
             delPackageNames = []
             for packageName in installedPackageNames:
-                #Logger.info("checking dependencies of %s" % packageName)
                 if packageName in packageDict.keys():
                     Logger.debug("Package %s will already be deleted -- "\
                                  "ignoring" % packageName)
@@ -392,7 +435,9 @@ class Bombardier:
                                 packageDict[packageName] = package
                                 newDependencyNames.append(packageName)
                 delPackageNames = newDependencyNames
-        return packageDict, uninstallOrder
+
+        properOrder = self.sortUninstalledPackages(uninstallOrder)
+        return packageDict, properOrder
 
     ### TESTED
     def getPackagesToRemoveDict(self, delPackageNames):
@@ -478,6 +523,7 @@ class Bombardier:
         if action == DRY_RUN:
             dryRun = True
         addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus(packageNames)
+        Logger.info("uninstallOrder: %s" % uninstallOrder)
         if self.filesystem.setLock() == FAIL:
             return FAIL
         status = self.uninstallPackages(delPackageDict, uninstallOrder, dryRun)
@@ -529,6 +575,7 @@ class Bombardier:
     def uninstallPackages(self, delPackageDict, uninstallOrder, dryRun=False):
         status = OK
         removeFullPackageNames = []
+        Logger.info("UninstallOrder: %s" % uninstallOrder)
         for name in uninstallOrder:
             if delPackageDict[name].fullName:
                 nameStr = delPackageDict[name].fullName

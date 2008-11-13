@@ -35,7 +35,10 @@ class Ssh(PinshCmd.PinshCmd):
         #return status, []
 
         client = Client.Client(hostName, mode.password, mode.serverHome)
-        client.get()
+        try:
+            client.get()
+        except IOError:
+            return FAIL, ["No such client '%s'" % hostName]
         if mode.password:
             client.decryptConfig()
         username = client.data.get("defaultUser")
