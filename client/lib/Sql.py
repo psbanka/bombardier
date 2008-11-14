@@ -15,6 +15,16 @@ class BadQuery(Exception):
     def __str__(self):
         return self.__repr__()
 
+class DatabaseException(Exception):
+    "Generic exception to throw when things are not what we expect."
+    def __init__(self, database, msg):
+        Exception.__init__(self)
+        self.output = "%s in database: %s" % (msg, database)
+    def __repr__(self):
+        return self.output
+    def __str__(self):
+        return self.output
+
 class Sql:
 
     def __init__(self, config, logger, database):
@@ -30,6 +40,56 @@ class Sql:
 
     def set_database(self, database):
         self.database = database
+
+    def has_database(self):
+        "Tell me whether I have a database or not"
+        query = "EXEC sp_msForEachDB 'PRINT ''?'''"
+        status, output = self.queryWithOutput(query, noHeader=True)
+        if status == FAIL:
+            raise DatabaseException(self.database, "Cannot determine databases")
+        databases = output.split()
+        if self.database in databases:
+            return True
+        return False
+
+    def bring_offline(self):
+        "bring the database off-line before restoring it"
+        if self.has_database():
+            query = "alter database %s set offline with rollback immediate"
+            status = self.query(query % self.database, dedicated=True, database = "msdb")
+            if status != OK:
+                msg = "Error trying to bring %s offline" % self.database
+                self.logger.error(msg)
+                query = "alter database %s set online with rollback immediate"
+                status = self.query(query, self.database, dedicated=True, database = "msdb")
+                return FAIL
+            query = "EXEC sp_dboption '%s', 'single user', 'true'"
+            status = self.query(query % self.database, dedicated=True, database = "msdb")
+            if status != OK:
+                msg = "Error trying to bring %s into single-user mode" % self.database
+                self.logger.error(msg)
+                self.bring_online()
+                return FAIL
+            query = "alter database %s set online with rollback immediate"
+            status = self.query(query % self.database, dedicated=True, database = "msdb")
+        return OK
+
+    def bring_online(self):
+        status = OK
+        query1 = ("EXEC sp_dboption '%s', 'single user', 'false'", True)
+        query2 = ("alter database %s set online with rollback immediate", True)
+        query3 = ("restore database %s with recovery", False)
+        for query, dflg in [query1, query2, query3]:
+            self.logger.debug("Running: %s" % query)
+            q_status = self.query(query % self.database, dedicated=dflg, database="msdb")
+            self.logger.debug("finished.")
+            if q_status == FAIL:
+                status = FAIL
+        if status == FAIL:
+            msg = "Unable to bring %s online" % self.database
+            self.logger.error(msg)
+            return FAIL
+        return OK
 
     def adoQuery(self, qstr, database=None):
         import win32com.client
