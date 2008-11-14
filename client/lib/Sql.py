@@ -5,7 +5,15 @@ OK                  = 0
 FAIL                = 1
 
 class BadQuery(Exception):
-    pass
+    def __init__(self, qstr, database):
+        e = Exception()
+        Exception.__init__(e)
+        self.qstr=qstr
+        self.database=database
+    def __repr__(self):
+        return "Query (in database %s) returned an error (%s)" % (self.database, self.qstr)
+    def __str__(self):
+        return self.__repr__()
 
 class Sql:
 
@@ -92,7 +100,7 @@ class Sql:
         inputFile  = "%s.in" % time.time()
         open(inputFile, 'w').write(qstr)
         if debug:
-            self.logger.debug( "executing: %s" % qstr )
+            self.logger.info( "executing: %s" % qstr )
         if not database:
             database = self.database
         status, output = self.executeFileQuery(inputFile, database, noHeader, dedicated)
@@ -100,11 +108,14 @@ class Sql:
             rmScheduledFile(inputFile)
         return status, output
 
-    def queryRegex(self, qstr, regex, database = None):
-        status, output = self.queryWithOutput(qstr, noHeader=True, database = database)
+    def queryRegex(self, qstr, regex, database = None, debug=False):
+        if not database:
+            database = self.database
+        status, output = self.queryWithOutput(qstr, noHeader=True, database = database, 
+                                              debug = debug)
         if status == FAIL:
             self.logger.error("Couldn't find information from (%s)" % qstr)
-            raise BadQuery()
+            raise BadQuery(qstr, database)
         output_lines = output.split('\n')
         match_info = None
         for line in output_lines:
@@ -112,7 +123,10 @@ class Sql:
             if match_info:
                 return match_info
         if not match_info:
-            raise BadQuery()
+            self.logger.error("Could not find any matches. Output returned:")
+            for line in output_lines:
+                self.logger.error(line)
+            raise BadQuery(qstr, database)
         return match_info
 
     def get_all_databases(self):
@@ -129,6 +143,8 @@ class Sql:
         if not database:
             database = self.database
         status, output = self.queryWithOutput(qstr, database = database, dedicated=dedicated, debug=debug)
-        if status == FAIL:
-            self.logger.error("QUERY FAILED: (%s)" % output)
+        if status != OK:
+            output_lines = output.split('\n')
+            for line in output_lines:
+                self.logger.error(line)
         return status

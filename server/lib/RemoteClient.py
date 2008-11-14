@@ -136,7 +136,7 @@ class RemoteClient:
         prefix = "==> CLIENT TRACEBACK: "
         if self.termcolor:
             colorCode = WARNING_COLOR[self.termcolor]
-            prefix = "==> \033%sCLIENT TRACEBACK:\033[m %s" % (colorCode)
+            prefix = "==> \033%sCLIENT TRACEBACK:\033[m " % (colorCode)
         self.formatOutput(prefix, msg, msg)
 
     def errorOutput(self, msg):

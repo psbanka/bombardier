@@ -281,6 +281,18 @@ class Package:
         status = self.operatingSystem.run(fullCmd, self.workingDir, self.console)
         return status
 
+    def dumpError(self, e, fileName):
+        Logger.error("Error detected in %s (%s)." % (fileName, e))
+        e = StringIO.StringIO()
+        traceback.print_exc(file=e)
+        e.seek(0)
+        data = e.read()
+        ermsg = ''
+        for line in data.split('\n'):
+            ermsg += "\n||>>>%s" % line
+        Logger.error(ermsg)
+        Logger.error("Error ocurred in %s" % fileName)
+
     def findCmd2(self, action, packageList=[], dryRun=False):
         cwd = self.filesystem.getcwd()
         sys.path.insert(0, self.scriptsDir)
@@ -347,17 +359,13 @@ class Package:
             except KeyboardInterrupt:
                 Logger.error("Keyboard interrupt detected. Exiting...")
                 sys.exit(10)
+            except SyntaxError, e:
+                self.dumpError(e, fileName)
+                fileFound = False
+                del randString
+                break
             except StandardError, e:
-                Logger.error("Error detected in %s (%s)." % (fileName, e))
-                e = StringIO.StringIO()
-                traceback.print_exc(file=e)
-                e.seek(0)
-                data = e.read()
-                ermsg = ''
-                for line in data.split('\n'):
-                    ermsg += "\n||>>>%s" % line
-                Logger.error(ermsg)
-                Logger.error("Error ocurred in %s" % fileName)
+                self.dumpError(e, fileName)
                 fileFound = True
                 status = FAIL
                 del randString

@@ -9,6 +9,7 @@ from RemoteClient import RemoteClient, ClientUnavailableException
 from Client import ClientConfigurationException
 from bombardier.miniUtility import stripVersion
 from staticData import *
+from pexpect import EOF
 try:
     import syck
 except:
@@ -140,9 +141,12 @@ class BombardierRemoteClient(RemoteClient):
         lines = 0
         totalLines = len(encoded.split()) / BLK_SIZE
         printFrequency = totalLines / DOT_LENGTH
+        termPos = 0
         if self.debug:
-            self.outputHandle.write("==> Sending configuration information:")
+            msg = "==> Sending configuration information:"
+            self.outputHandle.write(msg)
             self.outputHandle.flush()
+            termPos = len(msg)
         if printFrequency < 1:
             printFrequency = 1
         while True:
@@ -158,6 +162,11 @@ class BombardierRemoteClient(RemoteClient):
             if lines % printFrequency == 0:
                 self.outputHandle.write('.')
                 self.outputHandle.flush()
+                termPos += 1
+                if termPos > self.termwidth:
+                    termPos = 4
+                    self.outputHandle.write('\n    ')
+                    self.outputHandle.flush()
             self.s.send(chunk)
         if self.debug:
             self.outputHandle.write('\n')
@@ -420,9 +429,11 @@ class BombardierRemoteClient(RemoteClient):
                 self.errorOutput("Could not disconnect.")
             raise KeyboardInterrupt
         except ClientUnavailableException:
-            return FAIL, ["Remote system refused connection"]
+            return FAIL, ["Remote system refused connection."]
         except ClientConfigurationException:
             return FAIL, []
+        except pexpect.EOF:
+            return FAIL, ["Client unexpectedly disconnected."]
         except Exception, e:
             e = StringIO.StringIO()
             traceback.print_exc(file=e)

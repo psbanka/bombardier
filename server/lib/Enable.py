@@ -84,10 +84,13 @@ class Enable(PinshCmd.PinshCmd):
         r.sharedKey = False
         remoteKeyFile = "%s_id_dsa.pub" % os.environ["USER"]
         try:
-            r.scp(pubKeyFile, ".ssh/%s" % remoteKeyFile)
+            r.scp(pubKeyFile, ".ssh/%s" % remoteKeyFile, verbose=False)
         except ClientUnavailableException:
-            msg = "Client %s (IP: %s) will not accept an SCP connection." % (hostName, r.ipAddress)
-            return FAIL, ['\n', msg]
+            try:
+                r.scp(pubKeyFile, ".ssh/%s" % remoteKeyFile, verbose=False)
+            except ClientUnavailableException:
+                msg = "Client %s (IP: %s) will not accept an SCP connection." % (hostName, r.ipAddress)
+                return FAIL, [msg]
         status, output = r.runCmd("cd ~/.ssh && cat %s >> authorized_keys2" % remoteKeyFile)
         status, output = r.runCmd("rm -f ~/.ssh/%s" % remoteKeyFile)
         r.password = ''
