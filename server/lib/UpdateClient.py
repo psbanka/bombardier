@@ -5,6 +5,7 @@ import PinshCmd, BomHostField, FileNameField
 from commonUtil import *
 from bombardier.staticData import OK, FAIL, REBOOT, PREBOOT
 from BombardierRemoteClient import BombardierRemoteClient
+from RemoteClient import EnableRequiredException
 
 class ClientUpdateException(Exception):
     def __init__(self, reason):
@@ -82,7 +83,10 @@ class UpdateClient(PinshCmd.PinshCmd):
             return FAIL, ["Incomplete command."]
         hostName = tokens[1]
         fileName = tokens[2]
-        r = UpdateRemoteClient(hostName, fileName, mode, slash.fpOut)
+        try:
+            r = UpdateRemoteClient(hostName, fileName, mode, slash.fpOut)
+        except EnableRequiredException:
+            return FAIL, ["Must be in enable mode to connect to this server"]
         return r.update()
 
 

@@ -276,8 +276,7 @@ class BombardierRemoteClient(RemoteClient):
             self.debugOutput(message2, message2)
         else:
             for line in traceback:
-                message = "\033[mCLIENT TRACEBACK: %s" % line
-                self.debugOutput(message, message)
+                self.tracebackOutput(line)
 
     def getPackageNamesFromProgress(self):
         #CANNIBALIZED FROM PackageField.py
@@ -486,5 +485,9 @@ class BombardierRemoteClient(RemoteClient):
             self.errorOutput("status.yml could not be parsed (writing to error.yml)")
             open( os.path.join(statusDir, "error.yml"), 'w' ).write(statusYml)
             return
-        open( os.path.join(statusDir, "%s.yml" % self.hostName), 'w' ).write(statusYml)
+        statusFile = os.path.join(statusDir, "%s.yml" % self.hostName)
+        try:
+            open( statusFile, 'w' ).write(statusYml)
+        except IOError, ioe:
+            self.errorOutput("Unable to write '%s' (%s)" % (statusFile, ioe))
 

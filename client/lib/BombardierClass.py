@@ -396,7 +396,7 @@ class Bombardier:
                 for dependency in dependencyList:
                     index1 = properOrder.index(dependency)
                     index2 = properOrder.index(packageName)
-                    if index1 < index2:
+                    if index1 > index2:
                         newProperOrder = swap(properOrder, index1, index2)
                         swapped = True
                         break
