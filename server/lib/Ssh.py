@@ -3,6 +3,7 @@
 import sys, os
 
 import PinshCmd, BomHostField, Client, Expression
+import libCipher
 from commonUtil import *
 
 SSH = "/usr/bin/ssh"
@@ -40,7 +41,12 @@ class Ssh(PinshCmd.PinshCmd):
         except IOError:
             return FAIL, ["No such client '%s'" % hostName]
         if mode.password:
-            client.decryptConfig()
+            try:
+                client.decryptConfig()
+            except libCipher.DecryptionException, de:
+                msg  = ["Cannot decrypt configuration data."]
+                msg += [de.reason]
+                return FAIL, msg
         username = client.data.get("defaultUser")
         address  = client.data.get("ipAddress")
         if not username or not address:

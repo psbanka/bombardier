@@ -5,6 +5,32 @@ from Crypto.Cipher import AES
 from bombardier.staticData import CENSORED
 from staticData import *
 
+class InvalidData(Exception):
+    def __init__(self, key, dictionary, explanation = ''):
+        e= Exception()
+        Exception.__init__(e)
+        self.key = key
+        self.dictionary = dictionary
+        if not explanation:
+            self.explanation = "Invalid data"
+        else:
+            self.explanation = explanation
+    def __str__(self):
+        return "%s: [key: (%s), value: (%s)]" % (self.explanation, self.key, self.dictionary)
+    def __repr__(self):
+        return "%s: [key: (%s), value: (%s)]" % (self.explanation, self.key, self.dictionary)
+
+class DecryptionException(Exception):
+    def __init__(self, b64Text, reason):
+        e = Exception()
+        Exception.__init__(e)
+        self.b64Text = b64Text
+        self.reason = reason
+    def __str__(self):
+        return "Could not decrypt %s: %s" % (self.b64Text, self.reason)
+    def __repr__(self):
+        return "Could not decrypt %s: %s" % (self.b64Text, self.reason)
+
 VALID_CHARS = [ chr(x) for x in range(ord(' '), ord('~')+1) ] + ['\n']
 
 def pad(str):
@@ -26,8 +52,8 @@ def encrypt(plainStr, passwd):
     return b64CipherB64Str
 
 def changePass(dict, oldPasswd, newPasswd):
-    oldPasswd = pad(oldPasswd)
-    newPasswd = pad(newPasswd)
+    oldPasswd = oldPasswd
+    newPasswd = newPasswd
     changeLoop(dict, oldPasswd, newPasswd)
     return dict
 
@@ -93,32 +119,6 @@ def decryptString(b64CipherB64Str, passwd, validChars=VALID_CHARS):
         reason = "Invalid characters in the decrypted text: %s" %invalidChars
         raise DecryptionException(b64CipherB64Str, reason)
     return plainStr
-
-class InvalidData(Exception):
-    def __init__(self, key, dictionary, explanation = ''):
-        e= Exception()
-        Exception.__init__(e)
-        self.key = key
-        self.dictionary = dictionary
-        if not explanation:
-            self.explanation = "Invalid data"
-        else:
-            self.explanation = explanation
-    def __str__(self):
-        return "%s: [key: (%s), value: (%s)]" % (self.explanation, self.key, self.dictionary)
-    def __repr__(self):
-        return "%s: [key: (%s), value: (%s)]" % (self.explanation, self.key, self.dictionary)
-
-class DecryptionException(Exception):
-    def __init__(self, b64Text, reason):
-        e = Exception()
-        Exception.__init__(e)
-        self.b64Text = b64Text
-        self.reason = reason
-    def __str__(self):
-        return "Could not decrypt %s: %s" % (self.b64Text, self.reason)
-    def __repr__(self):
-        return "Could not decrypt %s: %s" % (self.b64Text, self.reason)
 
 if __name__ == "__main__":
     from libTest import startTest, endTest

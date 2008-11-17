@@ -1,4 +1,5 @@
 import sys, time, random
+import libCipher
 from BombardierRemoteClient import *
 import Client
 import PinshCmd
@@ -27,6 +28,10 @@ class Push(PinshCmd.PinshCmd):
             r = mode.getBomConnection(hostName)
         except HostNotEnabledException:
             return FAIL, ["Host not enabled for this user."]
+        except libCipher.DecryptionException, de:
+            msg  = ["Cannot decrypt configuration data."]
+            msg += [de.reason]
+            return FAIL, msg
         if noFlag:
             status, output = r.runCmd("shred -uf %s/config.yml" % hostName)
             if status == FAIL:

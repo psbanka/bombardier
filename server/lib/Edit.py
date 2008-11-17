@@ -60,6 +60,8 @@ class Edit(PinshCmd.PinshCmd):
                                  "platform": mode.global_config.get("defaultPlatform", "linux"),
                                  "defaultUser": mode.global_config.get("defaultUser", "root")}
                 open(filePath, 'w').write(yaml.dump(minimumConfig, default_flow_style=False))
+            os.system("chgroup %s %s" % (mode.defaultGroup, filePath))
+            os.system("chmod 660 %s" % (filePath))
             output.append("New file: %s" % filePath)
         os.system("%s %s" % (editor, filePath))
         return OK, output

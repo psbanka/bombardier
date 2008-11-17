@@ -57,6 +57,7 @@ class Mode:
         self.password = ''
         self.commentCommands = []
         self.bomConnections = {}
+        self.defaultGroup = "root"
         self.enabledSystems = []
         self.getTermInfo()
         self.debug = True
@@ -95,10 +96,13 @@ class Mode:
                       "are too liberal (%d)" % (GLOBAL_CONFIG_FILE, permission)
                 sys.exit(1)
             self.global_config=syck.load(open(GLOBAL_CONFIG_FILE).read())
-            if not self.global_config.has_key("tmpPath"):
+            if not self.global_config.has_key("tmppath"):
                 self.global_config["tmpPath"] = "/tmp"
             self.tmpPath = self.global_config["tmpPath"]
-            self.serverHome = syck.load(open(GLOBAL_CONFIG_FILE).read()).get("serverHome")
+            if not self.global_config.has_key("defaultGroup"):
+                self.global_config["defaultGroup"] = "root"
+            self.defaultGroup = self.global_config["defaultGroup"]
+            self.serverHome = self.global_config.get("serverHome")
         else:
             print "%% The global Bombardier configuration file %s is missing or "\
                   "the permissions don't allow for reading." % GLOBAL_CONFIG_FILE

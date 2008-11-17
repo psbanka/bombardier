@@ -7,22 +7,68 @@ from commonUtil import *
 import Client, libCipher
 import yaml, syck
 
-def resetMaster():
+def cleanup():
     directories = ["include", "client"]
+    for directory in directories:
+        fullGlobPath = os.path.join(mode.serverHome, directory, "*.yml.new")
+        files = glob.glob(fullGlobPath)
+        for fileName in files:
+            os.unlink(fileName)
+
+def reEncryptFiles(oldPassword, newPassword):
     print "Re-encrypting files...",
+    directories = ["include", "client"]
+    renameFiles = []
     for directory in directories:
         fullGlobPath = os.path.join(mode.serverHome, directory, "*.yml")
         files = glob.glob(fullGlobPath)
         for fileName in files:
             baseName = fileName.split(os.path.sep)[-1]
-            print fileName
-            #print '.',
-            oldData = syck.load(open(fileName).read())
-            newData = libCipher.changePass(oldData, oldPassword, newPassword)
-            open(fileName % (directory, baseName), 'w').write(yaml.dump(newData))
+            newFileName = baseName + ".new"
+            sys.stdout.write('.')
+            sys.stdout.flush()
+            try:
+                oldData = syck.load(open(fileName).read())
+            except syck.error, e:
+                errStr = e[0]
+                msg  = ["Could not parse file under configuration control"]
+                msg += ["File name: %s" % fileName]
+                msg += ["Error: %s" % (errStr)]
+                cleanup()
+                return FAIL, msg
+            try:
+                newData = libCipher.changePass(oldData, oldPassword, newPassword)
+            except libCipher.DecryptionException, de:
+                msg  = ["Could not decrypt file under configuration control"]
+                msg += ["File name: %s" % fileName]
+                msg += ["Error: %s" % (de)]
+            except libCipher.InvalidData, id:
+                msg  = ["Could not perform encryption for file under configuration control"]
+                msg += ["File name: %s" % fileName]
+                msg += ["Error: %s" % (id)]
+                return FAIL, msg
+            newFilePath = os.path.join(mode.serverHome, directory, newFileName)
+            fh = open(newFilePath, 'w')
+            fh.write(yaml.dump(newData, default_flow_style=False))
+            renameFiles.append((fileName, newFilePath))
+    overallStatus = OK
+    errorFiles = []
+    for oldName,newName in renameFiles:
+        status1 = os.system("mv %s %s" % (newName, oldName))
+        status2 = os.system("chgroup %s %s" % (mode.defaultGroup, oldName))
+        status3 = os.system("chmod 660 %s" % (oldName))
+        if status1 != OK or status2 != OK or status3 != OK:
+            errorFiles.append(oldName)
+            overallStatus = FAIL
+    if overallStatus != OK:
+        return FAIL, ["Files that failed to be updated: %s" % errorFiles]
+    return OK, ["Password updated"]
 
-def setPassword(slash):
+def setPassword(slash, reEncrypt):
+    if libUi.askYesNo("Reset master password", NO) != YES:
+        return OK, ["No action taken"]
     if mode.auth == ADMIN or 'password' not in mode.global_config:
+        oldPassword = mode.password
         # MASTER PASSWORD HAS NEVER BEEN SET
         masterPass1 = libUi.pwdInput("Enter new master password: ")
         if masterPass1 == '':
@@ -30,25 +76,25 @@ def setPassword(slash):
         masterPass2 = libUi.pwdInput("Verify new master password: ")
         if masterPass1 != masterPass2:
             return FAIL, ['Passwords do not match']
-        mode.password = masterPass1
     else:
         return FAIL, ["Must be done from enable mode"]
+    newPassword = masterPass1
 
     if mode.auth == ADMIN:
-        if libUi.askYesNo("Reset master password?", NO) == YES:
-            resetMaster()
-    try:
-        salt = ''.join(random.sample(libCipher.VALID_CHARS, 20))
-        makeMd5 = md5.new()
-        makeMd5.update(salt)
-        makeMd5.update(mode.password)
-        mode.writeConfig("password", (salt, makeMd5.hexdigest()))
-    except:
-        mode.password = ''
-        return FAIL, ["Could not encrypt password"]
+        if reEncrypt:
+            status, msg = reEncryptFiles(oldPassword, newPassword) 
+            if status != OK:
+                return FAIL, msg
     if mode.auth != ADMIN:
         mode.auth = ADMIN
         mode.pushPrompt(slash, "#", Mode.ENABLE)
+    mode.password = masterPass1
+    salt = ''.join(random.sample(libCipher.VALID_CHARS, 20))
+    makeMd5 = md5.new()
+    makeMd5.update(salt)
+    makeMd5.update(mode.password)
+    mode.writeConfig("password", (salt, makeMd5.hexdigest()))
+    print
     return OK, ["Password set"]
 
 class UnsupportedTypeException(Exception):
@@ -162,6 +208,8 @@ class Set(PinshCmd.PinshCmd):
         self.bom = PinshCmd.PinshCmd("bom","bom\tchange a bill of materials")
         self.include = PinshCmd.PinshCmd("include","include\tchange an include file")
         self.password = PinshCmd.PinshCmd("password","password\tset your password")
+        withoutReEncryption= PinshCmd.PinshCmd("without-reencryption","without-reencryption\tDon't re-encrypt data files")
+        self.password.children = [withoutReEncryption]
         self.job = PinshCmd.PinshCmd("job", "job\tset up a new batch job")
         self.job.auth = ADMIN
         self.lock = PinshCmd.PinshCmd("lock", "lock\tset a lock")
@@ -265,7 +313,9 @@ class Set(PinshCmd.PinshCmd):
         if tokens[1].lower().startswith('j'):
             return setJob(tokens, noFlag)
         if tokens[1].lower().startswith('p'):
-            return setPassword(slash)
+            if len(tokens) == 3 and tokens[2].lower().startswith('w'):
+                return setPassword(slash, reEncrypt=False)
+            return setPassword(slash, reEncrypt=True)
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
         return self.setConfigValue(tokens, noFlag)
