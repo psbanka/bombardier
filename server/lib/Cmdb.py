@@ -122,6 +122,8 @@ class Cmdb(PinshCmd.PinshCmd):
         return self.runSvn(tokens, "diff")
 
     def revertChanges(self):
+        if mode.batch:
+            return self.runSvnMult("revert", '-R')
         if libUi.askYesNo("Revert all changes made to the CMDB", NO) == YES:
             return self.runSvnMult("revert", '-R')
         else:

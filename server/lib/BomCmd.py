@@ -158,6 +158,10 @@ class PackageCommand(PinshCmd.PinshCmd):
             packageName = packageNames[0]
             try:
                 r = mode.getBomConnection(self.hostName, slash.fpOut)
+            except IOError, ioe:
+                msg  = ["Cannot read files necessary to contact this host"]
+                msg += [str(ioe)]
+                return FAIL, msg
             except EnableRequiredException:
                 return FAIL, ["Must be in enable mode to contact this system."]
             except HostNotEnabledException:

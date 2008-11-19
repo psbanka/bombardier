@@ -113,6 +113,8 @@ class UserAuth:
             userDict["enc_password"] = libCipher.encrypt(self.hostPass, self.password)
             systemInfo["system"]["users"][self.userName] = userDict
             open(self.systemInfoFile, 'w').write(yaml.dump(systemInfo))
+            status2 = os.system("chgrp %s %s" % (mode.defaultGroup, self.systemInfoFile))
+            status3 = os.system("chmod 660 %s" % (self.systemInfoFile))
         return OK
 
     def verifyVpnCert(self):
@@ -144,6 +146,10 @@ class UserAuth:
         os.chdir("CA")
         open("%s-CA.crt" % self.environment, "w").write(caData["openvpn"]["CA_CRT"])
         open("%s-CA.key" % self.environment, "w").write(caData["openvpn"]["CA_KEY"])
+        os.system("chgrp %s %s" % (mode.defaultGroup, "%s-CA.crt" % self.environment))
+        os.system("chmod 660 %s" % ("%s-CA.crt" % self.environment))
+        os.system("chgrp %s %s" % (mode.defaultGroup, "%s-CA.key" % self.environment))
+        os.system("chmod 660 %s" % ("%s-CA.key" % self.environment))
         s = pexpect.spawn("bash mkpkg.sh %s %s" % (self.name, self.environment))
         s.expect("Enter PEM pass phrase:")
         s.sendline(self.vpnPass)
@@ -162,6 +168,8 @@ class UserAuth:
     def createPwsafe(self):
         getstatusoutput('rm -f %s.dat' % self.name)
         inputFile = open("%s.pass" % self.name, 'w')
+        status2 = os.system("chgrp %s %s" % (mode.defaultGroup, "%s.pass" % self.name))
+        status3 = os.system("chmod 660 %s" % ("%s.pass" % self.name))
         inputFile.write(self.createEntry("VPN_certificate", self.vpnPass, "This will unlock your VPN certificate")+'\n')
         for host in self.hostAccess:
             notes = "rights: %s" % str(list(self.hostAccess[host]))
@@ -184,6 +192,8 @@ class UserAuth:
         status1, output = getstatusoutput('mv %s.dat %s' % (self.name, self.webDir))
         status2, output = getstatusoutput('bash -c "cp CA/archive/%s*.zip %s"' % (self.name, self.webDir))
         open("%s/%s.passwd" % (self.webDir, self.name), 'w').write(self.safeCombo)
+        status2 = os.system("chgrp %s %s" % (mode.defaultGroup, "%s/%s.passwd" % (self.webDir, self.name)))
+        status3 = os.system("chmod 660 %s" % ("%s/%s.passwd" % (self.webDir, self.name)))
         status3, output = getstatusoutput('sudo bash -c "chown %s.%s %s/%s*"' % (self.webUser, self.webUser, self.webDir, self.name))
         status4, output = getstatusoutput('sudo bash -c "chmod 600 %s/%s*"' % (self.webDir, self.name))
         if [status1, status2, status3, status4] == [OK, OK, OK, OK]:

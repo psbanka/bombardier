@@ -82,6 +82,8 @@ class JobCollection(Logger):
         plainText = yaml.dump(self.toDict())
         cipherText = encrypt(plainText, self.password)
         fd.write(cipherText)
+        os.system("chgrp %s %s 2> /dev/null" % (mode.defaultGroup, self.jobFile))
+        os.system("chmod 660 %s 2> /dev/null" % (self.jobFile))
         return OK
 
     def toDict(self):

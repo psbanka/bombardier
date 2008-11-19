@@ -23,7 +23,7 @@ LOCAL_PACKAGES = "local-packages"
 
 class BombardierRemoteClient(RemoteClient):
 
-    def __init__(self, hostName, configPass, serverHome, termwidth, termcolor,
+    def __init__(self, hostName, configPass, serverHome, termwidth, termcolor, defaultGroup,
                  outputHandle=sys.stdout, packageData=None, enabled=True):
         RemoteClient.__init__(self, hostName, serverHome, termwidth, termcolor,
                               outputHandle, configPass, enabled)
@@ -31,6 +31,7 @@ class BombardierRemoteClient(RemoteClient):
         self.localFilename = ''
         self.reportInfo    = ''
         self.stateMachine  = []
+        self.defaultGroup  = defaultGroup
 
         self.stateMachine.append([re.compile("\=\=REPORT\=\=:(.*)"), self.getReport])
         self.stateMachine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.sendClient])
@@ -454,6 +455,8 @@ class BombardierRemoteClient(RemoteClient):
             if self.reportInfo:
                 fileName = os.path.join(self.serverHome, "output", "%s-%s.yml" % (self.hostName, scriptName))
                 open(fileName, 'w').write(self.reportInfo)
+                os.system("chgrp %s %s 2> /dev/null" % (self.defaultGroup, fileName))
+                os.system("chmod 660 %s 2> /dev/null" % (fileName))
             else:
                 if not self.pullReport:
                     return returnCode, []
@@ -499,6 +502,8 @@ class BombardierRemoteClient(RemoteClient):
         statusFile = os.path.join(statusDir, "%s.yml" % self.hostName)
         try:
             open( statusFile, 'w' ).write(statusYml)
+            os.system("chgrp %s %s 2> /dev/null" % (self.defaultGroup, statusFile))
+            os.system("chmod 660 %s 2> /dev/null" % (statusFile))
         except IOError, ioe:
             self.errorOutput("Unable to write '%s' (%s)" % (statusFile, ioe))
 

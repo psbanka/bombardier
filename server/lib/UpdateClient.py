@@ -20,7 +20,7 @@ class UpdateRemoteClient(BombardierRemoteClient):
 
     def __init__(self, hostName, fileName, mode, outputHandle):
         BombardierRemoteClient.__init__(self, hostName, mode.password, mode.serverHome,
-                                        mode.termwidth, mode.termcolor, outputHandle)
+                                        mode.termwidth, mode.termcolor, mode.defaultGroup, outputHandle)
         self.base_file_name = fileName
         self.tarFile  = os.path.join(mode.serverHome, "bombardier-client", fileName)
         self.cmdDebug = False

@@ -84,6 +84,8 @@ class Mode:
     def writeConfig(self, option, value):
         self.global_config[option] = value
         open(GLOBAL_CONFIG_FILE, 'w').write(yaml.dump(self.global_config))
+        os.system("chgrp %s %s 2> /dev/null" % (mode.defaultGroup, GLOBAL_CONFIG_FILE))
+        os.system("chmod 660 %s 2> /dev/null" % (GLOBAL_CONFIG_FILE))
 
     def loadConfig(self):
         if os.path.isfile(GLOBAL_CONFIG_FILE):
@@ -141,8 +143,8 @@ class Mode:
             raise HostNotEnabledException(hostName)
         if not hostName in self.bomConnections:
             brc = BombardierRemoteClient(hostName, self.password, self.serverHome,
-                                         self.termwidth, self.termcolor, outputHandle, 
-                                         enabled=enabled)
+                                         self.termwidth, self.termcolor, self.defaultGroup, 
+                                         outputHandle, enabled=enabled)
             self.bomConnections[hostName] = brc
         else:
             if self.password:
@@ -229,5 +231,6 @@ if __name__ == "__main__":
     status = runTest(mode.popPrompt, [], OK, status)
     status = runTest(mode.getPrompt, [], PROMPTY + "# ", status)
     status = runTest(mode.currentState, [], 1, status)
+
 
     endTest(status)

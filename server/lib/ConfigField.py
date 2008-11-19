@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+# FIXME: This module is in horrible need of refactoring
+
 import glob, os
 
 import PinshCmd, BomHostField, libCipher
@@ -53,27 +55,31 @@ class ConfigField(PinshCmd.PinshCmd):
             data = libCipher.decrypt(data, '')
         return [firstTokenName], data
 
+    def removeOneItem(self, currentValue, tokens, index):
+        item = tokens[index+1]
+        if item in currentValue:
+            currentValue.remove(item)
+            status, output = self.setValue(tokens, 2, currentValue, False)
+            return status, output + ["%s removed from list" % item]
+        try:
+            if int(item) in currentValue:
+                currentValue.remove(int(item))
+                status, output = self.setValue(tokens, 2, currentValue, False)
+                return status, output + ["%s removed from list" % item]
+        except:
+            pass
+        return FAIL, ["%s is not in the current list of values." % item]
+        
     def removeValue(self, tokens, index):
         if self.dataType == MERGED:
             return FAIL, []
 
-#        if newValue in currentValue:
-#            currentValue.remove(newValue)
-#            status, output = fieldObject.setValue(tokens, 2, currentValue)
-#            return status, output + ["%s removed from list" % newValue]
-#        try:
-#            if int(newValue) in currentValue:
-#                currentValue.remove(int(newValue))
-#                status, output = fieldObject.setValue(tokens, 2, currentValue)
-#                return status, output + ["%s removed from list" % newValue]
-#        except:
-#            pass
-#        return FAIL, ["%s is not in the current list of values." % newValue]
-        
         firstTokenNames, clearData = self.getTopLevelData(tokens, index, True)
         firstTokenNames, encData = self.getTopLevelData(tokens, index, False)
         if not clearData:
             return FAIL, []
+        if type(clearData) == type(["list"]):
+            return self.removeOneItem(clearData, tokens, index)
         firstTokenName = firstTokenNames[0]
         configName = self.preferredNames(tokens, index)
         if configName == []:
@@ -91,7 +97,10 @@ class ConfigField(PinshCmd.PinshCmd):
                 execString += "['%s']" % configValue
         exec( execString )
         string = yaml.dump(encData, default_flow_style=False)
-        open("%s/%s.yml" % (self.directory, firstTokenName), 'w').write(string)
+        fileName = "%s/%s.yml" % (self.directory, firstTokenName)
+        open(fileName, 'w').write(string)
+        os.system("chgrp %s %s 2> /dev/null" % (mode.defaultGroup, fileName))
+        os.system("chmod 660 %s 2> /dev/null" % (fileName))
         return OK, output
 
 
@@ -142,7 +151,11 @@ class ConfigField(PinshCmd.PinshCmd):
                 execString += " = %s" % newValue
             exec( execString )
         string = yaml.dump(encData, default_flow_style=False)
-        open("%s/%s.yml" % (self.directory, firstTokenName), 'w').write(string)
+        fileName = "%s/%s.yml" % (self.directory, firstTokenName)
+        open(fileName, 'w').write(string)
+        os.system("chgrp %s %s > /dev/null" % (mode.defaultGroup, fileName))
+        os.system("chmod 660 %s > /dev/null" % (fileName))
+                 
         return OK, output
 
     def getSpecificData(self, tokens, index):

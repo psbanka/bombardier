@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+# FIXME: This module is in horrible need of refactoring
+
 import sys, os, time, glob, md5, random
 import PinshCmd, Mode, libUi, ConfigField, Expression, JobNameField, Integer, MultipleChoice, Variable
 import SecureCommSocket
@@ -55,8 +57,8 @@ def reEncryptFiles(oldPassword, newPassword):
     errorFiles = []
     for oldName,newName in renameFiles:
         status1 = os.system("mv %s %s" % (newName, oldName))
-        status2 = os.system("chgroup %s %s" % (mode.defaultGroup, oldName))
-        status3 = os.system("chmod 660 %s" % (oldName))
+        status2 = os.system("chgrp %s %s 2> /dev/null" % (mode.defaultGroup, oldName))
+        status3 = os.system("chmod 660 %s 2> /dev/null" % (oldName))
         if status1 != OK or status2 != OK or status3 != OK:
             errorFiles.append(oldName)
             overallStatus = FAIL
@@ -289,6 +291,21 @@ class Set(PinshCmd.PinshCmd):
     def setConfigValue(self, tokens, noFlag):
         fieldObject = self.getFieldObject(tokens)
         if noFlag:
+            currentValue = fieldObject.getSpecificData(tokens, 2)
+            if type(currentValue) == type(['list']):
+                item = tokens[3]
+                if item in currentValue:
+                    currentValue.remove(item)
+                    status, output = fieldObject.setValue(tokens, 2, currentValue, False)
+                    return status, output + ["%s removed from list" % item]
+                try:
+                    if int(item) in currentValue:
+                        currentValue.remove(int(item))
+                        status, output = self.setValue(tokens, 2, currentValue, False)
+                        return status, output + ["%s removed from list" % item]
+                except:
+                    pass
+                return FAIL, ["%s is not in the current list of values." % item]
             return fieldObject.removeValue(tokens, 2)
         encrypt = False
         if len(tokens) == 4 and tokens[-1].lower() == 'encrypt':
