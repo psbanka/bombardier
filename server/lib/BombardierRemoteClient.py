@@ -230,7 +230,7 @@ class BombardierRemoteClient(RemoteClient):
         try:
             self.s.sendline( cmd )
             self.s.prompt()
-        except pexpect.EOF:
+        except EOF:
             if raiseOnError:
                 msg = "Error running %s (%s)" % (cmd, output)
                 raise ClientUnavailableException(msg)
@@ -293,11 +293,11 @@ class BombardierRemoteClient(RemoteClient):
         statusYml = os.path.join(self.serverHome, "status", "%s.yml" % self.hostName)
         if not os.path.isfile(statusYml):
             self.debugOutput("Cannot retrieve status (NO FILE: %s)" % statusYml)
-            return []
+            return {}
         yml = syck.load( open(statusYml).read() ) 
         if yml == None:
             self.debugOutput("Cannot retrieve status (EMPTY FILE: %s)" % statusYml)
-            return []
+            return {}
         return yml
 
     def getAllPackageNames(self):
@@ -371,8 +371,8 @@ class BombardierRemoteClient(RemoteClient):
         else:
             cmd = "export PYTHON_HOME=$(%s -c 'import sys; print sys.prefix')" %self.python
             gsoOut = self.gso(cmd)
-            cmd = '$PYTHON_HOME/bin/python $PYTHON_HOME/bin/bc.py %s %s %s %s' % (ACTION_DICT[action], self.hostName,
-                                         packageString, scriptName)
+            cmd = '%s $PYTHON_HOME/bin/bc.py %s %s %s %s' % (self.python, ACTION_DICT[action],
+                                         self.hostName, packageString, scriptName)
         self.s.sendline(cmd)
         self.sendAllClientData(action)
         foundIndex = 0
@@ -433,7 +433,7 @@ class BombardierRemoteClient(RemoteClient):
             return FAIL, ["Remote system refused connection."]
         except ClientConfigurationException:
             return FAIL, []
-        except pexpect.EOF:
+        except EOF:
             return FAIL, ["Client unexpectedly disconnected."]
         except Exception, e:
             e = StringIO.StringIO()
@@ -489,9 +489,9 @@ class BombardierRemoteClient(RemoteClient):
         if not os.path.isdir( statusDir ):
             os.makedirs( statusDir )
 
-        self.s.sendline ('cat %s/%s/status.yml' % (self.spkgDir, self.hostName))
+        self.s.sendline ('cat %s/%s/status.yml;echo "======="' % (self.spkgDir, self.hostName))
         self.s.prompt()
-        statusYml = str(self.s.before).split("status:")[0]
+        statusYml = str(self.s.before).split("======")[0]
         statusYml = statusYml.replace('\r','')
         try:
             syck.load(statusYml)
