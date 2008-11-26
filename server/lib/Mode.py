@@ -42,6 +42,18 @@ class HostNotEnabledException(Exception):
     def __repr__(self):
         return "Host %s is not enabled for this user" % self.server
 
+class ConfigFileException(Exception):
+    def __init__(self, message, fileName):
+        e = Exception()
+        Exception.__init__(e)
+        self.fileName = fileName
+        self.message = message
+    def __repr__(self):
+        return "%% Error processing config file %s: %s" \
+               %(self.fileName, self.message)
+    def __str__(self):
+        return self.__repr__()
+
 class Mode:
     def __init__(self, state, prompt):
         self.batch = False
@@ -88,15 +100,14 @@ class Mode:
         os.system("chmod 660 %s 2> /dev/null" % (GLOBAL_CONFIG_FILE))
 
     def loadConfig(self):
-        if os.path.isfile(GLOBAL_CONFIG_FILE):
+        try:
+            if not os.path.isfile(GLOBAL_CONFIG_FILE):
+                raise ConfigFileException("File not found.", GLOBAL_CONFIG_FILE)
             st = os.stat(GLOBAL_CONFIG_FILE)
             mode = st[stat.ST_MODE]
             permission = stat.S_IMODE(mode)
             if mode & stat.S_IROTH:
-            #if mode & stat.S_IRWXO:
-                print "%% The permissions on your configuration file (%s) "\
-                      "are too liberal (%d)" % (GLOBAL_CONFIG_FILE, permission)
-                sys.exit(1)
+                raise ConfigFileException("Incorrect permissions %s." %permission, GLOBAL_CONFIG_FILE)
             self.global_config=syck.load(open(GLOBAL_CONFIG_FILE).read())
             if not self.global_config.has_key("tmppath"):
                 self.global_config["tmpPath"] = "/tmp"
@@ -105,9 +116,16 @@ class Mode:
                 self.global_config["defaultGroup"] = "root"
             self.defaultGroup = self.global_config["defaultGroup"]
             self.serverHome = self.global_config.get("serverHome")
-        else:
-            print "%% The global Bombardier configuration file %s is missing or "\
-                  "the permissions don't allow for reading." % GLOBAL_CONFIG_FILE
+        except ConfigFileException, e:
+            print e
+            sys.exit(1)
+        except syck.error, e:
+            print "Yaml error loading config file %s" %GLOBAL_CONFIG_FILE
+            print e[0]
+            sys.exit(1)
+        except IOError: 
+            print "%% The global Bombardier configuration file (%s) is not readable."\
+                  % GLOBAL_CONFIG_FILE
             sys.exit(1)
 
         if os.path.isfile(PERSONAL_CONFIG_FILE):
