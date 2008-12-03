@@ -148,7 +148,7 @@ class RemoteClient:
         self.formatOutput("==> ", msg, msg)
 
     def warningOutput(self, msg):
-        if self.termcolor:
+        if self.termcolor and self.termcolor != 'none':
             colorCode = WARNING_COLOR[self.termcolor]
             msg = "\033%sWARNING:\033[m %s" % (colorCode, msg)
         else:
