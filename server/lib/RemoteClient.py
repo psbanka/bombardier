@@ -134,13 +134,13 @@ class RemoteClient:
 
     def tracebackOutput(self, msg):
         prefix = "==> CLIENT TRACEBACK: "
-        if self.termcolor:
+        if self.termcolor and self.termcolor != 'none':
             colorCode = WARNING_COLOR[self.termcolor]
             prefix = "==> \033%sCLIENT TRACEBACK:\033[m " % (colorCode)
         self.formatOutput(prefix, msg, msg)
 
     def errorOutput(self, msg):
-        if self.termcolor:
+        if self.termcolor and self.termcolor != 'none':
             colorCode = WARNING_COLOR[self.termcolor]
             msg = "\033%sERROR:\033[m %s" % (colorCode, msg)
         else:
@@ -219,7 +219,7 @@ class RemoteClient:
         self.debugOutput(msg, msg)
         try:
             if not self.s.login(self.ipAddress, self.username, self.sshPass, login_timeout=6000):
-                raise ClientUnavailableException
+                raise ClientUnavailableException(self.hostName, "Could not connect.")
             self.s.sendline('stty -echo')
             self.s.prompt()
         except (ClientUnavailableException, pexpect.TIMEOUT):
