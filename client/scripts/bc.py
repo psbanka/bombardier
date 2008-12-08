@@ -30,7 +30,7 @@ from bombardier.Config import Config
 import bombardier.Exceptions
 import bombardier.Package
 import bombardier.BombardierClass
-from bombardier.miniUtility import getProgressPath
+from bombardier.miniUtility import getProgressPath, getSpkgPath
 import base64
 import zlib
 
@@ -176,7 +176,7 @@ def instanceSetup(instanceName):
     if type(statusDct) != type({}):
         statusDct = {"status": {"newInstall": "True"}}
     statusDct["clientVersion"] = VERSION
-    pkgDir = "%s/packages" % instanceName
+    pkgDir = os.path.join(getSpkgPath(), instanceName, "packages")
     if not os.path.isdir(pkgDir):
         os.makedirs(pkgDir)
     open(progressPath, 'w').write(yaml.dump(statusDct))
