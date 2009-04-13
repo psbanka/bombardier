@@ -83,6 +83,9 @@ class Enable(PinshCmd.PinshCmd):
             return FAIL, msg
         r.sharedKey = False
         remoteKeyFile = "%s_id_dsa.pub" % os.environ["USER"]
+        sshKeysDir = "~/.ssh"
+        status, output = r.runCmd("[ -e %s ] || mkdir %s && chmod 700 %s" \
+                                   % (sshKeysDir, sshKeysDir, sshKeysDir))
         try:
             r.scp(pubKeyFile, ".ssh/%s" % remoteKeyFile, verbose=False)
         except ClientUnavailableException:
