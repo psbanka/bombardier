@@ -2,7 +2,7 @@
 
 import os, sys
 sys.path.append('.')
-from bombardier_server.staticData import *
+from bombardier_server.cli.staticData import *
 
 def tryImport(module):
     try:
@@ -120,9 +120,9 @@ checkConfig()
 
 import exceptions
 import sys, os, readline, signal
-import bombardier_server.libUi
-from bombardier_server.commonUtil import *
-from bombardier_server.Slash import *
+import bombardier_server.cli.libUi
+from bombardier_server.cli.commonUtil import *
+from bombardier_server.cli.Slash import *
 import optparse
 
 mode.auth = USER
