@@ -13,7 +13,7 @@ YES = 1
 NO = 0
 
 def motd(outputHandle):
-    from bombardier_server.banner import banner
+    from bombardier_server.cli.banner import banner
     output = []
     for line in banner:
         outputHandle.write(line)
