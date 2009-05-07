@@ -12,7 +12,8 @@ class FileManifestTest(unittest.TestCase):
         self.testDir = '_manifest_test'
         self.manifestFile = os.path.join( self.testDir, 'manifest/manifest.yml' )
         self.createDirectoryStructure()
-        self.fileManifest = FileManifest(self.testDir, ['foo', 'bar'], self.manifestFile)
+        extension_list = ['exe', 'aspx']
+        self.fileManifest = FileManifest(self.testDir, ['foo', 'bar'], self.manifestFile, extension_list )
         self.expectedManifestDict = {'foo': {'file.exe': 'b66b5b56809078def934c04cda9e791f'},
                                      'bar': {'file.txt': '', 
                                              'bar2%sfile.aspx' % os.sep: 'dbf1f2836e1b325fcfdfa6fca6aee3c1'}}
@@ -35,26 +36,28 @@ class FileManifestTest(unittest.TestCase):
     def tearDown(self):
         os.system( 'rm -rf %s' %self.testDir )
 
-    def testCreateManifest(self):
-        self.fileManifest.createManifest()
-        assert self.fileManifest.manifestDictionary == self.expectedManifestDict
+    def testCreateManifestFile(self):
+        self.fileManifest.create_manifest()
+        assert self.fileManifest.manifest_dictionary == self.expectedManifestDict, self.fileManifest.manifest_dictionary
+        self.fileManifest.write_manifest_file()
+        assert os.path.isfile(self.manifestFile)
         
     def testVerifyManifest(self):
         open( self.manifestFile, 'w' ).write( yaml.dump( self.expectedManifestDict ) )
-        self.fileManifest.loadManifest()
-        assert self.fileManifest.manifestDictionary == self.expectedManifestDict
-        assert self.fileManifest.verifyManifest( self.mappingDictionary ) == []
+        self.fileManifest.load_manifest()
+        assert self.fileManifest.manifest_dictionary == self.expectedManifestDict
+        assert self.fileManifest.verify_manifest( self.mappingDictionary ) == []
 
         os.system( "rm -f %s" %os.path.join( self.testDir, 'bar/file.txt' ) )
-        errorList = self.fileManifest.verifyManifest( self.mappingDictionary )  
+        errorList = self.fileManifest.verify_manifest( self.mappingDictionary )  
         assert errorList != [], errorList
 
         open( os.path.join( self.testDir, 'bar/file.txt' ), 'w' ).write("New text.")
-        errorList = self.fileManifest.verifyManifest( self.mappingDictionary )  
+        errorList = self.fileManifest.verify_manifest( self.mappingDictionary )  
         assert errorList == [], errorList
 
         open( os.path.join( self.testDir, 'bar/bar2/file.aspx' ), 'w' ).write(u"New aspx.")
-        errorList = self.fileManifest.verifyManifest( self.mappingDictionary )  
+        errorList = self.fileManifest.verify_manifest( self.mappingDictionary )  
         assert errorList != [], errorList
 
 
