@@ -233,7 +233,7 @@ class BombardierRemoteClient(RemoteClient):
         except EOF:
             if raiseOnError:
                 msg = "Error running %s (%s)" % (cmd, output)
-                raise ClientUnavailableException(msg)
+                raise ClientUnavailableException(self.hostName, msg)
             else:
                 return ""
         output = self.s.before.strip()
@@ -248,9 +248,8 @@ class BombardierRemoteClient(RemoteClient):
     def runCmd(self, commandString):
         self.reportInfo = ''
         if self.freshen() != OK:
-            message = "Unable to connect to %s." % self.hostName
-            self.errorOutput(message)
-            return FAIL, ''
+            msg = "Unable to connect to %s." % self.hostName
+            raise ClientUnavailableException(self.hostName, msg)
         returnCode = OK
         self.s.sendline ('cd %s' %self.spkgDir)
         self.s.prompt()

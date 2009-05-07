@@ -10,6 +10,8 @@ import Client
 from commonUtil import *
 from bombardier.staticData import CENSORED
 
+from commands import getstatusoutput
+
 MERGED = 1
 CLIENT = 2
 INCLUDE = 3
@@ -31,12 +33,36 @@ class ConfigField(PinshCmd.PinshCmd):
         if dataType == BOM:
             self.directory = os.path.join(mode.serverHome, "bom")
 
-    def getTopLevelData(self, tokens, index, decrypt):
-        partialFirst = tokens[index].split('.')[0]
+    def get_machines(self):
+        directory = self.directory.split('/')[-1]
+        cmd = "curl --silent http://127.0.0.1:8000/json/"+directory+"/search/"
+        status, output = getstatusoutput(cmd)
+        data = syck.load(output)
+        machines = [ x.get("fields").get("name") for x in data ]
+        return machines
+
+    def old_get_machines(self):
         yamlFiles = glob.glob("%s/*.yml" % self.directory)
         fileNames = []
         for filename in yamlFiles:
             fileNames.append(filename.split('/')[-1].split('.yml')[0])
+        return fileNames
+
+    def old_get_data(self, firstTokenName):
+        data = syck.load(open("%s/%s.yml" % (self.directory, firstTokenName)).read())
+        return data
+
+    def get_data(self, firstTokenName):
+        directory = self.directory.split('/')[-1]
+        cmd = "curl --silent http://127.0.0.1:8000/json/"+directory+"/name/"+firstTokenName
+        status, output = getstatusoutput(cmd)
+        data = syck.load(output)
+        #data = syck.load(open("%s/%s.yml" % (self.directory, firstTokenName)).read())
+        return data
+
+    def getTopLevelData(self, tokens, index, decrypt):
+        partialFirst = tokens[index].split('.')[0]
+        fileNames = self.get_machines()
         firstTokenNames = [ fn for fn in fileNames if fn.lower().startswith(partialFirst.lower()) ]
         if len(firstTokenNames) == 0:
             return [], {}
@@ -50,7 +76,7 @@ class ConfigField(PinshCmd.PinshCmd):
             client.get()
             data = client.data
         else:
-            data = syck.load(open("%s/%s.yml" % (self.directory, firstTokenName)).read())
+            data = self.get_data(firstTokenName)
         if decrypt:
             data = libCipher.decrypt(data, '')
         return [firstTokenName], data
