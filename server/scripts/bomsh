@@ -63,7 +63,11 @@ def checkConfig():
         serverHome, user, platform = getInitialUserInput()
         print "==> Making directories..."
         try:
-            os.makedirs(os.path.join(serverHome))
+            if not os.path.isdir(os.path.join(serverHome)):
+                os.makedirs(os.path.join(serverHome))
+            else:
+                print "%%%% %s directory already exists." % serverHome
+                sys.exit(1)
         except OSError:
             print "%%%% Unable to create directory %s." % serverHome
             print "%% Aborting installation."
@@ -105,7 +109,7 @@ def checkConfig():
         fh.write("defaultUser: %s\n" % user)
         fh.write("defaultPlatform: %s\n" % platform)
         fh.close()
-        os.system("chmod 600 %s" % GLOBAL_CONFIG_FILE)
+        os.system("chmod 660 %s" % GLOBAL_CONFIG_FILE)
         print "==> Making initial DSL data file..."
         pkgsFile = os.path.join(serverHome, PACKAGES_FILE)
         fh = open(os.path.join(pkgsFile), 'w')

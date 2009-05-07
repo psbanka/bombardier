@@ -1,6 +1,7 @@
 import sys, time, random
 import libCipher
 from BombardierRemoteClient import *
+from RemoteClient import ClientUnavailableException
 import Client
 import PinshCmd
 import BomHostField
@@ -33,8 +34,9 @@ class Push(PinshCmd.PinshCmd):
             msg += [de.reason]
             return FAIL, msg
         if noFlag:
-            status, output = r.runCmd("shred -uf %s/config.yml" % hostName)
-            if status == FAIL:
+            try:
+                status, output = r.runCmd("shred -uf %s/config.yml" % hostName)
+            except ClientUnavailableException:
                 return FAIL, ["Unable to delete config.yml from %s. (%s)" % (hostName, output.strip().replace('\n', ' '))]
             return OK, ["Remote config file removed."]
         client = Client.Client(hostName, mode.password, mode.serverHome)
