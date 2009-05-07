@@ -9,7 +9,7 @@ INSTALLED_APPS = (
     'django.contrib.auth',
     'django.contrib.sessions',
     'django.contrib.sites',
-    'clients',
+    'configs',
 )
 SITE_ID=1
 ROOT_URLCONF = 'urls'

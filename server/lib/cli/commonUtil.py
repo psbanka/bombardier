@@ -9,13 +9,15 @@ from staticData import *
 import Mode
 
 HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
+LOG_PATH = "%s/.bomsh_log" % os.environ['HOME']
 TEST_CIPHER  = "The Quick Brown Fox Jumped Over The Lazy Dog"
 mode = Mode.Mode(Mode.USER, '>')
 mode.loadConfig()
 
 logger      = logging.getLogger('bomsh_changes')
-logPath     = os.path.join(mode.serverHome, "changes.log")
-fileHandler = logging.FileHandler(logPath)
+if not os.path.isfile(LOG_PATH):
+    open(LOG_PATH, 'w').write('Log file initialized.\n')
+fileHandler = logging.FileHandler(LOG_PATH)
 formatter   = logging.Formatter('%(asctime)-15s|%(message)s')
 fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
