@@ -27,37 +27,23 @@ class ConfigField(PinshCmd.PinshCmd):
         self.cmdOwner = 0
         self.strict = strict # take only exact matches
         if dataType in [CLIENT, MERGED]:
-            self.directory = os.path.join(mode.serverHome, "client")
+            self.directory = "client"
         if dataType == INCLUDE:
-            self.directory = os.path.join(mode.serverHome, "include")
+            self.directory = "include"
         if dataType == BOM:
-            self.directory = os.path.join(mode.serverHome, "bom")
+            self.directory = "bom"
 
     def get_machines(self):
-        directory = self.directory.split('/')[-1]
-        cmd = "curl --silent http://127.0.0.1:8000/json/"+directory+"/search/"
+        cmd = "curl --silent http://127.0.0.1:8000/json/"+self.directory+"/search/"
         status, output = getstatusoutput(cmd)
         data = syck.load(output)
         machines = [ x.get("fields").get("name") for x in data ]
         return machines
 
-    def old_get_machines(self):
-        yamlFiles = glob.glob("%s/*.yml" % self.directory)
-        fileNames = []
-        for filename in yamlFiles:
-            fileNames.append(filename.split('/')[-1].split('.yml')[0])
-        return fileNames
-
-    def old_get_data(self, firstTokenName):
-        data = syck.load(open("%s/%s.yml" % (self.directory, firstTokenName)).read())
-        return data
-
     def get_data(self, firstTokenName):
-        directory = self.directory.split('/')[-1]
-        cmd = "curl --silent http://127.0.0.1:8000/json/"+directory+"/name/"+firstTokenName
+        cmd = "curl --silent http://127.0.0.1:8000/json/"+self.directory+"/name/"+firstTokenName
         status, output = getstatusoutput(cmd)
         data = syck.load(output)
-        #data = syck.load(open("%s/%s.yml" % (self.directory, firstTokenName)).read())
         return data
 
     def getTopLevelData(self, tokens, index, decrypt):

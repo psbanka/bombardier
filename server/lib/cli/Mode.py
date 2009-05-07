@@ -6,7 +6,6 @@ import yaml, syck
 from BombardierRemoteClient import BombardierRemoteClient
 
 PERSONAL_CONFIG_FILE = "%s/.bomsh_config" % os.environ.get("HOME")
-GLOBAL_CONFIG_FILE = "/etc/bombardier.yml"
 
 NO_COLOR  = 'none'
 DARK      = "dark"
@@ -79,8 +78,6 @@ class Mode:
         self.autoEnable = False
         self.editor = "/usr/bin/vim"
         self.setPrompt()
-        self.serverHome = None
-        self.tmpPath = None
         self.childProcesses = []
         self.termwidth = 80
         self.termlen   = 23
@@ -93,40 +90,7 @@ class Mode:
             self.personal_config[option] = [value]
         open(PERSONAL_CONFIG_FILE, 'w').write(yaml.dump(self.personal_config))
 
-    def writeConfig(self, option, value):
-        self.global_config[option] = value
-        open(GLOBAL_CONFIG_FILE, 'w').write(yaml.dump(self.global_config))
-        os.system("chgrp %s %s 2> /dev/null" % (self.defaultGroup, GLOBAL_CONFIG_FILE))
-        os.system("chmod 660 %s 2> /dev/null" % (GLOBAL_CONFIG_FILE))
-
     def loadConfig(self):
-        try:
-            if not os.path.isfile(GLOBAL_CONFIG_FILE):
-                raise ConfigFileException("File not found.", GLOBAL_CONFIG_FILE)
-            st = os.stat(GLOBAL_CONFIG_FILE)
-            mode = st[stat.ST_MODE]
-            permission = stat.S_IMODE(mode)
-            if mode & stat.S_IROTH:
-                raise ConfigFileException("Incorrect permissions %s." %permission, GLOBAL_CONFIG_FILE)
-            self.global_config=syck.load(open(GLOBAL_CONFIG_FILE).read())
-            if not self.global_config.has_key("tmppath"):
-                self.global_config["tmpPath"] = "/tmp"
-            self.tmpPath = self.global_config["tmpPath"]
-            if not self.global_config.has_key("defaultGroup"):
-                self.global_config["defaultGroup"] = "root"
-            self.defaultGroup = self.global_config["defaultGroup"]
-            self.serverHome = self.global_config.get("serverHome")
-        except ConfigFileException, e:
-            print e
-            sys.exit(1)
-        except syck.error, e:
-            print "Yaml error loading config file %s" %GLOBAL_CONFIG_FILE
-            print e[0]
-            sys.exit(1)
-        except IOError: 
-            print "%% The global Bombardier configuration file (%s) is not readable."\
-                  % GLOBAL_CONFIG_FILE
-            sys.exit(1)
 
         if os.path.isfile(PERSONAL_CONFIG_FILE):
             self.personal_config=syck.load(open(PERSONAL_CONFIG_FILE).read())
