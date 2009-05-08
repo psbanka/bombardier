@@ -41,7 +41,7 @@ class ServerConfig:
             mode = st[stat.ST_MODE]
             permission = stat.S_IMODE(mode)
             if mode & stat.S_IROTH:
-                raise ConfigFileException("Incorrect permissions %s." %permission, GLOBAL_CONFIG_FILE)
+                raise ConfigFileException("Incorrect permissions %s, should be 660" %permission, GLOBAL_CONFIG_FILE)
             self.global_config=syck.load(open(GLOBAL_CONFIG_FILE).read())
             if not self.global_config.has_key("tmp_path"):
                 self.global_config["tmp_path"] = "/tmp"
