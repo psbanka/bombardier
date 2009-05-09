@@ -1,5 +1,5 @@
 import sys, time, random
-import libCipher
+from bombardier_common.libCipher import DecryptionException
 from BombardierRemoteClient import *
 from RemoteClient import ClientUnavailableException
 import Client
@@ -29,7 +29,7 @@ class Push(PinshCmd.PinshCmd):
             r = mode.getBomConnection(hostName)
         except HostNotEnabledException:
             return FAIL, ["Host not enabled for this user."]
-        except libCipher.DecryptionException, de:
+        except DecryptionException, de:
             msg  = ["Cannot decrypt configuration data."]
             msg += [de.reason]
             return FAIL, msg

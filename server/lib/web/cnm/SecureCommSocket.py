@@ -3,7 +3,6 @@
 import socket, random, time, yaml
 from select import select
 from libCipher import encrypt, decryptString, pad
-from staticData import *
 
 class QuitException(Exception):
     pass
@@ -42,7 +41,7 @@ class SecureServer:
         readable, writable, errored = select([self.sockObj], [], [], 1)
         if not readable:
             return EMPTY_RETURN
-        clientSocket, clientAddressTuple = self.sockObj.accept()        
+        clientSocket, clientAddressTuple = self.sockObj.accept()
         clientAddress = str(clientAddressTuple)
         self.clientSockets[clientAddress] = clientSocket
         data = clientSocket.recv(1024)
@@ -97,7 +96,7 @@ class SecureServer:
                 clientSocket.close()
                 break
         debugger( "Disconnected client: %s" %clientAddress )
-        
+
     def sendClient(self, clientAddress, object):
         message = yaml.dump(object)
         encMessage = encrypt(message, self.password)
@@ -122,7 +121,7 @@ class SecureClient:
         message = MESSAGE_DELIMITER.join([ str(m) for m in messageList ])
         fullMessage = FIELD_DELIMITER.join([cipherText, command, message]) + END_RESPONSE
         tmpsockObj.send(fullMessage)
-        response = [] 
+        response = []
         while True:
             data = tmpsockObj.recv(1024)
             if not data:
@@ -133,7 +132,7 @@ class SecureClient:
                 data = MESSAGE_DELIMITER.join(data.split( MESSAGE_DELIMITER )[1:])
                 debugger( "RESPONSE: %s"%response )
                 debugger( "DATA    : %s"%data )
-            
+
             if response[-1] == END_CONST:
                 return [ yaml.load(decryptString(r, self.password, YAML_CHARS)) for r in response[:-1] ]
 

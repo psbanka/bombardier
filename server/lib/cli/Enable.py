@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
 import sys, os, md5
-import libCipher, libUi
+import libUi
+from bombardier_common.libCipher import InvalidData
 import PinshCmd, Mode, BomHostField, LongList
 from RemoteClient import ClientUnavailableException
 from commonUtil import *
@@ -76,7 +77,7 @@ class Enable(PinshCmd.PinshCmd):
             hostName = hostNames[0]
         try:
             r = mode.getBomConnection(hostName, ignoreConfig=True, enabled=False)
-        except libCipher.InvalidData, id:
+        except InvalidData, id:
             msg =  ["Unable to connect to %s due to configuration error." % hostName]
             msg += ["Data in the configuration file cannot be decrypted."]
             msg += ["%s" % id]

@@ -3,10 +3,10 @@
 # FIXME: This module is in horrible need of refactoring
 
 import sys, os, time, glob, md5, random
-import PinshCmd, Mode, libUi, ConfigField, Expression, JobNameField, Integer, MultipleChoice, Variable
-import SecureCommSocket
+import PinshCmd, Mode, libUi, ConfigField, Expression, Integer, MultipleChoice, Variable
 from commonUtil import *
-import Client, libCipher
+import Client
+from bombardier_common.libCipher import changePass, DecryptionException, InvalidData, VALID_CHARS
 import yaml, syck
 
 def cleanup():
@@ -39,12 +39,12 @@ def reEncryptFiles(oldPassword, newPassword):
                 cleanup()
                 return FAIL, msg
             try:
-                newData = libCipher.changePass(oldData, oldPassword, newPassword)
-            except libCipher.DecryptionException, de:
+                newData = changePass(oldData, oldPassword, newPassword)
+            except DecryptionException, de:
                 msg  = ["Could not decrypt file under configuration control"]
                 msg += ["File name: %s" % fileName]
                 msg += ["Error: %s" % (de)]
-            except libCipher.InvalidData, id:
+            except InvalidData, id:
                 msg  = ["Could not perform encryption for file under configuration control"]
                 msg += ["File name: %s" % fileName]
                 msg += ["Error: %s" % (id)]
@@ -91,7 +91,7 @@ def setPassword(slash, reEncrypt):
         mode.auth = ADMIN
         mode.pushPrompt(slash, "#", Mode.ENABLE)
     mode.password = masterPass1
-    salt = ''.join(random.sample(libCipher.VALID_CHARS, 20))
+    salt = ''.join(random.sample(VALID_CHARS, 20))
     makeMd5 = md5.new()
     makeMd5.update(salt)
     makeMd5.update(mode.password)
@@ -117,60 +117,6 @@ def makeSameType(currentValue, newValue):
         return int(newValue)
     raise UnsupportedTypeException(currentValue[0])
 
-def sendMessage(command, messageList, successMessage):
-    c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
-    try:
-        c.sendSecure(command, messageList)
-        return OK, [successMessage]
-    except ConnectionRefusedException:
-        return FAIL, ["Job server is not running. Use 'scheduler start' to start it."]
-
-def delJob(jobName):
-    c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
-    try:
-        print "  Removing job..."
-        jobDictStart = c.sendSecure(TB_SHOW, [])
-    except ConnectionRefusedException:
-        return FAIL, ["Job server is not running. Use 'scheduler start' to start it."]
-    if jobName in jobDictStart[0]:
-        c.sendSecure(TB_DEL, [jobName])
-    else:
-        return FAIL, ["Job %s does not exist in the job list" % jobName]
-    jobDictEnd = c.sendSecure(TB_SHOW, [])
-    if jobName in jobDictEnd[0]:
-        return FAIL, ["Could not remove job %s" % jobName]
-    return OK, ["Job removed"]
-
-def setJob(tokens, noFlag):
-    if not tokens[2]:
-        return FAIL, ["Need a name for the job"]
-    jobName = tokens[2]
-    if len(tokens) < 4 and noFlag:
-        return delJob(jobName)
-    if not tokens[3]:
-        return FAIL, ["Command incomplete"]
-    if tokens[3].startswith('e'):
-        if noFlag:
-            return sendMessage(TB_DISABLE, [jobName], "Job %s disabled." % jobName)
-        else:
-            return sendMessage(TB_ENABLE, [jobName], "Job %s enabled." % jobName)
-
-    freq = int(tokens[3])
-    multiplier = 60
-    if len(tokens) > 4:
-        if tokens[4].startswith('h'):
-            multiplier = multiplier * 60
-        elif tokens[4].startswith('s'):
-            multiplier = 1
-        elif tokens[4].startswith('d'):
-            multiplier = multiplier * 60 * 24
-        elif tokens[4].startswith('w'):
-            multiplier = multiplier * 60 * 24 * 7
-    bomshCmd = raw_input("Enter the command to schedule> ")
-    if bomshCmd == '':
-        return FAIL, ["Abort"]
-    return sendMessage(TB_ADD, [bomshCmd, freq * multiplier, jobName, mode.username], "Job submitted.")
-    
 def setLock(noFlag, lockName):
     lockPath = "%s/%s" % (mode.global_config["tmpPath"], lockName)
     if noFlag:
@@ -212,10 +158,8 @@ class Set(PinshCmd.PinshCmd):
         self.password = PinshCmd.PinshCmd("password","password\tset your password")
         withoutReEncryption= PinshCmd.PinshCmd("without-reencryption","without-reencryption\tDon't re-encrypt data files")
         self.password.children = [withoutReEncryption]
-        self.job = PinshCmd.PinshCmd("job", "job\tset up a new batch job")
-        self.job.auth = ADMIN
         self.lock = PinshCmd.PinshCmd("lock", "lock\tset a lock")
-        self.children = [self.client, self.bom, self.include, self.password, self.job, self.lock]
+        self.children = [self.client, self.bom, self.include, self.password, self.lock]
 
         expression = Expression.Expression()
         encrypt = PinshCmd.PinshCmd("encrypt","encrypt\tencrypt the confiuration value")
@@ -235,16 +179,6 @@ class Set(PinshCmd.PinshCmd):
         self.bomConfigField = ConfigField.ConfigField(dataType=ConfigField.BOM)
         self.bom.children += [self.bomConfigField]
         self.bomConfigField.children = [expression]
-
-        # JOB
-        self.jobNameField = JobNameField.JobNameField()
-        enabled = PinshCmd.PinshCmd("enabled","enabled\tenable a job")
-        freq = Integer.Integer(min = 1, max = 1000, name = "number of minutes, hours, or days between each time the job is run")
-        timespan = MultipleChoice.MultipleChoice(choices = ["seconds", "minute", "hour", "day", "week"], 
-        helpText = ["measure by seconds", "measure by minutes (default)", "measure by hours", "measure by days", "measure by weeks"])
-        self.job.children = [self.jobNameField]
-        self.jobNameField.children = [freq, enabled]
-        freq.children = [timespan]
 
         # LOCK
         self.lock.children = [Variable.Variable()]
@@ -327,8 +261,6 @@ class Set(PinshCmd.PinshCmd):
                 return FAIL, ["Incomplete command; must provide lock name"]
             lockName = tokens[2]
             return setLock(noFlag, lockName)
-        if tokens[1].lower().startswith('j'):
-            return setJob(tokens, noFlag)
         if tokens[1].lower().startswith('p'):
             if len(tokens) == 3 and tokens[2].lower().startswith('w'):
                 return setPassword(slash, reEncrypt=False)

@@ -1,8 +1,9 @@
 import re, os, yaml
-from staticData import *
-import miniUtility
+from bombardier_common.miniUtility import getSpkgPath
 import sys
-import Config, Filesystem
+import Config
+from bombardier_common.Filesystem import Filesystem
+from bombardier_common.static_data import OK, FAIL, LAST_REPORT
 import Repository
 
 def doubleEscape(oldString):
@@ -26,27 +27,27 @@ class SpkgException( Exception ):
 
 def getInstance():
     path = os.getcwd()
-    spkgPath = miniUtility.getSpkgPath()
+    spkgPath = getSpkgPath()
     subDir = path.split(spkgPath)[1]
     instanceName = subDir.split(os.path.sep)[1]
     return instanceName
 
 def getConfig():
     instanceName = getInstance()
-    filesystem = Filesystem.Filesystem()
-    repository = Repository.Repository(filesystem, instanceName)
+    filesystem = Filesystem()
+    _repository = Repository.Repository(filesystem, instanceName)
     config = Config.Config(filesystem, instanceName)
     return config
 
 def mainBody(pkgVersion, cls):
-    import Logger
+    from bombardier_common.Logger import logger, addStdErrLogging
     config = getConfig()
     ha = None
     if pkgVersion < 4:
-        ha = cls(config, futurePackages = [], logger=Logger.logger)
+        ha = cls(config, logger=logger)
     else:
-        ha = cls(config, Logger.logger)
-    Logger.addStdErrLogging()
+        ha = cls(config, logger)
+    addStdErrLogging()
     action = sys.argv[-1].lower()
     status = OK
     if action == "install":
@@ -70,7 +71,7 @@ def mainV4(cls):
 
 def dumpReportV4(report, logger):
     instanceName = getInstance()
-    outputPath = os.path.join(miniUtility.getSpkgPath(), instanceName, "output")
+    outputPath = os.path.join(getSpkgPath(), instanceName, "output")
     if not os.path.isdir(outputPath):
         os.makedirs(outputPath)
     scriptName = sys.argv[-1].split(".py")[0]
@@ -81,13 +82,11 @@ def dumpReportV4(report, logger):
         logger.info("==REPORT==:%s" % line)
 
 def dumpReport(report, config, logger):
-    pyChucker(config)
     dumpReportV4(report, logger)
-    
+
 class SpkgV4:
 
-    def __init__(self, config, logger = None, filesystem = Filesystem.Filesystem()):
-        pyChucker(config)
+    def __init__(self, config, logger = None, filesystem = Filesystem()):
         self.thisPackagesName = self._getname()
         self.filesystem = filesystem
         self.stderr     = True
@@ -100,7 +99,8 @@ class SpkgV4:
         else:
             self.logger = logger
             self.stderr = False
-        
+        self.lastReport = {}
+
     def loadLastReport(self):
         self.info("Loading last report data...")
         self.report = {"pending-changes": [], "executed-changes":[], "authorized": {},
@@ -127,9 +127,6 @@ class SpkgV4:
     def writeReport(self):
         self.info("Writing report...")
         open(LAST_REPORT, 'w').write(yaml.dump(self.report))
-
-    def setFuturePackages(self, packageList):
-        self.futurePackages = packageList
 
     def checkStatus(self, status, errMsg="FAILED"):
         if status != OK:
@@ -186,7 +183,7 @@ class SpkgV4:
 
     def uninstaller(self):
         return self._abstracty()
-    
+
     def modifyTemplate(self, inputFile, outputFile, encoding=None, processEscape = False):
         status = OK
         varMatch = re.compile("\%\((.*?)\)s")
@@ -207,7 +204,7 @@ class SpkgV4:
                 if hasattr(self, variable):
                     configValue = getattr(self, variable)
                     if processEscape:
-                         configDict[variable] = doubleEscape(configValue)
+                        configDict[variable] = doubleEscape(configValue)
                     else:
                         configDict[variable] = configValue
                 else:
@@ -230,7 +227,6 @@ class SpkgV4:
         return status
 
 class Spkg(SpkgV4):
-    def __init__(self, config, filesystem = Filesystem.Filesystem(), futurePackages = [], logger = None):
-        self.futurePackages = futurePackages
+    def __init__(self, config, filesystem = Filesystem(), logger = None):
         SpkgV4.__init__(self, config, logger, filesystem)
 

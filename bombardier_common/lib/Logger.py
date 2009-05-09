@@ -219,4 +219,4 @@ if __name__ == "__main__":
     for i in range(1,REPS):
         Logger().info(testString)
     print "elapsed 1:", time.time()-start
-    
+

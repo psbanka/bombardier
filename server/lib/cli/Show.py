@@ -2,9 +2,8 @@
 
 import sys, os, readline, time
 import yaml
-import PinshCmd, ConfigField, Integer, BomHostField, PackageField, JobNameField
+import PinshCmd, ConfigField, Integer, BomHostField, PackageField
 from commonUtil import *
-import SecureCommSocket
 
 TERM_OVERCOUNT = 8 # For some reason, the term width seems too long...
 
@@ -151,37 +150,6 @@ class Status(PinshCmd.PinshCmd):
             output += ["Not Installed:",[["NONE"]]]
         return OK, output
 
-class Jobs(PinshCmd.PinshCmd):
-    def __init__(self):
-        PinshCmd.PinshCmd.__init__(self, "jobs")
-        self.helpText = "jobs\tdisplay jobs"
-        self.jobNameField = JobNameField.JobNameField()
-        self.children = [self.jobNameField]
-        self.level = 0
-        self.cmdOwner = 1
-        self.auth = ADMIN
-        
-    def cmd(self, tokens, noFlag, slash):
-        pyChucker(slash)
-        jobName = ''
-        if noFlag:
-            return FAIL, []
-        if mode.auth != ADMIN:
-            return FAIL, ["Must be enabled"]
-        if len(tokens) > 2:
-            jobName = tokens[2]
-        c = SecureCommSocket.SecureClient(TB_CTRL_PORT, mode.password)
-        try:
-            jobs = c.sendSecure(TB_SHOW, [])[0]
-            for job in jobs:
-                if jobs[job].get("lastRun"):
-                    jobs[job]["lastRun"] = time.strftime("%c", time.localtime(float(jobs[job]["lastRun"])))
-            if jobName:
-                return OK, jobs[jobName]
-            return OK, jobs
-        except ConnectionRefusedException:
-            return FAIL, ["Job server is not running. Use 'scheduler start' to start it."]
-    
 
 class Show(PinshCmd.PinshCmd):
     def __init__(self):
@@ -194,8 +162,7 @@ class Show(PinshCmd.PinshCmd):
         status = Status()
         package = Package()
         bom = Bom()
-        jobs = Jobs()
-        self.children = [merged, client, include, bom, history, status, package, jobs]
+        self.children = [merged, client, include, bom, history, status, package]
         self.level = 0
         self.cmdOwner = 1
 

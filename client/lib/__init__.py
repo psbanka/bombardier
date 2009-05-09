@@ -1,6 +1,6 @@
 #!/cygdrive/c/Python23/python.exe
 
-from staticData import *
+#from old_static_data import *
 
 def getSpkgPath():
     import _winreg as winreg

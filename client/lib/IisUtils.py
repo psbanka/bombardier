@@ -21,6 +21,7 @@
 # 02110-1301, USA.
 
 import os, sys, shutil
+from old_static_data import *
 
 if sys.platform == "win32":
     import pywintypes, win32netcon, win32net
@@ -28,12 +29,11 @@ if sys.platform == "win32":
     import _winreg as winreg
     from time import sleep
     import win32api, win32file
-    from Windows import Windows
+    from bombardier_common.Windows import Windows
 
-import Logger
 from Exceptions import ConsoleException
-from Filesystem import copyDirectory, removeFile
-from staticData import *
+from bombardier_common.Filesystem import copyDirectory, removeFile
+from bombardier_common.Logger import Logger
 
 class IisUtilsException(ConsoleException):
     pass

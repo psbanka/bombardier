@@ -3,7 +3,7 @@ from commonUtil import *
 import yaml, random, time, os
 from commands import getstatusoutput
 from bcs import BombardierRemoteClient, EXECUTE
-import libCipher
+from bombardier_common.libCipher import decrypt, encrypt, decryptLoop
 import pexpect
 
 
@@ -70,7 +70,7 @@ class UserAuth:
         for userName in systemInfo["system"]["users"]:
             if self.userName.lower() == userName.lower():
                 foundUser     = True
-                userDict      = libCipher.decrypt(systemInfo["system"]["users"][userName], self.password)
+                userDict      = decrypt(systemInfo["system"]["users"][userName], self.password)
                 self.hostPass = userDict["password"]
                 del userDict["password"]
                 oldRightsList = userDict["rights"]
@@ -94,7 +94,7 @@ class UserAuth:
             addRightsList   = self.rightsList
             delRightsList   = []
             userDict        = {"rights": self.rightsList, "comment": self.comment}
-            
+
         if delRightsList:
             print "Removing rights: %s" % delRightsList
             if self.autoConfirm or libUi.askYesNo("Are you sure"):
@@ -110,7 +110,7 @@ class UserAuth:
                 self.noteChangedSystems(systemRights[right])
 
         if addRightsList or delRightsList:
-            userDict["enc_password"] = libCipher.encrypt(self.hostPass, self.password)
+            userDict["enc_password"] = encrypt(self.hostPass, self.password)
             systemInfo["system"]["users"][self.userName] = userDict
             open(self.systemInfoFile, 'w').write(yaml.dump(systemInfo))
             status2 = os.system("chgrp %s %s" % (mode.defaultGroup, self.systemInfoFile))
@@ -142,7 +142,7 @@ class UserAuth:
         start = os.getcwd()
         certsPath = os.path.join(mode.serverHome, "include", "OpenVpnCerts.yml")
         caData = yaml.load(open(certsPath).read())
-        libCipher.decryptLoop(caData, self.password)
+        decryptLoop(caData, self.password)
         os.chdir("CA")
         open("%s-CA.crt" % self.environment, "w").write(caData["openvpn"]["CA_CRT"])
         open("%s-CA.key" % self.environment, "w").write(caData["openvpn"]["CA_KEY"])

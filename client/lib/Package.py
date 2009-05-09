@@ -24,12 +24,14 @@
 
 import os, time, datetime, glob, random
 import sys, StringIO, traceback
+from old_static_data import *
 
 import Spkg
-import miniUtility, MetaData, Logger
+import MetaData
+from bombardier_common.miniUtility import evalBoolean, getPackagePath, getSpkgPath
 from Exceptions import BadPackage, FeatureRemovedException, RebootRequiredException
-from staticData import *
 from threading import Thread
+from bombardier_common.Logger import Logger
 
 class JobThread(Thread):
     def __init__(self, importString, cmd, config):
@@ -215,9 +217,9 @@ class Package:
         if self.metaData.data['install'].get('md5list'):
             self.checksum = self.metaData.data['install']['md5list']
         chk = self.metaData.data["install"].get('console')
-        self.console = miniUtility.evalBoolean(chk)
+        self.console = evalBoolean(chk)
         chk = self.metaData.data["install"].get('reboot')
-        self.reboot = miniUtility.evalBoolean(chk)
+        self.reboot = evalBoolean(chk)
         chk = self.metaData.data.get("package-version")
         if type(chk) == type(1):
             self.packageVersion = chk
@@ -228,7 +230,7 @@ class Package:
     def initializeFromFilesystem(self):
         """ Expects a standard package to be extracted in the packages
         directory """
-        packagePath = miniUtility.getPackagePath(self.instanceName)
+        packagePath = getPackagePath(self.instanceName)
         if not self.fullName:
             raise BadPackage(self.name, "Could not find full name.")
         newDir = os.path.join(packagePath, self.fullName)
@@ -393,7 +395,7 @@ class Package:
                 self.invalidate(bp)
                 return FAIL
         return OK
-    
+
     def installAndVerify(self, packageList=[], dryRun=False):
         if self.download() != OK:
             return FAIL
@@ -411,9 +413,9 @@ class Package:
             Logger.error("Package %s is invalid")
             return FAIL
         return OK
-    
+
     # TESTED
-    def install(self, packageList, dryRun=False): 
+    def install(self, packageList, dryRun=False):
         dryRunString = ""
         if dryRun:
             dryRunString = " --DRY_RUN-- "
@@ -429,7 +431,7 @@ class Package:
         if self.download() != OK:
             return FAIL
         # remove old history
-        outputPath = os.path.join(miniUtility.getSpkgPath(), self.instanceName, 
+        outputPath = os.path.join(getSpkgPath(), self.instanceName,
                                   "output", "%s-output.yml" % scriptName)
         self.filesystem.rmScheduledFile(outputPath)
         message = "Executing (%s) inside package (%s)" %(scriptName, self.fullName)

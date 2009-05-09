@@ -4,7 +4,8 @@
 
 import glob, os
 
-import PinshCmd, BomHostField, libCipher
+import PinshCmd, BomHostField
+from bombardier_common.libCipher import decrypt, encrypt
 import yaml, syck
 import Client
 from commonUtil import *
@@ -64,7 +65,7 @@ class ConfigField(PinshCmd.PinshCmd):
         else:
             data = self.get_data(firstTokenName)
         if decrypt:
-            data = libCipher.decrypt(data, '')
+            data = decrypt(data, '')
         return [firstTokenName], data
 
     def removeOneItem(self, currentValue, tokens, index):
@@ -152,7 +153,7 @@ class ConfigField(PinshCmd.PinshCmd):
                 execString += "['enc_%s']" % configValue
                 if not mode.password:
                     return FAIL, ["Cannot encipher data except in enable mode"]
-                newValue = libCipher.encrypt(newValue, mode.password)
+                newValue = encrypt(newValue, mode.password)
                 output = ["Encrypted sensitive data"]
             else:
                 execString += "['%s']" % configValue

@@ -3,7 +3,7 @@
 import sys, os
 
 import PinshCmd, BomHostField, Client, Expression
-import libCipher
+from bombardier_common.libCipher import DecryptionException
 from commonUtil import *
 
 SSH = "/usr/bin/ssh"
@@ -43,7 +43,7 @@ class Ssh(PinshCmd.PinshCmd):
         if mode.password:
             try:
                 client.decryptConfig()
-            except libCipher.DecryptionException, de:
+            except DecryptionException, de:
                 msg  = ["Cannot decrypt configuration data."]
                 msg += [de.reason]
                 return FAIL, msg

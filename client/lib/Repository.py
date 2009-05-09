@@ -20,11 +20,14 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
+from old_static_data import *
 import os, tarfile, shutil
-from staticData import *
-import miniUtility, MetaData, Logger
+import MetaData
+from bombardier_common.miniUtility import getPackagePath, rpartition
+from bombardier_common.miniUtility import cygpath, getProgressPath
 import md5, yaml, base64
 import Exceptions
+from bombardier_common.Logger import Logger
 
 # PACKAGE FIELDS
 FULL_NAME    = "fullName"
@@ -59,8 +62,8 @@ class Repository:
 
     @classmethod
     def packageRequest(cls, filename, instanceName, checksum):
-        dosPath = miniUtility.getPackagePath(instanceName)
-        cygPath = miniUtility.cygpath(dosPath)
+        dosPath = getPackagePath(instanceName)
+        cygPath = cygpath(dosPath)
         Logger.info("==REQUEST-PACKAGE==:%s:%s" % (filename, cygPath))
         response = sys.stdin.read(3)
         if response.strip() != "OK":
@@ -77,10 +80,10 @@ class Repository:
 
     def checkLocalPackages(self):
         localPackages = []
-        packagesPath = miniUtility.getPackagePath(self.instanceName)
+        packagesPath = getPackagePath(self.instanceName)
         inodes = self.filesystem.glob("%s/*" % packagesPath)
         for inode in inodes: 
-            shortName = miniUtility.rpartition(inode, packagesPath+os.path.sep)[-1]
+            shortName = rpartition(inode, packagesPath+os.path.sep)[-1]
             if self.filesystem.isfile(inode):
                 if inode.endswith('.spkg'):
                     localPackages.append(shortName.split(".spkg")[0])
@@ -91,7 +94,7 @@ class Repository:
             else:
                 Logger.warning("Unknown inode in local repository: %s" % shortName)
 
-        fileName = miniUtility.getProgressPath(self.instanceName)
+        fileName = getProgressPath(self.instanceName)
         statusData = self.filesystem.loadYaml(fileName)
         statusData["local-packages"] = localPackages
         self.filesystem.dumpYaml(fileName, statusData)
@@ -105,7 +108,7 @@ class Repository:
 
     # TESTED
     def unpack(self, fullPackageName, checksum, removeSpkg = True):
-        packagePath = miniUtility.getPackagePath(self.instanceName)
+        packagePath = getPackagePath(self.instanceName)
         pkgPath = os.path.join(packagePath, fullPackageName)
         if not self.filesystem.isfile(pkgPath+".spkg"):
             erstr = "No package file in %s." % (pkgPath+".spkg")
@@ -157,7 +160,7 @@ class Repository:
     # TESTED
     def getPackage(self, packageName, tries=3, checksum=''):
         # FIXME: for uninstall, this should find the directory in packages
-        packagePath = miniUtility.getPackagePath(self.instanceName)
+        packagePath = getPackagePath(self.instanceName)
         try:
             fullPackageName = self.packageData[packageName]['install'][FULL_NAME]
         except KeyError:

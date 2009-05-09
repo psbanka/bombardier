@@ -23,11 +23,12 @@
 # 02110-1301, USA.
 
 import yaml
-from staticData import *
-import miniUtility, Logger
+from old_static_data import *
+from bombardier_common.miniUtility import hashDictionary, diffDicts, getSpkgPath
 import random, copy
 from Exceptions import InvalidConfigData
-            
+from bombardier_common.Logger import Logger
+
 def generatePassword():
     random.seed()
     characters = [ chr(x) for x in range(33,122) ]
@@ -41,7 +42,7 @@ def getKey(data, index):
         if obj == None:
             return
     return obj
-            
+
 def findIncludeList(data):
     includeList = []
     for key in data.keys():
@@ -52,7 +53,7 @@ def findIncludeList(data):
 class Config(dict):
 
     """This object retains the complete configuration for a system."""
-    
+
     ### TESTED
     def __init__(self, filesystem, instanceName, configData = {}):
         self.filesystem = filesystem
@@ -88,7 +89,7 @@ class Config(dict):
 
     def saveHash(self, path):
         f = self.filesystem.open(path, 'w')
-        hashDictionary = miniUtility.hashDictionary(self.data)
+        hashDictionary = hashDictionary(self.data)
         hashYaml = yaml.dump(hashDictionary)
         f.write(hashYaml)
         f.close()
@@ -104,13 +105,12 @@ class Config(dict):
             pass
         except:
             Logger.warning("Bad yaml in file %s" % path)
-        newConfig = miniUtility.hashDictionary(self.data)
-        #oldConfig = miniUtility.hashDictionary(oldConfig)
-        difference =  miniUtility.diffDicts(oldConfig, newConfig, checkValues=True)
+        newConfig = hashDictionary(self.data)
+        difference =  diffDicts(oldConfig, newConfig, checkValues=True)
         return difference
 
     def readLocalConfig(self):
-        configPath = os.path.join(miniUtility.getSpkgPath(), self.instanceName, CONFIG_FILE)
+        configPath = os.path.join(getSpkgPath(), self.instanceName, CONFIG_FILE)
         if not os.path.isfile(configPath):
             return FAIL
         msg = "DETECTED A CLEARTEXT LOCAL CONFIGURATION FILE: IGNORING MANAGEMENT SERVER CONFIGURATION"
@@ -122,7 +122,7 @@ class Config(dict):
         except:
             return FAIL
         return OK
-            
+
     ### TESTED
     def set(self, section, option, value):
         if type(self.data.get(section)) != type(dict()):

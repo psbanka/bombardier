@@ -3,7 +3,7 @@ import bombardier.miniUtility as miniUtility
 import os
 import yaml, syck
 import getpass
-import libCipher
+from bombardier_common.libCipher import pad, decryptLoop
 from Crypto.Cipher import AES
 from bombardier.staticData import OK, FAIL, CENSORED
 
@@ -26,7 +26,7 @@ class Client:
         self.systemName = systemName
         self.serverHome   = serverHome
         if passwd:
-            self.passwd = libCipher.pad(passwd)
+            self.passwd = pad(passwd)
         else:
             self.passwd = ''
 
@@ -101,7 +101,7 @@ class Client:
         return encryptedEntries
 
     def decryptConfig(self):
-        libCipher.decryptLoop(self.data, self.passwd)
+        decryptLoop(self.data, self.passwd)
 
 if __name__ == "__main__":
     import sys

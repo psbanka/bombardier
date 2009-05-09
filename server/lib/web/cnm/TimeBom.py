@@ -6,11 +6,13 @@ import CommSocket
 import traceback, StringIO
 import syslog
 import os, yaml
-from libCipher import encrypt, decryptString, pad
+from bombardier_common.libCipher import encrypt, decryptString, pad
 from threading import Thread
-from staticData import *
+from bombardier_common.static_data import OK, FAIL, ADMIN, COMMAND_LOG_MARKER
+from bombardier_common.static_data import ORETURN_DICT, TB_CTRL_PORT, TB_RUN_JOB, TB_WAIT
+from bombardier_common.static_data import OTB_KILL, TB_SHOW, TB_SAVE, TB_LOAD, TB_ENABLE
+from bombardier_common.static_data import OTB_DISABLE, TB_ADD, TB_DEL
 from getpass import getpass
-from Slash import *
 
 DIZEBUG = 0
 OK_TO_PROMPT = True
@@ -82,14 +84,14 @@ class JobCollection(Logger):
         plainText = yaml.dump(self.toDict())
         cipherText = encrypt(plainText, self.password)
         fd.write(cipherText)
-        os.system("chgrp %s %s 2> /dev/null" % (mode.defaultGroup, self.jobFile))
+        os.system("chgrp %s %s 2> /dev/null" % (DEFAULT_GROUP, self.jobFile))
         os.system("chmod 660 %s 2> /dev/null" % (self.jobFile))
         return OK
 
     def toDict(self):
         output = {}
         for jobName in self.jobDict:
-             output[jobName] = self.jobDict[jobName].toDict()
+            output[jobName] = self.jobDict[jobName].toDict()
         return output
 
     def getTimeOfNextJob(self):
@@ -206,17 +208,15 @@ class JobThread(Thread, Logger):
         self.cmdOutput = []
 
     def run(self):
-        mode.auth = ADMIN
-        mode.batch = True
-        mode.password = self.password
         if self.to.testStop():
             return
         self.info("Running %s..." % self.bomshCmd)
         try:
             self.checkMe = False
-            slash.setOutput(self.fro)
-            slash.setErr(self.fro)
-            self.cmdStatus, self.cmdOutput = slash.processCommand(self.bomshCmd.strip())
+            #slash.setOutput(self.fro)
+            #slash.setErr(self.fro)
+            self.cmdStatus = FAIL
+            self.cmdOutput = "CANNOT RUN COMMANDS! FIXME" # FIXME
             self.checkMe = True
         except:
             self.error( "Failed to run %s" % self.bomshCmd )
@@ -472,7 +472,7 @@ def test():
     os.chdir('/')
     status = OK
     TEST_PORT     = 2384
-    TEST_JOB_FILE = mode.serverHome + "/testJobFile.yml"
+    TEST_JOB_FILE = "testJobFile.yml"
     TEST_PASSWORD = 'fooman'
     password = TEST_PASSWORD
     if OK_TO_PROMPT:

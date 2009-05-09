@@ -21,9 +21,12 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+from old_static_data import *
 import sets, os, time, copy
-import miniUtility, Package, Exceptions, Logger
-from staticData import *
+import Package, Exceptions
+from bombardier_common.Logger import Logger
+from bombardier_common.miniUtility import getInstalled, getPackagePath
+from bombardier_common.miniUtility import diffDicts, stripVersion
 
 def swap(listObj, index1, index2):
     newList = copy.deepcopy(listObj)
@@ -151,7 +154,7 @@ class Bombardier:
         self.instanceName    = instanceName
         self.recordErrors = True
         self.repository.checkLocalPackages()
-        
+
     ### TESTED
     def getDependencyErrors(self, bomPackageNames, progressData):
         dependencyNames = set([])
@@ -159,7 +162,7 @@ class Bombardier:
         for packageName in installProgress:
             packageDict = installProgress[ packageName ]
             depErrors = set(packageDict.get('DEPENDENCY_ERRORS',[]))
-            dependencyNames = dependencyNames.union(depErrors)    
+            dependencyNames = dependencyNames.union(depErrors)
         dependencyNames = list(dependencyNames - set(bomPackageNames))
         return dependencyNames
 
@@ -216,7 +219,7 @@ class Bombardier:
     def createPackageChains(self, packageDict):
         chains = []
         packageData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(packageData)
+        installedPackageNames, brokenPackageNames = getInstalled(packageData)
         for packageName in packageDict.keys():
             if packageName in brokenPackageNames:
                 Logger.warning("Skipping broken package %s" % packageName)
@@ -259,7 +262,7 @@ class Bombardier:
 
         chains = self.createPackageChains(packageDict)
         progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
+        installedPackageNames, brokenPackageNames = getInstalled(progressData)
         # - Put all the packages of each chain into the installation
         # order, excluding those that have already been installed in order
         # of chain priority. If a package is already in the installation
@@ -294,7 +297,7 @@ class Bombardier:
                 Logger.info(erstr)
                 status = package.installAndVerify(packageNamesLeft)
                 if not dryRun:
-                    hashPath = os.path.join(miniUtility.getPackagePath(self.instanceName), package.fullName, HASH_FILE)
+                    hashPath = os.path.join(getPackagePath(self.instanceName), package.fullName, HASH_FILE)
                     self.config.saveHash(hashPath)
                 if status == FAIL:
                     erstr = "Package installation failure -- re-calculating package installation order"
@@ -322,7 +325,7 @@ class Bombardier:
     def checkConfiguration(self, package):
         if package.metaData.has_key("configuration"):
             requiredConfigs = package.metaData["configuration"]
-            diff = miniUtility.diffDicts(requiredConfigs, self.config.data)
+            diff = diffDicts(requiredConfigs, self.config.data)
             if diff != {}:
                 errmsg = "This machine does not have sufficient "\
                          "configuration data to install %s " % package.name
@@ -443,7 +446,7 @@ class Bombardier:
     def getPackagesToRemoveDict(self, delPackageNames):
         uninstallOrder = []
         progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
+        installedPackageNames, brokenPackageNames = getInstalled(progressData)
         packageDict = self.createPackageDict(delPackageNames, UNINSTALL)
         if sets.Set(installedPackageNames) == sets.Set(packageDict.keys()):
             return packageDict, packageDict.keys()
@@ -460,7 +463,7 @@ class Bombardier:
         shouldBeInstalled = []
         shouldntBeInstalled = []
         progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
+        installedPackageNames, brokenPackageNames = getInstalled(progressData)
         dependencyErrors = self.getDependencyErrors(bomPackageNames, progressData)
         if dependencyErrors:
             errmsg = "The following packages are installed as "\
@@ -477,12 +480,12 @@ class Bombardier:
 
     def verifySystem(self):
         progressData = self.filesystem.getProgressData(self.instanceName)
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
+        installedPackageNames, brokenPackageNames = getInstalled(progressData)
         testResults = {}
 
         for fullPackageName in installedPackageNames:
             try:
-                shortPackageName = miniUtility.stripVersion(fullPackageName)
+                shortPackageName = stripVersion(fullPackageName)
                 package = Package.Package(shortPackageName, self.repository, self.config,
                                           self.filesystem, self.operatingSystem,
                                           self.instanceName)
@@ -537,12 +540,12 @@ class Bombardier:
         return self.cleanup(status, logmessage="Finished installing.")
 
     def checkConfigurationHash(self, packageName):
-        newPackage = Package.Package(packageName, self.repository, self.config, 
+        newPackage = Package.Package(packageName, self.repository, self.config,
                                      self.filesystem, self.operatingSystem,
-                                     self.instanceName) 
+                                     self.instanceName)
         newPackage.initialize()
         packageConfig = newPackage.getConfiguration()
-        configHashPath = os.path.join(miniUtility.getPackagePath(self.instanceName), 
+        configHashPath = os.path.join(getPackagePath(self.instanceName),
                                       newPackage.fullName, HASH_FILE)
         configDiff = self.config.checkHash(configHashPath)
         differences = findDifferences(packageConfig, configDiff, [])
@@ -552,9 +555,9 @@ class Bombardier:
         addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus(packageNames)
         progressData = self.filesystem.getProgressData(self.instanceName)
         fullProgressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
-        fullInstalledPackageNames, fullBrokenPackageNames = miniUtility.getInstalled(fullProgressData)
+        fullInstalledPackageNames, fullBrokenPackageNames = getInstalled(fullProgressData)
         Logger.info("packages that are installed: %s" % ' '.join(fullInstalledPackageNames))
-        installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
+        installedPackageNames, brokenPackageNames = getInstalled(progressData)
         shouldBeInstalled, shouldntBeInstalled = self.checkBom(packageNames)
         # check the configuration for each installed package
         packageInfo = {"ok":installedPackageNames,
@@ -596,7 +599,7 @@ class Bombardier:
             package.initialize()
             if action == INSTALL:
                 progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
-                installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
+                installedPackageNames, brokenPackageNames = getInstalled(progressData)
                 if packageName in [installedPackageNames + brokenPackageNames]:
                     Logger.error("Package %s cannot be installed." % packageName)
                     return FAIL
@@ -604,7 +607,7 @@ class Bombardier:
                 status = self.installPackages(addPackageDict)
             if action == UNINSTALL:
                 progressData = self.filesystem.getProgressData(self.instanceName, stripVersionFromName = False)
-                installedPackageNames, brokenPackageNames = miniUtility.getInstalled(progressData)
+                installedPackageNames, brokenPackageNames = getInstalled(progressData)
                 bomPackageNames = installedPackageNames
                 if packageName in bomPackageNames:
                     bomPackageNames.remove(packageName)
@@ -618,7 +621,7 @@ class Bombardier:
                     return FAIL
                 else:
                     status = package.configure()
-                    hashPath = os.path.join(miniUtility.getPackagePath(self.instanceName), 
+                    hashPath = os.path.join(getPackagePath(self.instanceName), 
                                             package.fullName, HASH_FILE)
                     Logger.info("writing configuration fingerprint to %s" % hashPath)
                     self.config.saveHash(hashPath)
