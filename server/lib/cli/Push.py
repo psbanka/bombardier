@@ -1,5 +1,5 @@
 import sys, time, random
-from bombardier_common.libCipher import DecryptionException
+from bombardier_core.libCipher import DecryptionException
 from BombardierRemoteClient import *
 from RemoteClient import ClientUnavailableException
 import Client

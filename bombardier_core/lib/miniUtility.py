@@ -21,7 +21,7 @@
 
 import os, re, time, random, yaml, md5
 import sys
-from staticData import *
+from static_data import *
 
 BROKEN_INSTALL   = 0
 INSTALLED        = 1

@@ -28,10 +28,10 @@ from old_static_data import *
 
 import Spkg
 import MetaData
-from bombardier_common.miniUtility import evalBoolean, getPackagePath, getSpkgPath
+from bombardier_core.miniUtility import evalBoolean, getPackagePath, getSpkgPath
 from Exceptions import BadPackage, FeatureRemovedException, RebootRequiredException
 from threading import Thread
-from bombardier_common.Logger import Logger
+from bombardier_core.Logger import Logger
 
 class JobThread(Thread):
     def __init__(self, importString, cmd, config):

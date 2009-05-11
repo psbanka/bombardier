@@ -3,7 +3,7 @@ import bombardier.miniUtility as miniUtility
 import os
 import yaml, syck
 import getpass
-from bombardier_common.libCipher import pad, decryptLoop
+from bombardier_core.libCipher import pad, decryptLoop
 from Crypto.Cipher import AES
 from bombardier.staticData import OK, FAIL, CENSORED
 

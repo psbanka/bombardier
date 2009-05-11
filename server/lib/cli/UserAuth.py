@@ -3,7 +3,7 @@ from commonUtil import *
 import yaml, random, time, os
 from commands import getstatusoutput
 from bcs import BombardierRemoteClient, EXECUTE
-from bombardier_common.libCipher import decrypt, encrypt, decryptLoop
+from bombardier_core.libCipher import decrypt, encrypt, decryptLoop
 import pexpect
 
 

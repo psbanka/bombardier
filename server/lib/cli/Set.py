@@ -6,7 +6,7 @@ import sys, os, time, glob, md5, random
 import PinshCmd, Mode, libUi, ConfigField, Expression, Integer, MultipleChoice, Variable
 from commonUtil import *
 import Client
-from bombardier_common.libCipher import changePass, DecryptionException, InvalidData, VALID_CHARS
+from bombardier_core.libCipher import changePass, DecryptionException, InvalidData, VALID_CHARS
 import yaml, syck
 
 def cleanup():

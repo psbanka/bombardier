@@ -23,11 +23,11 @@
 from old_static_data import *
 import os, tarfile, shutil
 import MetaData
-from bombardier_common.miniUtility import getPackagePath, rpartition
-from bombardier_common.miniUtility import cygpath, getProgressPath
+from bombardier_core.miniUtility import getPackagePath, rpartition
+from bombardier_core.miniUtility import cygpath, getProgressPath
 import md5, yaml, base64
 import Exceptions
-from bombardier_common.Logger import Logger
+from bombardier_core.Logger import Logger
 
 # PACKAGE FIELDS
 FULL_NAME    = "fullName"

@@ -2,7 +2,7 @@
 
 import sys, os, md5
 import libUi
-from bombardier_common.libCipher import InvalidData
+from bombardier_core.libCipher import InvalidData
 import PinshCmd, Mode, BomHostField, LongList
 from RemoteClient import ClientUnavailableException
 from commonUtil import *

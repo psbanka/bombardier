@@ -21,7 +21,24 @@ from django.views.generic.simple import direct_to_template
 import os
 import syck
 
-class YamlResponder(object):
+class JsonDictResponder(object):
+
+    def __init__(self, data):
+        self.data = data
+
+    def element(self, request):
+        response = HttpResponse(mimetype = "application/json")
+        simplejson.dump(self.data, response)
+        return response
+
+    def error(self, request, status_code, error_dict=None):
+        raise Http404
+
+    def list(self, request, queryset, page=None):
+        raise Http404
+
+
+class YamlFileResponder(object):
 
     def __init__(self, base_path):
         self.base_path = base_path

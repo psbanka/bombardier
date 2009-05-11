@@ -24,10 +24,10 @@
 
 import yaml
 from old_static_data import *
-from bombardier_common.miniUtility import hashDictionary, diffDicts, getSpkgPath
+from bombardier_core.miniUtility import hashDictionary, diffDicts, getSpkgPath
 import random, copy
 from Exceptions import InvalidConfigData
-from bombardier_common.Logger import Logger
+from bombardier_core.Logger import Logger
 
 def generatePassword():
     random.seed()

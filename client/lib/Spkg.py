@@ -1,9 +1,9 @@
 import re, os, yaml
-from bombardier_common.miniUtility import getSpkgPath
+from bombardier_core.miniUtility import getSpkgPath
 import sys
 import Config
-from bombardier_common.Filesystem import Filesystem
-from bombardier_common.static_data import OK, FAIL, LAST_REPORT
+from bombardier_core.Filesystem import Filesystem
+from bombardier_core.static_data import OK, FAIL, LAST_REPORT
 import Repository
 
 def doubleEscape(oldString):
@@ -40,7 +40,7 @@ def getConfig():
     return config
 
 def mainBody(pkgVersion, cls):
-    from bombardier_common.Logger import logger, addStdErrLogging
+    from bombardier_core.Logger import logger, addStdErrLogging
     config = getConfig()
     ha = None
     if pkgVersion < 4:

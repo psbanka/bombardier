@@ -27,7 +27,7 @@ if sys.platform == "win32":
     import _winreg as winreg
     import win32com.client, win32api, win32file, pywintypes, win32pdh, win32con, RegistryDict
 
-from bombardier_common.Logger import Logger
+from bombardier_core.Logger import Logger
 
 def makeNewDsn( dataSourceName, dbName, defaultUser, serverName, desc=None ):
     try:

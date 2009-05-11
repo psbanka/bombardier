@@ -3,7 +3,7 @@
 import sys, os
 
 import PinshCmd, BomHostField, Client, Expression
-from bombardier_common.libCipher import DecryptionException
+from bombardier_core.libCipher import DecryptionException
 from commonUtil import *
 
 SSH = "/usr/bin/ssh"

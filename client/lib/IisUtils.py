@@ -29,11 +29,11 @@ if sys.platform == "win32":
     import _winreg as winreg
     from time import sleep
     import win32api, win32file
-    from bombardier_common.Windows import Windows
+    from bombardier_core.Windows import Windows
 
 from Exceptions import ConsoleException
-from bombardier_common.Filesystem import copyDirectory, removeFile
-from bombardier_common.Logger import Logger
+from bombardier_core.Filesystem import copyDirectory, removeFile
+from bombardier_core.Logger import Logger
 
 class IisUtilsException(ConsoleException):
     pass

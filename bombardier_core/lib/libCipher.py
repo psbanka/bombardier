@@ -2,8 +2,7 @@
 
 import base64, binascii
 from Crypto.Cipher import AES
-from bombardier.staticData import CENSORED
-from staticData import *
+from static_data import CENSORED, OK
 
 class InvalidData(Exception):
     def __init__(self, key, dictionary, explanation = ''):

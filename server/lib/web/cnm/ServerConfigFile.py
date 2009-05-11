@@ -18,7 +18,7 @@ class ConfigFileException(Exception):
     def __str__(self):
         return self.__repr__()
 
-class ServerConfig:
+class ServerConfigFile:
     def __init__(self):
         self.default_group = "root"
         self.debug = True

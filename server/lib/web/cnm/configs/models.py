@@ -23,3 +23,6 @@ class Client(models.Model):
     def __str__(self):
         return self.name
 
+class ServerConfig(models.Model):
+    name = models.CharField(max_length=64)
+    value = models.CharField(max_length=64)

@@ -5,11 +5,9 @@
 import glob, os
 
 import PinshCmd, BomHostField
-from bombardier_common.libCipher import decrypt, encrypt
+from bombardier_core.libCipher import decrypt, encrypt
 import yaml, syck
-import Client
-from commonUtil import *
-from bombardier.staticData import CENSORED
+from bombardier_core.static_data import OK, FAIL, CENSORED, PARTIAL, COMPLETE
 
 from commands import getstatusoutput
 
@@ -27,8 +25,10 @@ class ConfigField(PinshCmd.PinshCmd):
         self.dataType = dataType
         self.cmdOwner = 0
         self.strict = strict # take only exact matches
-        if dataType in [CLIENT, MERGED]:
+        if dataType == CLIENT:
             self.directory = "client"
+        if dataType == MERGED:
+            self.directory = "merged"
         if dataType == INCLUDE:
             self.directory = "include"
         if dataType == BOM:
@@ -44,7 +44,11 @@ class ConfigField(PinshCmd.PinshCmd):
     def get_data(self, firstTokenName):
         cmd = "curl --silent http://127.0.0.1:8000/json/"+self.directory+"/name/"+firstTokenName
         status, output = getstatusoutput(cmd)
-        data = syck.load(output)
+        try:
+            data = syck.load(output)
+        except TypeError:
+            print "ERROR LOADING DATA: ",cmd
+            raise TypeError
         return data
 
     def getTopLevelData(self, tokens, index, decrypt):
@@ -58,14 +62,7 @@ class ConfigField(PinshCmd.PinshCmd):
         if len(firstTokenNames) > 1:
             return firstTokenNames, {}
         firstTokenName = firstTokenNames[0]
-        if self.dataType == MERGED:
-            client = Client.Client(firstTokenName, '', mode.serverHome)
-            client.get()
-            data = client.data
-        else:
-            data = self.get_data(firstTokenName)
-        if decrypt:
-            data = decrypt(data, '')
+        data = self.get_data(firstTokenName)
         return [firstTokenName], data
 
     def removeOneItem(self, currentValue, tokens, index):
@@ -82,13 +79,16 @@ class ConfigField(PinshCmd.PinshCmd):
         except:
             pass
         return FAIL, ["%s is not in the current list of values." % item]
-        
+
     def removeValue(self, tokens, index):
         if self.dataType == MERGED:
             return FAIL, []
 
-        firstTokenNames, clearData = self.getTopLevelData(tokens, index, True)
-        firstTokenNames, encData = self.getTopLevelData(tokens, index, False)
+        try:
+            firstTokenNames, clearData = self.getTopLevelData(tokens, index, True)
+            firstTokenNames, encData = self.getTopLevelData(tokens, index, False)
+        except TypeError:
+            return FAIL, "Unable to read data from server"
         if not clearData:
             return FAIL, []
         if type(clearData) == type(["list"]):
@@ -173,7 +173,10 @@ class ConfigField(PinshCmd.PinshCmd):
 
     def getSpecificData(self, tokens, index):
         tokens[index] = tokens[index].replace('"', '')
-        firstTokenNames, data = self.getTopLevelData(tokens, index, True)
+        try:
+            firstTokenNames, data = self.getTopLevelData(tokens, index, True)
+        except TypeError:
+            return FAIL, "Unable to read data from server"
         if len(firstTokenNames) != 1:
             return '' # EXPERIMENTAL CHANGE from []
         if len(tokens[index].split('.')) > 1:
@@ -197,7 +200,12 @@ class ConfigField(PinshCmd.PinshCmd):
         tokens[index] = tokens[index].replace('"', '')
         if not self.strict:
             return tokens[index:]
-        firstTokenNames, data = self.getTopLevelData(tokens, index, True)
+        if 1 == 1:
+        #try:
+            firstTokenNames, data = self.getTopLevelData(tokens, index, True)
+        else:
+        #except TypeError:
+            return FAIL, "Unable to read data from server"
         if len(firstTokenNames) == 0:
             return []
         if len(firstTokenNames) > 1:

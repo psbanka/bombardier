@@ -6,12 +6,12 @@ import CommSocket
 import traceback, StringIO
 import syslog
 import os, yaml
-from bombardier_common.libCipher import encrypt, decryptString, pad
+from bombardier_core.libCipher import encrypt, decryptString, pad
 from threading import Thread
-from bombardier_common.static_data import OK, FAIL, ADMIN, COMMAND_LOG_MARKER
-from bombardier_common.static_data import ORETURN_DICT, TB_CTRL_PORT, TB_RUN_JOB, TB_WAIT
-from bombardier_common.static_data import OTB_KILL, TB_SHOW, TB_SAVE, TB_LOAD, TB_ENABLE
-from bombardier_common.static_data import OTB_DISABLE, TB_ADD, TB_DEL
+from bombardier_core.static_data import OK, FAIL, ADMIN, COMMAND_LOG_MARKER
+from bombardier_core.static_data import ORETURN_DICT, TB_CTRL_PORT, TB_RUN_JOB, TB_WAIT
+from bombardier_core.static_data import OTB_KILL, TB_SHOW, TB_SAVE, TB_LOAD, TB_ENABLE
+from bombardier_core.static_data import OTB_DISABLE, TB_ADD, TB_DEL
 from getpass import getpass
 
 DIZEBUG = 0

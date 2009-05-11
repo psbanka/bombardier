@@ -24,9 +24,9 @@
 from old_static_data import *
 import sets, os, time, copy
 import Package, Exceptions
-from bombardier_common.Logger import Logger
-from bombardier_common.miniUtility import getInstalled, getPackagePath
-from bombardier_common.miniUtility import diffDicts, stripVersion
+from bombardier_core.Logger import Logger
+from bombardier_core.miniUtility import getInstalled, getPackagePath
+from bombardier_core.miniUtility import diffDicts, stripVersion
 
 def swap(listObj, index1, index2):
     newList = copy.deepcopy(listObj)
