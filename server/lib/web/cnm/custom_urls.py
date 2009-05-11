@@ -8,14 +8,10 @@ import syck, glob
 
 MAPPER = {"client": Client, "include": Include, "bom": Bom}
 
-def path_to_config_file(config_type, config_name):
-    config_path = os.path.join(ServerConfig.ServerConfig().server_home, config_type)
-    config_file = os.path.join(config_path)
-    return config_file
-
 class ConfigEntry(Resource):
     def read(self, request, config_type, config_name):
-        config_file = path_to_config_file(config_type, config_name)
+        config_file = os.path.join(ServerConfig.ServerConfig().server_home,\
+                                   config_type)
         responder = YamlResponder(config_file)
         return responder.element(request, config_name)
 
