@@ -2,29 +2,49 @@ from binascii import b2a_base64
 from datetime import datetime
 from django.core import serializers
 from django.test import TestCase
-from django.utils.functional import curry
+from django.contrib.auth.models import User
 import django.utils.simplejson as json
 import webbrowser, re
 import os, sys, yaml
 from bombardier_core.static_data import SERVER_CONFIG_FILE
+from Exceptions import InvalidServerHome
+
+TEST_PASSWORD = "testpass1234"
 
 class BasicTest(TestCase):
 
     fixtures = ['init.json']
 
     def setUp(self):
-        pass
+        self.staff_user = User.objects.create_user('test_guy', 'tester@testy.com', TEST_PASSWORD)
+        self.staff_user.is_staff = True
+        self.staff_user.save()
+        self.login()
+
+        self.super_user = User.objects.create_user('super_guy', 'super@testy.com', TEST_PASSWORD)
+        self.super_user.is_superuser = True
+        self.super_user.save()
+
+    def login(self, user=None):
+        if not user:
+            user = self.staff_user
+        result = self.client.login(username=user.username, password=TEST_PASSWORD)
+        self.failUnless(result)
+
+    def login_super(self):
+        result = self.client.login(username=self.super_user.username, password=TEST_PASSWORD)
+        self.failUnless(result)
 
     def get_field_value_set(self, test_dict, value):
         return set([ i["fields"][value] for i in test_dict ])
 
-    def get_content_dict(self, url):
+    def get_content_dict(self, url, expected_status_code = 200):
         response = self.client.get(url)
         try:
             content_dict = json.loads( response.content )
         except ValueError:
             self.fail("Did not receive any proper JSON from the server!")
-        self.failUnlessEqual(response.status_code, 200)
+        self.failUnlessEqual(response.status_code, expected_status_code)
         return content_dict
 
     def yml_file_search_test(self, config_type, search_term, expected_list):
@@ -59,6 +79,7 @@ class BasicTest(TestCase):
         expected = {"server_home": "NULL"}
         self.failUnlessEqual(content_dict["server_home"], expected["server_home"])
 
+        self.login(self.super_user)
         url = '/json/dbsync'
         response = self.client.post(path=url)
         self.failUnlessEqual(response.status_code, 200)
@@ -69,6 +90,7 @@ class BasicTest(TestCase):
         self.failUnlessEqual(content_dict["server_home"], expected["server_home"])
 
     def test_change_server_home(self):
+        self.login(self.super_user)
         url = '/json/server/config'
         response = self.client.post(path=url, data={"server_home": "NO_PATH"})
         content_dict = json.loads( response.content )
@@ -76,9 +98,11 @@ class BasicTest(TestCase):
         self.failUnlessEqual(content_dict["server_home"], expected["server_home"])
 
     def test_merged(self):
+        self.login(self.super_user)
         url = '/json/server/config'
         test_home = os.path.join(os.getcwd(), "configs", "fixtures")
         response = self.client.post(path=url, data={"server_home": test_home})
+        self.failUnlessEqual(response.status_code, 200)
         client_name = "tester1"
         url = '/json/merged/name/%s' % client_name
         content_dict = self.get_content_dict(url)
@@ -93,3 +117,22 @@ class BasicTest(TestCase):
             else:
                 self.failUnlessEqual(set(content_dict[key]), set(expected[key]))
 
+    def test_authentication(self):
+        self.client.logout()
+
+        url = '/json/check_authentication'
+        content_dict = self.get_content_dict(url, 403)
+        self.failUnlessEqual(content_dict["status"], "NOT_AUTHENTICATED")
+
+        result = self.client.login(username=self.staff_user.username, password='foodyfoo')
+        self.failIf(result)
+
+        content_dict = self.get_content_dict(url, 403)
+        self.failUnlessEqual(content_dict["status"], "NOT_AUTHENTICATED")
+
+        result = self.client.login(username=self.staff_user.username, password=TEST_PASSWORD)
+        self.failUnless(result)
+
+        url = '/json/check_authentication'
+        content_dict = self.get_content_dict(url)
+        self.failUnlessEqual(content_dict["status"], "OK")

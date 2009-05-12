@@ -7,9 +7,13 @@ import ServerConfigFile
 import syck, glob, yaml
 import os
 import MachineConfig
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
+from Exceptions import InvalidServerHome
+from django.contrib.auth.views import login, logout
+
 
 MAPPER = {"merged": Client, "client": Client, "include": Include, "bom": Bom}
-
 
 def dump_json(data):
     response = HttpResponse(mimetype = "application/json")
@@ -19,9 +23,13 @@ def dump_json(data):
 def get_server_home():
     config_entry = ServerConfig.objects.get(name="server_home")
     server_home =config_entry.value
+    if not os.path.isdir(server_home):
+        raise InvalidServerHome(server_home)
     return server_home
 
 class ConfigEntry(Resource):
+
+    @login_required
     def read(self, request, config_type, config_name):
         server_home = get_server_home()
         if config_type.lower() == "merged":
@@ -35,35 +43,15 @@ class ConfigEntry(Resource):
             return responder.element(request, config_name)
 
 class ConfigCollection(Resource):
+    @login_required
     def read(self, request, config_type, config_name):
         objects = MAPPER[config_type.lower()].objects.filter(name__startswith=config_name)
         responder = JSONResponder()
         responder.expose_fields = ["name"]
         return responder.list(request, objects)
 
-class ConfigSyncCollection(Resource):
-    def read(self, request):
-        new_config_objects = []
-        server_home = get_server_home()
-
-        for config_type in MAPPER:
-            config_objects = MAPPER[config_type.lower()].objects.all()
-            for config_object in config_objects:
-                config_object.delete()
-            config_wildcard = os.path.join(server_home, config_type, "*.yml")
-            config_files = glob.glob(config_wildcard)
-            for config_file in config_files:
-                base_name = config_file.split(os.path.sep)[-1]
-                config_name = base_name.split('.yml')[0]
-                config_object = MAPPER[config_type.lower()](name=config_name)
-                config_object.save()
-
-            new_config_objects += MAPPER[config_type.lower()].objects.all()
-        responder = JSONResponder()
-        responder.expose_fields = ["name"]
-        return responder.list(request, new_config_objects)
-
 class MergedEntry(Resource):
+    @login_required
     def read(self, request, client_name):
         server_home = get_server_home()
         machine_config = MachineConfig.MachineConfig(client_name, "", server_home)
@@ -74,6 +62,7 @@ class MergedEntry(Resource):
 #==================================
 
 class ServerConfigCollection(Resource):
+    @login_required
     def read(self, request):
         server_config_objects = ServerConfig.objects.all()
         output = {}
@@ -81,7 +70,11 @@ class ServerConfigCollection(Resource):
             output[server_co.name] = server_co.value
         responder = JsonDictResponder(output)
         return responder.element(request)
+
+    @login_required
     def create(self, request):
+        if not request.user.is_superuser:
+            return HttpResponseForbidden()
         query_dict = request.POST
         for entry in query_dict:
             server_co = ServerConfig.objects.get(name=entry)
@@ -95,6 +88,7 @@ class ServerConfigCollection(Resource):
         return responder.element(request)
 
 class ServerConfigSyncCollection(Resource):
+    @login_required
     def read(self, request):
         server_config_objects = ServerConfig.objects.all()
         for server_co in server_config_objects:
@@ -108,14 +102,15 @@ class ServerConfigSyncCollection(Resource):
         return responder.element(request)
 
 class DbSyncCollection(Resource):
+    @login_required
     def create(self, request):
-        self.server_sync()
-        self.server_home_sync()
+        self._server_sync()
+        self._server_home_sync()
 
         responder = JsonDictResponder({"status": "OK"})
         return responder.element(request)
 
-    def server_sync(self):
+    def _server_sync(self):
         server_config_objects = ServerConfig.objects.all()
         for server_co in server_config_objects:
             server_co.delete()
@@ -125,7 +120,7 @@ class DbSyncCollection(Resource):
             sc = ServerConfig(name=element, value=config_data[element])
             sc.save()
 
-    def server_home_sync(self):
+    def _server_home_sync(self):
         new_config_objects = []
         server_home = get_server_home()
         for config_type in MAPPER:
@@ -142,12 +137,35 @@ class DbSyncCollection(Resource):
 
             new_config_objects += MAPPER[config_type.lower()].objects.all()
 
+class AuthEntry(Resource):
+    def read(self, request):
+        if not request.user.is_authenticated():
+            status = "NOT_AUTHENTICATED"
+            status_code = 403
+        else:
+            status = "OK"
+            status_code = 200
+        responder = JsonDictResponder({"status": status})
+        response = responder.element(request)
+        response.status_code = status_code
+        return response
+
+class UserProfileEntry(Resource):
+    def read(self, request):
+        output = {"username": request.user.username,
+                  "super_user": request.user.is_superuser}
+
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
 urlpatterns = patterns('',
    url(r'^json/server/config', ServerConfigCollection(permitted_methods = ['POST', "GET"])),
-   #url(r'^json/server/set_config', ServerConfigModifyCollection(permitted_methods=['POST'])),
    url(r'^json/dbsync', DbSyncCollection(permitted_methods = ['POST'])),
    url(r'^json/(?P<config_type>.*)/search/(?P<config_name>.*)', ConfigCollection()),
    url(r'^json/(?P<config_type>.*)/name/(?P<config_name>.*)$', ConfigEntry(permitted_methods=['GET'])),
-   #url(r'^json/merged/(?P<client_name>.*)$', MergedEntry()),
+   url(r'^json/check_authentication', AuthEntry(permitted_methods=['GET'])),
+   url(r'^accounts/login/$',  login),
+   url(r'^accounts/logout/$', logout),
+   url(r'^accounts/profile/$', UserProfileEntry()),
 )
 

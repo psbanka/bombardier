@@ -65,6 +65,7 @@ class Mode:
         self.newClasses = []
         self.auth = USER
         self.fullPrompt = ""
+        self.username = ''
         self.password = ''
         self.commentCommands = []
         self.bomConnections = {}
