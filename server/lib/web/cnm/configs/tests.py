@@ -5,7 +5,8 @@ from django.test import TestCase
 from django.utils.functional import curry
 import django.utils.simplejson as json
 import webbrowser, re
-import os
+import os, sys, yaml
+from bombardier_core.static_data import SERVER_CONFIG_FILE
 
 class BasicTest(TestCase):
 
@@ -47,31 +48,39 @@ class BasicTest(TestCase):
                 expected = test_dict[section][search_term]
                 self.yml_file_search_test( section, search_term, expected )
 
+    def get_bombardier_yaml_dict(self):
+        yaml_str = open(SERVER_CONFIG_FILE).read()
+        config_dict = yaml.load(yaml_str)
+        return config_dict
+
     def test_get_server_home(self):
         url = '/json/server/config'
         content_dict = self.get_content_dict(url)
-        expected = {"server_home": "/var/deploy"}
+        expected = {"server_home": "NULL"}
         self.failUnlessEqual(content_dict["server_home"], expected["server_home"])
-        url = '/json/server/dbsync'
-        content_dict = self.get_content_dict(url)
+
+        url = '/json/dbsync'
+        response = self.client.post(path=url)
+        self.failUnlessEqual(response.status_code, 200)
+
+        expected = self.get_bombardier_yaml_dict()
         url = '/json/server/config'
         content_dict = self.get_content_dict(url)
-        expected = {"server_home": "/cygdrive/c/deploy"}
         self.failUnlessEqual(content_dict["server_home"], expected["server_home"])
 
     def test_change_server_home(self):
         url = '/json/server/config'
-        response = self.client.post(path=url, data={"server_home": "/var/deploy/test"})
+        response = self.client.post(path=url, data={"server_home": "NO_PATH"})
         content_dict = json.loads( response.content )
-        expected = {"server_home": u"/var/deploy/test"}
+        expected = {"server_home": u"NO_PATH"}
         self.failUnlessEqual(content_dict["server_home"], expected["server_home"])
 
     def test_merged(self):
         url = '/json/server/config'
-        response = self.client.post(path=url, data={"server_home": "/cygdrive/d/mydocuments/dev/1.00/server/lib/web/cnm/configs/fixtures"})
-        #response = self.client.post(path=url, data={"server_home": "configs/fixtures"})
+        test_home = os.path.join(os.getcwd(), "configs", "fixtures")
+        response = self.client.post(path=url, data={"server_home": test_home})
         client_name = "tester1"
-        url = '/json/merged/%s' % client_name
+        url = '/json/merged/name/%s' % client_name
         content_dict = self.get_content_dict(url)
         expected = {"ip_address": u"127.0.0.1",
                     "include": [u"otherapp", u"app1"],

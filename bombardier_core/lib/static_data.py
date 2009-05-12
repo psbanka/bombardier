@@ -33,6 +33,7 @@ and you are welcome to redistribute it under the terms of the GNU
 General Public license version 2.""" % VERSION
 
 LAST_REPORT = "lastReport.yml"
+SERVER_CONFIG_FILE = "/etc/bombardier.yml"
 
 # AUTHORIZATION
 ADMIN_USER   = 9

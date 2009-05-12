@@ -107,12 +107,45 @@ class ServerConfigSyncCollection(Resource):
         responder = JsonDictResponder(config_data)
         return responder.element(request)
 
+class DbSyncCollection(Resource):
+    def create(self, request):
+        self.server_sync()
+        self.server_home_sync()
+
+        responder = JsonDictResponder({"status": "OK"})
+        return responder.element(request)
+
+    def server_sync(self):
+        server_config_objects = ServerConfig.objects.all()
+        for server_co in server_config_objects:
+            server_co.delete()
+        server_config_file = ServerConfigFile.ServerConfigFile()
+        config_data = server_config_file.global_config
+        for element in config_data:
+            sc = ServerConfig(name=element, value=config_data[element])
+            sc.save()
+
+    def server_home_sync(self):
+        new_config_objects = []
+        server_home = get_server_home()
+        for config_type in MAPPER:
+            config_objects = MAPPER[config_type.lower()].objects.all()
+            for config_object in config_objects:
+                config_object.delete()
+            config_wildcard = os.path.join(server_home, config_type, "*.yml")
+            config_files = glob.glob(config_wildcard)
+            for config_file in config_files:
+                base_name = config_file.split(os.path.sep)[-1]
+                config_name = base_name.split('.yml')[0]
+                config_object = MAPPER[config_type.lower()](name=config_name)
+                config_object.save()
+
+            new_config_objects += MAPPER[config_type.lower()].objects.all()
+
 urlpatterns = patterns('',
    url(r'^json/server/config', ServerConfigCollection(permitted_methods = ['POST', "GET"])),
    #url(r'^json/server/set_config', ServerConfigModifyCollection(permitted_methods=['POST'])),
-   url(r'^json/server/dbsync', ServerConfigSyncCollection()),
-   url(r'^json/dbsync', ConfigSyncCollection()),
-   url(r'^json/dbsync/(?P<server_home>)', ConfigSyncCollection()),
+   url(r'^json/dbsync', DbSyncCollection(permitted_methods = ['POST'])),
    url(r'^json/(?P<config_type>.*)/search/(?P<config_name>.*)', ConfigCollection()),
    url(r'^json/(?P<config_type>.*)/name/(?P<config_name>.*)$', ConfigEntry(permitted_methods=['GET'])),
    #url(r'^json/merged/(?P<client_name>.*)$', MergedEntry()),
