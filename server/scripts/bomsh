@@ -79,7 +79,6 @@ def main_loop(mode, slash):
                 readline.write_history_file(HISTORY_FILE)
                 if mode.commentCommands:
                     makeComment()
-                logComment("User %s ENDED an interactive session" % mode.username)
                 sys.exit(0)
             mode.cleanMode(mode.state[-1])
             print

@@ -37,10 +37,10 @@ class Comment(Echo):
                 comment = ""
         else:
             comment = ' '.join(tokens[1:])
-        logComment(comment)
+        #logComment(comment)
         mode.commentCommands = []
 
-class Pause(Echo):    
+class Pause(Echo):
     def __init__(self):
         Echo.__init__(self)
         self.myName = "pause"
