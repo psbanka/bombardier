@@ -2,7 +2,6 @@
 
 import sys, termios, tty
 from commands import getstatusoutput
-from commonUtil import *
 
 ONE_LINE = 0
 QUIT = 1

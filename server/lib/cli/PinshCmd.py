@@ -4,7 +4,6 @@ import readline, sys
 import Mode, libUi
 import StringIO
 import traceback
-from commonUtil import *
 
 DEBUG    = 0
 NO_MATCH = 0
@@ -12,6 +11,12 @@ PARTIAL  = 1
 COMPLETE = 2
 
 # find the names of all the objects given to me
+def convertTokensToString(tokens, delimeter=' '):
+    retVal = ''
+    for token in tokens:
+        retVal += token+delimeter
+    return retVal[:-1]
+
 def getNames(objects, tokens, index):
     names = []
     for obj in objects:
@@ -30,12 +35,16 @@ class PinshCmd:
         self.helpText = helpText
         self.children = []
         self.level = level
-        self.auth = USER
+        self.auth = Mode.USER
         self.cmdOwner = 0
         self.tokenDelimiter = tokenDelimiter
         self.names = []
         self.exitMode = False
         self.logCommand = False
+        self.mode = None
+
+    def set_mode(self, mode):
+        self.mode = mode
 
     def __repr__(self):
         return self.myName
@@ -47,7 +56,7 @@ class PinshCmd:
         return self.preferredNames(tokens, index)
 
     def match(self, tokens, index):
-        if self.auth > mode.auth:
+        if self.auth > self.mode.auth:
             return NO_MATCH, 1
         if tokens[index] == '':
             return PARTIAL, 1
@@ -64,7 +73,7 @@ class PinshCmd:
         return FAIL, ["Incomplete command."]
 
     def printErrorMessage(self, tokens, index, message = "Unrecognized Command"):
-        preamble = ' '*len(mode.getPrompt())
+        preamble = ' '*len(self.mode.getPrompt())
         okTokens = convertTokensToString(tokens[:index])
         print "%s%s" % (preamble, convertTokensToString(tokens))
         print "%s%s ^" % (preamble, " "*len(okTokens))
@@ -81,7 +90,7 @@ class PinshCmd:
             return [self], index
         if tokens[index] == '':
             if len(self.children) > 0:
-                output = [ child for child in self.children if child.auth <= mode.auth ]
+                output = [ child for child in self.children if child.auth <= self.mode.auth ]
                 return output, index+1
             returnError = 0
         completionObjects = []
@@ -89,7 +98,7 @@ class PinshCmd:
         matchLen = 0
         if DEBUG: print "CHILDREN: ", self.children
         for child in self.children:
-            if child.auth > mode.auth:
+            if child.auth > self.mode.auth:
                 continue
             matchValue, length = child.match(tokens, index)
             if matchValue == INCOMPLETE:
@@ -113,12 +122,12 @@ class PinshCmd:
             if len(incompleteObjects) > 0:
                 print
                 self.printErrorMessage(tokens, index, "Command cannot be completed.")
-                mode.reprompt()
+                self.mode.reprompt()
                 return [], 1
             if returnError:
                 print
                 self.printErrorMessage(tokens, index)
-                mode.reprompt()
+                self.mode.reprompt()
             return [], index
         else: # we have a few possible matches, return them all
             return completionObjects, index
@@ -145,7 +154,7 @@ class PinshCmd:
                     completionObjects, index = self.findCompletions(tokens, 0)
                 if DEBUG: print "Found completions: ",completionObjects, index
                 if len(completionObjects) == 0:
-                    #mode.reprompt()
+                    #self.mode.reprompt()
                     return None
                 # status is the index of the completion that readline wants
                 self.names =  getNames(completionObjects, tokens, index-1)
@@ -244,13 +253,13 @@ class PinshCmd:
     def run(self, tokens, noFlag, mySlash):
         if tokens[-1] == '':
             tokens = tokens[:-1]
-        if mode.state[-1] == Mode.F0:
+        if self.mode.state[-1] == Mode.F0:
             if tokens[0].lower() != 'end':
-                mode.commandBuffer[Mode.F0].append([tokens, noFlag, mySlash])
+                self.mode.commandBuffer[Mode.F0].append([tokens, noFlag, mySlash])
             else:
-                variable, values = mode.variables[Mode.F0]
+                variable, values = self.mode.variables[Mode.F0]
                 for value in values:
-                    for tokens, noFlag, mySlash in mode.commandBuffer[Mode.F0]:
+                    for tokens, noFlag, mySlash in self.mode.commandBuffer[Mode.F0]:
                         newTokens = []
                         for token in tokens:
                             if token == '$%s' % variable:
@@ -266,23 +275,23 @@ class PinshCmd:
                             output = returnValue[1]
                             if owner.logCommand:
                                 cmd = log(noFlag, tokens, status, output)
-                                mode.commentCommands.append(cmd)
+                                self.mode.commentCommands.append(cmd)
                             libUi.userOutput(output, status)
-                        mode.globals["output"] = output
-                        mode.globals["status"] = status
-                extraClasses = mode.newClasses[-1]
+                        self.mode.globals["output"] = output
+                        self.mode.globals["status"] = status
+                extraClasses = self.mode.newClasses[-1]
                 for i in range(0,extraClasses):
                     if i: pass # pychecker
                     mySlash.children.pop()
-                mode.popPrompt()
-                mode.cleanMode(mode.state[-1])
+                self.mode.popPrompt()
+                self.mode.cleanMode(mode.state[-1])
             return OK, []
         else:
             owner = self.findLastResponsibleChild(tokens, 0)
             if not owner:
                 return FAIL, []
-            if mode.state[-1] == Mode.F0 and not owner.exitMode:
-                mode.commands.append([owner.cmd, tokens, noFlag, mySlash])
+            if self.mode.state[-1] == Mode.F0 and not owner.exitMode:
+                self.mode.commands.append([owner.cmd, tokens, noFlag, mySlash])
                 return OK, []
             else:
                 returnValue = owner.cmd(tokens, noFlag, mySlash)
@@ -293,9 +302,9 @@ class PinshCmd:
                     output = returnValue[1]
                     if owner.logCommand:
                         cmd = log(noFlag, tokens, status, output)
-                        mode.commentCommands.append(cmd)
-                    mode.globals["output"] = output
-                    mode.globals["status"] = status
+                        self.mode.commentCommands.append(cmd)
+                    self.mode.globals["output"] = output
+                    self.mode.globals["status"] = status
                     return status, output
 
     # pretty-print the help strings of all my children on this level
@@ -307,9 +316,9 @@ class PinshCmd:
             return
         
         for child in self.children:
-            if mode.auth < child.auth:
+            if self.mode.auth < child.auth:
                 continue
-            if child.level < mode.state[-1]:
+            if child.level < self.mode.state[-1]:
                 continue
             if child.helpText.rfind('\n') != -1:
                 for helpLine in child.helpText.split('\n'):

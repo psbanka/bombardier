@@ -3,17 +3,17 @@
 import readline, socket, sys, os
 import stat
 import yaml, syck
+import libUi
 from BombardierRemoteClient import BombardierRemoteClient
+from CnmConnector import CnmConnector
+from bombardier_core.Logger import Logger
+from bombardier_core.static_data import OK, FAIL
 
 PERSONAL_CONFIG_FILE = "%s/.bomsh_config" % os.environ.get("HOME")
 
 NO_COLOR  = 'none'
 DARK      = "dark"
 LIGHT     = "light"
-
-OK = 0
-FAIL = 1
-UNKNOWN = -1
 
 # Authorization levels
 USER = 0
@@ -54,7 +54,8 @@ class ConfigFileException(Exception):
         return self.__repr__()
 
 class Mode:
-    def __init__(self, state, prompt):
+    def __init__(self, state, prompt, username, logger):
+        self.logger = logger
         self.batch = False
         self.state = [state]
         self.exitMethods = []
@@ -65,8 +66,8 @@ class Mode:
         self.newClasses = []
         self.auth = USER
         self.fullPrompt = ""
-        self.username = ''
-        self.password = ''
+        self.username = username
+        self.password = None
         self.commentCommands = []
         self.bomConnections = {}
         self.defaultGroup = "root"
@@ -75,7 +76,6 @@ class Mode:
         self.debug = True
         self.global_config = {}
         self.personal_config = {}
-        self.username = os.environ.get("USER")
         self.autoEnable = False
         self.editor = "/usr/bin/vim"
         self.setPrompt()
@@ -83,6 +83,18 @@ class Mode:
         self.termwidth = 80
         self.termlen   = 23
         self.termcolor = NO_COLOR
+        self.cnm_connector = None
+
+    def login(self):
+        if not self.username:
+            self.username = libUi.getDefault("username", "root")
+        self.password = libUi.pwdInput("password: ")
+        cnm_connector = CnmConnector("http://127.0.0.1:8000",
+                                     self.username, self.password,
+                                     self.logger)
+        output = cnm_connector.login()
+        
+        print output
 
     def addPersonalConfigList(self, option, value):
         if self.personal_config.get(option):

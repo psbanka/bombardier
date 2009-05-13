@@ -26,6 +26,8 @@ from _version import version_info
 
 VERSION       = str("%(branch_nick)s-%(revno)d" % version_info)
 TEST_RELEASE  = False
+LOGS_TO_KEEP  = 5
+LOG_MAX_SIZE  = 1000000
 
 HEADER_TEXT   = """Bombardier-%s, Copyright (C) 2005 Peter Banka et. al \n
 Bombardier comes with ABSOLUTELY NO WARRANTY; This is free software,
