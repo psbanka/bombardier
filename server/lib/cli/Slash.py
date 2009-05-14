@@ -3,48 +3,48 @@
 import traceback, StringIO
 import exceptions
 import sys
-import PinshCmd, libUi, Mode
+import PinshCmd, libUi
+from bombardier_server.cli.SystemStateSingleton import SystemState, FREE_TEXT
+system_state = SystemState()
+from bombardier_core.static_data import FAIL,OK
+
 
 class Slash(PinshCmd.PinshCmd):
     def __init__(self, children):
         PinshCmd.PinshCmd.__init__(self, "")
         self.children = children
-        self.mode = None
         self.cmdOwner = 1
         self.helpText = ''
-        self.fpOut=sys.stdout
-        self.fpErr=sys.stderr
+        self.fp_out=sys.stdout
+        self.fp_err=sys.stderr
 
-    def set_mode(self, mode):
-        self.mode = mode
+    def set_output(self, fp_out):
+        self.fp_out = fp_out
 
-    def setOutput(self, fpOut):
-        self.fpOut = fpOut
+    def set_err(self, fp_err):
+        self.fp_err = fp_err
 
-    def setErr(self, fpErr):
-        self.fpErr = fpErr
-
-    def processCommand(self, command):
+    def process_command(self, command):
         try:
-            if self.mode.currentState() != Mode.FREE_TEXT:
-                noFlag, helpFlag, tokens, comment = libUi.processInput(command)
-                if helpFlag: # Process the [?] key first
-                    self.findHelp(tokens, 0)
+            if system_state.current_state() != FREE_TEXT:
+                no_flag, help_flag, tokens, comment = libUi.process_input(command)
+                if help_flag: # Process the [?] key first
+                    self.find_help(tokens, 0)
                     return None
                 if len(tokens) == 0:
                     return OK, []
                 else:
-                    status, output = self.run(tokens, noFlag, self)
+                    status, output = self.run(tokens, no_flag, self)
                     if comment:
-                        makeComment(comment)
-            libUi.userOutput(output, status, self.fpOut, self.fpErr)
+                        makeComment(comment) # MISSING
+            libUi.user_output(output, status, self.fp_out, self.fp_err)
             return status, output
         except exceptions.SystemExit, e:
-            if self.mode.commentCommands:
-                makeComment()
+            if system_state.comment_commands:
+                makeComment() # MISSING
             sys.exit(0)
         except Exception, e:
-            self.fpErr.write( " %%%% Error detected in %s (%s)." % (command, e))
+            self.fp_err.write( " %%%% Error detected in %s (%s)." % (command, e))
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
             e.seek(0)
@@ -52,9 +52,9 @@ class Slash(PinshCmd.PinshCmd):
             ermsg = ''
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
-            self.fpErr.write(ermsg)
-            self.fpErr.write("\n")
-        return FAIL,["processCommand Excepted"]
+            self.fp_err.write(ermsg)
+            self.fp_err.write("\n")
+        return FAIL,["process_command Excepted"]
 
 
 ##########################################################################
@@ -65,15 +65,13 @@ class Slash(PinshCmd.PinshCmd):
 ## 2. add the class to the following vector of command or add it to
 ##    the Configure.py class
 
-import Bash, Ping, Telnet, Ssh, Rsync, Terminal, Exit, Package, Enable, Show, Sleep
-#import For, Echo, UpdateClient, Set, Run, Push, Edit, Debug, Scheduler, Cmdb
-import For, Echo, Set, Run, Push, Edit, Debug, Scheduler, Cmdb
+import Bash, Ping, Telnet, Ssh, Rsync, Terminal, Exit, Enable, Show, Sleep
+import For, Echo, Set, Push, Debug, Scheduler, Cmdb
 
 commands = [Echo.Comment(), Set.Set(), Terminal.Terminal(), Show.Show(), Ping.Ping(),
             Debug.Debug(), Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(),
-            Run.Run(), Push.Push(), Edit.Edit(), Echo.Pause(), Sleep.Sleep(),
+            Push.Push(), Echo.Pause(), Sleep.Sleep(),
             Exit.Exit(), For.For(),
-            #Echo.Echo(), Package.Package(), Rsync.Rsync(), Cmdb.Cmdb()]
-            Echo.Echo(), Package.Package(), Rsync.Rsync()]
+            Echo.Echo(), Rsync.Rsync()]
 
 

@@ -21,6 +21,16 @@ def make_query_string(args):
                 query_string += "&%s=%s" % (key, value)
     return query_string
 
+class ServerException(Exception):
+    def __init__(self, msg, http_code):
+        Exception.__init__(self)
+        self.msg = msg
+        self.http_code = http_code
+    def __repr__(self):
+        return "Server Error: %s (%d)" % (self.msg, self.http_code)
+    def __str__(self):
+        return self.__repr__()
+
 class CnmConnector:
 
     def __init__(self, address, username, password, logger):
@@ -53,7 +63,7 @@ class CnmConnector:
                 curl_obj.setopt(pycurl.PROXYPORT, self.proxy_port)
         return curl_obj
 
-    def perform_request(self, curl_obj):
+    def perform_request(self, curl_obj, full_path):
         output_file = StringIO.StringIO()
         curl_obj.setopt(pycurl.WRITEFUNCTION, output_file.write)
         try:
@@ -62,8 +72,9 @@ class CnmConnector:
             output = output_file.read()
             return output
         except pycurl.error, curl_err:
-            url = curl_obj.getopt(pycur.URL)
-            erstr = "Connection problem to %s: %s" % (url, curl_err[1])
+            http_code = curl_obj.getinfo(pycurl.HTTP_CODE)
+            erstr = "Connection problem to %s: (%d) %s" % (full_path, http_code, curl_err[1])
+            print erstr
             if self.logger:
                 self.logger.warning(erstr)
             return ''
@@ -76,7 +87,7 @@ class CnmConnector:
             post_data.append((key, data[key]))
         encoded_post_data = urllib.urlencode(post_data)
         curl_obj.setopt(pycurl.POSTFIELDS, encoded_post_data)
-        return self.perform_request(curl_obj)
+        return self.perform_request(curl_obj, full_path)
 
     def login(self):
         data = {"username": self.username, "password": self.password}
@@ -96,7 +107,7 @@ class CnmConnector:
             curl_obj.setopt(pycurl.INFILESIZE, len(put_data))
             out_data = StringIO.StringIO(put_data)
             curl_obj.setopt(pycurl.READFUNCTION, out_data.read)
-        return self.perform_request(curl_obj)
+        return self.perform_request(curl_obj, full_path)
 
     def service_yaml_request(self, path, args=None, put_data=None):
         if not args:

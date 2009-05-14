@@ -2,6 +2,11 @@
 
 import sys, termios, tty
 from commands import getstatusoutput
+from CnmConnector import CnmConnector
+from bombardier_server.cli.SystemStateSingleton import SystemState, ENABLE, USER, F0
+system_state = SystemState()
+from bombardier_core.static_data import FAIL
+
 
 ONE_LINE = 0
 QUIT = 1
@@ -11,127 +16,143 @@ NEUTRAL = 5
 YES = 1
 NO = 0
 
-def motd(outputHandle):
+def login(username, logger):
+    system_state.get_term_info()
+    system_state.username = username
+    system_state.logger = logger
+    if not system_state.username:
+        system_state.username = get_default("username", "root")
+    system_state.password = pwd_input("password: ")
+    system_state.cnm_connector = CnmConnector("http://127.0.0.1:8000",
+                                 system_state.username, system_state.password,
+                                 system_state.logger)
+    output = system_state.cnm_connector.login()
+    system_state.prompt = ['>']
+    system_state.set_prompt()
+
+    print output
+
+def motd(output_handle):
     from bombardier_server.cli.banner import banner
     output = []
     for line in banner:
-        outputHandle.write(line)
-        outputHandle.flush()
+        output_handle.write(line)
+        output_handle.flush()
 
-def appendNotBlank(currentToken, tokens):
-    currentToken = currentToken.strip()
-    if currentToken:
-        tokens.append(currentToken)
+def append_not_blank(current_token, tokens):
+    current_token = current_token.strip()
+    if current_token:
+        tokens.append(current_token)
     return tokens
 
 def tokenize(str):
     tokens = []
-    quoteMode = False
-    currentToken = ''
-    appendLast = False
+    quote_mode = False
+    current_token = ''
+    append_last = False
     comment = ''
     for i in range(0, len(str)):
         c = str[i]
-        if not quoteMode:
+        if not quote_mode:
             if c not in ['"', '#', ' ']:
-                currentToken += c
-                appendLast = True
+                current_token += c
+                append_last = True
                 continue
-            tokens = appendNotBlank(currentToken, tokens)
+            tokens = append_not_blank(current_token, tokens)
             if c == '"': # start quote
-                quoteMode = True
+                quote_mode = True
             elif c == '#': # discard the rest, it's a real comment
                 if i != 0 and str[i-1] == ' ':
-                    appendLast = True
+                    append_last = True
                 else:
-                    appendLast = False
+                    append_last = False
                 comment = str[i+1:]
                 break
             elif c == ' ': # tokenize on spaces if not quoted
-                currentToken = ''
-                appendLast = True
+                current_token = ''
+                append_last = True
         else:
             if c == '"': # end quote
-                tokens = appendNotBlank(currentToken, tokens)
-                currentToken = ''
-                appendLast = False
-                quoteMode = False
+                tokens = append_not_blank(current_token, tokens)
+                current_token = ''
+                append_last = False
+                quote_mode = False
             else:
-                currentToken += c
-    if quoteMode: # unbalanced quotes
+                current_token += c
+    if quote_mode: # unbalanced quotes
         raise Exception
-    if appendLast:
-        tokens.append(currentToken.lstrip()) # grab the last
+    if append_last:
+        tokens.append(current_token.lstrip()) # grab the last
     return tokens, comment
-    
-def processInput(string):
+
+def process_input(string):
     "take a line of input from the user and convert it into an argv type structure"
     if len(string) == 0:
         return 0, 0, [], ''
-    # determine if the helpflag is there (cheap hack)
-    helpFlag = 0
+    # determine if the help_flag is there (cheap hack)
+    help_flag = 0
     strlen = len(string)
     if strlen >= 1 and string[-1]=='?':
-        helpFlag = 1
+        help_flag = 1
         string = string[:-1]
     if len(string) == 0:
         return 0, 1, [], ''
     string.lstrip() # left space is unimportant, right space is important
     tokens, comment = tokenize(string)
     # handle a preceding 'no'
-    noFlag = 0
+    no_flag = 0
     if not tokens:
         return 0,0,[],comment
     if tokens[0] == 'no':
-        noFlag = 1
+        no_flag = 1
         if len(tokens) > 1:
             tokens = tokens[1:]
         else:
             return 0, 0, [], comment
     # get rid of extra spaces, except at the end!
-    processedData = []
+    processed_data = []
     for token in tokens:
         if token != '':
             processed = False
             if token.startswith('$'):
-                varName = token[1:]
-                if mode.globals.has_key(varName):
-                    value = mode.globals.get(varName)
+                var_name = token[1:]
+                if system_state.globals.has_key(var_name):
+                    value = system_state.globals.get(var_name)
                     if type(value) == type(["list"]):
-                        processedData.append('[')
-                        processedData += value
-                        processedData.append(']')
+                        processed_data.append('[')
+                        processed_data += value
+                        processed_data.append(']')
                     else:
                         token = str(value)
                     processed = True
             if token.startswith('[') and len(token) > 1:
-                processedData.append('[')
+                processed_data.append('[')
                 token = token[1:]
             if token.endswith(']') and len(token) > 1:
-                processedData.append(token[:-1])
-                processedData.append(']')
+                processed_data.append(token[:-1])
+                processed_data.append(']')
                 processed = True
             if not processed:
-                processedData.append(token)
+                processed_data.append(token)
     if tokens[-1] != '':
-        tokens = processedData
+        tokens = processed_data
     else:
-        tokens = processedData + ['']
+        tokens = processed_data + ['']
     if len(tokens) == 0:
         return 0, 0, [], comment
     if tokens[0] == "ls" and len(tokens) == 1:
         tokens[0] = ''
-        helpFlag = True
-    return noFlag, helpFlag, tokens, comment
+        help_flag = True
+    return no_flag, help_flag, tokens, comment
 
 # User Input
-def getDefault(prompt, default):
+def get_default(prompt, default):
     instr = raw_input(prompt+" ["+default+"]: ")
     if instr == "":
         instr = default
     return instr
 
-def pwdInput(prompt):
+def pwd_input(prompt):
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     try:
@@ -160,15 +181,15 @@ def pwdInput(prompt):
     print
     return passwd
 
-def getPassword(prompt = "enter password:"):
+def get_password(prompt = "enter password:"):
     while 1 == 1:
-        passwd1 = pwdInput(prompt)
-        passwd2 = pwdInput("Please re-enter password:")
+        passwd1 = pwd_input(prompt)
+        passwd2 = pwd_input("Please re-enter password:")
         if passwd1 == passwd2:
             return passwd1
         print "% Passwords do not match\n\r"
 
-def askYesNo(prompt, default = NEUTRAL):
+def ask_yes_no(prompt, default = NEUTRAL):
     if default == NEUTRAL:
         prompt += "? (y/n): "
     elif default == YES:
@@ -190,9 +211,9 @@ def askYesNo(prompt, default = NEUTRAL):
             result = NO
     return result
 
-def pageIt(outputHandle):
-    outputHandle.write("--- more ---")
-    outputHandle.flush()
+def page_it(output_handle):
+    output_handle.write("--- more ---")
+    output_handle.flush()
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     try:
@@ -200,8 +221,8 @@ def pageIt(outputHandle):
         ch = sys.stdin.read(1)
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    outputHandle.write("\r                \r")
-    outputHandle.flush()
+    output_handle.write("\r                \r")
+    output_handle.flush()
     if ch == chr(13):
         return ONE_LINE
     if ch == chr(113) or ch == chr(81):
@@ -210,65 +231,65 @@ def pageIt(outputHandle):
         return BACKUP
     return PAGE
 
-def pagerOut(printData, outputHandle, errHandle):
-    if mode.termlen == 0:
-        print printData
+def pager_out(print_data, output_handle, errHandle):
+    if system_state.termlen == 0:
+        print print_data
         return
-    currentLine = 0
-    pagerLine = 0
+    current_line = 0
+    pager_line = 0
     backup = 0
-    printData = printData.split("\n")
-    while currentLine < len(printData):
-        outputHandle.write(printData[currentLine]+"\n")
-        outputHandle.flush()
-        currentLine += 1
-        pagerLine += 1
-        if not mode.batch and pagerLine > mode.termlen:
-            action = pageIt(outputHandle)
+    print_data = print_data.split("\n")
+    while current_line < len(print_data):
+        output_handle.write(print_data[current_line]+"\n")
+        output_handle.flush()
+        current_line += 1
+        pager_line += 1
+        if not system_state.batch and pager_line > system_state.termlen:
+            action = page_it(output_handle)
             if action == QUIT:
                 break
             elif action == ONE_LINE:
                 backup = 0
                 continue
             elif action == BACKUP:
-                backupLen = (backup + 1) * mode.termlen + 1
-                if backupLen > currentLine:
-                    backupLen = currentLine
-                outputHandle.write("\n\n-- backing up %d lines -- \n\r" % backupLen)
-                outputHandle.flush()
-                currentLine -= backupLen
+                backup_len = (backup + 1) * system_state.termlen + 1
+                if backup_len > current_line:
+                    backup_len = current_line
+                output_handle.write("\n\n-- backing up %d lines -- \n\r" % backup_len)
+                output_handle.flush()
+                current_line -= backup_len
                 backup += 1
-                pagerLine = 0
+                pager_line = 0
                 continue
             else:
                 backup = 0
-                pagerLine = 0
+                pager_line = 0
 
 def prepender(prepend, object, depth):
-    printData = ''
+    print_data = ''
     if type(object) == type(['list']):
         for entry in object:
-            printData += prepender(prepend, entry, depth+1)
+            print_data += prepender(prepend, entry, depth+1)
     elif type(object) == type({}):
         for entry in object:
             if type(object[entry]) == type(['list']) and len(object[entry]) == 0:
-                printData += '%s%s%s: []\n' % (prepend, ' '*depth, entry)
+                print_data += '%s%s%s: []\n' % (prepend, ' '*depth, entry)
             elif type(object[entry]) == type('string'):
-                printData += '%s%s%s: \'%s\'\n' % (prepend, ' '*depth, entry, object[entry])
+                print_data += '%s%s%s: \'%s\'\n' % (prepend, ' '*depth, entry, object[entry])
             elif type(object[entry]) in [ type(0), type(0.1) ]:
-                printData += '%s%s%s: %d\n' % (prepend, ' '*depth, entry, object[entry])
+                print_data += '%s%s%s: %d\n' % (prepend, ' '*depth, entry, object[entry])
             elif type(object[entry]) == type({}) and len(object[entry]) == 0:
-                printData += '%s%s%s: {}\n' % (prepend, ' '*depth, entry)
+                print_data += '%s%s%s: {}\n' % (prepend, ' '*depth, entry)
             else:
-                printData += '%s%s%s:\n' % (prepend, ' '*depth, entry)
-                printData += prepender(prepend, object[entry], depth+1)
+                print_data += '%s%s%s:\n' % (prepend, ' '*depth, entry)
+                print_data += prepender(prepend, object[entry], depth+1)
     elif type(object) in [ type('string'), type(u'unicode') ]:
-        printData += "%s%s%s\n" % (prepend, ' '*depth, object)
+        print_data += "%s%s%s\n" % (prepend, ' '*depth, object)
     elif type(object) in [ type(0), type(0.1) ]:
-        printData += "%s%s%d\n" % (prepend, ' '*depth, object)
-    return printData
-            
-def userOutput(output, status, outputHandle=sys.stdout, errHandle=sys.stderr, prepend = '', test=False):
+        print_data += "%s%s%d\n" % (prepend, ' '*depth, object)
+    return print_data
+
+def user_output(output, status, output_handle=sys.stdout, errHandle=sys.stderr, prepend = '', test=False):
     if output == []:
         return
     if prepend == '':
@@ -278,7 +299,7 @@ def userOutput(output, status, outputHandle=sys.stdout, errHandle=sys.stderr, pr
             prepend = ' '
     if test:
         return prepender(prepend, output, 0)
-    pagerOut(prepender(prepend, output, 0), outputHandle, errHandle)
+    pager_out(prepender(prepend, output, 0), output_handle, errHandle)
     return
 
 def user(string):
@@ -292,23 +313,23 @@ if __name__ == "__main__":
     status = OK
     startTest()
     #status = runTest(user,["hello"],None, status)
-    #status = runTest(getPassword, ["hello>"], "", status)
-    #status = runTest(processInput,["no ip packet foo"],(1, 0, ["ip","packet","foo"]), status)
-    #status = runTest(processInput,[" ip packet foo"],(0, 0, ["ip","packet","foo"]), status)
-    #status = runTest(processInput,["ip  packet  foo "],(0, 0, ["ip","packet","foo",""]), status)
-    #status = runTest(processInput,["ip packet foo"],(0, 0, ["ip","packet","foo"]), status)
-    #status = runTest(askYesNo, ["enter yes", YES], YES, status)
-    #status = runTest(askYesNo, ["enter no", NO], NO, status)
-    #status = runTest(askYesNo, ["enter yes"], YES, status)
-    #status = runTest(userOutput, [[],OK], None, status)
-    #status = runTest(userOutput, ["abc",OK], None, status)
-    #status = runTest(userOutput, [["def"],OK], None, status)
-    #status = runTest(userOutput, [[["hij"]],OK], None, status)
-    #status = runTest(userOutput, [["klm", "nop"],OK], None, status)
-    #status = runTest(userOutput, ["abc", FAIL], None, status)
-    #status = runTest(userOutput, [["abc", "def"], OK, '', True], '  abc\n  def\n', status)
-    #status = runTest(userOutput, [[["abc"], "def"], OK, '', True], '   abc\n  def\n', status)
-    #status = runTest(userOutput, [{"abc": "def"}, OK, '', True], 'abc:\n  def\n', status)
-    status = runTest(userOutput, [[{"abc": ["def", 'ghi']}, 'foo'], OK, '', True], '  abc:\n    def\n    ghi\n  foo\n', status)
-    #status = runTest(userOutput, [{"abc", "def"}, OK, '', True], '  abc\n  def\n', status)
+    #status = runTest(get_password, ["hello>"], "", status)
+    #status = runTest(process_input,["no ip packet foo"],(1, 0, ["ip","packet","foo"]), status)
+    #status = runTest(process_input,[" ip packet foo"],(0, 0, ["ip","packet","foo"]), status)
+    #status = runTest(process_input,["ip  packet  foo "],(0, 0, ["ip","packet","foo",""]), status)
+    #status = runTest(process_input,["ip packet foo"],(0, 0, ["ip","packet","foo"]), status)
+    #status = runTest(ask_yes_no, ["enter yes", YES], YES, status)
+    #status = runTest(ask_yes_no, ["enter no", NO], NO, status)
+    #status = runTest(ask_yes_no, ["enter yes"], YES, status)
+    #status = runTest(user_output, [[],OK], None, status)
+    #status = runTest(user_output, ["abc",OK], None, status)
+    #status = runTest(user_output, [["def"],OK], None, status)
+    #status = runTest(user_output, [[["hij"]],OK], None, status)
+    #status = runTest(user_output, [["klm", "nop"],OK], None, status)
+    #status = runTest(user_output, ["abc", FAIL], None, status)
+    #status = runTest(user_output, [["abc", "def"], OK, '', True], '  abc\n  def\n', status)
+    #status = runTest(user_output, [[["abc"], "def"], OK, '', True], '   abc\n  def\n', status)
+    #status = runTest(user_output, [{"abc": "def"}, OK, '', True], 'abc:\n  def\n', status)
+    status = runTest(user_output, [[{"abc": ["def", 'ghi']}, 'foo'], OK, '', True], '  abc:\n    def\n    ghi\n  foo\n', status)
+    #status = runTest(user_output, [{"abc", "def"}, OK, '', True], '  abc\n  def\n', status)
     endTest(status)

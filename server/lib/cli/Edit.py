@@ -5,6 +5,7 @@ import sys, os, yaml
 import PinshCmd, ConfigField
 from commonUtil import *
 
+# TEMPORARILY ABANDONED
 
 class Edit(PinshCmd.PinshCmd):
     def __init__(self):

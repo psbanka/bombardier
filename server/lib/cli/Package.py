@@ -3,6 +3,8 @@
 import PinshCmd, BomCmd
 from commonUtil import *
 
+# TEMPORARILY ABANDONED
+
 class Package(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "package")

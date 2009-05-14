@@ -3,60 +3,58 @@
 import sys, os, readline, time
 import yaml
 import PinshCmd, ConfigField, Integer, BomHostField, PackageField
-from commonUtil import *
+from bombardier_core.static_data import OK, FAIL
 
 TERM_OVERCOUNT = 8 # For some reason, the term width seems too long...
 
 class ShowCommand(PinshCmd.PinshCmd):
-    def __init__(self, name, helpText):
-        PinshCmd.PinshCmd.__init__(self, name, helpText)
-        self.configField = None
-        self.cmdOwner = 1
+    def __init__(self, name, help_text):
+        PinshCmd.PinshCmd.__init__(self, name, help_text)
+        self.config_field = None
+        self.cmd_owner = 1
 
-    def cmd(self, tokens, noFlag, slash):
-        pyChucker(slash)
-        if noFlag:
+    def cmd(self, tokens, no_flag, slash):
+        if no_flag:
             return FAIL, []
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
-        currentDict = self.configField.getSpecificData(tokens, 2)
-        return OK, yaml.dump(currentDict, default_flow_style=False).split('\n')
+        current_dict = self.config_field.get_specific_data(tokens, 2)
+        return OK, yaml.dump(current_dict, default_flow_style=False).split('\n')
 
 class Merged(ShowCommand):
     def __init__(self):
         ShowCommand.__init__(self, "merged", "merged\tdisplay a merged configuration")
-        self.configField = ConfigField.ConfigField()
-        self.children = [self.configField]
+        self.config_field = ConfigField.ConfigField()
+        self.children = [self.config_field]
 
 class Client(ShowCommand):
     def __init__(self):
         ShowCommand.__init__(self, "client", "client\tshow the configuration for one client")
-        self.configField = ConfigField.ConfigField(dataType=ConfigField.CLIENT)
-        self.children = [self.configField]
+        self.config_field = ConfigField.ConfigField(data_type=ConfigField.CLIENT)
+        self.children = [self.config_field]
 
 class Include(ShowCommand):
     def __init__(self):
         ShowCommand.__init__(self, "include", "include\tshow a shared include file")
-        self.configField = ConfigField.ConfigField(dataType=ConfigField.INCLUDE)
-        self.children = [self.configField]
+        self.config_field = ConfigField.ConfigField(data_type=ConfigField.INCLUDE)
+        self.children = [self.config_field]
 
 class Bom(ShowCommand):
     def __init__(self):
         ShowCommand.__init__(self, "bom", "bom\tshow a bill of materials")
-        self.configField = ConfigField.ConfigField(dataType=ConfigField.BOM)
-        self.children = [self.configField]
+        self.config_field = ConfigField.ConfigField(data_type=ConfigField.BOM)
+        self.children = [self.config_field]
 
 class History(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "history")
-        self.helpText = "history\tdisplay the history of commands"
+        self.help_text = "history\tdisplay the history of commands"
         self.integer  = Integer.Integer(min=1, max=1000)
         self.children = [self.integer]
         self.level = 0
-        self.cmdOwner = 1
+        self.cmd_owner = 1
 
-    def cmd(self, tokens, noFlag, slash):
-        pyChucker(noFlag, slash)
+    def cmd(self, tokens, no_flag, slash):
         if len(tokens) == 2 or tokens[-1].strip()=='':
             number = 20
         else:
@@ -75,63 +73,61 @@ class History(PinshCmd.PinshCmd):
 class Package(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "package")
-        self.helpText = "package\tdisplay information about a given package"
+        self.help_text = "package\tdisplay information about a given package"
         self.packageField = PackageField.BasicPackageField()
         self.children = [self.packageField]
         self.level = 0
-        self.cmdOwner = 1
+        self.cmd_owner = 1
 
-    def cmd(self, tokens, noFlag, slash):
-        pyChucker(noFlag, slash)
+    def cmd(self, tokens, no_flag, slash):
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
-        packageName = tokens[2]
-        packagesPath = os.path.join(mode.serverHome, "packages", "packages.yml")
-        pkgData = yaml.load(open(packagesPath).read())
-        return OK, ['', packageName, "========================", '', [pkgData.get(packageName)]]
+        package_name = tokens[2]
+        packages_path = os.path.join(system_state.server_home, "packages", "packages.yml")
+        pkg_data = yaml.load(open(packages_path).read())
+        return OK, ['', package_name, "========================", '', [pkg_data.get(package_name)]]
 
-def printify(inputObject):
-    textList = list(inputObject)
-    textList.sort()
+def printify(input_objects):
+    text_list = list(input_objects)
+    text_list.sort()
     output = []
-    if not textList:
+    if not text_list:
         return []
-    maxLength = max( [ len(t) for t in textList ] )
-    columns = (mode.termwidth - TERM_OVERCOUNT) / maxLength
-    for i in range(0, len(textList), columns):
+    max_length = max( [ len(t) for t in text_list ] )
+    columns = (system_state.termwidth - TERM_OVERCOUNT) / max_length
+    for i in range(0, len(text_list), columns):
         newLine = ''
-        for item in textList[i:i+columns]:
-            newLine += item.ljust(maxLength+2)
+        for item in text_list[i:i+columns]:
+            newLine += item.ljust(max_length+2)
         output.append(newLine)
     return output
 
 class Status(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "status")
-        self.helpText = "status\tstatus of a host"
-        self.bomHostField = BomHostField.BomHostField()
-        self.children = [self.bomHostField]
+        self.help_text = "status\tstatus of a host"
+        self.bom_host_field = BomHostField.BomHostField()
+        self.children = [self.bom_host_field]
         self.level = 0
-        self.cmdOwner = 1
+        self.cmd_owner = 1
 
-    def cmd(self, tokens, noFlag, slash):
-        pyChucker(slash)
-        if noFlag:
+    def cmd(self, tokens, no_flag, slash):
+        if no_flag:
             return FAIL, []
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
-        hostName = tokens[2]
-        statusFile = os.path.join(mode.serverHome, "status", "%s.yml" % hostName)
-        if not os.path.isfile(statusFile):
-            return FAIL, ["No status on file (%s)" % statusFile]
-        installed, broken = PackageField.getNamesFromProgress(hostName, False)
-        totalPackages = PackageField.getPackageNamesFromBom(hostName)
+        host_name = tokens[2]
+        status_file = os.path.join(system_state.server_home, "status", "%s.yml" % host_name)
+        if not os.path.isfile(status_file):
+            return FAIL, ["No status on file (%s)" % status_file]
+        installed, broken = PackageField.getNamesFromProgress(host_name, False)
+        total_packages = PackageField.getPackageNamesFromBom(host_name)
         missing = []
-        accountedPackages = list(installed.union(broken))
-        for item in totalPackages:
+        accounted_packages = list(installed.union(broken))
+        for item in total_packages:
             found = False
-            for packageName in accountedPackages:
-                if packageName.startswith(item):
+            for package_name in accounted_packages:
+                if package_name.startswith(item):
                     found = True
                     break
             if not found:
@@ -154,7 +150,7 @@ class Status(PinshCmd.PinshCmd):
 class Show(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "show")
-        self.helpText = "show\tdisplay components of the system"
+        self.help_text = "show\tdisplay components of the system"
         history = History()
         merged = Merged()
         client = Client()
@@ -164,5 +160,5 @@ class Show(PinshCmd.PinshCmd):
         bom = Bom()
         self.children = [merged, client, include, bom, history, status, package]
         self.level = 0
-        self.cmdOwner = 1
+        self.cmd_owner = 1
 

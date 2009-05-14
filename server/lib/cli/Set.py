@@ -2,17 +2,22 @@
 
 # FIXME: This module is in horrible need of refactoring
 
+# TEMPORARILY ABANDONED
+
 import sys, os, time, glob, md5, random
-import PinshCmd, Mode, libUi, ConfigField, Expression, Integer, MultipleChoice, Variable
+import PinshCmd, libUi, ConfigField, Expression, Integer, MultipleChoice, Variable
 from commonUtil import *
 import Client
 from bombardier_core.libCipher import changePass, DecryptionException, InvalidData, VALID_CHARS
+from bombardier_server.cli.SystemStateSingleton import SystemState, ENABLE, USER, F0
+system_state = SystemState()
+
 import yaml, syck
 
 def cleanup():
     directories = ["include", "client"]
     for directory in directories:
-        fullGlobPath = os.path.join(mode.serverHome, directory, "*.yml.new")
+        fullGlobPath = os.path.join(system_state.server_home, directory, "*.yml.new")
         files = glob.glob(fullGlobPath)
         for fileName in files:
             os.unlink(fileName)
@@ -22,7 +27,7 @@ def reEncryptFiles(oldPassword, newPassword):
     directories = ["include", "client"]
     renameFiles = []
     for directory in directories:
-        fullGlobPath = os.path.join(mode.serverHome, directory, "*.yml")
+        fullGlobPath = os.path.join(system_state.server_home, directory, "*.yml")
         files = glob.glob(fullGlobPath)
         for fileName in files:
             baseName = fileName.split(os.path.sep)[-1]
@@ -49,7 +54,7 @@ def reEncryptFiles(oldPassword, newPassword):
                 msg += ["File name: %s" % fileName]
                 msg += ["Error: %s" % (id)]
                 return FAIL, msg
-            newFilePath = os.path.join(mode.serverHome, directory, newFileName)
+            newFilePath = os.path.join(system_state.server_home, directory, newFileName)
             fh = open(newFilePath, 'w')
             fh.write(yaml.dump(newData, default_flow_style=False))
             renameFiles.append((fileName, newFilePath))
@@ -166,17 +171,17 @@ class Set(PinshCmd.PinshCmd):
         encrypt.children = [expression]
 
         # CLIENT
-        self.clientConfigField = ConfigField.ConfigField(dataType=ConfigField.CLIENT)
+        self.clientConfigField = ConfigField.ConfigField(data_type=ConfigField.CLIENT)
         self.client.children = [self.clientConfigField]
         self.clientConfigField.children = [expression, encrypt]
 
         # INCLUDE
-        self.includeConfigField = ConfigField.ConfigField(dataType=ConfigField.INCLUDE)
+        self.includeConfigField = ConfigField.ConfigField(data_type=ConfigField.INCLUDE)
         self.include.children += [self.includeConfigField]
         self.includeConfigField.children = [expression]
 
         # BOM
-        self.bomConfigField = ConfigField.ConfigField(dataType=ConfigField.BOM)
+        self.bomConfigField = ConfigField.ConfigField(data_type=ConfigField.BOM)
         self.bom.children += [self.bomConfigField]
         self.bomConfigField.children = [expression]
 
