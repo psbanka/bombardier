@@ -22,22 +22,70 @@ def make_query_string(args):
     return query_string
 
 class ServerException(Exception):
-    def __init__(self, msg, http_code):
+    def __init__(self, url, curl_err, http_code):
         Exception.__init__(self)
-        self.msg = msg
+        self.url = url
+        self.curl_err = curl_err
         self.http_code = http_code
     def __repr__(self):
-        return "Server Error: %s (%d)" % (self.msg, self.http_code)
+        return "Can't connect to %s (%s) (%d)" % (self.url, self.curl_err, self.http_code)
     def __str__(self):
         return self.__repr__()
 
+class UnexpectedDataException(Exception):
+    def __init__(self, reason):
+        Exception.__init__(self)
+        self.reason = reason
+    def __repr__(self):
+        return "Got unexpected data from the server (%s)" % self.reason
+    def __str__(self):
+        return self.__repr__()
+
+class Storage:
+    def __init__(self):
+        self.contents = []
+
+    def store(self, buf):
+        self.contents.append(buf)
+
+    def __str__(self):
+        return '\n'.join(self.contents)
+
+class Header(Storage):
+
+    def convert_from_yaml(self):
+        str = '\n'.join(self.contents[1:])
+        data = syck.load(str)
+        return data
+
+    def get_content_type(self):
+        data = self.convert_from_yaml()
+        return data.get("Content-Type")
+
+class Response:
+    def __init__(self, header, output):
+        self.header = header
+        self.output = output
+        self.http_code = None
+
+    def set_http_code(self, http_code):
+        self.http_code = http_code
+
+    def convert_from_yaml(self):
+        if self.header.get_content_type() == "application/json":
+            return syck.load(str(self.output))
+        raise UnexpectedDataException("can't convert to yaml")
+
+    def __str__(self):
+        return str(self.output)
+
 class CnmConnector:
 
-    def __init__(self, address, username, password, logger):
+    def __init__(self, address, username, logger):
         self.address = address
         self.username = username
-        self.password = password
         self.logger = logger
+        self.password = None
         self.proxy_address = None
         self.proxy_port = None
         self.debug = False
@@ -64,20 +112,19 @@ class CnmConnector:
         return curl_obj
 
     def perform_request(self, curl_obj, full_path):
-        output_file = StringIO.StringIO()
-        curl_obj.setopt(pycurl.WRITEFUNCTION, output_file.write)
+        output = Storage()
+        header = Header()
+        curl_obj.setopt(pycurl.WRITEFUNCTION, output.store)
+        curl_obj.setopt(pycurl.HEADERFUNCTION, header.store)
+        response = Response(header, output)
         try:
             curl_obj.perform()
-            output_file.seek(0)
-            output = output_file.read()
-            return output
+            http_code = curl_obj.getinfo(pycurl.HTTP_CODE)
+            response.set_http_code(http_code)
+            return response
         except pycurl.error, curl_err:
             http_code = curl_obj.getinfo(pycurl.HTTP_CODE)
-            erstr = "Connection problem to %s: (%d) %s" % (full_path, http_code, curl_err[1])
-            print erstr
-            if self.logger:
-                self.logger.warning(erstr)
-            return ''
+            raise ServerException(full_path, curl_err[1], http_code)
 
     def post(self, path, data):
         full_path = urlparse.urljoin(self.address, path)
@@ -89,9 +136,12 @@ class CnmConnector:
         curl_obj.setopt(pycurl.POSTFIELDS, encoded_post_data)
         return self.perform_request(curl_obj, full_path)
 
-    def login(self):
-        data = {"username": self.username, "password": self.password}
-        return self.post(LOGIN_PATH, data)
+    def login(self, password):
+        data = {"username": self.username, "password": password}
+        response = self.post(LOGIN_PATH, data)
+        data = response.convert_from_yaml()
+        self.password = password
+        return data.get("super_user")
 
     def service_request(self, path, args=None, put_data=None):
         if not args:
@@ -117,10 +167,9 @@ class CnmConnector:
                 if type(put_data) == type(["list"]) or \
                    type(put_data) == type({}):
                     put_data = yaml.dump(put_data)
-            yml_data = self.service_request(path, args, put_data)
-            output = syck.load(yml_data)
+            response = self.service_request(path, args, put_data)
+            return response.convert_from_yaml()
         except urllib2.HTTPError:
             self.logger.error("Unable to connect to the service %s" % path)
             return {}
-        return output
 

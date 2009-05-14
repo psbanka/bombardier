@@ -65,13 +65,7 @@ class Slash(PinshCmd.PinshCmd):
 ## 2. add the class to the following vector of command or add it to
 ##    the Configure.py class
 
-import Bash, Ping, Telnet, Ssh, Rsync, Terminal, Exit, Enable, Show, Sleep
-import For, Echo, Set, Push, Debug, Scheduler, Cmdb
+import Show
 
-commands = [Echo.Comment(), Set.Set(), Terminal.Terminal(), Show.Show(), Ping.Ping(),
-            Debug.Debug(), Telnet.Telnet(), Ssh.Ssh(), Bash.Bash(),
-            Push.Push(), Echo.Pause(), Sleep.Sleep(),
-            Exit.Exit(), For.For(),
-            Echo.Echo(), Rsync.Rsync()]
-
+commands = [Show.Show()]
 

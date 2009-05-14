@@ -1,12 +1,10 @@
 #!/usr/bin/python
 
 import sys, os, time
-from staticData import *
 import Client
 import PinshCmd
 import BomHostField, PackageField, ScriptField, LongList
 from RemoteClient import IncompleteConfigurationException, EnableRequiredException
-from commonUtil import *
 from Mode import HostNotEnabledException
 from Client import ClientConfigurationException
 import yaml

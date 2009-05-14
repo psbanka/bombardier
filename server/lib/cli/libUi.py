@@ -2,7 +2,7 @@
 
 import sys, termios, tty
 from commands import getstatusoutput
-from CnmConnector import CnmConnector
+from CnmConnector import CnmConnector, UnexpectedDataException
 from bombardier_server.cli.SystemStateSingleton import SystemState, ENABLE, USER, F0
 system_state = SystemState()
 from bombardier_core.static_data import FAIL
@@ -18,19 +18,27 @@ NO = 0
 
 def login(username, logger):
     system_state.get_term_info()
-    system_state.username = username
     system_state.logger = logger
+    if username:
+        system_state.username = username
     if not system_state.username:
         system_state.username = get_default("username", "root")
-    system_state.password = pwd_input("password: ")
     system_state.cnm_connector = CnmConnector("http://127.0.0.1:8000",
-                                 system_state.username, system_state.password,
-                                 system_state.logger)
-    output = system_state.cnm_connector.login()
+                                 system_state.username, system_state.logger)
+    tries = 0
+    while tries < 3:
+        password = pwd_input("password: ")
+        try:
+            superuser_status = system_state.cnm_connector.login(password)
+            break
+        except UnexpectedDataException:
+            user_output(["Bad username or password."], FAIL)
+            tries += 1
+    if tries >= 3:
+        user_output(["Access denied."], FAIL)
+        sys.exit(1)
     system_state.prompt = ['>']
     system_state.set_prompt()
-
-    print output
 
 def motd(output_handle):
     from bombardier_server.cli.banner import banner
@@ -174,6 +182,8 @@ def pwd_input(prompt):
                 sys.stdout.write("*")
                 sys.stdout.flush()
                 passwd += ch
+    except KeyboardInterrupt:
+        sys.exit(1)
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     redaction = "\b" * len(passwd) + " " * len(passwd)

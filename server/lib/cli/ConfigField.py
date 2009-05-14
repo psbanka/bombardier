@@ -1,7 +1,5 @@
 #!/usr/bin/python
 
-# FIXME: This module is in horrible need of refactoring
-
 import os
 import PinshCmd, BomHostField
 from bombardier_core.libCipher import decrypt, encrypt

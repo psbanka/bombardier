@@ -72,11 +72,9 @@ class SystemState:
             self.comment_commands = []
             self.bom_connections = {}
             self.default_group = "root"
-            self.enabled_systems = []
             self.debug = True
             self.global_config = {}
             self.personal_config = {}
-            self.auto_enable = False
             self.editor = "/usr/bin/vim"
             self.child_processes = []
             self.termwidth = 80
@@ -113,23 +111,23 @@ class SystemState:
         open(PERSONAL_CONFIG_FILE, 'w').write(yaml.dump(SystemState.__instance.personal_config))
 
     def load_config(cls):
-
         if os.path.isfile(PERSONAL_CONFIG_FILE):
-            SystemState.__instance.personal_config=syck.load(open(PERSONAL_CONFIG_FILE).read())
-            SystemState.__instance.enabled_systems = SystemState.__instance.personal_config.get("enabled_systems", [])
-            SystemState.__instance.auto_enable = SystemState.__instance.personal_config.get("auto_enable")
-            if SystemState.__instance.personal_config.get("termwidth"):
-                SystemState.__instance.termwidth = SystemState.__instance.personal_config.get("termwidth")
-            termcolor = SystemState.__instance.personal_config.get("termcolor")
+            config = syck.load(open(PERSONAL_CONFIG_FILE).read())
+            if config.get("username"):
+                SystemState.__instance.username = config.get("username")
+            if config.get("termwidth"):
+                SystemState.__instance.termwidth = config.get("termwidth")
+            termcolor = config.get("termcolor")
             if termcolor:
                 if termcolor.upper().startswith("D"):
                     SystemState.__instance.termcolor = DARK
                 elif termcolor.upper().startswith("L"):
                     SystemState.__instance.termcolor = LIGHT
-            debug = SystemState.__instance.personal_config.get("debug")
+            debug = config.get("debug")
             if type(debug) == type(True):
                 SystemState.__instance.debug = debug
-            SystemState.__instance.editor = SystemState.__instance.personal_config.get("editor", "/usr/bin/vim")
+            SystemState.__instance.editor = config.get("editor", "/usr/bin/vim")
+            SystemState.__instance.personal_config=config
 
     def get_term_info(cls):
         try:

@@ -3,7 +3,6 @@
 import glob, os
 
 import PinshCmd, Client
-from commonUtil import *
 
 class BomHostField(PinshCmd.PinshCmd):
     def __init__(self, enabled = True):

@@ -327,6 +327,7 @@ class PinshCmd:
                     help_text.append([cmd, doc])
                 except:
                     pass
+            # FIXME: doesn't work when entering '?' alone
             if len(cmd) > max_len:
                 max_len = len(cmd)
 
