@@ -45,6 +45,12 @@ class Bom(ShowCommand):
         self.config_field = ConfigField.ConfigField(data_type=ConfigField.BOM)
         self.children = [self.config_field]
 
+class Package(ShowCommand):
+    def __init__(self):
+        ShowCommand.__init__(self, "package", "package\tdisplay information about a given package")
+        self.config_field = ConfigField.ConfigField(data_type=ConfigField.PACKAGE)
+        self.children = [self.config_field]
+
 class History(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "history")
@@ -69,23 +75,6 @@ class History(PinshCmd.PinshCmd):
         for i in range(hlen-number, hlen):
             output.append("%4d\t%s" % (i, readline.get_history_item(i)))
         return OK, output
-
-class Package(PinshCmd.PinshCmd):
-    def __init__(self):
-        PinshCmd.PinshCmd.__init__(self, "package")
-        self.help_text = "package\tdisplay information about a given package"
-        self.packageField = PackageField.BasicPackageField()
-        self.children = [self.packageField]
-        self.level = 0
-        self.cmd_owner = 1
-
-    def cmd(self, tokens, no_flag, slash):
-        if len(tokens) < 3:
-            return FAIL, ["Incomplete command."]
-        package_name = tokens[2]
-        packages_path = os.path.join(system_state.server_home, "packages", "packages.yml")
-        pkg_data = yaml.load(open(packages_path).read())
-        return OK, ['', package_name, "========================", '', [pkg_data.get(package_name)]]
 
 def printify(input_objects):
     text_list = list(input_objects)

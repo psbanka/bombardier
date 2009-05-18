@@ -30,7 +30,7 @@ import win32netcon
 
 import threading, os, time, traceback
 
-import miniUtility, Logger, RegistryDict, Exceptions, OperatingSystem
+import mini_utility, Logger, RegistryDict, Exceptions, OperatingSystem
 from win32process import CreateProcess, NORMAL_PRIORITY_CLASS, STARTUPINFO
 
 from staticData import *
@@ -90,13 +90,13 @@ class Windows(OperatingSystem.OperatingSystem):
 
     def beginConsole(self): 
         Logger.info("Beginning monitored console-based installation")
-        consoleFile = os.path.join(miniUtility.getSpkgPath(),CONSOLE_MONITOR)
+        consoleFile = os.path.join(mini_utility.getSpkgPath(),CONSOLE_MONITOR)
         f = open(consoleFile, 'w')
         f.close()
 
     def watchForTermination(self, sleepTime = 10.0, timeout = 600, abortIfTold=None):
         start = time.time()
-        consoleFile = os.path.join(miniUtility.getSpkgPath(),CONSOLE_MONITOR)
+        consoleFile = os.path.join(mini_utility.getSpkgPath(),CONSOLE_MONITOR)
         logTime = 0
         while True:
             if abortIfTold != None:
@@ -740,12 +740,12 @@ class Windows(OperatingSystem.OperatingSystem):
                 #Logger.info("User '%s' cannot log in (%s)" % (self.username, details))
             return FAIL
         return OK
-    
+
     def logoff(self):
         win32security.RevertToSelf(  ) # terminates impersonation
         self.handle.Close(  ) # guarantees cleanup
 
-    def getRunKey(self): 
+    def getRunKey(self):
         try:
             return winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
                                   RUN_KEY_NAME, 0, winreg.KEY_SET_VALUE)
@@ -756,10 +756,10 @@ class Windows(OperatingSystem.OperatingSystem):
     def restartOnLogon(self):
         runKey = self.getRunKey()
         pythonExec = os.path.join(sys.prefix, "pythonw.exe")
-        cmd = "%s %s -a" % (pythonExec, miniUtility.getBombardierPath())
+        cmd = "%s %s -a" % (pythonExec, mini_utility.getBombardierPath())
         winreg.SetValueEx(runKey, "BombardierRun", 0, winreg.REG_SZ, cmd)
 
-    def noRestartOnLogon(self): 
+    def noRestartOnLogon(self):
         try:
             runKey = self.getRunKey()
             winreg.DeleteValue(runKey, "BombardierRun")

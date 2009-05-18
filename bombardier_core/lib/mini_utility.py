@@ -1,6 +1,6 @@
 #!/cygdrive/c/Python24/python.exe
 
-# miniUtility.py: common stuff that many Bombardier modules need.
+# mini_utility.py: common stuff that many Bombardier modules need.
 
 # Copyright (C) 2005 Peter Banka
 
@@ -186,7 +186,7 @@ def getTimeStruct(s):
         timestruct = int(time.time())
     return timestruct
 
-def stripVersion(packageFile):
+def strip_version(packageFile):
     if packageFile.rfind('-') == -1:
         return packageFile
     ending = packageFile[packageFile.rfind('-')+1:]
@@ -196,10 +196,10 @@ def stripVersion(packageFile):
             packageFile = packageFile[:packageFile.rfind('-')]
     return packageFile
 
-def stripVersionFromKeys(progressData):
+def strip_version_from_keys(progressData):
     output = {}
     for key in progressData.keys():
-        output[stripVersion(key)] = progressData[key]
+        output[strip_version(key)] = progressData[key]
     return output
 
 def determineInstallStatus(item, progressData):
@@ -260,7 +260,7 @@ def checkToRemove(basePackageName, actionTime, comparisonList):
                 remove = True
     return remove
 
-def stripVersionInfo(pkgInfo):
+def strip_version_info(pkgInfo):
     output = {"installed":[], "uninstalled":[], 
               "brokenInstalled":[], "brokenUninstalled":[]}
     packageListNames = output.keys()
@@ -276,12 +276,12 @@ def stripVersionInfo(pkgInfo):
             if not remove:
                 output[packageListName].append([basePackageName, actionTime])
     return output
-  
+
 
 def getInstalled(progressData):
     #installed, uninstalled, brokenInstalled, brokenUninstalled = getInstalledUninstalledTimes(progressData)
     pkgInfo = getInstalledUninstalledTimes(progressData)
-    pkgInfo = stripVersionInfo(pkgInfo)
+    pkgInfo = strip_version_info(pkgInfo)
     installedPackageNames = [packageName[0] for packageName in pkgInfo["installed"]]
     brokenPackageNames    = [packageName[0] for packageName in pkgInfo["brokenInstalled"]]
     brokenPackageNames   += [packageName[0] for packageName in pkgInfo["brokenUninstalled"]]

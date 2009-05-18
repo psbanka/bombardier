@@ -6,24 +6,14 @@ import getpass
 from bombardier_core.libCipher import pad, decryptLoop
 from Crypto.Cipher import AES
 from bombardier_core.static_data import OK, FAIL, CENSORED
-
-class MachineConfigurationException(Exception):
-    def __init__(self, server, message=''):
-        e = Exception()
-        Exception.__init__(e)
-        self.server = server
-        self.message = message
-    def __str__(self):
-        return "Could not find valid configuration data for %s (%s)" % (self.server, self.message)
-    def __repr__(self):
-        return "Could not find valid configuration data for %s (%s)" % (self.server, self.message)
+from Exceptions import MachineConfigurationException
 
 class MachineConfig:
 
-    def __init__(self, system_name, passwd, server_home):
+    def __init__(self, host_name, passwd, server_home):
         self.data       = {}
         self.includes   = []
-        self.system_name = system_name
+        self.host_name = host_name
         self.server_home   = server_home
         if passwd:
             self.passwd = pad(passwd)
@@ -55,7 +45,7 @@ class MachineConfig:
     def merge_includes(self, config_name=''):
         if config_name == '':
             yml_directory = "client"
-            config_name = self.system_name
+            config_name = self.host_name
         else:
             yml_directory = "include"
         file_name = os.path.join(self.server_home, yml_directory, "%s.yml" % config_name)
@@ -73,7 +63,7 @@ class MachineConfig:
             file_name = os.path.join(self.server_home, "bom", "%s.yml" % bom)
             if not os.path.isfile(file_name):
                 errmsg = "%s does not exist" % file_name
-                raise MachineConfigurationException(self.system_name, errmsg)
+                raise MachineConfigurationException(self.host_name, errmsg)
             packages = packages.union(set(syck.load(open(file_name).read())))
         self.data["packages"] = list(packages)
         if self.data.get("bom"):

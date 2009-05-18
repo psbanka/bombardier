@@ -65,7 +65,7 @@ class Slash(PinshCmd.PinshCmd):
 ## 2. add the class to the following vector of command or add it to
 ##    the Configure.py class
 
-import Show
+import Show, Terminal
 
-commands = [Show.Show()]
+commands = [Show.Show(), Terminal.Terminal()]
 

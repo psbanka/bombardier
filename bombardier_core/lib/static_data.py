@@ -37,6 +37,7 @@ General Public license version 2.""" % VERSION
 LAST_REPORT = "lastReport.yml"
 SERVER_CONFIG_FILE = "/etc/bombardier.yml"
 
+
 # AUTHORIZATION
 ADMIN_USER   = 9
 SSH_USER     = 1
@@ -194,15 +195,4 @@ NO_MATCH  = 0
 PARTIAL  = 1
 COMPLETE = 2
 
-class ConnectionRefusedException(Exception):
-    def __init__(self, explanation):
-        e = Exception()
-        Exception.__init__(e)
-        self.explanation = explanation
-    def __repr__(self):
-        return self.explanation
-    def __str__(self):
-        return self.explanation
-def pyChucker(*args, **kwargs):
-    pass
-
+RETURN_DICT = {OK: 'OK', FAIL: 'FAIL', REBOOT: 'REBOOT', PREBOOT: 'PREBOOT'}

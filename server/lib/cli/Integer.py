@@ -1,18 +1,14 @@
-#!/usr/bin/python
-
-import sys
-
 import PinshCmd
-from commonUtil import *
+from bombardier_core.static_data import NO_MATCH, COMPLETE, PARTIAL
 
 class Integer(PinshCmd.PinshCmd):
     def __init__(self, min = 0, max = 100, name = "<integer>"):
         PinshCmd.PinshCmd.__init__(self, name)
-        self.helpText = name+"\ta number between "+`min`+" and "+`max`
+        self.help_text = name+"\ta number between "+`min`+" and "+`max`
         self.level = 99
         self.min = min
         self.max = max
-        self.cmdOwner = 0
+        self.cmd_owner = 0
 
     def match(self, tokens, index):
         if tokens[index] == '':
@@ -28,7 +24,7 @@ class Integer(PinshCmd.PinshCmd):
             pass
         return NO_MATCH, 1
 
-    def preferredNames(self, tokens, index):
+    def preferred_names(self, tokens, index):
         try:
             value = int(tokens[index])
             if value >= self.min and value <= self.max:
@@ -43,8 +39,8 @@ if __name__ == "__main__":
     status = OK
     startTest()
     #status = runTest(integer.name, [["a"], 0], '', status)
-    status = runTest(integer.preferredNames, [["11"], 0], ['11'], status)
-    status = runTest(integer.preferredNames, [["10"], 0], ['10'], status)
+    status = runTest(integer.preferred_names, [["11"], 0], ['11'], status)
+    status = runTest(integer.preferred_names, [["10"], 0], ['10'], status)
     status = runTest(integer.match, [[""], 0], (NO_MATCH, 1), status)
     status = runTest(integer.match, [["1"], 0], (PARTIAL, 1), status)
     status = runTest(integer.match, [["100"], 0], (COMPLETE, 1), status)

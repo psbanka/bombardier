@@ -22,7 +22,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import shutil, os, sys, tarfile, gzip, yaml, re, time, glob
-import Exceptions, miniUtility, Logger
+import Exceptions, mini_utility, Logger
 from staticData import *
 
 class CopyException(Exception):
@@ -43,7 +43,7 @@ def copyDirectory( _src, _dest ):
         shutil.copytree(_src, _dest)
     except Exception, e:
         raise CopyException("Error creating %s directory:\n%s" %(_dest, e))
-            
+
 def copyFile( _src, _dest ):
     try:
         if os.path.isfile( _dest ):
@@ -215,7 +215,7 @@ class Filesystem:
         open(filename, 'w').write(yaml.dump(dictionary))
     def loadYaml(self, filename):
         if not os.path.isfile(filename):
-            filename = os.path.join(miniUtility.getSpkgPath(), filename)
+            filename = os.path.join(mini_utility.getSpkgPath(), filename)
             if not os.path.isfile(filename):
                 raise Exceptions.NoYamlData, filename
         try:
@@ -280,7 +280,7 @@ class Filesystem:
 
     def setLock(self):
         #Logger.info("Setting installation lock.")
-        lockPath = os.path.join(miniUtility.getSpkgPath(), INSTALL_LOCK)
+        lockPath = os.path.join(mini_utility.getSpkgPath(), INSTALL_LOCK)
         if os.path.isfile(lockPath):
             erstr = "There is another installation currently "\
                     "running. (%s exists)" % lockPath
@@ -295,7 +295,7 @@ class Filesystem:
         return OK
 
     def clearLock(self):
-        lockPath = os.path.join(miniUtility.getSpkgPath(), INSTALL_LOCK)
+        lockPath = os.path.join(mini_utility.getSpkgPath(), INSTALL_LOCK)
         if os.path.isfile(lockPath):
             try:
                 os.unlink(lockPath)
@@ -305,7 +305,7 @@ class Filesystem:
         return OK
 
     def loadCurrent(self, instanceName):
-        statusPath = miniUtility.getProgressPath(instanceName)
+        statusPath = mini_utility.getProgressPath(instanceName)
         try:
             rawData = open(statusPath, 'r').read()
             data = yaml.load(rawData)
@@ -314,11 +314,11 @@ class Filesystem:
         return data
 
     def updateProgress(self, dictionary, instanceName, overwrite=False):
-        statusPath = miniUtility.getProgressPath(instanceName)
-        tmpPath    = miniUtility.getTmpPath()
+        statusPath = mini_utility.getProgressPath(instanceName)
+        tmpPath    = mini_utility.getTmpPath()
         data = self.loadCurrent(instanceName)
         try:
-            intData = miniUtility.integrate(data, dictionary, overwrite)
+            intData = mini_utility.integrate(data, dictionary, overwrite)
             yamlString = yaml.dump(intData, default_flow_style=False)
             fh = open(tmpPath, 'w')
             fh.write(yamlString)
@@ -328,7 +328,7 @@ class Filesystem:
             os.unlink(tmpPath)
         except IOError, e:
             Logger.warning("Cannot update progress data: %s" % e)
-            
+
     def append(self, source, dest):
         fin = open(source, "rb")
         fout = open(dest, "ab")
@@ -341,7 +341,7 @@ class Filesystem:
         fout.close()
 
     def getProgressData(self, instanceName, stripVersionFromName = False):
-        filename = miniUtility.getProgressPath(instanceName)
+        filename = mini_utility.getProgressPath(instanceName)
         if not os.path.isfile(filename):
             return {}
         data = open(filename, 'r').read()
@@ -353,7 +353,7 @@ class Filesystem:
         if retVal.has_key("install-progress"):
             progressData = retVal["install-progress"]
             if stripVersionFromName:
-                return miniUtility.stripVersionFromKeys(progressData)
+                return mini_utility.stripVersionFromKeys(progressData)
             return progressData
         return {}
 

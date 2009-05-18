@@ -4,25 +4,18 @@ from django.utils.translation import gettext_lazy as _
 
 class Bom(models.Model):
     name = models.CharField(max_length=64)
-    class Admin:
-        pass
-    def __str__(self):
-        return self.name
 
 class Include(models.Model):
     name = models.CharField(max_length=64)
-    class Admin:
-        pass
-    def __str__(self):
-        return self.name
 
 class Client(models.Model):
     name = models.CharField(max_length=64)
-    class Admin:
-        pass
-    def __str__(self):
-        return self.name
+
+class Package(models.Model):
+    name = models.CharField(max_length=64)
 
 class ServerConfig(models.Model):
     name = models.CharField(max_length=64)
     value = models.CharField(max_length=64)
+
+

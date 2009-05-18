@@ -14,6 +14,7 @@ MERGED = 1
 CLIENT = 2
 INCLUDE = 3
 BOM = 4
+PACKAGE = 5
 
 class ConfigField(PinshCmd.PinshCmd):
     def __init__(self, name = "configField", data_type=MERGED, strict=True):
@@ -32,6 +33,8 @@ class ConfigField(PinshCmd.PinshCmd):
             self.directory = "include"
         if data_type == BOM:
             self.directory = "bom"
+        if data_type == PACKAGE:
+            self.directory = "package"
 
     def get_machines(self):
         data = system_state.cnm_connector.service_yaml_request("json/%s/search/" % self.directory)

@@ -1,19 +1,18 @@
-from django.conf.urls.defaults import *
+from django.conf.urls.defaults import patterns, url
 from django_restapi.model_resource import Collection, Entry, reverse
-from django_restapi.responder import *
+from django_restapi.responder import JsonDictResponder, JSONResponder, YamlFileResponder
 from django_restapi.resource import Resource
-from configs.models import Client, Include, Bom, ServerConfig
+from configs.models import Client, Include, Bom, ServerConfig, Package
 import ServerConfigFile
-import syck, glob, yaml
+import syck, glob
 import os
 import MachineConfig
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from Exceptions import InvalidServerHome
-from django.contrib.auth.views import login, logout
 
-
-MAPPER = {"merged": Client, "client": Client, "include": Include, "bom": Bom}
+MAPPER = {"merged": Client, "client": Client, "include": Include,
+          "bom": Bom, "package": Package}
 
 def dump_json(data):
     response = HttpResponse(mimetype = "application/json")
@@ -27,8 +26,9 @@ def get_server_home():
         raise InvalidServerHome(server_home)
     return server_home
 
-class ConfigEntry(Resource):
+#==================================
 
+class ConfigEntry(Resource):
     @login_required
     def read(self, request, config_type, config_name):
         server_home = get_server_home()
@@ -49,15 +49,6 @@ class ConfigCollection(Resource):
         responder = JSONResponder()
         responder.expose_fields = ["name"]
         return responder.list(request, objects)
-
-class MergedEntry(Resource):
-    @login_required
-    def read(self, request, client_name):
-        server_home = get_server_home()
-        machine_config = MachineConfig.MachineConfig(client_name, "", server_home)
-        machine_config.merge()
-        responder = JsonDictResponder(machine_config.data)
-        return responder.element(request)
 
 #==================================
 
@@ -106,7 +97,6 @@ class DbSyncCollection(Resource):
     def create(self, request):
         self._server_sync()
         self._server_home_sync()
-
         responder = JsonDictResponder({"status": "OK"})
         return responder.element(request)
 
@@ -137,35 +127,10 @@ class DbSyncCollection(Resource):
 
             new_config_objects += MAPPER[config_type.lower()].objects.all()
 
-class AuthEntry(Resource):
-    def read(self, request):
-        if not request.user.is_authenticated():
-            status = "NOT_AUTHENTICATED"
-            status_code = 403
-        else:
-            status = "OK"
-            status_code = 200
-        responder = JsonDictResponder({"status": status})
-        response = responder.element(request)
-        response.status_code = status_code
-        return response
-
-class UserProfileEntry(Resource):
-    def read(self, request):
-        output = {"username": request.user.username,
-                  "super_user": request.user.is_superuser}
-
-        responder = JsonDictResponder(output)
-        return responder.element(request)
-
 urlpatterns = patterns('',
    url(r'^json/server/config', ServerConfigCollection(permitted_methods = ['POST', "GET"])),
    url(r'^json/dbsync', DbSyncCollection(permitted_methods = ['POST'])),
    url(r'^json/(?P<config_type>.*)/search/(?P<config_name>.*)', ConfigCollection()),
    url(r'^json/(?P<config_type>.*)/name/(?P<config_name>.*)$', ConfigEntry(permitted_methods=['GET'])),
-   url(r'^json/check_authentication', AuthEntry(permitted_methods=['GET'])),
-   url(r'^accounts/login/$',  login),
-   url(r'^accounts/logout/$', logout),
-   url(r'^accounts/profile/$', UserProfileEntry()),
 )
 
