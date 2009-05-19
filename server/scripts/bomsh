@@ -68,6 +68,9 @@ def main_loop(system_state, slash):
                 command = raw_input(system_state.get_prompt() + readline.get_line_buffer())
             slash.process_command(command)
         except EOFError, eof:
+            libUi.info("cleaning up")
+            url = "json/machine/cleanup"
+            data = system_state.cnm_connector.service_yaml_request(url, post_data={})
             if len(system_state.exit_methods) > 0:
                 status, output = system_state.exit_methods[-1](slash)
                 libUi.user_output(output, status)

@@ -2,7 +2,10 @@
 
 import pxssh, pexpect
 import sys, time
-from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import OK, FAIL, SERVER, TRACEBACK
+from bombardier_core.static_data import DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+
 
 #Statuses:
 DISCONNECTED = 0
@@ -46,7 +49,6 @@ class MachineUnavailableException(Exception):
 class MachineInterface:
 
     def __init__(self, machine_config):
-        self.debug         = True
         self.host_name     = machine_config.host_name
         self.server_home   = machine_config.server_home
         self.data          = machine_config.data
@@ -78,36 +80,31 @@ class MachineInterface:
     def set_output_handle(self, output_handle):
         self.output_handle = output_handle
 
-    def format_output(self, prefix, debug_text, no_debug_text='.'):
-        output = ''
-        if self.debug:
-            self.output_handle.write(prefix+debug_text)
-            self.output_handle.flush()
-        else:
-            if no_debug_text != '.':
-                self.output_handle.write( "\n ")
-            output = no_debug_text
-        self.output_handle.write(output)
+    def debug(self, msg, source=SERVER):
+        self.log(source, DEBUG, msg)
+
+    def info(self, msg, source=SERVER):
+        self.log(source, INFO, msg)
+
+    def warning(self, msg, source=SERVER):
+        self.log(source, WARNING, msg)
+
+    def error(self, msg, source=SERVER):
+        self.log(source, ERROR, msg)
+
+    def critical(self, msg, source=SERVER):
+        self.log(source, CRITICAL, msg)
+
+    def traceback_output(self, source, msg):
+        self.log(source, TRACEBACK, msg)
+
+    def from_output(self, msg, severity=INFO):
+        self.log(self.host_name, severity, msg)
+
+    def log(self, source, severity, msg):
+        formatted_msg = "<<%s|%d|%s>>" % (source, severity, msg)
+        self.output_handle.write(formatted_msg)
         self.output_handle.flush()
-
-    def traceback_output(self, msg):
-        prefix = "==> CLIENT TRACEBACK: "
-        self.format_output(prefix, msg, msg)
-
-    def error_output(self, msg):
-        msg = "ERROR: %s" % (msg)
-        self.format_output("==> ", msg, msg)
-
-    def warning_output(self, msg):
-        msg = "WARNING: %s" % (msg)
-        self.format_output("==> ", msg, msg)
-
-    def debug_output(self, debug_text, no_debug_text='.'):
-        self.format_output("==> ", debug_text, no_debug_text)
-
-    def from_output(self, fromText):
-        prefix = "==> [From %s]: " % self.host_name
-        self.format_output(prefix, fromText)
 
     def terminate(self):
         result = self.ssh_conn.terminate()
@@ -120,7 +117,7 @@ class MachineInterface:
         self.ssh_conn = pxssh.pxssh()
         self.ssh_conn.timeout = 6000
         msg = "Connecting to %s..." % self.host_name
-        self.debug_output(msg, msg)
+        self.debug(msg)
         try:
             login_okay = self.ssh_conn.login(self.ip_address, self.username,
                                        self.ssh_pass, login_timeout=6000)
@@ -130,8 +127,8 @@ class MachineInterface:
             self.ssh_conn.sendline('stty -echo')
             self.ssh_conn.prompt()
         except (MachineUnavailableException, pexpect.TIMEOUT):
-            message = "SSH session failed on login."
-            self.debug_output(message, message)
+            msg = "SSH session failed on login."
+            self.debug(msg)
             self.status = BROKEN
             return FAIL
         self.status = CONNECTED
@@ -147,7 +144,7 @@ class MachineInterface:
                 msg = "Assuming our connection to %s is stale after "\
                       "%4.2f minutes. Reconnecting..."
                 msg = msg % (self.host_name, connection_age / 60.0)
-                self.debug_output(msg)
+                self.debug(msg)
                 self.disconnect()
             if self.connect() != OK:
                 return FAIL
@@ -161,7 +158,7 @@ class MachineInterface:
 
         if dead:
             msg = "Our connection handle is dead. Reconnecting..."
-            self.debug_output(msg)
+            self.debug(msg)
             try:
                 self.disconnect()
             except:
@@ -194,19 +191,19 @@ class MachineInterface:
         return OK
 
     def get(self, dest_file):
-        self.debug_output( "Getting %s" % dest_file)
+        self.debug( "Getting %s" % dest_file)
         cmd = 'scp -v %s@%s:%s .'
         cmd = cmd % (self.username, self.ip_address, dest_file)
-        self.debug_output("EXECUTING: %s" % cmd, cmd)
+        self.debug("EXECUTING: %s" % cmd, cmd)
         scp_conn = pexpect.spawn(cmd, timeout=30)
         return self.process_scp(scp_conn)
 
     def scp(self, source, dest, verbose=True):
         if verbose:
             msg = "Sending %s to %s:%s" % (source, self.host_name, dest)
-            self.debug_output(msg)
+            self.debug(msg)
         else:
-            self.debug_output("Sending %s..." % (source))
+            self.debug("Sending %s..." % (source))
         cmd = 'scp -v %s %s@%s:%s'
         cmd = cmd % (source, self.username, self.ip_address, dest)
         try:
@@ -231,7 +228,7 @@ class MachineInterface:
                 raise MachineUnavailableException(dest, errMsg)
             scp_conn.sendline(self.ssh_pass)
         if select_index == 2:
-            self.debug_output('Using password authentication')
+            self.debug('Using password authentication')
             scp_conn.sendline(self.ssh_pass)
         if select_index == 3:
             pass

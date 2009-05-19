@@ -79,9 +79,10 @@ class ServerConfigSyncCollection(CnmResource):
 class DbSyncCollection(CnmResource):
     @login_required
     def create(self, request):
-        self._server_sync()
-        self._server_home_sync()
-        responder = JsonDictResponder({"status": "OK"})
+        config_data = self._server_sync()
+        config_data.update(self._server_home_sync())
+        config_data["status"] = "OK"
+        responder = JsonDictResponder(config_data)
         return responder.element(request)
 
     def _server_sync(self):
@@ -93,23 +94,30 @@ class DbSyncCollection(CnmResource):
         for element in config_data:
             sc = ServerConfig(name=element, value=config_data[element])
             sc.save()
+        return config_data
 
     def _server_home_sync(self):
         new_config_objects = []
         server_home = self.get_server_home()
+        config_data = {}
         for config_type in MAPPER:
+            if config_type == "merged":
+                continue
+            config_data[config_type] = []
             config_objects = MAPPER[config_type.lower()].objects.all()
             for config_object in config_objects:
                 config_object.delete()
             config_wildcard = os.path.join(server_home, config_type, "*.yml")
             config_files = glob.glob(config_wildcard)
+            print "CONFIG FILES:",config_files
             for config_file in config_files:
                 base_name = config_file.split(os.path.sep)[-1]
                 config_name = base_name.split('.yml')[0]
                 config_object = MAPPER[config_type.lower()](name=config_name)
                 config_object.save()
-
+                config_data[config_type].append(base_name)
             new_config_objects += MAPPER[config_type.lower()].objects.all()
+        return config_data
 
 urlpatterns = patterns('',
    url(r'^json/server/config', ServerConfigCollection(permitted_methods = ['POST', "GET"])),

@@ -37,6 +37,14 @@ General Public license version 2.""" % VERSION
 LAST_REPORT = "lastReport.yml"
 SERVER_CONFIG_FILE = "/etc/bombardier.yml"
 
+SERVER=0
+TRACEBACK=0
+DEBUG=1
+INFO=2
+WARNING=3
+ERROR=4
+CRITICAL=5
+
 
 # AUTHORIZATION
 ADMIN_USER   = 9

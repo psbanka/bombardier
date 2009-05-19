@@ -5,7 +5,10 @@ from commands import getstatusoutput
 from CnmConnector import CnmConnector, UnexpectedDataException
 from bombardier_server.cli.SystemStateSingleton import SystemState, ENABLE, USER, F0
 system_state = SystemState()
-from bombardier_core.static_data import FAIL
+from bombardier_core.static_data import OK, FAIL, SERVER, TRACEBACK
+from bombardier_core.static_data import DEBUG, INFO, WARNING, ERROR, CRITICAL
+import re
+
 
 
 ONE_LINE = 0
@@ -298,6 +301,33 @@ def prepender(prepend, object, depth):
     elif type(object) in [ type(0), type(0.1) ]:
         print_data += "%s%s%d\n" % (prepend, ' '*depth, object)
     return print_data
+
+# FIXME: CONSOLIDATE LOGGING HERE
+
+def info(msg):
+    print ">>>",msg
+
+def debug(msg, system_status):
+    if system_status.debug == True:
+        print ">>> DEBUG:",msg
+
+def warning(msg):
+    print ">>> WARNING:",msg
+
+def error(msg):
+    print ">>> ERROR:",msg
+
+def process_cnm(text_stream):
+    output = re.compile("\<\<(\d)\|(\d)\|(.*?)\>\>").findall(text_stream)
+    for match in output:
+        source, level, msg = match
+        if level == WARNING:
+            warning(msg)
+        elif level == ERROR:
+            error(msg)
+        else:
+            info(msg)
+
 
 def user_output(output, status, output_handle=sys.stdout, errHandle=sys.stderr, prepend = '', test=False):
     if output == []:

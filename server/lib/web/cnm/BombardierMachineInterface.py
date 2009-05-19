@@ -63,13 +63,13 @@ class BombardierMachineInterface(MachineInterface):
             except Exception, exc:
                 if exc[0] == "syntax error":
                     msg = "Syntax error in status information for %s"
-                    self.error_output(msg % self.host_name)
+                    self.traceback(msg % self.host_name)
                     self.status_data = ''
             if type(self.status_data) != type({}) \
                 or PROGRESS not in self.status_data \
                 or LOCAL_PACKAGES not in self.status_data:
                     msg = "Invalid status data. Ignoring."
-                    self.warning_output(msg)
+                    self.warning(msg)
         return(MachineInterface.freshen(self))
 
     def action_result(self, data):
@@ -94,7 +94,7 @@ class BombardierMachineInterface(MachineInterface):
         file_name = os.path.join(self.server_home, "packages", package_name)
         if not os.path.isfile(file_name):
             message = "Client requested a file that is not on this server: %s"
-            self.error_output(message % file_name)
+            self.error(message % file_name)
             return OK
         self.scp(file_name, destPath, False)
 
@@ -108,17 +108,8 @@ class BombardierMachineInterface(MachineInterface):
         encoded    = base64.encodestring(compressed)
         self.ssh_conn.setecho(False)
         handle = StringIO.StringIO(encoded)
-        lines = 0
-        totalLines = len(encoded.split()) / BLK_SIZE
-        printFrequency = totalLines / DOT_LENGTH
-        termPos = 0
-        if self.debug:
-            msg = "==> Sending configuration information:"
-            self.output_handle.write(msg)
-            self.output_handle.flush()
-            termPos = len(msg)
-        if printFrequency < 1:
-            printFrequency = 1
+        msg = "==> Sending configuration information:"
+        self.debug.write(msg)
         while True:
             chunk = handle.read(BLK_SIZE)
             lines += 1
@@ -129,13 +120,7 @@ class BombardierMachineInterface(MachineInterface):
             if len(chunk) < BLK_SIZE:
                 pad = ' '*(BLK_SIZE-len(chunk))
                 chunk = chunk[:-1] + pad + '\n'
-            if lines % printFrequency == 0:
-                self.output_handle.write('.')
-                self.output_handle.flush()
             self.ssh_conn.send(chunk)
-        if self.debug:
-            self.output_handle.write('\n')
-            self.output_handle.flush()
 
     def send_client(self, data):
         if data:
@@ -161,7 +146,7 @@ class BombardierMachineInterface(MachineInterface):
 
     def gso(self, cmd, raise_on_error=True):
         if self.cmd_debug:
-            self.debug_output("* RUNNING: %s" % cmd)
+            self.debug("* RUNNING: %s" % cmd)
         try:
             self.ssh_conn.sendline( cmd )
             self.ssh_conn.prompt()
@@ -173,7 +158,7 @@ class BombardierMachineInterface(MachineInterface):
                 return ""
         output = self.ssh_conn.before.strip()
         if self.cmd_debug:
-            self.debug_output("* OUTPUT: %s" % output)
+            self.debug("* OUTPUT: %s" % output)
         return output
 
     def run_cmd(self, command_string):
@@ -205,18 +190,18 @@ class BombardierMachineInterface(MachineInterface):
         data = re_obj.findall(tString)
         if data:
             message1 = "Invalid client configuration data"
-            self.error_output(message1)
+            self.error(message1)
             if len(data) == 2:
                 message2 = "Need option '%s' in section '%s'." % (data[0], data[1])
             else:
                 message2 = "Need options: %s" % data
-            self.debug_output(message2, message2)
+            self.debug(message2)
         data = re.compile("NoSectionError\: No section\: \'(\w+)\'").findall(tString)
         if data:
             message1 = "Invalid client configuration data"
-            self.error_output(message1)
+            self.error(message1)
             message2 = "Need section '%s'." % (data[0])
-            self.debug_output(message2, message2)
+            self.debug(message2)
         else:
             for line in stack_trace:
                 self.traceback_output(line)
@@ -225,11 +210,11 @@ class BombardierMachineInterface(MachineInterface):
         #CANNIBALIZED FROM PackageField.py
         status_yml = os.path.join(self.server_home, "status", "%s.yml" % self.host_name)
         if not os.path.isfile(status_yml):
-            self.debug_output("Cannot retrieve status (NO FILE: %s)" % status_yml)
+            self.debug("Cannot retrieve status (NO FILE: %s)" % status_yml)
             return {}
         yml = syck.load( open(status_yml).read() )
         if yml == None:
-            self.debug_output("Cannot retrieve status (EMPTY FILE: %s)" % status_yml)
+            self.debug("Cannot retrieve status (EMPTY FILE: %s)" % status_yml)
             return {}
         return yml
 
@@ -251,7 +236,7 @@ class BombardierMachineInterface(MachineInterface):
                 this_package_data = self.get_package_data
                 if not this_package_data:
                     message = "Could not find package data for %s." % package_name
-                    self.error_output(message)
+                    self.error(message)
                     raise MachineConfigurationException(self.host_name)
                 send_data["package_data"][package_name] = this_package_data
         self.stream_data(yaml.dump(send_data))
@@ -268,7 +253,7 @@ class BombardierMachineInterface(MachineInterface):
                     suffix = pkg.split(base_package_name)[-1]
                     matches = re.compile('^\-(\d+)').findall(suffix)
                     if len(matches) != 1:
-                        #self.error_output("Invalid existing package name: %s" % pkg)
+                        #self.error("Invalid existing package name: %s" % pkg)
                         continue
                     package_versions.append(int(matches[0]))
             package_versions.sort()
@@ -286,7 +271,7 @@ class BombardierMachineInterface(MachineInterface):
             newest_package_data = self.get_package_data(base_package_name)
             newest_package_name = newest_package_data.get("install", {}).get("fullName")
             if newest_package_name and newest_package_name != full_package_name:
-                self.debug_output('', "Need to send package: %s" % newest_package_name)
+                self.debug("Need to send package: %s" % newest_package_name)
                 self.send_package(newest_package_name+".spkg", destPath)
             if base_package_name in new_packages:
                 new_packages.remove(base_package_name)
@@ -326,35 +311,31 @@ class BombardierMachineInterface(MachineInterface):
             elif found_index == 0: # BC exited
                 if self.ssh_conn.before.strip():
                     msg = "Remaining output: %s" % self.ssh_conn.before.strip()
-                    self.debug_output(msg)
+                    self.debug(msg)
                 self.ssh_conn.setecho(False)
                 self.ssh_conn.sendline("echo $?")
                 self.ssh_conn.prompt()
                 try:
                     return_code = int(str(self.ssh_conn.before.split()[0].strip()))
                 except Exception, exc:
-                    self.debug_output( str(exc) )
+                    self.debug( str(exc) )
                     msg = "Invalid return_code: ('%s')" % self.ssh_conn.before
-                    self.error_output(msg)
+                    self.error(msg)
                     return_code = FAIL
                 break
             elif found_index == 2: # Log message
                 message_type, message = self.ssh_conn.match.groups()
                 if not self.process_message(message):
                     message = message.strip()
-                    if DEBUG or message_type != "DEBUG":
-                        self.from_output(message)
+                    self.debug(message)
 
     def process(self, action, package_names, script_name, debug):
         self.report_info = ''
         self.debug = debug
         self.pull_report = True
-        self.debug_output("", "Progress: ")
         if action == EXECUTE:
             self.clear_script_output(script_name)
         if self.freshen() != OK:
-            if not self.debug:
-                self.output_handle.write('\n')
             msg = "UNABLE TO CONNECT TO %s. No actions are available."
             return FAIL, [msg % self.host_name]
         return_code = OK
@@ -363,11 +344,11 @@ class BombardierMachineInterface(MachineInterface):
                 self.upload_new_packages()
             self.run_bc(action, package_names, script_name, debug)
         except KeyboardInterrupt:
-            self.debug_output("Cleaning up...", "\ncleaning up...")
+            self.debug("Cleaning up...", "\ncleaning up...")
             if self.terminate() == OK:
-                self.debug_output("Disconnected", "\ndisconnected")
+                self.debug("Disconnected", "\ndisconnected")
             else:
-                self.error_output("Could not disconnect.")
+                self.error("Could not disconnect.")
             raise KeyboardInterrupt
         except MachineUnavailableException:
             return FAIL, ["Remote system refused connection."]
@@ -381,16 +362,12 @@ class BombardierMachineInterface(MachineInterface):
             exc.seek(0)
             data = exc.read()
             ermsg = ''
-            if not self.debug:
-                self.output_handle.write('\n')
             for line in data.split('\n'):
                 ermsg = "%% %s" % line
-                self.debug_output(ermsg, ermsg)
+                self.traceback(ermsg)
             return FAIL, ["Exception in client-handling code."]
 
         self.get_status_yml()
-        if not self.debug:
-            self.output_handle.write('\n')
         if action == EXECUTE:
             if self.report_info:
                 file_name = "%s-%s.yml" % (self.host_name, script_name)
@@ -444,7 +421,7 @@ class BombardierMachineInterface(MachineInterface):
             syck.load(status_yml)
         except:
             msg = "status.yml could not be parsed (writing to error.yml)"
-            self.error_output(msg)
+            self.error(msg)
             open( os.path.join(status_dir, "error.yml"), 'w' ).write(status_yml)
             return
         status_file = os.path.join(status_dir, "%s.yml" % self.host_name)
@@ -455,5 +432,5 @@ class BombardierMachineInterface(MachineInterface):
             cmd = "chmod 660 %s 2> /dev/null"
             os.system(cmd % (status_file))
         except IOError, ioe:
-            self.error_output("Unable to write '%s' (%s)" % (status_file, ioe))
+            self.error("Unable to write '%s' (%s)" % (status_file, ioe))
 

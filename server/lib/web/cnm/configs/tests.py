@@ -80,7 +80,7 @@ class BasicTest(TestCase):
         response = self.client.post(path=url)
         self.failUnlessEqual(response.status_code, 200)
 
-    def NOtest_get_server_home(self):
+    def test_get_server_home(self):
         url = '/json/server/config'
         content_dict = self.get_content_dict(url)
         expected = {"server_home": "NULL"}
@@ -119,7 +119,7 @@ class BasicTest(TestCase):
         content_dict = json.loads( response.content )
         self.failUnlessEqual(content_dict["localhost"], OK)
 
-    def NOtest_change_server_home(self):
+    def test_change_server_home(self):
         self.login(self.super_user)
         url = '/json/server/config'
         response = self.client.post(path=url, data={"server_home": "NO_PATH"})
@@ -127,7 +127,7 @@ class BasicTest(TestCase):
         expected = {"server_home": u"NO_PATH"}
         self.failUnlessEqual(content_dict["server_home"], expected["server_home"])
 
-    def NOtest_merged(self):
+    def test_merged(self):
         self.login(self.super_user)
         url = '/json/server/config'
         test_home = os.path.join(os.getcwd(), "configs", "fixtures")
@@ -147,7 +147,7 @@ class BasicTest(TestCase):
             else:
                 self.failUnlessEqual(set(content_dict[key]), set(expected[key]))
 
-    def NOtest_authentication(self):
+    def test_authentication(self):
         self.client.logout()
 
         url = '/json/check_authentication'

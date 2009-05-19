@@ -153,13 +153,16 @@ class Dispatcher(Pyro.core.ObjBase):
         job = self.jobs.get(job_name)
         start_time = time.time()
         end_time = start_time + timeout
+        output = {"status": OK}
         if not job:
             raise InvalidJobName(job_name)
         while job.isAlive():
             if time.time() > end_time:
-                return {"status": FAIL}
+                output["status"] = FAIL
+                return output
             time.sleep(1)
-        return {"status": OK}
+        status["command_output"] = job.command_output
+        return output
 
     def job_poll(self, username, job_name):
         try:

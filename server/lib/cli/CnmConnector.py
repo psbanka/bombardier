@@ -143,7 +143,7 @@ class CnmConnector:
         self.password = password
         return data.get("super_user")
 
-    def service_request(self, path, args=None, put_data=None):
+    def service_request(self, path, args=None, put_data=None, post_data=None):
         if not args:
             args = {}
         full_path = urlparse.urljoin(self.address, path)
@@ -157,9 +157,16 @@ class CnmConnector:
             curl_obj.setopt(pycurl.INFILESIZE, len(put_data))
             out_data = StringIO.StringIO(put_data)
             curl_obj.setopt(pycurl.READFUNCTION, out_data.read)
+        if post_data != None:
+            post_list = []
+            for key in post_data:
+                post_list.append((key, data[key]))
+            encoded_post_data = urllib.urlencode(post_list)
+            curl_obj.setopt(pycurl.POSTFIELDS, encoded_post_data)
+            curl_obj.setopt(pycurl.POST, 1)
         return self.perform_request(curl_obj, full_path)
 
-    def service_yaml_request(self, path, args=None, put_data=None):
+    def service_yaml_request(self, path, args=None, put_data=None, post_data=None):
         if not args:
             args = {}
         try:
@@ -167,7 +174,7 @@ class CnmConnector:
                 if type(put_data) == type(["list"]) or \
                    type(put_data) == type({}):
                     put_data = yaml.dump(put_data)
-            response = self.service_request(path, args, put_data)
+            response = self.service_request(path, args, put_data, post_data)
             return response.convert_from_yaml()
         except urllib2.HTTPError:
             self.logger.error("Unable to connect to the service %s" % path)
