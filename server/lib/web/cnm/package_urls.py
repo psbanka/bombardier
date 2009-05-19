@@ -1,45 +1,48 @@
 from django.conf.urls.defaults import patterns, url
-from django_restapi.model_resource import Collection, Entry, reverse
-from django_restapi.responder import JsonDictResponder, JSONResponder, YamlFileResponder
-from django_restapi.resource import Resource
-from configs.models import ServerConfig
-import syck, glob
-import os, sys
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
-from Exceptions import InvalidServerHome
-from MachineConfig import MachineConfig
-from MachineInterface import MachineInterface
-
-def dump_json(data):
-    response = HttpResponse(mimetype = "application/json")
-    response_dict = syck.load(data)
-    simplejson.dump(response_dict, response)
-
-def get_server_home():
-    config_entry = ServerConfig.objects.get(name="server_home")
-    server_home =config_entry.value
-    if not os.path.isdir(server_home):
-        raise InvalidServerHome(server_home)
-    return server_home
-
-
-#==================================
+from django_restapi.responder import JsonDictResponder
+from CnmResource import CnmResource
 import Pyro.core
-import time
+from Exceptions import InvalidJobName
 
-
-class MachineTestEntry(Resource):
+class MachineStartTestEntry(CnmResource):
     @login_required
-    def read(self, request, machine_name):
+    def create(self, request, machine_name):
         dispatcher = Pyro.core.getProxyForURI("PYRONAME://dispatcher")
-        server_home = get_server_home()
-        dispatcher.set_server_home(server_home)
+        server_home = CnmResource.get_server_home()
+        dispatcher.set_server_home(request.user, server_home)
         job = dispatcher.start_job(request.user, machine_name)
-        return dump_json(job)
+        responder = JsonDictResponder(job)
+        return responder.element(request)
 
-# FIXME: TEST SHOULD BE A POST
+class MachineCleanupEntry(CnmResource):
+    @login_required
+    def create(self, request):
+        dispatcher = Pyro.core.getProxyForURI("PYRONAME://dispatcher")
+        status = dispatcher.cleanup(request.user)
+        responder = JsonDictResponder(status)
+        return responder.element(request)
+
+class JobJoinEntry(CnmResource):
+    @login_required
+    def read(self, request, job_name):
+        dispatcher = Pyro.core.getProxyForURI("PYRONAME://dispatcher")
+        status = dispatcher.job_join(request.user, job_name, 10)
+        responder = JsonDictResponder(status)
+        return responder.element(request)
+
+class JobPollEntry(CnmResource):
+    @login_required
+    def read(self, request, job_name):
+        dispatcher = Pyro.core.getProxyForURI("PYRONAME://dispatcher")
+        status = dispatcher.job_poll(request.user, job_name)
+        responder = JsonDictResponder(status)
+        return responder.element(request)
+
 urlpatterns = patterns('',
-   url(r'^json/machine/test/(?P<machine_name>.*)', MachineTestEntry(permitted_methods = ['GET'])),
+   url(r'^json/machine/start_test/(?P<machine_name>.*)', MachineStartTestEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/cleanup', MachineCleanupEntry(permitted_methods = ['POST'])),
+   url(r'^json/job/join/(?P<job_name>.*)', JobJoinEntry()),
+   url(r'^json/job/poll/(?P<job_name>.*)', JobPollEntry()),
 )
 

@@ -1,4 +1,5 @@
-from django.conf.urls.defaults import *
+from django.conf.urls.defaults import url, patterns, include, handler500
+#from django.conf.urls.defaults import *
 from django.contrib import admin
 
 urlpatterns = patterns('',

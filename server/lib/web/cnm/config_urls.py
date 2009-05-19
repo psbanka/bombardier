@@ -1,7 +1,6 @@
 from django.conf.urls.defaults import patterns, url
-from django_restapi.model_resource import Collection, Entry, reverse
 from django_restapi.responder import JsonDictResponder, JSONResponder, YamlFileResponder
-from django_restapi.resource import Resource
+from CnmResource import CnmResource
 from configs.models import Client, Include, Bom, ServerConfig, Package
 import ServerConfigFile
 import syck, glob
@@ -9,29 +8,14 @@ import os
 import MachineConfig
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
-from Exceptions import InvalidServerHome
 
 MAPPER = {"merged": Client, "client": Client, "include": Include,
           "bom": Bom, "package": Package}
 
-def dump_json(data):
-    response = HttpResponse(mimetype = "application/json")
-    response_dict = syck.load(data)
-    simplejson.dump(response_dict, response)
-
-def get_server_home():
-    config_entry = ServerConfig.objects.get(name="server_home")
-    server_home =config_entry.value
-    if not os.path.isdir(server_home):
-        raise InvalidServerHome(server_home)
-    return server_home
-
-#==================================
-
-class ConfigEntry(Resource):
+class ConfigEntry(CnmResource):
     @login_required
     def read(self, request, config_type, config_name):
-        server_home = get_server_home()
+        server_home = self.get_server_home()
         if config_type.lower() == "merged":
             machine_config = MachineConfig.MachineConfig(config_name, "", server_home)
             machine_config.merge()
@@ -42,7 +26,7 @@ class ConfigEntry(Resource):
             responder = YamlFileResponder(config_file)
             return responder.element(request, config_name)
 
-class ConfigCollection(Resource):
+class ConfigCollection(CnmResource):
     @login_required
     def read(self, request, config_type, config_name):
         objects = MAPPER[config_type.lower()].objects.filter(name__startswith=config_name)
@@ -52,7 +36,7 @@ class ConfigCollection(Resource):
 
 #==================================
 
-class ServerConfigCollection(Resource):
+class ServerConfigCollection(CnmResource):
     @login_required
     def read(self, request):
         server_config_objects = ServerConfig.objects.all()
@@ -78,7 +62,7 @@ class ServerConfigCollection(Resource):
         responder = JsonDictResponder(output)
         return responder.element(request)
 
-class ServerConfigSyncCollection(Resource):
+class ServerConfigSyncCollection(CnmResource):
     @login_required
     def read(self, request):
         server_config_objects = ServerConfig.objects.all()
@@ -92,7 +76,7 @@ class ServerConfigSyncCollection(Resource):
         responder = JsonDictResponder(config_data)
         return responder.element(request)
 
-class DbSyncCollection(Resource):
+class DbSyncCollection(CnmResource):
     @login_required
     def create(self, request):
         self._server_sync()
@@ -112,7 +96,7 @@ class DbSyncCollection(Resource):
 
     def _server_home_sync(self):
         new_config_objects = []
-        server_home = get_server_home()
+        server_home = self.get_server_home()
         for config_type in MAPPER:
             config_objects = MAPPER[config_type.lower()].objects.all()
             for config_object in config_objects:

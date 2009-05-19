@@ -1,9 +1,10 @@
-from django.conf.urls.defaults import *
-from django_restapi.responder import *
-from django_restapi.resource import Resource
+from django.conf.urls.defaults import patterns, url
+from django.contrib.auth.decorators import login_required
+from CnmResource import CnmResource
 from django.contrib.auth.views import login, logout
+from django_restapi.responder import JsonDictResponder
 
-class AuthEntry(Resource):
+class AuthEntry(CnmResource):
     def read(self, request):
         if not request.user.is_authenticated():
             status = "NOT_AUTHENTICATED"
@@ -16,7 +17,7 @@ class AuthEntry(Resource):
         response.status_code = status_code
         return response
 
-class UserProfileEntry(Resource):
+class UserProfileEntry(CnmResource):
     def read(self, request):
         output = {"username": request.user.username,
                   "super_user": request.user.is_superuser}
