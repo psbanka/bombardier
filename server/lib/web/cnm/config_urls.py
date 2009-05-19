@@ -109,7 +109,6 @@ class DbSyncCollection(CnmResource):
                 config_object.delete()
             config_wildcard = os.path.join(server_home, config_type, "*.yml")
             config_files = glob.glob(config_wildcard)
-            print "CONFIG FILES:",config_files
             for config_file in config_files:
                 base_name = config_file.split(os.path.sep)[-1]
                 config_name = base_name.split('.yml')[0]
