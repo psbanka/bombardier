@@ -54,6 +54,25 @@ class SysLogger:
     def log(self, level, msg, username):
         syslog.syslog(level, "%-15s|dispatcher: %s" % (username, msg))
 
+def exception_dumper(func):
+    argnames = func.func_code.co_varnames[:func.func_code.co_argcount]
+    fname = func.func_name
+    def traceback_func(*args,**kwargs):
+        try:
+            print "watching the %s function" % fname
+            return func(*args, **kwargs)
+        except Exception, err:
+            exc = StringIO.StringIO()
+            traceback.print_exc(file=exc)
+            exc.seek(0)
+            data = exc.read()
+            ermsg = ''
+            for line in data.split('\n'):
+                ermsg = "%% %s" % line
+                print ermsg
+    return traceback_func
+
+
 class Job(Thread):
     def __init__(self, name, machine_interface, command, logger):
         self.name = name
@@ -105,11 +124,25 @@ class Dispatcher(Pyro.core.ObjBase):
         self.logger = SysLogger()
         self.machine_interface_pool = {}
 
+    def dump_exception(self, username, err):
+        exc = StringIO.StringIO()
+        traceback.print_exc(file=exc)
+        exc.seek(0)
+        data = exc.read()
+        ermsg = ''
+        traceback_data = []
+        for line in data.split('\n'):
+            traceback_data.append(line)
+            ermsg = "%% %s" % line
+            self.logger.error(ermsg, username)
+        return {"status": FAIL, "traceback": traceback_data}
+
     def set_server_home(self, username, server_home):
         self.logger.info("Setting server home: %s" % server_home, username)
         self.server_home = server_home
 
     def start_job(self, username, machine_name):
+        output = {"status": OK}
         try:
             machine_config = MachineConfig(machine_name, self.password,
                                            self.server_home)
@@ -127,68 +160,61 @@ class Dispatcher(Pyro.core.ObjBase):
             self.jobs[job_name] = job
             self.next_job += 1
             job.start()
-            return {"job_name": job.name}
+            output["job_name"] = job.name
         except Exception, err:
-            exc = StringIO.StringIO()
-            traceback.print_exc(file=exc)
-            exc.seek(0)
-            data = exc.read()
-            ermsg = ''
-            for line in data.split('\n'):
-                ermsg = "%% %s" % line
-                self.logger.error(ermsg, username)
+            output.update(self.dump_exception(username, err))
+        return output
 
     def cleanup(self, username):
-        output = {}
-        for machine_name in self.machine_interface_pool:
-            machine_interface = self.machine_interface_pool[machine_name]
-            msg = "Requested connection termination to %s" % machine_name
-            self.logger.warning(msg, username)
-            status = machine_interface.terminate()
-            output[machine_name] = status
-        self.machine_interface_pool = {}
+        output = {"status": OK}
+        try:
+            for machine_name in self.machine_interface_pool:
+                machine_interface = self.machine_interface_pool[machine_name]
+                msg = "Requested connection termination to %s" % machine_name
+                self.logger.warning(msg, username)
+                status = machine_interface.terminate()
+                output[machine_name] = status
+            self.machine_interface_pool = {}
+        except Exception, err:
+            output.update(self.dump_exception(username, err))
         return output
 
     def job_join(self, username, job_name, timeout):
-        job = self.jobs.get(job_name)
-        start_time = time.time()
-        end_time = start_time + timeout
         output = {"status": OK}
-        if not job:
-            raise InvalidJobName(job_name)
-        while job.isAlive():
-            if time.time() > end_time:
-                output["status"] = FAIL
-                return output
-            time.sleep(1)
-        status["command_output"] = job.command_output
+        try:
+            job = self.jobs.get(job_name)
+            start_time = time.time()
+            end_time = start_time + timeout
+            if not job:
+                raise InvalidJobName(job_name)
+            while job.isAlive():
+                if time.time() > end_time:
+                    output["status"] = FAIL
+                    return output
+                time.sleep(1)
+            output["command_output"] = job.command_output
+        except Exception, err:
+            output.update(self.dump_exception(username, err))
         return output
 
     def job_poll(self, username, job_name):
+        output = {"status": OK}
         try:
             job = self.jobs.get(job_name)
             if not job:
                 raise InvalidJobName(job_name)
-            status = {}
             if job.isAlive():
-                status["alive"] = True
-                status["command_output"] = None
-                status["elapsed_time"] = time.time() - job.start_time
+                output["alive"] = True
+                output["command_output"] = None
+                output["elapsed_time"] = time.time() - job.start_time
             else:
-                status["alive"] = False
-                status["command_output"] = job.command_output
-                status["elapsed_time"] = job.elapsed_time
-            status["new_output"] = job.get_new_output()
-            return status
+                output["alive"] = False
+                output["command_output"] = job.command_output
+                output["elapsed_time"] = job.elapsed_time
+            output["new_output"] = job.get_new_output()
         except Exception, err:
-            exc = StringIO.StringIO()
-            traceback.print_exc(file=exc)
-            exc.seek(0)
-            data = exc.read()
-            ermsg = ''
-            for line in data.split('\n'):
-                ermsg = "%% %s" % line
-                self.logger.error(ermsg, username)
+            output.update(self.dump_exception(username, err))
+        return output
 
     def check_in(self):
         time_running = time.time() - self.start_time

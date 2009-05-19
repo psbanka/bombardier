@@ -2,7 +2,7 @@
 
 import sys, termios, tty
 from commands import getstatusoutput
-from CnmConnector import CnmConnector, UnexpectedDataException
+from CnmConnector import CnmConnector, UnexpectedDataException, ServerException
 from bombardier_server.cli.SystemStateSingleton import SystemState, ENABLE, USER, F0
 system_state = SystemState()
 from bombardier_core.static_data import OK, FAIL, SERVER, TRACEBACK
@@ -37,6 +37,9 @@ def login(username, logger):
         except UnexpectedDataException:
             user_output(["Bad username or password."], FAIL)
             tries += 1
+        except ServerException, sex:
+            user_output(["Server not accessible (%s)" % sex], FAIL)
+            sys.exit(1)
     if tries >= 3:
         user_output(["Access denied."], FAIL)
         sys.exit(1)
@@ -55,6 +58,7 @@ def append_not_blank(current_token, tokens):
     if current_token:
         tokens.append(current_token)
     return tokens
+
 
 def tokenize(str):
     tokens = []

@@ -73,7 +73,12 @@ class Response:
 
     def convert_from_yaml(self):
         if self.header.get_content_type() == "application/json":
-            return syck.load(str(self.output))
+            output = syck.load(str(self.output))
+            if type(output) != type([]) and type(output) != type({}):
+                raise UnexpectedDataException("Not a list or dictionary")
+            if output == None:
+                raise UnexpectedDataException("Null value received")
+            return output
         raise UnexpectedDataException("can't convert to yaml")
 
     def __str__(self):
