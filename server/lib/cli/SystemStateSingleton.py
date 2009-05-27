@@ -1,10 +1,39 @@
 #!/usr/bin/env python
 
+# BSD License
+# Copyright (c) 2009, Peter Banka et al
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the GE Security nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+'''This thing keeps track of the state of the bombardier shell. This module
+is a design compomise because readline() requires it, really.'''
+
+
 import readline, socket, sys, os
-import stat
 import yaml, syck
-from BombardierRemoteClient import BombardierRemoteClient
-from bombardier_core.Logger import Logger
 from bombardier_core.static_data import OK, FAIL
 
 PERSONAL_CONFIG_FILE = "%s/.bomsh_config" % os.environ.get("HOME")
@@ -29,29 +58,8 @@ F2 = 12
 ALL = 99
 FREE_TEXT = 100
 
-REPROMPT = 1
-
-class HostNotEnabledException(Exception):
-    def __init__(self, server):
-        e = Exception()
-        Exception.__init__(e)
-        self.server = server
-    def __repr__(self):
-        return "Host %s is not enabled for this user" % self.server
-
-class ConfigFileException(Exception):
-    def __init__(self, message, fileName):
-        e = Exception()
-        Exception.__init__(e)
-        self.fileName = fileName
-        self.message = message
-    def __repr__(self):
-        return "%% Error processing config file %s: %s" \
-               %(self.fileName, self.message)
-    def __str__(self):
-        return self.__repr__()
-
 class SystemState:
+    '''A Singleton class that represents the state of the terminal'''
 
     class __impl:
 
@@ -81,6 +89,7 @@ class SystemState:
             self.termlen   = 23
             self.termcolor = NO_COLOR
             self.cnm_connector = None
+            self.output_handle = sys.stdout
 
 
     __instance = None
@@ -104,6 +113,8 @@ class SystemState:
         return setattr(self.__instance, attr, value)
 
     def add_personal_config_list(cls, option, value):
+        '''The 'config_list' is the set of all configuration
+        values in the user's .bomsh_config YAML file.'''
         if SystemState.__instance.personal_config.get(option):
             SystemState.__instance.personal_config[option].append(value)
         else:
@@ -111,6 +122,7 @@ class SystemState:
         open(PERSONAL_CONFIG_FILE, 'w').write(yaml.dump(SystemState.__instance.personal_config))
 
     def load_config(cls):
+        '''Loads configuration options from the user's .bomsh_config file'''
         if os.path.isfile(PERSONAL_CONFIG_FILE):
             config = syck.load(open(PERSONAL_CONFIG_FILE).read())
             if config.get("username"):
@@ -127,9 +139,10 @@ class SystemState:
             if type(debug) == type(True):
                 SystemState.__instance.debug = debug
             SystemState.__instance.editor = config.get("editor", "/usr/bin/vim")
-            SystemState.__instance.personal_config=config
+            SystemState.__instance.personal_config = config
 
     def get_term_info(cls):
+        '''tries to get infomration about the user's terminal'''
         try:
             var_list = os.environ["TERMCAP"].split(':')
             co = [ x for x in var_list if x.startswith("co") ][0]
@@ -141,24 +154,28 @@ class SystemState:
             SystemState.__instance.termwidth = 80
 
     def clean_mode(cls, state):
+        '''Used to exit out of a sub-mode'''
         SystemState.__instance.command_buffer[state] = []
         SystemState.__instance.variables[state] = []
         SystemState.__instance.exit_methods = SystemState.__instance.exit_methods[:-1]
 
     def set_prompt(cls):
+        'used to set the current prompt'
         if cls.current_state() != FREE_TEXT:
-            SystemState.__instance.full_prompt = "%s (%s)%s " %(socket.gethostname(),SystemState.__instance.username, SystemState.__instance.prompt[-1])
+            SystemState.__instance.full_prompt = "%s (%s)%s " % (socket.gethostname(),SystemState.__instance.username, SystemState.__instance.prompt[-1])
         else:
             SystemState.__instance.full_prompt = ''
 
     def get_prompt(cls):
+        'used to find what the current prompt should look like'
         comment_string = ''
         if SystemState.__instance.comment_commands:
             comment_string = "(*)"
         return comment_string+SystemState.__instance.full_prompt
 
     def push_prompt(cls, slash, new_prompt, new_state, new_classes = 0):
-        # pop out of any equal or higher levels
+        'Used to enter a new sub-mode'
+        # First, pop out of any equal or higher levels
         while SystemState.__instance.state[-1]+1 > new_state:
             if len(SystemState.__instance.state) > 1:
                 extra_classes = SystemState.__instance.new_classes[-1]
@@ -175,6 +192,7 @@ class SystemState:
         cls.set_prompt()
 
     def pop_prompt(cls):
+        'used to exit a sub-mode'
         if len(SystemState.__instance.state) > 1:
             SystemState.__instance.prompt.pop()
             SystemState.__instance.state.pop()
@@ -185,28 +203,10 @@ class SystemState:
             return FAIL
 
     def reprompt(cls):
-        if REPROMPT: #^ FIXME
-            print >>sys.stderr
-            print >>sys.stderr,cls.get_prompt()+readline.get_line_buffer(),
+        'This is used under some weird conditions that I forget'
+        print >> sys.stderr
+        print >> sys.stderr, cls.get_prompt() + readline.get_line_buffer(),
 
     def current_state(cls):
         return SystemState.__instance.state[-1]
 
-if __name__ == "__main__":
-    from libTest import startTest, runTest, endTest
-    from Slash import slash
-    status = OK
-    startTest()
-    mode = Mode(1,"#")
-    PROMPTY="vmwareserver (root)"
-
-    status = runTest(mode.reprompt, [], None, status)
-    status = runTest(mode.set_prompt, [], None, status)
-    status = runTest(mode.get_prompt, [], PROMPTY + "# ", status)
-    status = runTest(mode.push_prompt, [slash, "-->", 5], None, status)
-    status = runTest(mode.get_prompt, [], PROMPTY + "--> ", status)
-    status = runTest(mode.pop_prompt, [], OK, status)
-    status = runTest(mode.get_prompt, [], PROMPTY + "# ", status)
-    status = runTest(mode.current_state, [], 1, status)
-
-    endTest(status)

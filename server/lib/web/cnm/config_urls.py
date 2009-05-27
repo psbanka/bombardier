@@ -1,7 +1,7 @@
 from django.conf.urls.defaults import patterns, url
 from django_restapi.responder import JsonDictResponder, JSONResponder, YamlFileResponder
 from CnmResource import CnmResource
-from configs.models import Client, Include, Bom, ServerConfig, Package
+from configs.models import Machine, Include, Bom, ServerConfig, Package
 import ServerConfigFile
 import syck, glob
 import os
@@ -9,7 +9,7 @@ import MachineConfig
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 
-MAPPER = {"merged": Client, "client": Client, "include": Include,
+MAPPER = {"merged": Machine, "machine": Machine, "include": Include,
           "bom": Bom, "package": Package}
 
 class ConfigEntry(CnmResource):

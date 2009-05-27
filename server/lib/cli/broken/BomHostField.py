@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import glob, os
-
 import PinshCmd, Client
 
 class BomHostField(PinshCmd.PinshCmd):

@@ -172,6 +172,9 @@ ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i',
                DRY_RUN: '-d', INIT: '-n'}
 
 RETURN_DICT = {OK: 'OK', FAIL: 'FAIL', REBOOT: 'REBOOT', PREBOOT: 'PREBOOT'}
+STRING_TO_RETURN_VALUE_MAPPING = {}
+for item in RETURN_DICT:
+    STRING_TO_RETURN_VALUE_MAPPING[RETURN_DICT[item]] = item
 
 DEBUG_OUTPUT_TEMPLATE = '\n==> ' + ''.join('='*50) + "\n==> %s\n==> " + ''.join('='*50) + '\n'
 

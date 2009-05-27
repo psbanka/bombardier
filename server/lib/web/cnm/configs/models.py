@@ -8,7 +8,7 @@ class Bom(models.Model):
 class Include(models.Model):
     name = models.CharField(max_length=64)
 
-class Client(models.Model):
+class Machine(models.Model):
     name = models.CharField(max_length=64)
 
 class Package(models.Model):

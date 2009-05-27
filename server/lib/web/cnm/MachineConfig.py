@@ -44,7 +44,7 @@ class MachineConfig:
 
     def merge_includes(self, config_name=''):
         if config_name == '':
-            yml_directory = "client"
+            yml_directory = "machine"
             config_name = self.host_name
         else:
             yml_directory = "include"
@@ -105,11 +105,11 @@ if __name__ == "__main__":
     if len(args) != 1:
         parser.print_help()
         sys.exit(1)
-    client = args[0]
+    machine = args[0]
     passwd = ''
     if not options.insecure:
         passwd = getpass.getpass("Enter decryption password: ")
-    config = MachineConfig(client, passwd, mode.server_home)
+    config = MachineConfig(machine, passwd, mode.server_home)
     status = config.get()
     if status == FAIL:
         print "Bad config file."

@@ -1,5 +1,37 @@
 #!/usr/bin/env python
 
+# BSD License
+# Copyright (c) 2009, Peter Banka et al
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the GE Security nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+'''This is the command-line itself. This brings up the shell, pulls all of
+the PinshCmds in and creates an environment where commands can be executed
+'''
+
 import os, sys
 sys.path.append('.')
 from bombardier_core.static_data import OK, FAIL
@@ -7,6 +39,15 @@ from bombardier_core.Logger import Logger
 
 HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
 LOG_PATH = "%s/.bomsh_log" % os.environ['HOME']
+COMMANDS = ["Show", "Terminal", "Machine"]
+##########################################################################
+## Adding new commands:
+##
+## 0. Create a class that extends PinshCmd
+## 1. Import the class.
+## 2. add the class to the following vector of command or add it to
+##    the Configure.py class
+
 
 def try_import(module):
     try:
@@ -68,9 +109,13 @@ def main_loop(system_state, slash):
                 command = raw_input(system_state.get_prompt() + readline.get_line_buffer())
             slash.process_command(command)
         except EOFError, eof:
-            libUi.info("cleaning up")
-            url = "json/machine/cleanup"
-            data = system_state.cnm_connector.service_yaml_request(url, post_data={})
+            print
+            question = "Disconnect all clients"
+            cleanup = libUi.ask_yes_no(question, libUi.YES)
+            if cleanup:
+                libUi.info("cleaning up")
+                url = "json/machine/cleanup"
+                data = system_state.cnm_connector.service_yaml_request(url, post_data={})
             if len(system_state.exit_methods) > 0:
                 status, output = system_state.exit_methods[-1](slash)
                 libUi.user_output(output, status)
@@ -103,7 +148,17 @@ if __name__ == "__main__":
         username = options.user
 
     libUi.login(username, logger)
-    slash = Slash.Slash(Slash.commands)
+
+    command_classes = []
+    for command in COMMANDS:
+        module = __import__('bombardier_server.cli.%s' % command, globals(), locals(), [command])
+        if not hasattr(module, command):
+            print "WHAT IS:", command
+            continue
+        cls = getattr(module, command)
+        command_classes.append(cls())
+
+    slash = Slash.Slash(command_classes)
 
     if scripts:
         status = run_scripts(scripts)

@@ -56,7 +56,7 @@ class BasicTest(TestCase):
         self.failUnlessEqual(name_set, expected)
 
     def test_search(self):
-        test_dict  = { "client":  { "tes": ["tester1", "tester2"],
+        test_dict  = { "machine":  { "tes": ["tester1", "tester2"],
                                       "":  ["tester1", "tester2", "other1"],
                                     "foo": [] },
                        "include": { ""    : ["app1", "otherapp"],
@@ -133,8 +133,8 @@ class BasicTest(TestCase):
         test_home = os.path.join(os.getcwd(), "configs", "fixtures")
         response = self.client.post(path=url, data={"server_home": test_home})
         self.failUnlessEqual(response.status_code, 200)
-        client_name = "tester1"
-        url = '/json/merged/name/%s' % client_name
+        machine_name = "tester1"
+        url = '/json/merged/name/%s' % machine_name
         content_dict = self.get_content_dict(url)
         expected = {"ip_address": u"127.0.0.1",
                     "include": [u"otherapp", u"app1"],
