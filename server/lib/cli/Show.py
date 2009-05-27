@@ -96,7 +96,7 @@ class History(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "history")
         self.help_text = "history\tdisplay the history of commands"
-        self.integer  = Integer.Integer(min=1, max=1000)
+        self.integer  = Integer.Integer(min_value=1, max_value=1000)
         self.children = [self.integer]
         self.level = 0
         self.cmd_owner = 1
