@@ -1,331 +1,300 @@
 #!/usr/bin/python
+# BSD License
+# Copyright (c) 2009, Peter Banka et al
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the GE Security nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
-# FIXME: This module is in horrible need of refactoring
+'''A [PinshCmd] object that provides a field with automated completion.
+Supports access to 'configurable items' on the bombardier web server'''
 
-import glob, os
-
-import PinshCmd, BomHostField, libCipher
-import yaml, syck
-import Client
-from commonUtil import *
-from bombardier.staticData import CENSORED
-
-from commands import getstatusoutput
+import PinshCmd
+from bombardier_core.static_data import OK, FAIL, PARTIAL, COMPLETE, NO_MATCH
+from SystemStateSingleton import SystemState
+system_state = SystemState()
 
 MERGED = 1
-CLIENT = 2
+MACHINE = 2
 INCLUDE = 3
 BOM = 4
+PACKAGE = 5
 
 class ConfigField(PinshCmd.PinshCmd):
-    def __init__(self, name = "configField", dataType=MERGED, strict=True):
-        PinshCmd.PinshCmd.__init__(self, name, tokenDelimiter = '')
+    '''The server keeps track of several types of configuration data.
+    This class can provide command-line completion for those data objects'''
+    def __init__(self, name = "configField", data_type=MERGED, strict=True):
+        '''
+        name -- Not used except in debugging
+        data_type -- which type of configuration data is this object supposed
+                     to match? Can be MERGED, MACHINE, INCLUDE, BOM, or PACKAGE
+        strict -- The preferred_names() method can be either liberal such that
+                  'local' will match 'localhost' or can be strict such that
+                  'local' will not match 'localhost'
+        '''
+        PinshCmd.PinshCmd.__init__(self, name, token_delimeter = '')
         self.helpText = "<configurationField>\ta dot-delimeted configuration value"
-        self.bomHostField = BomHostField.BomHostField()
         self.level = 99
-        self.dataType = dataType
+        self.data_type = data_type
         self.cmdOwner = 0
         self.strict = strict # take only exact matches
-        if dataType in [CLIENT, MERGED]:
-            self.directory = os.path.join(mode.serverHome, "client")
-        if dataType == INCLUDE:
-            self.directory = os.path.join(mode.serverHome, "include")
-        if dataType == BOM:
-            self.directory = os.path.join(mode.serverHome, "bom")
+        if data_type == MACHINE:
+            self.directory = "machine"
+        if data_type == MERGED:
+            self.directory = "merged"
+        if data_type == INCLUDE:
+            self.directory = "include"
+        if data_type == BOM:
+            self.directory = "bom"
+        if data_type == PACKAGE:
+            self.directory = "package"
 
-    def get_machines(self):
-        directory = self.directory.split('/')[-1]
-        cmd = "curl --silent http://127.0.0.1:8000/json/"+directory+"/search/"
-        status, output = getstatusoutput(cmd)
-        data = syck.load(output)
+    def get_object_list(self):
+        'returns a list of all self.data_type things'
+        data = system_state.cnm_connector.service_yaml_request("json/%s/search/" % self.directory)
         machines = [ x.get("fields").get("name") for x in data ]
         return machines
 
-    def old_get_machines(self):
-        yamlFiles = glob.glob("%s/*.yml" % self.directory)
-        fileNames = []
-        for filename in yamlFiles:
-            fileNames.append(filename.split('/')[-1].split('.yml')[0])
-        return fileNames
-
-    def old_get_data(self, firstTokenName):
-        data = syck.load(open("%s/%s.yml" % (self.directory, firstTokenName)).read())
+    def get_data(self, first_token_name):
+        'returns a list of all configuration objects of this type'
+        url = "json/%s/name/%s" % (self.directory, first_token_name)
+        data = system_state.cnm_connector.service_yaml_request(url)
         return data
 
-    def get_data(self, firstTokenName):
-        directory = self.directory.split('/')[-1]
-        cmd = "curl --silent http://127.0.0.1:8000/json/"+directory+"/name/"+firstTokenName
-        status, output = getstatusoutput(cmd)
-        data = syck.load(output)
-        #data = syck.load(open("%s/%s.yml" % (self.directory, firstTokenName)).read())
-        return data
-
-    def getTopLevelData(self, tokens, index, decrypt):
-        partialFirst = tokens[index].split('.')[0]
-        fileNames = self.get_machines()
-        firstTokenNames = [ fn for fn in fileNames if fn.lower().startswith(partialFirst.lower()) ]
-        if len(firstTokenNames) == 0:
+    def get_top_level_data(self, tokens, index):
+        '''someone typed in something like 'show machine localho'. Our job is
+        to figure out that localhost is the object that needs to be found and
+        to return the dictionary for that object.
+        '''
+        partial_first = tokens[index].split('.')[0]
+        object_names = self.get_object_list()
+        first_token_names = [ fn for fn in object_names if fn.lower().startswith(partial_first.lower()) ]
+        if len(first_token_names) == 0:
             return [], {}
-        if tokens[index] in firstTokenNames:
-            firstTokenNames = [tokens[index]]
-        if len(firstTokenNames) > 1:
-            return firstTokenNames, {}
-        firstTokenName = firstTokenNames[0]
-        if self.dataType == MERGED:
-            client = Client.Client(firstTokenName, '', mode.serverHome)
-            client.get()
-            data = client.data
-        else:
-            data = self.get_data(firstTokenName)
-        if decrypt:
-            data = libCipher.decrypt(data, '')
-        return [firstTokenName], data
+        if tokens[index] in first_token_names:
+            first_token_names = [tokens[index]]
+        if len(first_token_names) > 1:
+            return first_token_names, {}
+        first_token_name = first_token_names[0]
+        data = self.get_data(first_token_name)
+        return [first_token_name], data
 
-    def removeOneItem(self, currentValue, tokens, index):
-        item = tokens[index+1]
-        if item in currentValue:
-            currentValue.remove(item)
-            status, output = self.setValue(tokens, 2, currentValue, False)
-            return status, output + ["%s removed from list" % item]
-        try:
-            if int(item) in currentValue:
-                currentValue.remove(int(item))
-                status, output = self.setValue(tokens, 2, currentValue, False)
-                return status, output + ["%s removed from list" % item]
-        except:
-            pass
-        return FAIL, ["%s is not in the current list of values." % item]
-        
-    def removeValue(self, tokens, index):
-        if self.dataType == MERGED:
-            return FAIL, []
+    def remove_one_item(self, current_value, tokens, index):
+        "NOT WORKING WITH WEB SERVICE"
+#        item = tokens[index+1]
+#        if item in current_value:
+#            current_value.remove(item)
+#            status, output = self.set_value(tokens, 2, current_value)
+#            return status, output + ["%s removed from list" % item]
+#        try:
+#            if int(item) in current_value:
+#                current_value.remove(int(item))
+#                status, output = self.set_value(tokens, 2, current_value)
+#                return status, output + ["%s removed from list" % item]
+#        except:
+#            pass
+#        return FAIL, ["%s is not in the current list of values." % item]
 
-        firstTokenNames, clearData = self.getTopLevelData(tokens, index, True)
-        firstTokenNames, encData = self.getTopLevelData(tokens, index, False)
-        if not clearData:
-            return FAIL, []
-        if type(clearData) == type(["list"]):
-            return self.removeOneItem(clearData, tokens, index)
-        firstTokenName = firstTokenNames[0]
-        configName = self.preferredNames(tokens, index)
-        if configName == []:
-            configName=[tokens[index]] # if this item doesn't exist
-        execString = "del encData"
-        currentDict = encData
-        output = []
-        for configValue in configName[0].split('.')[1:]:
-            if configValue in currentDict:
-                currentDict = currentDict.get(configValue)
-                execString += "['%s']" % configValue
-            else:
-                configValue = "enc_" + configValue
-                currentDict = currentDict.get(configValue)
-                execString += "['%s']" % configValue
-        exec( execString )
-        string = yaml.dump(encData, default_flow_style=False)
-        fileName = "%s/%s.yml" % (self.directory, firstTokenName)
-        open(fileName, 'w').write(string)
-        os.system("chgrp %s %s 2> /dev/null" % (mode.defaultGroup, fileName))
-        os.system("chmod 660 %s 2> /dev/null" % (fileName))
-        return OK, output
+    def remove_value(self, tokens, index):
+        "NOT WORKING WITH WEB SERVICE"
+#        if self.data_type == MERGED:
+#            return FAIL, []
+#
+#        try:
+#            first_token_names, clear_data = self.get_top_level_data(tokens, index)
+#            first_token_names, enc_data = self.get_top_level_data(tokens, index)
+#        except TypeError:
+#            return FAIL, "Unable to read data from server"
+#        if not clear_data:
+#            return FAIL, []
+#        if type(clear_data) == type(["list"]):
+#            return self.remove_one_item(clear_data, tokens, index)
+#        first_token_name = first_token_names[0]
+#        config_name = self.preferred_names(tokens, index)
+#        if config_name == []:
+#            config_name = [tokens[index]] # if this item doesn't exist
+#        exec_string = "del enc_data"
+#        current_dict = enc_data
+#        output = []
+#        for config_value in config_name[0].split('.')[1:]:
+#            if config_value in current_dict:
+#                current_dict = current_dict.get(config_value)
+#                exec_string += "['%s']" % config_value
+#            else:
+#                config_value = "enc_" + config_value
+#                current_dict = current_dict.get(config_value)
+#                exec_string += "['%s']" % config_value
+#        exec( exec_string )
+#        string = yaml.dump(enc_data, default_flow_style=False)
+#        file_name = "%s/%s.yml" % (self.directory, first_token_name)
+#        open(file_name, 'w').write(string)
+#        os.system("chgrp %s %s 2> /dev/null" % (system_state.defaultGroup, file_name))
+#        os.system("chmod 660 %s 2> /dev/null" % (file_name))
+        return OK, []
 
 
-    def setValue(self, tokens, index, newValue, encrypt):
-        # FIXME: Need RemoveValue when converting to encrypted
-        if self.dataType == MERGED:
-            return FAIL, []
-        if newValue == "{}":
-            newValue = {}
-        if newValue == "[]":
-            newValue = []
-        firstTokenNames, clearData = self.getTopLevelData(tokens, index, True)
-        firstTokenNames, encData = self.getTopLevelData(tokens, index, False)
-        if not clearData:
-            return FAIL, []
-        firstTokenName = firstTokenNames[0]
-        configName = self.preferredNames(tokens, index)
-        if configName == []:
-            configName=[tokens[index]] # if this item doesn't exist
-        execString = "encData"
-        currentDict = clearData
-        output = []
-        if type(currentDict) == type(['list']):
-            encData = newValue
-        else:
-            configTokens = configName[0].split('.')[1:]
-            for configValue in configTokens[:-1]:
-                currentDict = currentDict.get(configValue)
-                execString += "['%s']" % configValue
+    def set_value(self, tokens, index, new_value):
+        "NOT WORKING WITH WEB SERVICE"
+#        if self.data_type == MERGED:
+#            return FAIL, []
+#        if new_value == "{}":
+#            new_value = {}
+#        if new_value == "[]":
+#            new_value = []
+#        first_token_names, clear_data = self.get_top_level_data(tokens, index)
+#        first_token_names, enc_data = self.get_top_level_data(tokens, index)
+#        if not clear_data:
+#            return FAIL, []
+#        first_token_name = first_token_names[0]
+#        config_name = self.preferred_names(tokens, index)
+#        if config_name == []:
+#            config_name=[tokens[index]] # if this item doesn't exist
+#        exec_string = "enc_data"
+#        current_dict = clear_data
+#        output = []
+#        if type(current_dict) == type(['list']):
+#            enc_data = new_value
+#        else:
+#            config_tokens = config_name[0].split('.')[1:]
+#            for config_value in config_tokens[:-1]:
+#                current_dict = current_dict.get(config_value)
+#                exec_string += "['%s']" % config_value
+#
+#            config_value = config_tokens[-1]
+#            current_dict = current_dict.get(config_value)
+#            if current_dict == CENSORED or encrypt:
+#                if current_dict and current_dict != CENSORED:
+#                    self.remove_value(tokens, index)
+#                    first_token_names, enc_data = self.get_top_level_data(tokens, index)
+#                exec_string += "['enc_%s']" % config_value
+#                if not system_state.password:
+#                    return FAIL, ["Cannot encipher data except in enable mode"]
+#                new_value = encrypt(new_value, system_state.password)
+#                output = ["Encrypted sensitive data"]
+#            else:
+#                exec_string += "['%s']" % config_value
+#
+#            if type(new_value) == type('string'):
+#                exec_string += " = \"%s\"" % new_value
+#            else:
+#                exec_string += " = %s" % new_value
+#            exec( exec_string )
+#        string = yaml.dump(enc_data, default_flow_style=False)
+#        file_name = "%s/%s.yml" % (self.directory, first_token_name)
+#        open(file_name, 'w').write(string)
+#        os.system("chgrp %s %s > /dev/null" % (system_state.defaultGroup, file_name))
+#        os.system("chmod 660 %s > /dev/null" % (file_name))
+        return OK, []
 
-            configValue = configTokens[-1]
-            currentDict = currentDict.get(configValue)
-            if currentDict == CENSORED or encrypt:
-                if currentDict and currentDict != CENSORED:
-                    self.removeValue(tokens, index)
-                    firstTokenNames, encData = self.getTopLevelData(tokens, index, False)
-                execString += "['enc_%s']" % configValue
-                if not mode.password:
-                    return FAIL, ["Cannot encipher data except in enable mode"]
-                newValue = libCipher.encrypt(newValue, mode.password)
-                output = ["Encrypted sensitive data"]
-            else:
-                execString += "['%s']" % configValue
-
-            if type(newValue) == type('string'):
-                execString += " = \"%s\"" % newValue
-            else:
-                execString += " = %s" % newValue
-            exec( execString )
-        string = yaml.dump(encData, default_flow_style=False)
-        fileName = "%s/%s.yml" % (self.directory, firstTokenName)
-        open(fileName, 'w').write(string)
-        os.system("chgrp %s %s > /dev/null" % (mode.defaultGroup, fileName))
-        os.system("chmod 660 %s > /dev/null" % (fileName))
-                 
-        return OK, output
-
-    def getSpecificData(self, tokens, index):
+    def get_specific_data(self, tokens, index):
+        '''used with the show command to display data to the screen'''
         tokens[index] = tokens[index].replace('"', '')
-        firstTokenNames, data = self.getTopLevelData(tokens, index, True)
-        if len(firstTokenNames) != 1:
+        try:
+            first_token_names, data = self.get_top_level_data(tokens, index)
+        except TypeError:
+            return FAIL, "Unable to read data from server"
+        if len(first_token_names) != 1:
             return '' # EXPERIMENTAL CHANGE from []
         if len(tokens[index].split('.')) > 1:
-            configName = self.preferredNames(tokens, index)
-            if len(configName) == 0:
+            config_name = self.preferred_names(tokens, index)
+            if len(config_name) == 0:
                 return '' # EXPERIMENTAL CHANGE from []
-            if len(configName) > 1:
-                return configName
-            currentDict = data
-            for configValue in configName[0].split('.')[1:]:
-                configValue = configValue.replace('"', '')
-                if type(currentDict) == type({}):
-                    currentDict = currentDict.get(configValue)
+            if len(config_name) > 1:
+                return config_name
+            current_dict = data
+            for config_value in config_name[0].split('.')[1:]:
+                config_value = config_value.replace('"', '')
+                if type(current_dict) == type({}):
+                    current_dict = current_dict.get(config_value)
                 else:
-                    return currentDict
+                    return current_dict
         else:
-            currentDict = data
-        return currentDict
+            current_dict = data
+        return current_dict
 
-    def preferredNames(self, tokens, index):
+    def preferred_names(self, tokens, index):
+        '''Provide a list of names that the system would prefer to use, other than
+        that which was typed in by the user. For example, 'sho mach localh' will
+        return 'localhost' for the machine name if strict is off, otherwise, it will
+        return 'localh'.
+
+        '''
         tokens[index] = tokens[index].replace('"', '')
         if not self.strict:
             return tokens[index:]
-        firstTokenNames, data = self.getTopLevelData(tokens, index, True)
-        if len(firstTokenNames) == 0:
+        if 1 == 1:
+        #try:
+            first_token_names, data = self.get_top_level_data(tokens, index)
+        else:
+        #except TypeError:
+            return FAIL, "Unable to read data from server"
+        if len(first_token_names) == 0:
             return []
-        if len(firstTokenNames) > 1:
-            return firstTokenNames
-        firstTokenName = firstTokenNames[0]
+        if len(first_token_names) > 1:
+            return first_token_names
+        first_token_name = first_token_names[0]
         if len(tokens[index].split('.')) == 1:
-            return [firstTokenName]
-        configValues = tokens[index].split('.')[1:]
-        #print "PN: configValues", configValues, data
-        currentDict = None
+            return [first_token_name]
+        config_values = tokens[index].split('.')[1:]
+        #print "PN: config_values", config_values, data
+        current_dict = None
         if type(data) == type({}):
-            currentDict = data
-            for configValue in configValues[:-1]:
-                configValue = configValue.replace('"', '')
-                newCurrentDict = currentDict.get(configValue)
-                if type(newCurrentDict) in [type({})]:
-                    currentDict = newCurrentDict
+            current_dict = data
+            for config_value in config_values[:-1]:
+                config_value = config_value.replace('"', '')
+                new_current_dict = current_dict.get(config_value)
+                if type(new_current_dict) in [type({})]:
+                    current_dict = new_current_dict
                 else:
-                    currentDict = []
+                    current_dict = []
                     break
-        #print "PN::: currentDict",currentDict
-        possibleMatches = []
-        prefix = '.'.join(configValues[:-1])
-        if currentDict == None:
+        #print "PN::: current_dict",current_dict
+        possible_matches = []
+        prefix = '.'.join(config_values[:-1])
+        if current_dict == None:
             if prefix:
-                return ["%s.%s" % (firstTokenName, prefix)]
+                return ["%s.%s" % (first_token_name, prefix)]
             else:
-                return ["%s" % (firstTokenName)]
-        for item in currentDict:
-            testValue = configValues[-1].replace('"','').lower()
-            if item.lower().startswith(testValue):
+                return ["%s" % (first_token_name)]
+        for item in current_dict:
+            test_value = config_values[-1].replace('"','').lower()
+            if item.lower().startswith(test_value):
                 if prefix:
-                    possibleMatches.append("%s.%s.%s" % (firstTokenName, prefix, item))
+                    possible_matches.append("%s.%s.%s" % (first_token_name, prefix, item))
                 else:
-                    possibleMatches.append("%s.%s" % (firstTokenName, item))
+                    possible_matches.append("%s.%s" % (first_token_name, item))
 
-        if possibleMatches:
-            return possibleMatches
+        if possible_matches:
+            return possible_matches
         return []
 
     def match(self, tokens, index):
-        possibleMatches = self.acceptableNames(tokens, index)
-        if not possibleMatches:
+        '''Determines if what has been typed in by the user matches a configuration
+        item that the system is keeping track of.'''
+        possible_matches = self.acceptable_names(tokens, index)
+        if not possible_matches:
             return NO_MATCH, 1
-        if len(possibleMatches) > 1:
+        if len(possible_matches) > 1:
             return PARTIAL, 1
         return COMPLETE, 1
-
-if __name__ == "__main__":
-    from libTest import startTest, runTest, endTest
-    configField = ConfigField(dataType = CLIENT, strict=True)
-    status = OK
-    startTest()
-#    status = runTest(configField.preferredNames, [["lila"], 0], ["lilap"], status)
-#    status = runTest(configField.preferredNames, [["bigdb.sql.servers"], 0], ["bigdb.sql.servers"], status)
-#    status = runTest(configField.preferredNames, [["bigdb.sq"], 0], ["bigdb.sql"], status)
-#    status = runTest(configField.preferredNames, [["bigdb.sql"], 0], ["bigdb.sql"], status)
-#    status = runTest(configField.preferredNames, [["bigsam.ipAddress"], 0], ["bigsam.ipAddress"], status)
-#    status = runTest(configField.preferredNames, [["bigsam.ipAddress."], 0], ["bigsam.ipAddress"], status)
-#    status = runTest(configField.preferredNames, [["virtap.connectTest.connectionData.pro"], 0], ["virtap.connectTest.connectionData.proxy"], status)
-#    status = runTest(configField.preferredNames, [["foo.foo"], 0], [], status)
-#    status = runTest(configField.preferredNames, [["bigsam.thingy.majig"], 0], ['bigsam.thingy'], status)
-#    status = runTest(configField.preferredNames, [["big"], 0], ["bigap", "bigsam", "bigdb"], status)
-#    status = runTest(configField.preferredNames, [["sho","server","l"], 2], ["lilap", "lildb", "ltdb", "ldapserver"], status)
-#    configField = ConfigField(dataType=CLIENT)
-#    status = runTest(configField.preferredNames, [["lilap.s"], 0], ["lilap.sharedKeys"], status)
-
-
-    #status = runTest(configField.setValue, [["lilap.sharedKeys"], 0, "yes", False], (OK, []), status)
-    #status = runTest(configField.getSpecificData, [["lilap.sharedKeys"], 0], "yes", status)
-
-    status = runTest(configField.setValue, [["lilap.nonsense"], 0, "yes", False], (OK, []), status)
-    status = runTest(configField.getSpecificData, [["lilap.nonsense"], 0], "yes", status)
-    status = runTest(configField.removeValue, [["lilap.nonsense"], 0], (OK, []), status)
-    status = runTest(configField.setValue, [["lilap.nonsense"], 0, "{}", False], (OK, []), status)
-    status = runTest(configField.setValue, [["lilap.nonsense.nonsense"], 0, "yes", False], (OK, []), status)
-    status = runTest(configField.setValue, [["lilap.nonsense"], 0, "yes", False], (OK, []), status)
-    mode.password = "abcd1234"
-    status = runTest(configField.setValue, [["lilap.nonsense"], 0, "yes", True], (OK, ['Encrypted sensitive data']), status)
-    status = runTest(configField.setValue, [["lilap.nonsense"], 0, "yes", False], (OK, ['Encrypted sensitive data']), status)
-    status = runTest(configField.removeValue, [["lilap.nonsense"], 0], (OK, []), status)
-
-#    status = runTest(configField.setValue, [["bigdb.sharedKeys"], 0], (OK, []), status)
-#    status = runTest(configField.preferredNames, [["lilap"], 0], ["lilap"], status)
-#    status = runTest(configField.match, [["bigd"], 0], (COMPLETE, 1), status)
-#    status = runTest(configField.match, [["bigdb", ""], 0], (COMPLETE, 1), status)
-#    status = runTest(configField.match, [["lilap.foo"], 0], (NO_MATCH, 1), status)
-#    status = runTest(configField.match, [["lilap"], 0], (COMPLETE, 1), status)
-#    status = runTest(configField.match, [["lilap.ipAddress"], 0], (COMPLETE, 1), status)
-#    status = runTest(configField.match, [["foo"], 0], (NO_MATCH, 1), status)
-#    configField = ConfigField(dataType=INCLUDE)
-#    status = runTest(configField.preferredNames, [["serviceNet.ca"], 0], ["serviceNet.cas"], status)
-#    status = runTest(configField.preferredNames, [["servicenet"], 0], ["serviceNet"], status)
-#    status = runTest(configField.getSpecificData, [["testInclude.thing1"], 0], '=== CENSORED ===', status)
-#    status = runTest(configField.setValue, [["testInclude.thing1"], 0], (FAIL, ['Cannot encipher data except in enable mode']), status)
-#    mode.password = "abcd1234"
-#    status = runTest(configField.setValue, [["testInclude.thing1"], 0], (OK, ['Encrypted sensitive data']), status)
-#    status = runTest(configField.getSpecificData, [["testInclude.thing1"], 0], '=== CENSORED ===', status)
-#    status = runTest(configField.getSpecificData, [["testInclude.platform"], 0], "win32", status)
-#    status = runTest(configField.setValue, [["testInclude.platform"], 0], (OK, []), status)
-#    status = runTest(configField.getSpecificData, [["testInclude.platform"], 0], "foo", status)
-#    status = runTest(configField.setValue, [["testInclude.platform"], 0], (OK, []), status)
-#    status = runTest(configField.getSpecificData, [["testInclude.platform"], 0], "win32", status)
-#    status = runTest(configField.getSpecificData, [["testInclude.sql.databases"], 0], ['casDB', 'mcsDB', 'rmsDB', 'uhrDB'], status)
-#    #status = runTest(configField.setValue, [["testInclude.sql.databases"], 0, ['casDB', 'mcsDB', 'rmsDB', 'uhrDB', 'foo']], (OK, []), status)
-#    #status = runTest(configField.getSpecificData, [["testInclude.sql.databases"], 0], ['casDB', 'mcsDB', 'rmsDB', 'uhrDB', 'foo'], status)
-#    #status = runTest(configField.setValue, [["testInclude.sql.databases"], 0, ['casDB', 'mcsDB', 'rmsDB', 'uhrDB']], (OK, []), status)
-#    #status = runTest(configField.getSpecificData, [["testInclude.sql.databases"], 0], ['casDB', 'mcsDB', 'rmsDB', 'uhrDB'], status)
-#    status = runTest(configField.getSpecificData, [["testInclude.platform"], 0], "win32", status)
-#    status = runTest(configField.getSpecificData, [['testInclude.thingWithoutSpaces.thisIsAThing'], 0], "wuzz", status)
-#    status = runTest(configField.getSpecificData, [['testInclude."thingWithoutSpaces"."thisIsAThing"'], 0], "wuzz", status)
-#    status = runTest(configField.getSpecificData, [['testInclude."Thing With Spaces"."this is a thing"'], 0], "fuzz", status)
-#    status = runTest(configField.getSpecificData, [['"testInclude.Thing With Spaces.this is a thing"'], 0], "fuzz", status)
-#    configField = ConfigField(dataType=BOM)
-#    status = runTest(configField.preferredNames, [["testB"], 0], ["testbom"], status)
-#    status = runTest(configField.preferredNames, [["testbom.DbAuth"], 0], ["testbom"], status)
-#    status = runTest(configField.preferredNames, [['sho', 'bom', 'testb'], 2], ["testbom"], status)
-    endTest(status)

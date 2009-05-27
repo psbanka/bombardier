@@ -1,8 +1,6 @@
-from bombardier.Filesystem import rmScheduledFile
+from bombardier_core.Filesystem import rmScheduledFile
 import os, time, re
-
-OK                  = 0
-FAIL                = 1
+from bombardier_core.staticData import OK, FAIL
 
 class BadQuery(Exception):
     def __init__(self, qstr, database):

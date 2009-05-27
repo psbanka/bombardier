@@ -1,135 +1,81 @@
 #!/usr/bin/env python
 
+# BSD License
+# Copyright (c) 2009, Peter Banka et al
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the GE Security nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+'''This is the command-line itself. This brings up the shell, pulls all of
+the PinshCmds in and creates an environment where commands can be executed
+'''
+
 import os, sys
 sys.path.append('.')
-from bombardier_server.cli.staticData import *
+from bombardier_core.static_data import OK, FAIL
+from bombardier_core.Logger import Logger
 
-def tryImport(module):
+HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
+LOG_PATH = "%s/.bomsh_log" % os.environ['HOME']
+COMMANDS = ["Show", "Terminal", "Machine"]
+##########################################################################
+## Adding new commands:
+##
+## 0. Create a class that extends PinshCmd
+## 1. Import the class.
+## 2. add the class to the following vector of command or add it to
+##    the Configure.py class
+
+
+def try_import(module):
     try:
         exec("import %s" % module)
     except ImportError:
         return FAIL
     return OK
 
-def testModules():
-    missingModules = []
-    for module in ["yaml", "syck", "pexpect", "pxssh", "Crypto.Cipher"]:
-        if tryImport(module) == FAIL:
-            missingModules.append(module)
-    if missingModules:
+def test_modules():
+    missing_modules = []
+    for module in ["yaml", "syck"]:
+        if try_import(module) == FAIL:
+            missing_modules.append(module)
+    if missing_modules:
         print " %% ERROR: This system does not have the necessary Python libraries."
-        print " %%%% You are missing these modules: %s" % ','.join(missingModules)
+        print " %%%% You are missing these modules: %s" % ','.join(missing_modules)
         print
         sys.exit(1)
 
-def getInitialUserInput():
-    print "This looks like a new installation of the Bombardier server."
-    result = ''
-    prompt = "Perform initial environment setup? (Y/n): "
-    while result == '':
-        instr = raw_input(prompt)
-        if len(instr) == 0:
-            break
-        if instr.lower()[0] == 'y':
-            break
-        elif instr.lower()[0] == 'n':
-            print "%% Aborting automatic system setup."
-            print
-            sys.exit(1)
-    if sys.platform == "cygwin":
-        serverHomeDefault = "/cygdrive/c/deploy"
-        userDefault = "Administrator"
-        platformDefault = "win32"
-    else:
-        serverHomeDefault = "/var/deploy"
-        userDefault = "root"
-        platformDefault = "linux"
-    prompt = "Where do you want the root of your repository? [%s]: " % serverHomeDefault
-    serverHome = raw_input(prompt)
-    if serverHome == '':
-        serverHome = serverHomeDefault
-    prompt = "What is your default administrative account on clients? [%s]: " % userDefault
-    user = raw_input(prompt)
-    if user == '':
-        user = userDefault
-    prompt = "What is the default platform for clients? [%s]: " % platformDefault
-    platform = raw_input(prompt)
-    if platform == '':
-        platform = platformDefault
-    return serverHome, user, platform
 
-def checkConfig():
-    if not os.path.isfile(GLOBAL_CONFIG_FILE):
-        serverHome, user, platform = getInitialUserInput()
-        print "==> Making directories..."
-        try:
-            if not os.path.isdir(os.path.join(serverHome)):
-                os.makedirs(os.path.join(serverHome))
-            else:
-                print "%%%% %s directory already exists." % serverHome
-                sys.exit(1)
-        except OSError:
-            print "%%%% Unable to create directory %s." % serverHome
-            print "%% Aborting installation."
-            sys.exit(1)
-        print "==> Creating empty repository..."
-        commands = []
-        svnLocation = os.path.join(serverHome, "repos")
-        tmpDir = os.path.join(serverHome, "tmp")
-        os.makedirs(svnLocation)
-        os.makedirs(tmpDir)
-        commands.append("svnadmin create --fs-type fsfs %s > /dev/null" % svnLocation)
-        commands.append("svn co file://%s %s > /dev/null" % ( svnLocation, tmpDir ))
-        commands.append("svn mkdir %s > /dev/null" % os.path.join(tmpDir, "bom"))
-        commands.append("svn mkdir %s > /dev/null" % os.path.join(tmpDir, "client"))
-        commands.append("svn mkdir %s > /dev/null" % os.path.join(tmpDir, "include"))
-        commands.append('svn ci %s -m "Creating initial directory structure" > /dev/null' % tmpDir)
-        commands.append("rm -rf %s" % tmpDir)
-        commands.append("svn co file://%s/bom %s/bom > /dev/null" % (svnLocation, serverHome))
-        commands.append("svn co file://%s/client %s/client > /dev/null" % (svnLocation, serverHome))
-        commands.append("svn co file://%s/include %s/include > /dev/null" % (svnLocation, serverHome))
-        for command in commands:
-            status = os.system(command)
-            if status != OK:
-                print "%% ERROR: could not perform repository creation commands"
-                print "%% Failed at this command: %s" % command
-                print "%% Aborting automated setup."
-                sys.exit(1)
-        try:
-            os.makedirs(os.path.join(serverHome, "packages"))
-            os.makedirs(os.path.join(serverHome, "output"))
-            os.makedirs(os.path.join(serverHome, "status"))
-        except OSError:
-            "%%%% Error creating subdirectories."
-            sys.exit(1)
-        print "==> Making initial configuration file..."
-        fh=open(GLOBAL_CONFIG_FILE, 'w')
-        fh.write("---\n")
-        fh.write("serverHome: %s\n" % serverHome)
-        fh.write("defaultUser: %s\n" % user)
-        fh.write("defaultPlatform: %s\n" % platform)
-        fh.close()
-        os.system("chmod 660 %s" % GLOBAL_CONFIG_FILE)
-        print "==> Making initial DSL data file..."
-        pkgsFile = os.path.join(serverHome, PACKAGES_FILE)
-        fh = open(os.path.join(pkgsFile), 'w')
-        fh.write("---\n")
-        fh.write("{}")
-        fh.close()
-        os.system("chmod 600 %s" % pkgsFile)
-
-testModules()
+test_modules()
 import syck
-checkConfig()
-
 import exceptions
 import sys, os, readline, signal
-import bombardier_server.cli.libUi
-from bombardier_server.cli.commonUtil import *
-from bombardier_server.cli.Slash import *
+import bombardier_server.cli.libUi as libUi
+import bombardier_server.cli.Slash as Slash
+from bombardier_server.cli.SystemStateSingleton import SystemState
 import optparse
-
-mode.auth = USER
 
 # READLINE CONFIGS
 readline.parse_and_bind('tab: complete')
@@ -138,67 +84,89 @@ readline.parse_and_bind('C-z: "end\n"')
 readline.parse_and_bind('set bell-style none')
 readline.set_completer_delims(' ')
 
+# DEPRICATED:
+def run_scripts(scripts):
+    status = OK
+    file_name = scripts[0]
+    lines = open(file_name, 'r').readlines()
+    system_state.batch = True
+    for line in lines:
+        cmd_status, cmd_output = slash.process_command(line.strip())
+        if status == OK:
+            status = cmd_status
+    return status
+
+def main_loop(system_state, slash):
+    clean = False
+    while True:
+        try:
+            system_state.set_prompt()
+            readline.set_completer(slash.complete)
+            if clean:
+                command = raw_input(system_state.get_prompt())
+                clean = False
+            else:
+                command = raw_input(system_state.get_prompt() + readline.get_line_buffer())
+            slash.process_command(command)
+        except EOFError, eof:
+            print
+            question = "Disconnect all clients"
+            cleanup = libUi.ask_yes_no(question, libUi.YES)
+            if cleanup:
+                libUi.info("cleaning up")
+                url = "json/machine/cleanup"
+                data = system_state.cnm_connector.service_yaml_request(url, post_data={})
+            if len(system_state.exit_methods) > 0:
+                status, output = system_state.exit_methods[-1](slash)
+                libUi.user_output(output, status)
+            else:
+                print
+                while system_state.child_processes:
+                    os.kill(system_state.child_processes.pop(), signal.SIGTERM)
+                readline.write_history_file(HISTORY_FILE)
+                if system_state.comment_commands:
+                    makeComment() # MISSING
+                sys.exit(0)
+            system_state.clean_mode(system_state.state[-1])
+            print
+        except exceptions.KeyboardInterrupt, key:
+            print
+            clean = True
+
 if __name__ == "__main__":
+    logger = Logger('bombardier_cli', LOG_PATH)
+
+    system_state = SystemState()
+    system_state.load_config()
+
     parser = optparse.OptionParser("usage: %prog -u user-name <bomsh-script>")
-    parser.add_option("-u", "--user", dest="user", default=mode.username,
+    parser.add_option("-u", "--user", dest="user",
                       help="set the username associated with this session")
     (options, scripts) = parser.parse_args()
+    username = None
     if options.user:
-        mode.username = options.user
+        username = options.user
+
+    libUi.login(username, logger)
+
+    command_classes = []
+    for command in COMMANDS:
+        module = __import__('bombardier_server.cli.%s' % command, globals(), locals(), [command])
+        if not hasattr(module, command):
+            print "WHAT IS:", command
+            continue
+        cls = getattr(module, command)
+        command_classes.append(cls())
+
+    slash = Slash.Slash(command_classes)
 
     if scripts:
-        status = OK
-        filename = scripts[0]
-        lines = open(filename, 'r').readlines()
-        mode.batch = True
-        for line in lines:
-            cmdStatus, cmdOutput = slash.processCommand(line.strip())
-            if status == OK:
-                status = cmdStatus
+        status = run_scripts(scripts)
         sys.exit(status)
-    else:
-        libUi.motd(slash.fpOut)
-        if os.path.isfile(HISTORY_FILE):
-            try:
-                readline.read_history_file(HISTORY_FILE)
-            except:
-                print "%% Unable to read history file %s" % HISTORY_FILE
-        clean = False
-        logComment("User %s STARTED an interactive session" % mode.username)
-        if mode.autoEnable:
-            Enable.performEnable(slash)
-        if mode.username == "root":
-            try:
-                mode.username = raw_input("Logging in as common user account. \nPlease provide your user name: ")
-            except:
-                sys.exit(0)
-        while True:
-            try:
-                mode.setPrompt()
-                readline.set_completer(slash.complete)
-                if clean:
-                    command = raw_input(mode.getPrompt())
-                    clean = False
-                else:
-                    command = raw_input(mode.getPrompt()+readline.get_line_buffer())
-                slash.processCommand(command)
-            except EOFError, eof:
-                if len(mode.exitMethods) > 0:
-                    status, output = mode.exitMethods[-1](slash)
-                    libUi.userOutput(output, status)
-                else:
-                    print
-                    mode.clearBomConnections()
-                    while mode.childProcesses:
-                        os.kill(mode.childProcesses.pop(), signal.SIGTERM)
-                    readline.write_history_file(HISTORY_FILE)
-                    if mode.commentCommands:
-                        makeComment()
-                    logComment("User %s ENDED an interactive session" % mode.username)
-                    sys.exit(0)
-                mode.cleanMode(mode.state[-1])
-                print
-            except exceptions.KeyboardInterrupt, key:
-                print
-                clean = True
-
+    libUi.motd(slash.fp_out)
+    if os.path.isfile(HISTORY_FILE):
+        try:
+            readline.read_history_file(HISTORY_FILE)
+        except:
+            print "%% Unable to read history file %s" % HISTORY_FILE
+    main_loop(system_state, slash)

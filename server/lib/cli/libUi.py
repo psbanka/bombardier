@@ -1,8 +1,43 @@
 #!/usr/bin/env python
 
+# BSD License
+# Copyright (c) 2009, Peter Banka et al
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the GE Security nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+'''A set of routines that handles user input/output on the terminal'''
+
 import sys, termios, tty
-from commands import getstatusoutput
-from commonUtil import *
+from CnmConnector import CnmConnector, UnexpectedDataException, ServerException
+from SystemStateSingleton import SystemState
+system_state = SystemState()
+from bombardier_core.static_data import FAIL, WARNING, ERROR
+import re
+
+
 
 ONE_LINE = 0
 QUIT = 1
@@ -12,164 +47,207 @@ NEUTRAL = 5
 YES = 1
 NO = 0
 
-def motd(outputHandle):
-    from bombardier_server.cli.banner import banner
-    output = []
-    for line in banner:
-        outputHandle.write(line)
-        outputHandle.flush()
+def login(username, logger, password=None):
+    'Prompt for a password and initialize connection to the server'
+    system_state.get_term_info()
+    system_state.logger = logger
+    if username:
+        system_state.username = username
+    if not system_state.username:
+        system_state.username = get_default("username", "root")
+    system_state.cnm_connector = CnmConnector("http://127.0.0.1:8000",
+                                 system_state.username, system_state.logger)
+    tries = 0
+    while tries < 3:
+        if not password:
+            password = pwd_input("password: ")
+        try:
+            superuser_status = system_state.cnm_connector.login(password)
+            print ">>> ", superuser_status
+            break
+        except UnexpectedDataException:
+            user_output(["Bad username or password."], FAIL)
+            tries += 1
+        except ServerException, sex:
+            user_output(["Server not accessible (%s)" % sex], FAIL)
+            sys.exit(1)
+        password = ''
+    if tries >= 3:
+        user_output(["Access denied."], FAIL)
+        sys.exit(1)
+    system_state.prompt = ['>']
+    system_state.set_prompt()
 
-def appendNotBlank(currentToken, tokens):
-    currentToken = currentToken.strip()
-    if currentToken:
-        tokens.append(currentToken)
+def motd(output_handle):
+    'Print out the message of the day after login'
+    from bombardier_server.cli.banner import banner
+    for line in banner:
+        output_handle.write(line)
+        output_handle.flush()
+
+def append_not_blank(current_token, tokens):
+    '''append something to the list if it isn't blank. Handles users typing
+    in more than one space between tokens'''
+    current_token = current_token.strip()
+    if current_token:
+        tokens.append(current_token)
     return tokens
 
-def tokenize(str):
+def tokenize(input_str):
+    '''Takes an input string and divides it into string tokens. Handles
+    the word "no" in front of the string specially, handles a '?' specially
+    handles quoted text as one unit, and handles comment markers'''
     tokens = []
-    quoteMode = False
-    currentToken = ''
-    appendLast = False
+    quote_mode = False
+    current_token = ''
+    append_last = False
     comment = ''
-    for i in range(0, len(str)):
-        c = str[i]
-        if not quoteMode:
-            if c not in ['"', '#', ' ']:
-                currentToken += c
-                appendLast = True
+    for i in range(0, len(input_str)):
+        char = input_str[i]
+        if not quote_mode:
+            if char not in ['"', '#', ' ']:
+                current_token += char
+                append_last = True
                 continue
-            tokens = appendNotBlank(currentToken, tokens)
-            if c == '"': # start quote
-                quoteMode = True
-            elif c == '#': # discard the rest, it's a real comment
-                if i != 0 and str[i-1] == ' ':
-                    appendLast = True
+            tokens = append_not_blank(current_token, tokens)
+            if char == '"': # start quote
+                quote_mode = True
+            elif char == '#': # discard the rest, it's a real comment
+                if i != 0 and input_str[i-1] == ' ':
+                    append_last = True
                 else:
-                    appendLast = False
-                comment = str[i+1:]
+                    append_last = False
+                comment = input_str[i+1:]
                 break
-            elif c == ' ': # tokenize on spaces if not quoted
-                currentToken = ''
-                appendLast = True
+            elif char == ' ': # tokenize on spaces if not quoted
+                current_token = ''
+                append_last = True
         else:
-            if c == '"': # end quote
-                tokens = appendNotBlank(currentToken, tokens)
-                currentToken = ''
-                appendLast = False
-                quoteMode = False
+            if char == '"': # end quote
+                tokens = append_not_blank(current_token, tokens)
+                current_token = ''
+                append_last = False
+                quote_mode = False
             else:
-                currentToken += c
-    if quoteMode: # unbalanced quotes
+                current_token += char
+    if quote_mode: # unbalanced quotes
         raise Exception
-    if appendLast:
-        tokens.append(currentToken.lstrip()) # grab the last
+    if append_last:
+        tokens.append(current_token.lstrip()) # grab the last
     return tokens, comment
-    
-def processInput(string):
-    "take a line of input from the user and convert it into an argv type structure"
+
+def process_input(string):
+    '''take a line of input from the user and convert it into an argv
+    type structure'''
     if len(string) == 0:
         return 0, 0, [], ''
-    # determine if the helpflag is there (cheap hack)
-    helpFlag = 0
+    # determine if the help_flag is there (cheap hack)
+    help_flag = 0
     strlen = len(string)
-    if strlen >= 1 and string[-1]=='?':
-        helpFlag = 1
+    if strlen >= 1 and string[-1] == '?':
+        help_flag = 1
         string = string[:-1]
     if len(string) == 0:
         return 0, 1, [], ''
     string.lstrip() # left space is unimportant, right space is important
     tokens, comment = tokenize(string)
     # handle a preceding 'no'
-    noFlag = 0
+    no_flag = 0
     if not tokens:
-        return 0,0,[],comment
+        return 0, 0, [], comment
     if tokens[0] == 'no':
-        noFlag = 1
+        no_flag = 1
         if len(tokens) > 1:
             tokens = tokens[1:]
         else:
             return 0, 0, [], comment
     # get rid of extra spaces, except at the end!
-    processedData = []
+    processed_data = []
     for token in tokens:
         if token != '':
             processed = False
             if token.startswith('$'):
-                varName = token[1:]
-                if mode.globals.has_key(varName):
-                    value = mode.globals.get(varName)
+                var_name = token[1:]
+                if system_state.globals.has_key(var_name):
+                    value = system_state.globals.get(var_name)
                     if type(value) == type(["list"]):
-                        processedData.append('[')
-                        processedData += value
-                        processedData.append(']')
+                        processed_data.append('[')
+                        processed_data += value
+                        processed_data.append(']')
                     else:
                         token = str(value)
                     processed = True
             if token.startswith('[') and len(token) > 1:
-                processedData.append('[')
+                processed_data.append('[')
                 token = token[1:]
             if token.endswith(']') and len(token) > 1:
-                processedData.append(token[:-1])
-                processedData.append(']')
+                processed_data.append(token[:-1])
+                processed_data.append(']')
                 processed = True
             if not processed:
-                processedData.append(token)
+                processed_data.append(token)
     if tokens[-1] != '':
-        tokens = processedData
+        tokens = processed_data
     else:
-        tokens = processedData + ['']
+        tokens = processed_data + ['']
     if len(tokens) == 0:
         return 0, 0, [], comment
     if tokens[0] == "ls" and len(tokens) == 1:
         tokens[0] = ''
-        helpFlag = True
-    return noFlag, helpFlag, tokens, comment
+        help_flag = True
+    return no_flag, help_flag, tokens, comment
 
 # User Input
-def getDefault(prompt, default):
+def get_default(prompt, default):
+    'prompts the user for a question and accepts a default value'
     instr = raw_input(prompt+" ["+default+"]: ")
     if instr == "":
         instr = default
     return instr
 
-def pwdInput(prompt):
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
+def pwd_input(prompt):
+    'ask for a password, providing asterisks for output'
+    file_handle = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(file_handle)
     try:
         tty.setraw(sys.stdin.fileno())
         print prompt,
         passwd = ''
         while 1 == 1:
-            ch = sys.stdin.read(1)
-            if ch == chr(13):
+            char = sys.stdin.read(1)
+            if char == chr(13):
                 break
-            if ch == chr(8) or ch == chr(127):
+            if char == chr(8) or char == chr(127):
                 if len(passwd) > 0:
                     sys.stdout.write("\b")
                     sys.stdout.write(" ")
                     sys.stdout.write("\b")
                     passwd = passwd[:-1]
                 continue
-            if ord(ch) > 31 and ord(ch) < 128:
+            if ord(char) > 31 and ord(char) < 128:
                 sys.stdout.write("*")
                 sys.stdout.flush()
-                passwd += ch
+                passwd += char
+    except KeyboardInterrupt:
+        sys.exit(1)
     finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        termios.tcsetattr(file_handle, termios.TCSADRAIN, old_settings)
     redaction = "\b" * len(passwd) + " " * len(passwd)
     sys.stdout.write(redaction)
     print
     return passwd
 
-def getPassword(prompt = "enter password:"):
+def get_password(prompt = "enter password:"):
+    'have the user enter a password and verify it'
     while 1 == 1:
-        passwd1 = pwdInput(prompt)
-        passwd2 = pwdInput("Please re-enter password:")
+        passwd1 = pwd_input(prompt)
+        passwd2 = pwd_input("Please re-enter password:")
         if passwd1 == passwd2:
             return passwd1
         print "% Passwords do not match\n\r"
 
-def askYesNo(prompt, default = NEUTRAL):
+def ask_yes_no(prompt, default = NEUTRAL):
+    'ask a yes or no question from the user'
     if default == NEUTRAL:
         prompt += "? (y/n): "
     elif default == YES:
@@ -191,85 +269,121 @@ def askYesNo(prompt, default = NEUTRAL):
             result = NO
     return result
 
-def pageIt(outputHandle):
-    outputHandle.write("--- more ---")
-    outputHandle.flush()
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
+def page_it(output_handle):
+    "asks for the user to hit enter or 'b' to backup"
+    output_handle.write("--- more ---")
+    output_handle.flush()
+    file_handle = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(file_handle)
     try:
         tty.setraw(sys.stdin.fileno())
-        ch = sys.stdin.read(1)
+        char = sys.stdin.read(1)
     finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    outputHandle.write("\r                \r")
-    outputHandle.flush()
-    if ch == chr(13):
+        termios.tcsetattr(file_handle, termios.TCSADRAIN, old_settings)
+    output_handle.write("\r                \r")
+    output_handle.flush()
+    if char == chr(13):
         return ONE_LINE
-    if ch == chr(113) or ch == chr(81):
+    if char == chr(113) or char == chr(81):
         return QUIT
-    if ch == chr(98) or ch == chr(66):
+    if char == chr(98) or char == chr(66):
         return BACKUP
     return PAGE
 
-def pagerOut(printData, outputHandle, errHandle):
-    if mode.termlen == 0:
-        print printData
+def pager_out(print_data, output_handle):
+    "pages output to the screen if there's more than the terminal will handle"
+    if system_state.termlen == 0:
+        print print_data
         return
-    currentLine = 0
-    pagerLine = 0
+    current_line = 0
+    pager_line = 0
     backup = 0
-    printData = printData.split("\n")
-    while currentLine < len(printData):
-        outputHandle.write(printData[currentLine]+"\n")
-        outputHandle.flush()
-        currentLine += 1
-        pagerLine += 1
-        if not mode.batch and pagerLine > mode.termlen:
-            action = pageIt(outputHandle)
+    print_data = print_data.split("\n")
+    while current_line < len(print_data):
+        output_handle.write(print_data[current_line]+"\n")
+        output_handle.flush()
+        current_line += 1
+        pager_line += 1
+        if not system_state.batch and pager_line > system_state.termlen:
+            action = page_it(output_handle)
             if action == QUIT:
                 break
             elif action == ONE_LINE:
                 backup = 0
                 continue
             elif action == BACKUP:
-                backupLen = (backup + 1) * mode.termlen + 1
-                if backupLen > currentLine:
-                    backupLen = currentLine
-                outputHandle.write("\n\n-- backing up %d lines -- \n\r" % backupLen)
-                outputHandle.flush()
-                currentLine -= backupLen
+                backup_len = (backup + 1) * system_state.termlen + 1
+                if backup_len > current_line:
+                    backup_len = current_line
+                output_handle.write("\n\n-- backing up %d lines -- \n\r" % backup_len)
+                output_handle.flush()
+                current_line -= backup_len
                 backup += 1
-                pagerLine = 0
+                pager_line = 0
                 continue
             else:
                 backup = 0
-                pagerLine = 0
+                pager_line = 0
 
-def prepender(prepend, object, depth):
-    printData = ''
-    if type(object) == type(['list']):
-        for entry in object:
-            printData += prepender(prepend, entry, depth+1)
-    elif type(object) == type({}):
-        for entry in object:
-            if type(object[entry]) == type(['list']) and len(object[entry]) == 0:
-                printData += '%s%s%s: []\n' % (prepend, ' '*depth, entry)
-            elif type(object[entry]) == type('string'):
-                printData += '%s%s%s: \'%s\'\n' % (prepend, ' '*depth, entry, object[entry])
-            elif type(object[entry]) in [ type(0), type(0.1) ]:
-                printData += '%s%s%s: %d\n' % (prepend, ' '*depth, entry, object[entry])
-            elif type(object[entry]) == type({}) and len(object[entry]) == 0:
-                printData += '%s%s%s: {}\n' % (prepend, ' '*depth, entry)
+def prepender(prepend, obj, depth):
+    "output formatter for indented text"
+    print_data = ''
+    if type(obj) == type(['list']):
+        for entry in obj:
+            print_data += prepender(prepend, entry, depth+1)
+    elif type(obj) == type({}):
+        for entry in obj:
+            if type(obj[entry]) == type(['list']) and len(obj[entry]) == 0:
+                print_data += '%s%s%s: []\n' % (prepend, ' '*depth, entry)
+            elif type(obj[entry]) == type('string'):
+                print_data += '%s%s%s: \'%s\'\n' % (prepend, ' '*depth, entry, obj[entry])
+            elif type(obj[entry]) in [ type(0), type(0.1) ]:
+                print_data += '%s%s%s: %d\n' % (prepend, ' '*depth, entry, obj[entry])
+            elif type(obj[entry]) == type({}) and len(obj[entry]) == 0:
+                print_data += '%s%s%s: {}\n' % (prepend, ' '*depth, entry)
             else:
-                printData += '%s%s%s:\n' % (prepend, ' '*depth, entry)
-                printData += prepender(prepend, object[entry], depth+1)
-    elif type(object) in [ type('string'), type(u'unicode') ]:
-        printData += "%s%s%s\n" % (prepend, ' '*depth, object)
-    elif type(object) in [ type(0), type(0.1) ]:
-        printData += "%s%s%d\n" % (prepend, ' '*depth, object)
-    return printData
-            
-def userOutput(output, status, outputHandle=sys.stdout, errHandle=sys.stderr, prepend = '', test=False):
+                print_data += '%s%s%s:\n' % (prepend, ' '*depth, entry)
+                print_data += prepender(prepend, obj[entry], depth+1)
+    elif type(obj) in [ type('string'), type(u'unicode') ]:
+        print_data += "%s%s%s\n" % (prepend, ' '*depth, obj)
+    elif type(obj) in [ type(0), type(0.1) ]:
+        print_data += "%s%s%d\n" % (prepend, ' '*depth, obj)
+    return print_data
+
+# FIXME: CONSOLIDATE LOGGING HERE
+
+def info(msg):
+    'logging function'
+    system_state.output_handle.write(">>> %s\n" % msg)
+
+def debug(msg):
+    'logging function'
+    if system_state.debug == True:
+        system_state.output_handle.write(">>> DEBUG: %s\n" % msg)
+
+def warning(msg):
+    'logging function'
+    system_state.output_handle.write(">>> WARNING: %s\n" % msg)
+
+def error(msg):
+    'logging function'
+    system_state.output_handle.write(">>> ERROR: %s\n" % msg)
+
+def process_cnm(text_stream):
+    'Handles output from the CNM and pretty-prints to the screen'
+    output = re.compile("\<\<(\d)\|(\d)\|(.*?)\>\>").findall(text_stream)
+    for match in output:
+        _source, level, msg = match
+        if level == WARNING:
+            warning(msg)
+        elif level == ERROR:
+            error(msg)
+        else:
+            info(msg)
+
+def user_output(output, status, output_handle = sys.stdout,
+                _err_handle = sys.stderr, prepend = '', test = False):
+    "Generic function for printing return values from a command"
     if output == []:
         return
     if prepend == '':
@@ -279,37 +393,10 @@ def userOutput(output, status, outputHandle=sys.stdout, errHandle=sys.stderr, pr
             prepend = ' '
     if test:
         return prepender(prepend, output, 0)
-    pagerOut(prepender(prepend, output, 0), outputHandle, errHandle)
+    pager_out(prepender(prepend, output, 0), output_handle)
     return
 
 def user(string):
     "just print some text to stderr for user feedback"
-    print >>sys.stderr
-    print >>sys.stderr,string
-
-
-if __name__ == "__main__":
-    from libTest import startTest, runTest, endTest
-    status = OK
-    startTest()
-    #status = runTest(user,["hello"],None, status)
-    #status = runTest(getPassword, ["hello>"], "", status)
-    #status = runTest(processInput,["no ip packet foo"],(1, 0, ["ip","packet","foo"]), status)
-    #status = runTest(processInput,[" ip packet foo"],(0, 0, ["ip","packet","foo"]), status)
-    #status = runTest(processInput,["ip  packet  foo "],(0, 0, ["ip","packet","foo",""]), status)
-    #status = runTest(processInput,["ip packet foo"],(0, 0, ["ip","packet","foo"]), status)
-    #status = runTest(askYesNo, ["enter yes", YES], YES, status)
-    #status = runTest(askYesNo, ["enter no", NO], NO, status)
-    #status = runTest(askYesNo, ["enter yes"], YES, status)
-    #status = runTest(userOutput, [[],OK], None, status)
-    #status = runTest(userOutput, ["abc",OK], None, status)
-    #status = runTest(userOutput, [["def"],OK], None, status)
-    #status = runTest(userOutput, [[["hij"]],OK], None, status)
-    #status = runTest(userOutput, [["klm", "nop"],OK], None, status)
-    #status = runTest(userOutput, ["abc", FAIL], None, status)
-    #status = runTest(userOutput, [["abc", "def"], OK, '', True], '  abc\n  def\n', status)
-    #status = runTest(userOutput, [[["abc"], "def"], OK, '', True], '   abc\n  def\n', status)
-    #status = runTest(userOutput, [{"abc": "def"}, OK, '', True], 'abc:\n  def\n', status)
-    status = runTest(userOutput, [[{"abc": ["def", 'ghi']}, 'foo'], OK, '', True], '  abc:\n    def\n    ghi\n  foo\n', status)
-    #status = runTest(userOutput, [{"abc", "def"}, OK, '', True], '  abc\n  def\n', status)
-    endTest(status)
+    print >> sys.stderr
+    print >> sys.stderr, string

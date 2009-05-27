@@ -1,167 +1,269 @@
 #!/usr/bin/python
+# BSD License
+# Copyright (c) 2009, Peter Banka et al
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the GE Security nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+'''Provides the base class for all command-line token object fields or commands'''
 
 import readline, sys
-import Mode, libUi
+import libUi
 import StringIO
 import traceback
-from commonUtil import *
-
-DEBUG    = 0
-NO_MATCH = 0
-PARTIAL  = 1
-COMPLETE = 2
+from bombardier_core.static_data import DEBUG, PARTIAL, COMPLETE, INCOMPLETE
+from bombardier_core.static_data import NO_MATCH, FAIL, OK
+from SystemStateSingleton import SystemState, ENABLE, USER, F0
+system_state = SystemState()
 
 # find the names of all the objects given to me
-def getNames(objects, tokens, index):
+def convert_tokens_to_string(tokens, delimeter=' '):
+    '''Used in error reporting.
+    delimeter -- typically a space, but some tokens are separated
+                 using other characters'''
+    retVal = ''
+    for token in tokens:
+        retVal += token+delimeter
+    return retVal[:-1]
+
+def get_names(objects, tokens, index):
+    """
+    There is a tree of objects, such as:
+     slash:
+        - Show:
+            - machine
+                - <machine_name>
+            - package
+                - <package_name>
+        - Set
+            - machine
+                - <machine_name>
+            - package
+                - <package_name>
+        - Terminal
+            - width
+            - color
+        - etc.
+    ...and there is a set of user input, such as ['s']
+    It is the job of this function to return a list of name objects that can
+    be used to provide command-line completion.
+    objects -- a list of PinshCmd objects
+    tokens -- a list of string literals that represent strings the user typed in
+    index -- the current position of evaluation
+    """
     names = []
     for obj in objects:
-        if DEBUG: print "(GET NAMES) obj.myName:",obj.myName
-        newName = obj.preferredNames(tokens, index)
-        if type(newName) == type("string"):
-            names.append(newName)
+        if DEBUG: 
+            print "(GET NAMES) obj.my_name:", obj.my_name
+        new_name = obj.preferred_names(tokens, index)
+        if type(new_name) == type("string"):
+            names.append(new_name)
         else:
-            names = names + newName
+            names = names + new_name
     return names
 
 class PinshCmd:
+    '''Base class for all command and field objects. Really should be
+    called CommandToken, because it represents a single executable
+    or nameable token in an input string.'''
 
-    def __init__(self, name, helpText = "<cr>", level = Mode.ENABLE, tokenDelimiter = ' '):
-        self.myName = name
-        self.helpText = helpText
+    def __init__(self, name, help_text = "<cr>",
+                 level = ENABLE, token_delimeter = ' '):
+        '''
+        name -- name of the command or field
+        help_text -- explanatory information about this command
+        level -- level of authorization required to run this command
+        token_delimeter -- character that separates this command or field
+                           from other ones.
+        '''
+        self.my_name = name
+        self.help_text = help_text
         self.children = []
         self.level = level
         self.auth = USER
-        self.cmdOwner = 0
-        self.tokenDelimiter = tokenDelimiter
+        self.cmd_owner = 0
+        self.token_delimeter = token_delimeter
         self.names = []
-        self.exitMode = False
-        self.logCommand = False
+        self.exit_mode = False
+        self.log_command = False
 
     def __repr__(self):
-        return self.myName
+        return self.my_name
 
-    def preferredNames(self, tokens, index):
-        return [self.myName]
+    def preferred_names(self, _tokens, _index):
+        '''How is this command or field represented in the shell? Often
+        it is represented as a fixed text item, such as 'show' or 'set',
+        but often it is a name of a host, such as 'localhost' or 'server10'.
+        If a class wants to provide a customized name, it must override this
+        method.'''
+        return [self.my_name]
 
-    def acceptableNames(self, tokens, index):
-        return self.preferredNames(tokens, index)
+    def acceptable_names(self, tokens, index):
+        '''Because commands can be shortened, it is possible that "sh" could be
+        used in place of "show", for example. preferred_names(), on the other hand
+        represents the name that best matches this object.
+        '''
+        return self.preferred_names(tokens, index)
 
     def match(self, tokens, index):
-        if self.auth > mode.auth:
+        '''Used to determine if what the user has typed in could potentially
+        be handled by this object. For example, if a user typed in 'sh', and
+        this object is called 'show', then this object would return PARTIAL. If
+        the user typed in 'show', it would return COMPLETE, and if the user
+        typed in "showme" this method would return NO_MATCH.'''
+        if self.auth > system_state.auth:
             return NO_MATCH, 1
         if tokens[index] == '':
             return PARTIAL, 1
-        if self.myName == tokens[index]:
+        if self.my_name == tokens[index]:
             return COMPLETE, 1
-        if self.myName.startswith(tokens[index]):
+        if self.my_name.startswith(tokens[index]):
             return PARTIAL, 1
         else:
             return NO_MATCH, 1
 
-    def cmd(self, tokens, noFlag, mySlash):
-        if tokens or noFlag or mySlash: pass # pychecker
-        if DEBUG: print "NAME:",self.myName, self.cmdOwner
+    def cmd(self, tokens, _no_flag, _my_slash):
+        '''If the user has hit return and wants a command to be executed, and
+        if the system has determined that this object is designated by the user
+        then this object's cmd() method will be run.'''
+        if DEBUG:
+            print "NAME:", self.my_name, self.cmd_owner, tokens
         return FAIL, ["Incomplete command."]
 
-    def printErrorMessage(self, tokens, index, message = "Unrecognized Command"):
-        preamble = ' '*len(mode.getPrompt())
-        okTokens = convertTokensToString(tokens[:index])
-        print "%s%s" % (preamble, convertTokensToString(tokens))
-        print "%s%s ^" % (preamble, " "*len(okTokens))
+    def print_error_msg(self, tokens, index, message = "Unrecognized Command"):
+        'Prints a customized error message, showing the position of the error'
+        preamble = ' '*len(system_state.get_prompt())
+        ok_tokens = convert_tokens_to_string(tokens[:index])
+        print "%s%s" % (preamble, convert_tokens_to_string(tokens))
+        print "%s%s ^" % (preamble, " "*len(ok_tokens))
         print " %% %s" % message
 
-    # This is called by complete.
-    # When complete is calling this it wants a list of objects
-    # that could be completions for the final token.
-    def findCompletions(self, tokens, index):
-        returnError = 1
-        if DEBUG: print "findCompletions: self.myName:",`self.myName`, "tokens:",`tokens`, len(tokens)
+    def find_completions(self, tokens, index):
+        '''This is called by complete. When complete is calling this it wants
+        a list of objects that could be completions for the final token.'''
+        return_error = 1
+        if DEBUG:
+            print "find_completions: self.my_name: %s tokens: %s (%d)" % (self.my_name, tokens, len(tokens))
         if len(tokens[index:]) == 0: # no tokens left, I must be who you want!
-            if DEBUG: print "findCompletions: FOUND at TOP"
+            if DEBUG:
+                print "find_completions: FOUND at TOP"
             return [self], index
         if tokens[index] == '':
             if len(self.children) > 0:
-                output = [ child for child in self.children if child.auth <= mode.auth ]
+                output = [ child for child in self.children if child.auth <= system_state.auth ]
                 return output, index+1
-            returnError = 0
-        completionObjects = []
-        incompleteObjects = []
-        matchLen = 0
-        if DEBUG: print "CHILDREN: ", self.children
+            return_error = 0
+        completion_objects = []
+        incomplete_objects = []
+        match_len = 0
+        if DEBUG:
+            print "CHILDREN: ", self.children
         for child in self.children:
-            if child.auth > mode.auth:
+            if child.auth > system_state.auth:
                 continue
-            matchValue, length = child.match(tokens, index)
-            if matchValue == INCOMPLETE:
-                if DEBUG: print "findcompletions INCOMPLETE : matchValue:",matchValue, "length:",length
-                incompleteObjects.append(child)
-            if matchValue == PARTIAL:
-                if DEBUG: print "findcompletions PARTIAL : matchValue:",matchValue, "length:",length
-                if length > matchLen:
-                    matchLen = length
-                completionObjects.append(child)
-            elif matchValue == COMPLETE: # go see if there are more tokens!
-                if DEBUG: print "findcompletions COMPLETE : matchValue:",matchValue, "length:",length
-                tokens[index+length-1] = child.preferredNames(tokens, index)[0].split(' ')[-1]
-                if DEBUG: print "NEW TOKEN:", tokens[index]
-                return child.findCompletions(tokens, index+length)
-        if len(completionObjects) == 1: # one partial match is as good as a complete match
-            if index+matchLen >= len(tokens):
-                return [completionObjects[0]], index+1
-            return completionObjects[0].findCompletions(tokens, index+matchLen)
-        elif len(completionObjects) == 0: # No matches: go away.
-            if len(incompleteObjects) > 0:
+            match_value, length = child.match(tokens, index)
+            if match_value == INCOMPLETE:
+                if DEBUG:
+                    print "find_completions INCOMPLETE : match_value: %s length: %d" % (match_value, length)
+                incomplete_objects.append(child)
+            if match_value == PARTIAL:
+                if DEBUG:
+                    print "find_completions PARTIAL : match_value: %s length: %d" % (match_value, length)
+                if length > match_len:
+                    match_len = length
+                completion_objects.append(child)
+            elif match_value == COMPLETE: # go see if there are more tokens!
+                if DEBUG:
+                    print "find_completions COMPLETE : match_value: %s length: %d" % (match_value, length)
+                tokens[index+length-1] = child.preferred_names(tokens, index)[0].split(' ')[-1]
+                if DEBUG:
+                    print "NEW TOKEN:", tokens[index]
+                return child.find_completions(tokens, index+length)
+        if len(completion_objects) == 1: # one partial match is as good as a complete match
+            if index+match_len >= len(tokens):
+                return [completion_objects[0]], index+1
+            return completion_objects[0].find_completions(tokens, index+match_len)
+        elif len(completion_objects) == 0: # No matches: go away.
+            if len(incomplete_objects) > 0:
                 print
-                self.printErrorMessage(tokens, index, "Command cannot be completed.")
-                mode.reprompt()
+                self.print_error_msg(tokens, index, "Command cannot be completed.")
+                system_state.reprompt()
                 return [], 1
-            if returnError:
+            if return_error:
                 print
-                self.printErrorMessage(tokens, index)
-                mode.reprompt()
+                self.print_error_msg(tokens, index)
+                system_state.reprompt()
             return [], index
         else: # we have a few possible matches, return them all
-            return completionObjects, index
+            return completion_objects, index
 
-    # command line completer, called with [tab] or [?] (if we could bind '?')
-    def complete(self, text, status):
-        if text: pass # pychecker
+    def complete(self, _text, status):
+        "Command line completer, called with [tab] or [?] (if we could bind it)"
         try:
             if status > 0:
                 if status >= len(self.names):
                     return None
-                if DEBUG: print "COMPLETE: names (%s)" % (self.names[status])
+                if DEBUG:
+                    print "COMPLETE: names (%s)" % (self.names[status])
                 return self.names[status]
             else:
-                noFlag, helpFlag, tokens, comment = libUi.processInput(readline.get_line_buffer())
-                if DEBUG: print "COMPLETE: ",`tokens`
+                _no_flag, _help_flag, tokens, _comment = libUi.process_input(readline.get_line_buffer())
+                if DEBUG:
+                    print "COMPLETE: %s" % tokens
                 # this is where we would process help if we could bind the '?' key properly
                 index = 0
                 if tokens == []:
-                    if DEBUG: print "No tokens, returning children",
-                    completionObjects = self.children
+                    if DEBUG:
+                        print "No tokens, returning children",
+                    completion_objects = self.children
                 else:
-                    if DEBUG: print "Finding completions on",`tokens`
-                    completionObjects, index = self.findCompletions(tokens, 0)
-                if DEBUG: print "Found completions: ",completionObjects, index
-                if len(completionObjects) == 0:
-                    #mode.reprompt()
+                    if DEBUG:
+                        print "Finding completions on %s" % tokens
+                    completion_objects, index = self.find_completions(tokens, 0)
+                if DEBUG:
+                    print "Found completions: ", completion_objects, index
+                if len(completion_objects) == 0:
+                    #system_state.reprompt()
                     return None
                 # status is the index of the completion that readline wants
-                self.names =  getNames(completionObjects, tokens, index-1)
-                if DEBUG: print "COMPLETE: tokens:",`tokens`,"index:",index,"names:",`self.names`
-                if DEBUG: print "COMPLETE: names",self.names
+                self.names =  get_names(completion_objects, tokens, index-1)
+                if DEBUG:
+                    print "COMPLETE: tokens: %s index: %d names: %s" % (tokens, index, self.names)
+                if DEBUG:
+                    print "COMPLETE: names", self.names
                 if len(self.names) == 1:
-                    return self.names[0] + completionObjects[0].tokenDelimiter
+                    return self.names[0] + completion_objects[0].token_delimeter
                 if self.names:
                     return self.names[0]
                 return []
-        except StandardError, e:
-            sys.stderr.write(" %%%% Error detected in %s (%s)." % (file, e))
-            e = StringIO.StringIO()
-            traceback.print_exc(file=e)
-            e.seek(0)
-            data = e.read()
+        except StandardError, err:
+            sys.stderr.write(" %%%% Error detected in %s (%s)." % (file, err))
+            tb_str = StringIO.StringIO()
+            traceback.print_exc(file=tb_str)
+            tb_str.seek(0)
+            data = tb_str.read()
             ermsg = ''
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
@@ -170,166 +272,169 @@ class PinshCmd:
             print
             return []
 
-    # When complete is calling this, it wants help for all the 
-    # possible arguments of the last token, which should be unambiguous.
-    # No return value is necessary
-    def findHelp(self, tokens, index):
-        if DEBUG: print "findHelp:", `self.myName`, 'tokens:', `tokens`
+    def find_help(self, tokens, index):
+        '''When complete is calling this, it wants help for all the
+        possible arguments of the last token, which should be unambiguous.
+        No return value is necessary'''
+        if DEBUG:
+            print "find_help: %s tokens: %s" % (self.my_name, tokens)
         # no tokens left, I must be who you want!
-        if len(tokens[index:]) == 0 or tokens[index] == '': 
-            if DEBUG: print "myName:",self.myName
+        if len(tokens[index:]) == 0 or tokens[index] == '':
+            if DEBUG:
+                print "my_name:", self.my_name
             self.help()
             return
-        if DEBUG: print "finding completions..."
-        matchLen = 0
-        completionObjects = []
+        if DEBUG:
+            print "finding completions..."
+        match_len = 0
+        completion_objects = []
         for child in self.children:
-            matchValue, length = child.match(tokens, index)
-            if matchValue == PARTIAL:
-                if length > matchLen:
-                    matchLen = length
-                completionObjects.append(child)
-            elif matchValue == COMPLETE: # go see if there are more tokens!
-                child.findHelp(tokens, index+length)
+            match_value, length = child.match(tokens, index)
+            if match_value == PARTIAL:
+                if length > match_len:
+                    match_len = length
+                completion_objects.append(child)
+            elif match_value == COMPLETE: # go see if there are more tokens!
+                child.find_help(tokens, index+length)
                 return
-        if len(completionObjects) == 1: # one partial matches is as good as a complete match
-            return completionObjects[0].findHelp(tokens, index+matchLen)
-        elif len(completionObjects) == 0: # No matches: go away.
-            self.printErrorMessage(tokens, index)
+        if len(completion_objects) == 1: # one partial matches is as good as a complete match
+            return completion_objects[0].find_help(tokens, index+match_len)
+        elif len(completion_objects) == 0: # No matches: go away.
+            self.print_error_msg(tokens, index)
             return
         else:
-            self.printErrorMessage(tokens, index, "Ambiguous command")
+            self.print_error_msg(tokens, index, "Ambiguous command")
             return
-        
-    # Run is calling this method to find the last object in the chain
-    # that is willing to run cmd() on the set of tokens on the list.
-    # Must be unambiguous. Assume coming into the routine that the
-    # current object ("self") is a cmdOwner.
-    def findLastResponsibleChild(self, tokens, index):
-        if DEBUG: print "findLastResponsibleChild: ",self.myName, "[",`tokens`,"], index:", index
-        if len(tokens[index:]) == 0 or tokens[index] == '': # complete and no more tokens. Object takes responsibility
+
+    def find_last_responsible_child(self, tokens, index):
+        '''Run is calling this method to find the last object in the chain
+        that is willing to run cmd() on the set of tokens on the list.
+        Must be unambiguous. Assume coming into the routine that the
+        current object ("self") is a cmd_owner.'''
+        if DEBUG:
+            print "find_last_responsible_child: %s %s index: %d" % (self.my_name, tokens, index)
+        if len(tokens[index:]) == 0 or tokens[index] == '':
+            # complete and no more tokens. Object takes responsibility
             return self
         owners = []
         arguments = []
-        matchLen = 0
+        match_len = 0
         for child in self.children:
-            matchValue, length = child.match(tokens, index)
-            if DEBUG: print "Match:",child.myName, matchValue
-            if matchValue == PARTIAL:
-                if length > matchLen:
-                    matchLen = length
-                if child.cmdOwner:
+            match_value, length = child.match(tokens, index)
+            if DEBUG:
+                print "Match:", child.my_name, match_value
+            if match_value == PARTIAL:
+                if length > match_len:
+                    match_len = length
+                if child.cmd_owner:
                     owners.append(child)
                 else:
                     arguments.append(child)
-            elif matchValue == COMPLETE:
-                tokens[index+length-1] = child.acceptableNames(tokens, index)[0]
-                if DEBUG: print "NEW TOKEN:", tokens[index]
-                if child.cmdOwner:
-                    return child.findLastResponsibleChild(tokens, index+length)
+            elif match_value == COMPLETE:
+                tokens[index+length-1] = child.acceptable_names(tokens, index)[0]
+                if DEBUG:
+                    print "NEW TOKEN:", tokens[index]
+                if child.cmd_owner:
+                    return child.find_last_responsible_child(tokens, index+length)
                 else:
                     return self
         if len(owners) == 1: # one partial matches is as good as a complete match
-            return owners[0].findLastResponsibleChild(tokens, index+matchLen)
-        elif len(owners) == 0: 
+            return owners[0].find_last_responsible_child(tokens, index+match_len)
+        elif len(owners) == 0:
             if len(arguments) > 0: # this is a valid argument, I will take responsibility.
                 return self
-            self.printErrorMessage(tokens, index)
+            self.print_error_msg(tokens, index)
             return None
         else: # more than one owner-- need to be unambiguous
-            self.printErrorMessage(tokens, index, "Ambiguous command")
+            self.print_error_msg(tokens, index, "Ambiguous command")
             return None
 
-    # finds the correct object and runs a command
-    def run(self, tokens, noFlag, mySlash):
+    def run(self, tokens, no_flag, my_slash):
+        'finds the correct object and runs a command'
         if tokens[-1] == '':
             tokens = tokens[:-1]
-        if mode.state[-1] == Mode.F0:
+        if system_state.state[-1] == F0:
             if tokens[0].lower() != 'end':
-                mode.commandBuffer[Mode.F0].append([tokens, noFlag, mySlash])
+                system_state.command_buffer[F0].append([tokens, no_flag, my_slash])
             else:
-                variable, values = mode.variables[Mode.F0]
+                variable, values = system_state.variables[F0]
                 for value in values:
-                    for tokens, noFlag, mySlash in mode.commandBuffer[Mode.F0]:
+                    for tokens, no_flag, my_slash in system_state.command_buffer[F0]:
                         newTokens = []
                         for token in tokens:
                             if token == '$%s' % variable:
                                 newTokens.append(value)
                             else:
                                 newTokens.append(token)
-                        owner = self.findLastResponsibleChild(newTokens, 0)
+                        owner = self.find_last_responsible_child(newTokens, 0)
                         if not owner:
                             continue
-                        returnValue = owner.cmd(newTokens, noFlag, mySlash)
-                        if not (returnValue == None and len(returnValue) != 2):
-                            status = returnValue[0]
-                            output = returnValue[1]
-                            if owner.logCommand:
-                                cmd = log(noFlag, tokens, status, output)
-                                mode.commentCommands.append(cmd)
-                            libUi.userOutput(output, status)
-                        mode.globals["output"] = output
-                        mode.globals["status"] = status
-                extraClasses = mode.newClasses[-1]
-                for i in range(0,extraClasses):
-                    if i: pass # pychecker
-                    mySlash.children.pop()
-                mode.popPrompt()
-                mode.cleanMode(mode.state[-1])
+                        return_value = owner.cmd(newTokens, no_flag, my_slash)
+                        if not (return_value == None and len(return_value) != 2):
+                            status = return_value[0]
+                            output = return_value[1]
+                            #if owner.log_command:
+                                #cmd = log(no_flag, tokens, status, output)
+                                #system_state.comment_commands.append(cmd)
+                            libUi.user_output(output, status)
+                        system_state.globals["output"] = output
+                        system_state.globals["status"] = status
+                extra_classes = system_state.new_classes[-1]
+                for _dummy in range(0, extra_classes):
+                    my_slash.children.pop()
+                system_state.pop_prompt()
+                system_state.clean_mode(system_state.state[-1])
             return OK, []
         else:
-            owner = self.findLastResponsibleChild(tokens, 0)
+            owner = self.find_last_responsible_child(tokens, 0)
             if not owner:
                 return FAIL, []
-            if mode.state[-1] == Mode.F0 and not owner.exitMode:
-                mode.commands.append([owner.cmd, tokens, noFlag, mySlash])
+            if system_state.state[-1] == F0 and not owner.exit_mode:
+                system_state.commands.append([owner.cmd, tokens, no_flag, my_slash])
                 return OK, []
             else:
-                returnValue = owner.cmd(tokens, noFlag, mySlash)
-                if returnValue == None or len(returnValue) != 2:
+                return_value = owner.cmd(tokens, no_flag, my_slash)
+                if return_value == None or len(return_value) != 2:
                     return OK, []
                 else:
-                    status = returnValue[0]
-                    output = returnValue[1]
-                    if owner.logCommand:
-                        cmd = log(noFlag, tokens, status, output)
-                        mode.commentCommands.append(cmd)
-                    mode.globals["output"] = output
-                    mode.globals["status"] = status
+                    status = return_value[0]
+                    output = return_value[1]
+                    #if owner.log_command:
+                        #cmd = log(no_flag, tokens, status, output)
+                        #system_state.comment_commands.append(cmd)
+                    system_state.globals["output"] = output
+                    system_state.globals["status"] = status
                     return status, output
 
-    # pretty-print the help strings of all my children on this level
     def help(self):
-        helpText = []
-        maxLen = 0
+        'pretty-print the help strings of all my children on this level'
+        help_text = []
+        max_len = 0
         if len(self.children) == 0:
             print "<cr>\n"
             return
-        
+
         for child in self.children:
-            if mode.auth < child.auth:
+            if system_state.auth < child.auth:
                 continue
-            if child.level < mode.state[-1]:
+            if child.level < system_state.state[-1]:
                 continue
-            if child.helpText.rfind('\n') != -1:
-                for helpLine in child.helpText.split('\n'):
-                    cmd, doc = helpLine.split('\t')
-                    helpText.append([cmd, doc])
-                    if len(cmd) > maxLen:
-                        maxLen = len(cmd)
+            if child.help_text.rfind('\n') != -1:
+                for help_line in child.help_text.split('\n'):
+                    cmd, doc = help_line.split('\t')
+                    help_text.append([cmd, doc])
+                    if len(cmd) > max_len:
+                        max_len = len(cmd)
             else:
-                try:
-                    cmd, doc = child.helpText.split('\t')
-                    helpText.append([cmd, doc])
-                except:
-                    pass
-            if len(cmd) > maxLen:
-                maxLen = len(cmd)
+                cmd, doc = child.help_text.split('\t')
+                help_text.append([cmd, doc])
+            if len(cmd) > max_len:
+                max_len = len(cmd)
 
-        helpText.sort()
+        help_text.sort()
 
-        for helpLine in helpText:
-            cmd = helpLine[0]
-            text = helpLine[1]
-            spaces = maxLen - len(cmd) + 5
-            print "  ",cmd+' '*spaces+text
+        for help_line in help_text:
+            cmd = help_line[0]
+            text = help_line[1]
+            spaces = max_len - len(cmd) + 5
+            print "  ", cmd + ' ' * spaces + text

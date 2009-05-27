@@ -1,0 +1,8 @@
+[{"pk": "1", "model": "configs.machine", "fields": {"name": "localhost"}},
+{"pk": "2", "model": "configs.machine", "fields": {"name": "mclintock"}},
+{"pk": "1", "model": "configs.include", "fields": {"name": "stuffy"}},
+{"pk": "2", "model": "configs.include", "fields": {"name": "thingy"}},
+{"pk": "1", "model": "configs.bom", "fields": {"name": "qwerty"}},
+{"pk": "2", "model": "configs.bom", "fields": {"name": "asdfg"}},
+{"pk": "1", "model": "configs.serverconfig", "fields": {"name": "test", "value": "spam"}}]
+

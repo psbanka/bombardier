@@ -21,13 +21,13 @@
 # 02110-1301, USA.
 
 import os, sys, re, ConfigParser, shutil, string, md5
+from old_static_data import *
 
 if sys.platform == "win32":
     import _winreg as winreg
     import win32com.client, win32api, win32file, pywintypes, win32pdh, win32con, RegistryDict
 
-from staticData import *
-import miniUtility, Logger
+from bombardier_core.Logger import Logger
 
 def makeNewDsn( dataSourceName, dbName, defaultUser, serverName, desc=None ):
     try:
