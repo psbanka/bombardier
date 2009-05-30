@@ -54,10 +54,10 @@ class ConfigField(PinshCmd.PinshCmd):
                   'local' will not match 'localhost'
         '''
         PinshCmd.PinshCmd.__init__(self, name, token_delimeter = '')
-        self.helpText = "<configurationField>\ta dot-delimeted configuration value"
-        self.level = 99
+        self.help_text = "<configurationField>\t"\
+                         "a dot-delimeted configuration value"
         self.data_type = data_type
-        self.cmdOwner = 0
+        self.cmd_owner = 0
         self.strict = strict # take only exact matches
         if data_type == MACHINE:
             self.directory = "machine"
@@ -72,7 +72,8 @@ class ConfigField(PinshCmd.PinshCmd):
 
     def get_object_list(self):
         'returns a list of all self.data_type things'
-        data = system_state.cnm_connector.service_yaml_request("json/%s/search/" % self.directory)
+        url = "json/%s/search/" % self.directory
+        data = system_state.cnm_connector.service_yaml_request(url)
         machines = [ x.get("fields").get("name") for x in data ]
         return machines
 
@@ -89,7 +90,10 @@ class ConfigField(PinshCmd.PinshCmd):
         '''
         partial_first = tokens[index].split('.')[0]
         object_names = self.get_object_list()
-        first_token_names = [ fn for fn in object_names if fn.lower().startswith(partial_first.lower()) ]
+        first_token_names = []
+        for ftn in object_names:
+            if ftn.lower().startswith(partial_first.lower()):
+                first_token_names.append(ftn)
         if len(first_token_names) == 0:
             return [], {}
         if tokens[index] in first_token_names:
@@ -234,10 +238,10 @@ class ConfigField(PinshCmd.PinshCmd):
         return current_dict
 
     def preferred_names(self, tokens, index):
-        '''Provide a list of names that the system would prefer to use, other than
-        that which was typed in by the user. For example, 'sho mach localh' will
-        return 'localhost' for the machine name if strict is off, otherwise, it will
-        return 'localh'.
+        '''Provide a list of names that the system would prefer to use, other
+        than that which was typed in by the user. For example, 'sho mach localh'
+        will return 'localhost' for the machine name if strict is off,
+        otherwise, it will return 'localh'.
 
         '''
         tokens[index] = tokens[index].replace('"', '')
@@ -281,7 +285,8 @@ class ConfigField(PinshCmd.PinshCmd):
             test_value = config_values[-1].replace('"','').lower()
             if item.lower().startswith(test_value):
                 if prefix:
-                    possible_matches.append("%s.%s.%s" % (first_token_name, prefix, item))
+                    p_match = "%s.%s.%s" % (first_token_name, prefix, item)
+                    possible_matches.append(p_match)
                 else:
                     possible_matches.append("%s.%s" % (first_token_name, item))
 
@@ -290,8 +295,8 @@ class ConfigField(PinshCmd.PinshCmd):
         return []
 
     def match(self, tokens, index):
-        '''Determines if what has been typed in by the user matches a configuration
-        item that the system is keeping track of.'''
+        '''Determines if what has been typed in by the user matches a
+        configuration item that the system is keeping track of.'''
         possible_matches = self.acceptable_names(tokens, index)
         if not possible_matches:
             return NO_MATCH, 1

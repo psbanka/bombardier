@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # BSD License
 # Copyright (c) 2009, Peter Banka et al
 # All rights reserved.
@@ -26,46 +27,21 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-'''A [PinshCmd] field which provides for integer matching'''
+"Provides a nice way to exit the bomsh (^D also works)"
+
+__author__ =  'Peter Banka'
+__version__ = '1.0'
+
+import sys
 
 import PinshCmd
-from bombardier_core.static_data import NO_MATCH, COMPLETE, PARTIAL
 
-class Integer(PinshCmd.PinshCmd):
-    'Any number between self.min_value and self.max_value'
-    def __init__(self, min_value = 0, max_value = 100, name = "<integer>"):
-        '''
-        min_value -- the smallest number this field will match.
-        max_value -- the largest number this field will match
-        name -- usually '<integer>' is sufficient
-        '''
+class Exit(PinshCmd.PinshCmd):
+    'Exit the bomsh'
+    def __init__(self):
+        PinshCmd.PinshCmd.__init__(self, "exit")
+        self.help_text = "exit\texit current mode"
+        self.cmd_owner = 1
 
-        PinshCmd.PinshCmd.__init__(self, name)
-        help_template = "%s\ta number between %s and %s"
-        self.help_text = help_template % (name, min_value, max_value)
-        self.min_value = min_value
-        self.max_value = max_value
-        self.cmd_owner = 0
-
-    def match(self, tokens, index):
-        '''determines if the number the user entered falls within limits'''
-        if tokens[index] == '':
-            return NO_MATCH, 1
-        value = 0
-        try:
-            value = int(tokens[index])
-            if value >= self.min_value and value <= self.max_value:
-                return COMPLETE, 1
-            else:
-                return PARTIAL, 1
-        except ValueError:
-            return NO_MATCH, 1
-        return NO_MATCH, 1
-
-    def preferred_names(self, tokens, index):
-        '''A wrapper for match'''
-        if self.match(tokens, index)[0] == NO_MATCH:
-            return []
-        else:
-            return [tokens[index]]
-
+    def cmd(self, tokens, noFlag):
+        sys.exit(0)

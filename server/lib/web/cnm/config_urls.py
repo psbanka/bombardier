@@ -16,15 +16,40 @@ class ConfigEntry(CnmResource):
     @login_required
     def read(self, request, config_type, config_name):
         server_home = self.get_server_home()
-        if config_type.lower() == "merged":
-            machine_config = MachineConfig.MachineConfig(config_name, "", server_home)
-            machine_config.merge()
-            responder = JsonDictResponder(machine_config.data)
-            return responder.element(request)
-        else:
-            config_file = os.path.join(server_home, config_type)
-            responder = YamlFileResponder(config_file)
-            return responder.element(request, config_name)
+        config_file = os.path.join(server_home, config_type)
+        responder = YamlFileResponder(config_file)
+        return responder.element(request, config_name)
+
+class MachineEntry(ConfigEntry):
+    @login_required
+    def read(self, request, machine_name):
+        return super(MachineEntry, self).read(request, "machine", machine_name)
+
+class PackageEntry(ConfigEntry):
+    @login_required
+    def read(self, request, package_name):
+        return super(PackageEntry, self).read(request, "package", package_name)
+
+class BomEntry(ConfigEntry):
+    @login_required
+    def read(self, request, bom_name):
+        return super(BomEntry, self).read(request, "bom", bom_name)
+
+class IncludeEntry(ConfigEntry):
+    @login_required
+    def read(self, request, include_name):
+        return super(IncludeEntry, self).read(request, "include", include_name)
+
+class MergedEntry(CnmResource):
+    @login_required
+    def read(self, request, machine_name):
+        server_home = self.get_server_home()
+        machine_config = MachineConfig.MachineConfig(machine_name, "", server_home)
+        machine_config.merge()
+        responder = JsonDictResponder(machine_config.data)
+        return responder.element(request)
+
+#==================================
 
 class ConfigCollection(CnmResource):
     @login_required
@@ -33,6 +58,31 @@ class ConfigCollection(CnmResource):
         responder = JSONResponder()
         responder.expose_fields = ["name"]
         return responder.list(request, objects)
+
+class MergedCollection(ConfigCollection):
+    @login_required
+    def read(self, request, machine_name):
+        return super(MachineCollection, self).read(request, "merged", machine_name)
+
+class MachineCollection(ConfigCollection):
+    @login_required
+    def read(self, request, machine_name):
+        return super(MachineCollection, self).read(request, "machine", machine_name)
+
+class IncludeCollection(ConfigCollection):
+    @login_required
+    def read(self, request, include_name):
+        return super(IncludeCollection, self).read(request, "include", include_name)
+
+class BomCollection(ConfigCollection):
+    @login_required
+    def read(self, request, bom_name):
+        return super(BomCollection, self).read(request, "bom", bom_name)
+
+class PackageCollection(ConfigCollection):
+    @login_required
+    def read(self, request, package_name):
+        return super(PackageCollection, self).read(request, "package", package_name)
 
 #==================================
 
@@ -121,7 +171,14 @@ class DbSyncCollection(CnmResource):
 urlpatterns = patterns('',
    url(r'^json/server/config', ServerConfigCollection(permitted_methods = ['POST', "GET"])),
    url(r'^json/dbsync', DbSyncCollection(permitted_methods = ['POST'])),
-   url(r'^json/(?P<config_type>.*)/search/(?P<config_name>.*)', ConfigCollection()),
-   url(r'^json/(?P<config_type>.*)/name/(?P<config_name>.*)$', ConfigEntry(permitted_methods=['GET'])),
+   url(r'^json/merged/search/(?P<machine_name>.*)', MergedCollection()),
+   url(r'^json/merged/name/(?P<machine_name>.*)$', MergedEntry(permitted_methods=['GET'])),
+   url(r'^json/machine/search/(?P<machine_name>.*)', MachineCollection()),
+   url(r'^json/machine/name/(?P<machine_name>.*)$', MachineEntry(permitted_methods=['GET'])),
+   url(r'^json/include/search/(?P<include_name>.*)', IncludeCollection()),
+   url(r'^json/include/name/(?P<include_name>.*)$', IncludeEntry(permitted_methods=['GET'])),
+   url(r'^json/bom/search/(?P<bom_name>.*)', BomCollection()),
+   url(r'^json/bom/name/(?P<bom_name>.*)$', BomEntry(permitted_methods=['GET'])),
+   url(r'^json/package/search/(?P<package_name>.*)', PackageCollection()),
+   url(r'^json/package/name/(?P<package_name>.*)$', PackageEntry(permitted_methods=['GET'])),
 )
-

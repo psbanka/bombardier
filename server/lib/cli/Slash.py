@@ -69,7 +69,7 @@ class Slash(PinshCmd.PinshCmd):
                 # somebody just pressed return for no reason
                 return OK, []
             else:
-                status, output = self.run(tokens, no_flag, self)
+                status, output = self.run(tokens, no_flag)
                 #if comment:
                     #makeComment(comment) # MISSING
             libUi.user_output(output, status, self.fp_out, self.fp_err)

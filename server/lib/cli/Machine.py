@@ -34,7 +34,8 @@ managing machines in the network, and subclasses the [PinshCmd] module
 __author__ =  'Peter Banka'
 __version__ = '1.0'
 
-import PinshCmd, ConfigField
+import PinshCmd
+from ConfigField import ConfigField, MACHINE
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState, ENABLE
 system_state = SystemState()
@@ -49,21 +50,19 @@ class Machine(PinshCmd.PinshCmd):
         """
         PinshCmd.PinshCmd.__init__(self, "machine")
         self.help_text = "machine\tcommands that operate on a given machine"
-        self.level = 0
         self.cmd_owner = 1
 
         self.test = PinshCmd.PinshCmd("test")
         self.children = [self.test]
-        self.config_field = ConfigField.ConfigField(data_type=ConfigField.MACHINE)
+        self.config_field = ConfigField(data_type=MACHINE)
         self.test.children = [self.config_field]
         self.auth = ENABLE
 
 
-    def cmd(self, tokens, no_flag, slash):
+    def cmd(self, tokens, no_flag):
         """
         tokens -- all of the keywords passed in the command string, parsed
         no_flag -- whether the 'no' keyword was used in the command string
-        slash -- the base [PinshCmd] object
         """
 
         if no_flag:
@@ -79,9 +78,9 @@ class Machine(PinshCmd.PinshCmd):
             return FAIL, ["Ambiguous machine name: %s" % tokens[2]]
         machine_name = possible_machine_names[0]
         url = "json/machine/start_test/%s" % machine_name
-        output = system_state.cnm_connector.service_yaml_request(url, post_data={})
-        if "traceback" in output:
-            return FAIL, output["traceback"]
+        out = system_state.cnm_connector.service_yaml_request(url, post_data={})
+        if "traceback" in out:
+            return FAIL, out["traceback"]
 
         job_name = output.get("job_name")
         libUi.info("Job name: %s" % job_name)

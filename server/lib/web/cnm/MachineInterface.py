@@ -107,7 +107,7 @@ class MachineInterface:
         self.output_handle.flush()
 
     def terminate(self):
-        result = self.ssh_conn.terminate()
+        result = self.ssh_conn.terminate(force=True)
         if result:
             self.status = DISCONNECTED
             return OK

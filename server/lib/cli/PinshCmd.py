@@ -27,7 +27,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-'''Provides the base class for all command-line token object fields or commands'''
+'''Provides the base class for all command-line token object fields
+or commands'''
 
 import readline, sys
 import libUi
@@ -35,8 +36,11 @@ import StringIO
 import traceback
 from bombardier_core.static_data import DEBUG, PARTIAL, COMPLETE, INCOMPLETE
 from bombardier_core.static_data import NO_MATCH, FAIL, OK
+from Exceptions import AmbiguousCommand, UnknownCommand
 from SystemStateSingleton import SystemState, ENABLE, USER, F0
 system_state = SystemState()
+
+#DEBUG = True
 
 # find the names of all the objects given to me
 def convert_tokens_to_string(tokens, delimeter=' '):
@@ -75,7 +79,7 @@ def get_names(objects, tokens, index):
     """
     names = []
     for obj in objects:
-        if DEBUG: 
+        if DEBUG:
             print "(GET NAMES) obj.my_name:", obj.my_name
         new_name = obj.preferred_names(tokens, index)
         if type(new_name) == type("string"):
@@ -90,19 +94,18 @@ class PinshCmd:
     or nameable token in an input string.'''
 
     def __init__(self, name, help_text = "<cr>",
-                 level = ENABLE, token_delimeter = ' '):
+                 auth = ENABLE, token_delimeter = ' '):
         '''
         name -- name of the command or field
         help_text -- explanatory information about this command
-        level -- level of authorization required to run this command
+        auth -- authorization required to run this command
         token_delimeter -- character that separates this command or field
                            from other ones.
         '''
         self.my_name = name
         self.help_text = help_text
         self.children = []
-        self.level = level
-        self.auth = USER
+        self.auth = auth
         self.cmd_owner = 0
         self.token_delimeter = token_delimeter
         self.names = []
@@ -111,6 +114,24 @@ class PinshCmd:
 
     def __repr__(self):
         return self.my_name
+
+    def find_one_child(self, tokens, index):
+        '''Sometimes it's handy to be able to locate one of your
+        children, based on a token name and index.'''
+        possible_choices = []
+        child_names = [child.my_name for child in self.children]
+        for name in child_names:
+            if name.find(tokens[index]) == 0:
+                possible_choices.append(name)
+
+        if not possible_choices:
+            raise UnknownCommand(tokens[index])
+        if len(possible_choices) > 1:
+            if tokens[index] in child_names:
+                possible_choices = [tokens[index]]
+            else:
+                raise AmbiguousCommand(tokens[index], possible_choices)
+        return possible_choices[0]
 
     def preferred_names(self, _tokens, _index):
         '''How is this command or field represented in the shell? Often
@@ -144,7 +165,7 @@ class PinshCmd:
         else:
             return NO_MATCH, 1
 
-    def cmd(self, tokens, _no_flag, _my_slash):
+    def cmd(self, tokens, _no_flag):
         '''If the user has hit return and wants a command to be executed, and
         if the system has determined that this object is designated by the user
         then this object's cmd() method will be run.'''
@@ -165,7 +186,8 @@ class PinshCmd:
         a list of objects that could be completions for the final token.'''
         return_error = 1
         if DEBUG:
-            print "find_completions: self.my_name: %s tokens: %s (%d)" % (self.my_name, tokens, len(tokens))
+            d_tmp = "find_completions: self.my_name: %s tokens: %s (%d)"
+            print d_tmp % (self.my_name, tokens, len(tokens))
         if len(tokens[index:]) == 0: # no tokens left, I must be who you want!
             if DEBUG:
                 print "find_completions: FOUND at TOP"
@@ -184,19 +206,20 @@ class PinshCmd:
             if child.auth > system_state.auth:
                 continue
             match_value, length = child.match(tokens, index)
+            d_tmp = "find_completions match_value: %s length: %d"
             if match_value == INCOMPLETE:
                 if DEBUG:
-                    print "find_completions INCOMPLETE : match_value: %s length: %d" % (match_value, length)
+                    print d_tmp % (match_value, length)
                 incomplete_objects.append(child)
             if match_value == PARTIAL:
                 if DEBUG:
-                    print "find_completions PARTIAL : match_value: %s length: %d" % (match_value, length)
+                    print d_tmp % (match_value, length)
                 if length > match_len:
                     match_len = length
                 completion_objects.append(child)
             elif match_value == COMPLETE: # go see if there are more tokens!
                 if DEBUG:
-                    print "find_completions COMPLETE : match_value: %s length: %d" % (match_value, length)
+                    print d_tmp % (match_value, length)
                 tokens[index+length-1] = child.preferred_names(tokens, index)[0].split(' ')[-1]
                 if DEBUG:
                     print "NEW TOKEN:", tokens[index]
@@ -229,10 +252,12 @@ class PinshCmd:
                     print "COMPLETE: names (%s)" % (self.names[status])
                 return self.names[status]
             else:
-                _no_flag, _help_flag, tokens, _comment = libUi.process_input(readline.get_line_buffer())
+                _no_flag, _help_flag, tokens, _comment = \
+                    libUi.process_input(readline.get_line_buffer())
                 if DEBUG:
                     print "COMPLETE: %s" % tokens
-                # this is where we would process help if we could bind the '?' key properly
+                # this is where we would process help if
+                # we could bind the '?' key properly
                 index = 0
                 if tokens == []:
                     if DEBUG:
@@ -250,7 +275,8 @@ class PinshCmd:
                 # status is the index of the completion that readline wants
                 self.names =  get_names(completion_objects, tokens, index-1)
                 if DEBUG:
-                    print "COMPLETE: tokens: %s index: %d names: %s" % (tokens, index, self.names)
+                    d_tmp = "COMPLETE: tokens: %s index: %d names: %s"
+                    print d_tmp % (tokens, index, self.names)
                 if DEBUG:
                     print "COMPLETE: names", self.names
                 if len(self.names) == 1:
@@ -339,6 +365,9 @@ class PinshCmd:
                 else:
                     return self
         if len(owners) == 1: # one partial matches is as good as a complete match
+            tokens[index+length-1] = owners[0].acceptable_names(tokens, index)[0]
+            if DEBUG:
+                print "NEW TOKEN:", tokens[index]
             return owners[0].find_last_responsible_child(tokens, index+match_len)
         elif len(owners) == 0:
             if len(arguments) > 0: # this is a valid argument, I will take responsibility.
@@ -349,65 +378,33 @@ class PinshCmd:
             self.print_error_msg(tokens, index, "Ambiguous command")
             return None
 
-    def run(self, tokens, no_flag, my_slash):
+    def run(self, tokens, no_flag):
         'finds the correct object and runs a command'
         if tokens[-1] == '':
             tokens = tokens[:-1]
-        if system_state.state[-1] == F0:
-            if tokens[0].lower() != 'end':
-                system_state.command_buffer[F0].append([tokens, no_flag, my_slash])
-            else:
-                variable, values = system_state.variables[F0]
-                for value in values:
-                    for tokens, no_flag, my_slash in system_state.command_buffer[F0]:
-                        newTokens = []
-                        for token in tokens:
-                            if token == '$%s' % variable:
-                                newTokens.append(value)
-                            else:
-                                newTokens.append(token)
-                        owner = self.find_last_responsible_child(newTokens, 0)
-                        if not owner:
-                            continue
-                        return_value = owner.cmd(newTokens, no_flag, my_slash)
-                        if not (return_value == None and len(return_value) != 2):
-                            status = return_value[0]
-                            output = return_value[1]
-                            #if owner.log_command:
-                                #cmd = log(no_flag, tokens, status, output)
-                                #system_state.comment_commands.append(cmd)
-                            libUi.user_output(output, status)
-                        system_state.globals["output"] = output
-                        system_state.globals["status"] = status
-                extra_classes = system_state.new_classes[-1]
-                for _dummy in range(0, extra_classes):
-                    my_slash.children.pop()
-                system_state.pop_prompt()
-                system_state.clean_mode(system_state.state[-1])
+        owner = self.find_last_responsible_child(tokens, 0)
+        if not owner:
+            return FAIL, []
+        try:
+            return_value = owner.cmd(tokens, no_flag)
+        except AmbiguousCommand, amb_err:
+            return FAIL, [str(amb_err)]
+        except UnknownCommand, unk_err:
+            return FAIL, [str(unk_err)]
+        if return_value == None or len(return_value) != 2:
             return OK, []
         else:
-            owner = self.find_last_responsible_child(tokens, 0)
-            if not owner:
-                return FAIL, []
-            if system_state.state[-1] == F0 and not owner.exit_mode:
-                system_state.commands.append([owner.cmd, tokens, no_flag, my_slash])
-                return OK, []
-            else:
-                return_value = owner.cmd(tokens, no_flag, my_slash)
-                if return_value == None or len(return_value) != 2:
-                    return OK, []
-                else:
-                    status = return_value[0]
-                    output = return_value[1]
-                    #if owner.log_command:
-                        #cmd = log(no_flag, tokens, status, output)
-                        #system_state.comment_commands.append(cmd)
-                    system_state.globals["output"] = output
-                    system_state.globals["status"] = status
-                    return status, output
+            status = return_value[0]
+            output = return_value[1]
+            #if owner.log_command:
+                #cmd = log(no_flag, tokens, status, output)
+                #system_state.comment_commands.append(cmd)
+            system_state.globals["output"] = output
+            system_state.globals["status"] = status
+            return status, output
 
     def help(self):
-        'pretty-print the help strings of all my children on this level'
+        'pretty-print the help strings of all my children'
         help_text = []
         max_len = 0
         if len(self.children) == 0:
@@ -416,8 +413,6 @@ class PinshCmd:
 
         for child in self.children:
             if system_state.auth < child.auth:
-                continue
-            if child.level < system_state.state[-1]:
                 continue
             if child.help_text.rfind('\n') != -1:
                 for help_line in child.help_text.split('\n'):

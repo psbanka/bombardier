@@ -46,7 +46,7 @@ class ShowType(PinshCmd.PinshCmd):
         self.config_field = None
         self.cmd_owner = 1
 
-    def cmd(self, tokens, no_flag, _slash):
+    def cmd(self, tokens, no_flag):
         '''Show the thing that the user is interested in'''
         if no_flag:
             return FAIL, []
@@ -98,10 +98,9 @@ class History(PinshCmd.PinshCmd):
         self.help_text = "history\tdisplay the history of commands"
         self.integer  = Integer.Integer(min_value=1, max_value=1000)
         self.children = [self.integer]
-        self.level = 0
         self.cmd_owner = 1
 
-    def cmd(self, tokens, _no_flag, _slash):
+    def cmd(self, tokens, _no_flag):
         "Shows the history for this user's bomsh session and before"
         if len(tokens) == 2 or tokens[-1].strip()=='':
             number = 20
@@ -127,7 +126,6 @@ class Status(PinshCmd.PinshCmd):
         self.help_text = "status\tstatus of a host"
         #self.bom_host_field = BomHostField.BomHostField()
         #self.children = [self.bom_host_field]
-        self.level = 0
         self.cmd_owner = 1
 
     @classmethod
@@ -147,7 +145,7 @@ class Status(PinshCmd.PinshCmd):
             output.append(newLine)
         return output
 
-    def cmd(self, _tokens, _no_flag, _slash):
+    def cmd(self, _tokens, _no_flag):
         'prints status information, but does not work'
 #        if no_flag:
 #            return FAIL, []
@@ -202,6 +200,5 @@ class Show(PinshCmd.PinshCmd):
         package = Package()
         bom = Bom()
         self.children = [merged, machine, include, bom, history, package]
-        self.level = 0
         self.cmd_owner = 1
 
