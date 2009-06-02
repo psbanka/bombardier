@@ -32,13 +32,13 @@ Does not do anything itself, but merely has other PinshCmd objects which are
 its children'''
 
 import traceback, StringIO
-import exceptions
+import exceptions, readline
 import sys
 import PinshCmd, libUi
+from Exceptions import AmbiguousCommand, UnknownCommand
 from SystemStateSingleton import SystemState
 system_state = SystemState()
-from bombardier_core.static_data import FAIL, OK
-
+from bombardier_core.static_data import FAIL, OK, DEBUG
 
 class Slash(PinshCmd.PinshCmd):
     '''Root-level PinshCmd object, has no name.'''
@@ -57,6 +57,31 @@ class Slash(PinshCmd.PinshCmd):
     def set_err(self, fp_err):
         'set the error file handler'
         self.fp_err = fp_err
+
+    def run(self, tokens, no_flag):
+        'finds the correct object and runs a command'
+        if tokens[-1] == '':
+            tokens = tokens[:-1]
+        owner = self.find_last_responsible_child(tokens, 0)
+        if not owner:
+            return FAIL, []
+        try:
+            return_value = owner.cmd(tokens, no_flag)
+        except AmbiguousCommand, amb_err:
+            return FAIL, [str(amb_err)]
+        except UnknownCommand, unk_err:
+            return FAIL, [str(unk_err)]
+        if return_value == None or len(return_value) != 2:
+            return OK, []
+        else:
+            status = return_value[0]
+            output = return_value[1]
+            #if owner.log_command:
+                #cmd = log(no_flag, tokens, status, output)
+                #system_state.comment_commands.append(cmd)
+            system_state.globals["output"] = output
+            system_state.globals["status"] = status
+            return status, output
 
     def process_command(self, command):
         'When somebody hits return in the shell, this method handles it.'
@@ -91,5 +116,83 @@ class Slash(PinshCmd.PinshCmd):
             self.fp_err.write("\n")
         return FAIL, ["process_command Excepted"]
 
+    @classmethod
+    def get_names(cls, objects, tokens, index):
+        """
+        There is a tree of objects, such as:
+         slash:
+            - Show:
+                - machine
+                    - <machine_name>
+                - package
+                    - <package_name>
+            - Set
+                - machine
+                    - <machine_name>
+                - package
+                    - <package_name>
+            - Terminal
+                - width
+                - color
+            - etc.
+        ...and there is a set of user input, such as ['s']
+        It is the job of this function to return a list of name objects that can
+        be used to provide command-line completion.
+        objects -- a list of PinshCmd objects
+        tokens -- a list of string literals that represent strings the user
+                  typed in
+        index -- the current position of evaluation
+        """
+        names = []
+        for obj in objects:
+            if DEBUG:
+                print "(GET NAMES) obj.my_name:", obj.my_name
+            new_name = obj.preferred_names(tokens, index)
+            if type(new_name) == type("string"):
+                names.append(new_name)
+            else:
+                names = names + new_name
+        return names
 
+    def complete(self, _text, status):
+        '''Command line completer, called with [tab]
+        or [?] (if we could bind it)
+        _text -- text that readline sends as what the user enters
+        status -- the index into the completion list'''
+        try:
+            if status > 0:
+                if status >= len(self.names):
+                    return None
+                return self.names[status]
+            else:
+                _no_flag, _help_flag, tokens, _comment = \
+                    libUi.process_input(readline.get_line_buffer())
+                # this is where we would process help if
+                # we could bind the '?' key properly
+                index = 0
+                if tokens == []:
+                    completion_objects = self.children
+                else:
+                    completion_objects, index = self.find_completions(tokens, 0)
+                if len(completion_objects) == 0:
+                    return None
+                self.names = self.get_names(completion_objects, tokens, index-1)
+                if len(self.names) == 1:
+                    return self.names[0] + completion_objects[0].token_delimeter
+                if self.names:
+                    return self.names[0]
+                return []
+        except StandardError, err:
+            sys.stderr.write(" %%%% Error detected in %s (%s)." % (file, err))
+            tb_str = StringIO.StringIO()
+            traceback.print_exc(file=tb_str)
+            tb_str.seek(0)
+            data = tb_str.read()
+            ermsg = ''
+            for line in data.split('\n'):
+                ermsg += "\n||>>>%s" % line
+            sys.stderr.write(ermsg)
+            sys.stderr.write(" %%%% Error ocurred in %s" % file)
+            print
+            return []
 

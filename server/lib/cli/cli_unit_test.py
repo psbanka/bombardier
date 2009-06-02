@@ -75,10 +75,36 @@ class CliUnitTest(unittest.TestCase):
     def double_tab_completion(self, cmd):
         self.s.send(cmd+'\t\t')
         output = self.read()
-        line = ''.join(output)
-        if re.compile(PROMPT).findall(line):
-            line = line.split('$ ')[1]
-        return line
+        lines = ''.join(output).split('\r\n')
+        return lines[1].strip().split()
+
+class CliHelpTest(CliUnitTest):
+
+    def test_cli_help(self):
+        command = "cli ?"
+        expected_output = [
+            'cli ?',
+            'spammy      THIS IS A TEST',
+            'spammy2     THIS IS A TEST',
+            'spotty      THIS IS A TEST',
+        ]
+        output = self.run_command(command)
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
+
+    def test_slash_help(self):
+        command = "?"
+        expected_output = [
+            '?',
+            'cli          do not use this',
+            'exit         exit current mode',
+            'machine      commands that operate on a given machine',
+            'show         display components of the system',
+            'terminal     change settings for the current terminal',
+        ]
+        output = self.run_command(command)
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
+
+class CliCmdTest(CliUnitTest):
 
     def test_ambigous_command(self):
         command = "cli sp 22"
@@ -106,6 +132,8 @@ class CliUnitTest(unittest.TestCase):
         output = self.run_command(command)
         assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
 
+class CliCompletionTest(CliUnitTest):
+
     def test_simple_completion(self):
         output = self.tab_completion("cl")
         expected_output = "cli "
@@ -113,10 +141,17 @@ class CliUnitTest(unittest.TestCase):
 
     def test_complex_completion(self):
         output = self.double_tab_completion("cli sp")
-        expected_output = "cli sp"
+        expected_output = ["spammy", "spammy2", "spotty"]
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
+
+    def test_complex_completion2(self):
+        output = self.double_tab_completion("cli spo ")
+        expected_output = ["AA", "BB", "CC"]
         assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
 
 if __name__ == "__main__":
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(CliUnitTest))
+    suite.addTest(unittest.makeSuite(CliCmdTest))
+    suite.addTest(unittest.makeSuite(CliCompletionTest))
+    suite.addTest(unittest.makeSuite(CliHelpTest))
     unittest.TextTestRunner(verbosity=2).run(suite)
