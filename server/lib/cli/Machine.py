@@ -82,7 +82,7 @@ class Machine(PinshCmd.PinshCmd):
         if "traceback" in out:
             return FAIL, out["traceback"]
 
-        job_name = output.get("job_name")
+        job_name = out.get("job_name")
         libUi.info("Job name: %s" % job_name)
 
         output = {"alive": 1}
