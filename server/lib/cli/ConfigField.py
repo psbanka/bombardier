@@ -40,6 +40,7 @@ MACHINE = 2
 INCLUDE = 3
 BOM = 4
 PACKAGE = 5
+USER = 6
 
 class ConfigField(PinshCmd.PinshCmd):
     '''The server keeps track of several types of configuration data.
@@ -69,13 +70,18 @@ class ConfigField(PinshCmd.PinshCmd):
             self.directory = "bom"
         if data_type == PACKAGE:
             self.directory = "package"
+        if data_type == USER:
+            self.directory = "user"
 
     def get_object_list(self):
         'returns a list of all self.data_type things'
         url = "json/%s/search/" % self.directory
         data = system_state.cnm_connector.service_yaml_request(url)
-        machines = [ x.get("fields").get("name") for x in data ]
-        return machines
+        if self.directory == "user":
+            object_list = [ x.get("fields").get("username") for x in data ]
+        else:
+            object_list = [ x.get("fields").get("name") for x in data ]
+        return object_list
 
     def get_data(self, first_token_name):
         'returns a list of all configuration objects of this type'

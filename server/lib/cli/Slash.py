@@ -47,16 +47,6 @@ class Slash(PinshCmd.PinshCmd):
         self.children = children
         self.cmd_owner = 1
         self.help_text = ''
-        self.fp_out = sys.stdout #FIXME: Push into system_state
-        self.fp_err = sys.stderr
-
-    def set_output(self, fp_out):
-        'set the output file handler'
-        self.fp_out = fp_out
-
-    def set_err(self, fp_err):
-        'set the error file handler'
-        self.fp_err = fp_err
 
     def run(self, tokens, no_flag):
         'finds the correct object and runs a command'
@@ -97,14 +87,16 @@ class Slash(PinshCmd.PinshCmd):
                 status, output = self.run(tokens, no_flag)
                 #if comment:
                     #makeComment(comment) # MISSING
-            libUi.user_output(output, status, self.fp_out, self.fp_err)
+            libUi.user_output(output, status, system_state.fp_out,
+                              system_state.fp_err)
             return status, output
         except exceptions.SystemExit:
             #if system_state.comment_commands:
                 #makeComment()
             sys.exit(0)
         except Exception, err:
-            self.fp_err.write( " %%%% Error detected in %s (%s)." % (command, err))
+            msg = " %%%% Error detected in %s (%s)." % (command, err)
+            system_state.fp_err.write( msg )
             tb_str = StringIO.StringIO()
             traceback.print_exc(file=tb_str)
             tb_str.seek(0)
@@ -112,8 +104,8 @@ class Slash(PinshCmd.PinshCmd):
             ermsg = ''
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
-            self.fp_err.write(ermsg)
-            self.fp_err.write("\n")
+            system_state.fp_err.write(ermsg)
+            system_state.fp_err.write("\n")
         return FAIL, ["process_command Excepted"]
 
     @classmethod

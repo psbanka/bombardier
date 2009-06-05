@@ -54,10 +54,6 @@ def get_tests(cls, module_name):
 def run_tests(cls, tests):
     object = cls()
     slash = Slash.Slash([object])
-    if not DEBUG:
-        print "(suppressing output)"
-        output_handle = StringIO.StringIO()
-        slash.set_output(output_handle)
 
     output = {}
     for command in tests:
@@ -90,7 +86,10 @@ if __name__ == "__main__":
 
     file_names = glob.glob("*.py")
     module_names = [ x.split('.')[0] for x in file_names ]
-
+    if not DEBUG:
+        print "(suppressing output)"
+        output_handle = StringIO.StringIO()
+        system_state.set_output(output_handle)
 
     for module_name in module_names:
         cls = get_cls(module_name)

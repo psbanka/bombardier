@@ -91,6 +91,13 @@ class Package(ShowType):
         self.config_field = ConfigField.ConfigField(data_type=ConfigField.PACKAGE)
         self.children = [self.config_field]
 
+class User(ShowType):
+    'Displays information about a user from the server'
+    def __init__(self):
+        ShowType.__init__(self, "user", "user\tdisplay information about a given user")
+        self.config_field = ConfigField.ConfigField(data_type=ConfigField.USER)
+        self.children = [self.config_field]
+
 class History(PinshCmd.PinshCmd):
     'Displays command-line history (NOT from the server)'
     def __init__(self):
@@ -198,7 +205,8 @@ class Show(PinshCmd.PinshCmd):
         include = Include()
         #status = Status()
         package = Package()
+        user    = User()
         bom = Bom()
-        self.children = [merged, machine, include, bom, history, package]
+        self.children = [merged, machine, include, bom, history, package, user]
         self.cmd_owner = 1
 

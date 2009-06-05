@@ -35,8 +35,8 @@ from CnmConnector import CnmConnector, UnexpectedDataException, ServerException
 from SystemStateSingleton import SystemState
 system_state = SystemState()
 from bombardier_core.static_data import FAIL, WARNING, ERROR
+from bombardier_core.static_data import USER, ADMIN
 import re
-
 
 
 ONE_LINE = 0
@@ -63,7 +63,10 @@ def login(username, logger, password=None):
             password = pwd_input("password: ")
         try:
             superuser_status = system_state.cnm_connector.login(password)
-            print ">>> ", superuser_status
+            if superuser_status:
+                system_state.set_auth(ADMIN)
+            else:
+                system_state.set_auth(USER)
             break
         except UnexpectedDataException:
             user_output(["Bad username or password."], FAIL)
@@ -354,20 +357,20 @@ def prepender(prepend, obj, depth):
 
 def info(msg):
     'logging function'
-    system_state.output_handle.write(">>> %s\n" % msg)
+    system_state.fp_out.write(">>> %s\n" % msg)
 
 def debug(msg):
     'logging function'
     if system_state.debug == True:
-        system_state.output_handle.write(">>> DEBUG: %s\n" % msg)
+        system_state.fp_out.write(">>> DEBUG: %s\n" % msg)
 
 def warning(msg):
     'logging function'
-    system_state.output_handle.write(">>> WARNING: %s\n" % msg)
+    system_state.fp_out.write(">>> WARNING: %s\n" % msg)
 
 def error(msg):
     'logging function'
-    system_state.output_handle.write(">>> ERROR: %s\n" % msg)
+    system_state.fp_out.write(">>> ERROR: %s\n" % msg)
 
 def process_cnm(text_stream):
     'Handles output from the CNM and pretty-prints to the screen'

@@ -3,7 +3,6 @@ import time
 import Pyro.naming
 from MachineConfig import MachineConfig
 from BombardierMachineInterface import BombardierMachineInterface
-import CommSocket
 from bombardier_core.static_data import OK, FAIL, COMMAND_LOG_MARKER
 import syslog
 from threading import Thread
