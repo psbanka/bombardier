@@ -186,18 +186,13 @@ class SpkgV4:
 
     def uninstaller(self):
         return self._abstracty()
-    
-    def modifyTemplate(self, inputFile, outputFile, encoding=None, processEscape = False):
-        status = OK
-        varMatch = re.compile("\%\((.*?)\)s")
-        if encoding == None:
-            configData = self.filesystem.open(inputFile, 'r').read()
-        else:
-            configData = unicode( self.filesystem.open(inputFile, 'rb').read(), encoding )
 
-        variables = varMatch.findall(configData)
+    def modifyTemplateString(self, inputString, outputFile, encoding=None, processEscape = False):
+        varMatch = re.compile("\%\((.*?)\)s")
+        variables = varMatch.findall(inputString)
+        status = OK
         output = []
-        for line in configData.split('\n'):
+        for line in inputString.split('\n'):
             variables = varMatch.findall(line)
             configDict = {}
             if len(variables) == 0:
@@ -225,9 +220,17 @@ class SpkgV4:
             self.filesystem.open(outputFile, 'w').write(outputData)
         else:
             self.filesystem.open(outputFile, 'wb').write(outputData.encode( encoding ))
+        return status
+
+    
+    def modifyTemplate(self, inputFile, outputFile, encoding=None, processEscape = False):
+        if encoding == None:
+            inputString = self.filesystem.open(inputFile, 'r').read()
+        else:
+            inputString = unicode( self.filesystem.open(inputFile, 'rb').read(), encoding )
         self.info("Template: " + inputFile )
         self.info("Created: " + outputFile )
-        return status
+        return self.modifyTemplateString(inputString, outputFile, encoding, processEscape)
 
 class Spkg(SpkgV4):
     def __init__(self, config, filesystem = Filesystem.Filesystem(), futurePackages = [], logger = None):
