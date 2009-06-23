@@ -44,7 +44,7 @@ class JobThread(Thread):
         try:
             exec(self.importString)
             exec("self.cmdStatus = %s" % self.cmd)
-        except StandardError, e:
+        except Exception, e:
             Logger.error( "Failed to run %s" % self.cmd )
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
@@ -299,6 +299,8 @@ class Package:
         self.filesystem.chdir(self.scriptsDir)
         files = glob.glob("*.py")
         files = [x.split('.py')[0] for x in files]
+        if self.name in files:
+            files = [self.name]
         status = FAIL
         fileFound = False
         for fileName in files:  # FIXME this is stupid
