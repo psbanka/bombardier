@@ -111,6 +111,11 @@ class Repository:
             erstr = "No package file in %s." % (pkgPath+".spkg")
             Logger.error(erstr)
             return FAIL
+        if sys.platform != 'win32':
+            cmd = "cd %s && tar -xzvf %s.spkg" % (packagePath, fullPackageName)
+            if not self.filesystem.system(cmd) == OK:
+                return FAIL
+            return OK
         if self.unzip(pkgPath, fullPackageName, removeSpkg) == FAIL:
             return FAIL
         tar = self.filesystem.tarOpen(pkgPath+".tar", "r")
