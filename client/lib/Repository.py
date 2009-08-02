@@ -112,7 +112,8 @@ class Repository:
             Logger.error(erstr)
             return FAIL
         if sys.platform != 'win32':
-            cmd = "cd %s && tar -xzvf %s.spkg" % (packagePath, fullPackageName)
+            cmd = "cd %s && tar -xzf %s.spkg" % (packagePath, fullPackageName)
+            Logger.info("Untarring with filesystem command: %s" %cmd)
             if not self.filesystem.system(cmd) == OK:
                 return FAIL
             return OK
