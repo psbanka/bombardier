@@ -57,7 +57,8 @@ class UpdateRemoteClient(BombardierRemoteClient):
             self.connect()
             self.scp(self.tarFile, self.base_file_name)
             self.unpackAndSetupClient()
-            self.setupSpkgDir()
+            if "bombardier" in self.release:
+                self.setupSpkgDir()
         except ClientUpdateException, e:
             return FAIL, ["ERROR INSTALLING: %s" % e.reason]
         return OK,["Client has been upgraded to %s" % self.release]
@@ -65,7 +66,7 @@ class UpdateRemoteClient(BombardierRemoteClient):
 class UpdateClient(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "update")
-        self.helpText = "update\tupdate the bombardier software on a remote system"
+        self.helpText = "update\tupdate the python software on a remote system"
         self.bomHostField = BomHostField.BomHostField()
         self.children = [self.bomHostField]
         clientDeploymentDirectory = os.path.join(mode.serverHome, "bombardier-client")

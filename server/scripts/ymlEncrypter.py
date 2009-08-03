@@ -1,4 +1,5 @@
-import libCipher
+#!/usr/bin/python
+from bombardier_server import libCipher
 import yaml
 import sys
 import getpass

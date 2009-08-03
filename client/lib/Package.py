@@ -301,6 +301,12 @@ class Package:
         self.filesystem.chdir(self.scriptsDir)
         files = glob.glob("*.py")
         files = [x.split('.py')[0] for x in files]
+        if self.name in files:
+            files = [self.name]
+        else:
+            vpkg_name = self.metaData['virtualpackage']
+            if vpkg_name in files:
+                files = [vpkg_name]
         status = FAIL
         fileFound = False
         for fileName in files:  # FIXME this is stupid

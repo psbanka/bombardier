@@ -293,10 +293,14 @@ class BombardierRemoteClient(RemoteClient):
         if not os.path.isfile(statusYml):
             self.debugOutput("Cannot retrieve status (NO FILE: %s)" % statusYml)
             return {}
-        yml = syck.load( open(statusYml).read() ) 
-        if yml == None:
+        data = open(statusYml).read() 
+        yml = syck.load( data ) 
+        if not yml:
             self.debugOutput("Cannot retrieve status (EMPTY FILE: %s)" % statusYml)
-            return {}
+            yml = {}
+        if type(yml) == type(''):
+            self.debugOuput("Invalid status (YML: %s)" % yml)
+            yml = {}
         return yml
 
     def getAllPackageNames(self):
