@@ -41,7 +41,6 @@ class MultipleChoice(PinshCmd.PinshCmd):
         PinshCmd.PinshCmd.__init__(self, "multiple")
         self.help_text = ""
         self.choices = choices
-        self.level = 99
         if not choices:
             self.help_text = "error\t--This module needs attention--"
             return

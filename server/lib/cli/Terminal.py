@@ -48,14 +48,13 @@ class Terminal(PinshCmd.PinshCmd):
         color_options = MultipleChoice.MultipleChoice(choices = ["none", "light", "dark"],
                                                      help_text = help_text)
         self.children = [self.length, self.width, self.color]
-        self.num = Integer.Integer(min = 0, max = 1000, name = "<int>")
+        self.num = Integer.Integer(min_value = 0, max_value = 1000, name = "<int>")
         self.length.children = [self.num]
         self.width.children = [self.num]
         self.color.children = [color_options]
-        self.level = 0
         self.cmd_owner = 1
 
-    def cmd(self, tokens, no_flag, _slash):
+    def cmd(self, tokens, no_flag):
         'Someone wants to execute a command to change their terminal'
         if no_flag:
             if tokens[1].lower().startswith('c'):

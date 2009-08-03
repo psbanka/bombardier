@@ -93,7 +93,7 @@ class BombardierMachineInterface(MachineInterface):
     def send_package(self, package_name, destPath):
         file_name = os.path.join(self.server_home, "packages", package_name)
         if not os.path.isfile(file_name):
-            message = "Client requested a file that is not on this server: %s"
+            message = "Machine requested a file that is not on this server: %s"
             self.error(message % file_name)
             return OK
         self.scp(file_name, destPath, False)
@@ -307,7 +307,7 @@ class BombardierMachineInterface(MachineInterface):
                 self.dump_trace()
                 self.ssh_conn.prompt()
                 self.get_status_yml()
-                return FAIL, ["Client raised an exception."]
+                return FAIL, ["Machine raised an exception."]
             elif found_index == 0: # BC exited
                 if self.ssh_conn.before.strip():
                     msg = "Remaining output: %s" % self.ssh_conn.before.strip()
@@ -355,7 +355,7 @@ class BombardierMachineInterface(MachineInterface):
         except MachineConfigurationException:
             return FAIL, []
         except EOF:
-            return FAIL, ["Client unexpectedly disconnected."]
+            return FAIL, ["Machine unexpectedly disconnected."]
         except Exception, exc:
             exc = StringIO.StringIO()
             traceback.print_exc(file=exc)

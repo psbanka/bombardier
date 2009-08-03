@@ -1,105 +1,157 @@
-from SystemStateSingleton import SystemState
-from bombardier_core.static_data import OK, FAIL, STRING_TO_RETURN_VALUE_MAPPING
-import glob, sys, StringIO, yaml
-import libUi
-import re
-import Slash
-from bombardier_core.Logger import Logger
+#!/usr/bin/env python
 
+import unittest, StringIO, sets, yaml, sys, os
+
+
+
+import pexpect, sys, re
+PASSWORD = "abc123"
+USERNAME = "TESTY"
+DEBUG = True
 DEBUG = False
-IGNORE_MODULE_NAMES = 'tester', 'libUi', 'Slash', 'SystemStateSingleton', '_version'
+PROMPT_CHARACTER = '\\$'
+PROMPT = '\(%s\)%s' % (USERNAME, PROMPT_CHARACTER)
 
-def get_cls(module_name):
-    if module_name in IGNORE_MODULE_NAMES:
-        return None
-    module = __import__(module_name)
-    if not hasattr(module, module_name):
-        return None
-    cls = getattr(module, module_name)
-    return cls
+class CliUnitTest(unittest.TestCase):
 
-def get_tests(cls, module_name):
-    tests = {}
-    if module_name in IGNORE_MODULE_NAMES:
-        return tests
-    module = __import__(module_name)
-    if not hasattr(module, module_name):
-        return tests
-    cls = getattr(module, module_name)
-    doc_str = cls.__doc__
-    if not doc_str:
-        return tests
-    command = ''
-    for line in doc_str.split('\n'):
-        if command:
-            result = re.compile("(\[(OK|FAIL), \[.*\]\])").findall(line)
-            if result:
-                yaml_str = result[0][0]
-                try:
-                    parsed_test = yaml.load(yaml_str)
-                    status = STRING_TO_RETURN_VALUE_MAPPING[parsed_test[0]]
-                    output_lines = parsed_test[1]
-                    tests[command] = [status, output_lines]
-                except yaml.parser.ParserError:
-                    print "Invalid result: ", line
-                    break
-            command = ''
-        else:
-            result = re.compile('bomsh\# (.*)').findall(line)
-            if result:
-                command = result[0]
-    return tests
+    def setUp(self):
+        self.s = pexpect.spawn("bomsh -n -u %s" % USERNAME, timeout=5000)
+        if DEBUG:
+            self.s.logfile = sys.stdout
+        #expected_values = [pexpect.TIMEOUT, '[pP]assword: ']
+        #i = self.s.expect(expected_values, timeout=30)
+        #assert i == 1, "Could not start the bomsh"
+        #print self.s.before
+        #self.s.sendline(PASSWORD)
+        #self.s.sendline('\n\r')
+        self.get_prompt()
 
+    def tearDown(self):
+        output = self.run_command("\b" * 20)
+        #output = self.run_command("\n\r")
+        output = self.run_command("exit\n\r")
+        #output = self.run_command("n\n\r")
+        self.s.close(True)
 
-def run_tests(cls, tests):
-    object = cls()
-    slash = Slash.Slash([object])
-    if not DEBUG:
-        print "(suppressing output)"
-        output_handle = StringIO.StringIO()
-        slash.set_output(output_handle)
+    def get_prompt(self):
+        expected_values = [pexpect.TIMEOUT, PROMPT ]
+        i = self.s.expect(expected_values, timeout=30)
+        assert i == 1, "Could not get a PROMPT"
 
-    output = {}
-    for command in tests:
-        expected_result = tests[command]
-        expected_status = expected_result[0]
-        expected_cmd_output = expected_result[1]
-        no_flag, help_flag, tokens, comment = libUi.process_input(command)
-        cmd_status, cmd_output = slash.process_command(command.strip())
-        if cmd_status != expected_status:
-            output[command] = "FAIL"
-            print cmd_output
-            continue
-        if len(cmd_output) != len(expected_cmd_output):
-            output[command] = "FAIL"
-            print cmd_output, expected_cmd_output
-            continue
-        for index in range(0,len(cmd_output)):
-            received_user_line = cmd_output[index].strip()
-            expected_user_line = expected_cmd_output[index]
-            if received_user_line != expected_user_line:
-                output[command] = "FAIL"
-        output[command] = "PASSED"
-    return output
+    def read(self):
+        output = []
+        data = 'initialize'
+        while True:
+            try:
+                data = self.s.read_nonblocking(timeout=0.25)
+            except pexpect.EOF:
+                break
+            except pexpect.TIMEOUT:
+                break
+            output.append(data)
+        return output
+
+    def run_command(self, cmd):
+        self.s.sendline(cmd+'\n')
+        output = self.read()
+        lines = ''.join(output).split('\r\n')
+        command_output = []
+        for line in lines:
+            if re.compile(PROMPT).findall(line):
+                continue
+            if line:
+                command_output.append( line.strip() )
+        return command_output
+
+    def tab_completion(self, cmd):
+        self.s.send(cmd+'\t')
+        output = self.read()
+        line = ''.join(output)
+        if re.compile(PROMPT).findall(line):
+            line = line.split('>')[1]
+        #print "LINE: (%s)" % line
+        return line
+
+    def double_tab_completion(self, cmd):
+        self.s.send(cmd+'\t\t')
+        output = self.read()
+        lines = ''.join(output).split('\r\n')
+        return lines[1].strip().split()
+
+class CliHelpTest(CliUnitTest):
+
+    def test_cli_help(self):
+        command = "cli ?"
+        expected_output = [
+            'cli ?',
+            'spammy      THIS IS A TEST',
+            'spammy2     THIS IS A TEST',
+            'spotty      THIS IS A TEST',
+        ]
+        output = self.run_command(command)
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
+
+    def test_slash_help(self):
+        command = "?"
+        expected_output = [
+            '?',
+            'cli          do not use this',
+            'exit         exit current mode',
+            'machine      commands that operate on a given machine',
+            'show         display components of the system',
+            'terminal     change settings for the current terminal',
+        ]
+        output = self.run_command(command)
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
+
+class CliCmdTest(CliUnitTest):
+
+    def test_ambigous_command(self):
+        command = "cli sp 22"
+        err = '%  Command "sp" ambiguous -- could be [\'spammy\', \'spammy2\', \'spotty\'].'
+        expected_output = [command, err]
+
+        output = self.run_command(command)
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
+
+    def test_complete_but_ambigous_command(self):
+        command = "cli spammy 22"
+        expected_output = [command, "cli", "spammy", "22"]
+        output = self.run_command(command)
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
+
+    def test_shortened_command(self):
+        command = "cl spammy2 22"
+        expected_output = [command, "cli", "spammy2", "22"]
+        output = self.run_command(command)
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
+
+    def test_simple_command(self):
+        command = "cli spammy2 22"
+        expected_output = [command, "cli", "spammy2", "22"]
+        output = self.run_command(command)
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
+
+class CliCompletionTest(CliUnitTest):
+
+    def test_simple_completion(self):
+        output = self.tab_completion("cl")
+        expected_output = "cli "
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
+
+    def test_complex_completion(self):
+        output = self.double_tab_completion("cli sp")
+        expected_output = ["spammy", "spammy2", "spotty"]
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
+
+    def test_complex_completion2(self):
+        output = self.double_tab_completion("cli spo ")
+        expected_output = ["AA", "BB", "CC"]
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
 
 if __name__ == "__main__":
-    system_state = SystemState()
-    system_state.load_config()
-    logger = Logger('bombardier_test', 'test.log')
-    libUi.login("admin", logger, 'abc123')
-
-    file_names = glob.glob("*.py")
-    module_names = [ x.split('.')[0] for x in file_names ]
-
-
-    for module_name in module_names:
-        cls = get_cls(module_name)
-        if not cls:
-            continue
-        tests = get_tests(cls, module_name)
-        if not tests:
-            continue
-
-        output = run_tests(cls, tests)
-        for command in output:
-            print "%s:  '%s' (%s)" % (output[command], command, module_name)
+    suite = unittest.TestSuite()
+    suite.addTest(unittest.makeSuite(CliCmdTest))
+    suite.addTest(unittest.makeSuite(CliCompletionTest))
+    suite.addTest(unittest.makeSuite(CliHelpTest))
+    unittest.TextTestRunner(verbosity=2).run(suite)

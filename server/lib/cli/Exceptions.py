@@ -77,3 +77,23 @@ class UnexpectedDataException(Exception):
     def __str__(self):
         return self.__repr__()
 
+class UnknownCommand(Exception):
+    "Someone entered a command that doesn't make sense"
+    def __init__(self, command):
+        Exception.__init__(self)
+        self.command = command
+    def __repr__(self):
+        return "Unknown command (%s)" % self.command
+    def __str__(self):
+        return self.__repr__()
+
+class AmbiguousCommand(Exception):
+    "Someone entered a command that could have matched more than one option"
+    def __init__(self, command, options):
+        Exception.__init__(self)
+        self.command = command
+        self.options = options
+    def __repr__(self):
+        return 'Command "%s" ambiguous -- could be %s.' % (self.command, self.options)
+    def __str__(self):
+        return self.__repr__()

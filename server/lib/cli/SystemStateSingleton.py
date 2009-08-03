@@ -34,7 +34,7 @@ is a design compomise because readline() requires it, really.'''
 
 import readline, socket, sys, os
 import yaml, syck
-from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import OK, FAIL, USER, ADMIN
 
 PERSONAL_CONFIG_FILE = "%s/.bomsh_config" % os.environ.get("HOME")
 
@@ -42,9 +42,6 @@ NO_COLOR  = 'none'
 DARK      = "dark"
 LIGHT     = "light"
 
-# Authorization levels
-USER = 0
-ADMIN = 1
 
 # possible modes
 ENABLE = 0
@@ -89,7 +86,8 @@ class SystemState:
             self.termlen   = 23
             self.termcolor = NO_COLOR
             self.cnm_connector = None
-            self.output_handle = sys.stdout
+            self.fp_out = sys.stdout #FIXME: Push into system_state
+            self.fp_err = sys.stderr
 
 
     __instance = None
@@ -111,6 +109,10 @@ class SystemState:
     def __setattr__(self, attr, value):
         """ Delegate access to implementation """
         return setattr(self.__instance, attr, value)
+
+    def set_auth(cls, auth_level):
+        "Set the current level of authorization for the user"
+        SystemState.__instance.auth = auth_level
 
     def add_personal_config_list(cls, option, value):
         '''The 'config_list' is the set of all configuration
@@ -140,6 +142,14 @@ class SystemState:
                 SystemState.__instance.debug = debug
             SystemState.__instance.editor = config.get("editor", "/usr/bin/vim")
             SystemState.__instance.personal_config = config
+
+    def set_output(cls, fp_out):
+        'set the output file handler'
+        SystemState.__instance.fp_out = fp_out
+
+    def set_err(cls, fp_err):
+        'set the error file handler'
+        SystemState.__instance.fp_err = fp_err
 
     def get_term_info(cls):
         '''tries to get infomration about the user's terminal'''
