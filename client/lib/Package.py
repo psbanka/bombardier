@@ -44,7 +44,7 @@ class JobThread(Thread):
         try:
             exec(self.importString)
             exec("self.cmdStatus = %s" % self.cmd)
-        except Exception, e:
+        except StandardError, e:
             Logger.error( "Failed to run %s" % self.cmd )
             e = StringIO.StringIO()
             traceback.print_exc(file=e)
