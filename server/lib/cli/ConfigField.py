@@ -41,6 +41,7 @@ INCLUDE = 3
 BOM = 4
 PACKAGE = 5
 USER = 6
+DIST = 7
 
 class ConfigField(PinshCmd.PinshCmd):
     '''The server keeps track of several types of configuration data.
@@ -49,7 +50,8 @@ class ConfigField(PinshCmd.PinshCmd):
         '''
         name -- Not used except in debugging
         data_type -- which type of configuration data is this object supposed
-                     to match? Can be MERGED, MACHINE, INCLUDE, BOM, or PACKAGE
+                     to match? Can be MERGED, MACHINE, INCLUDE, BOM, DIST, 
+                     or PACKAGE
         strict -- The preferred_names() method can be either liberal such that
                   'local' will match 'localhost' or can be strict such that
                   'local' will not match 'localhost'
@@ -62,21 +64,24 @@ class ConfigField(PinshCmd.PinshCmd):
         self.strict = strict # take only exact matches
         if data_type == MACHINE:
             self.directory = "machine"
-        if data_type == MERGED:
+        elif data_type == MERGED:
             self.directory = "merged"
-        if data_type == INCLUDE:
+        elif data_type == INCLUDE:
             self.directory = "include"
-        if data_type == BOM:
+        elif data_type == BOM:
             self.directory = "bom"
-        if data_type == PACKAGE:
+        elif data_type == PACKAGE:
             self.directory = "package"
-        if data_type == USER:
+        elif data_type == USER:
             self.directory = "user"
+        elif data_type == DIST:
+            self.directory = "dist"
 
     def get_object_list(self):
         'returns a list of all self.data_type things'
         url = "json/%s/search/" % self.directory
         data = system_state.cnm_connector.service_yaml_request(url)
+        #print "get_object_list: url: %s\ndata:%s\n" %(url, data)
         if self.directory == "user":
             object_list = [ x.get("fields").get("username") for x in data ]
         else:
@@ -94,6 +99,7 @@ class ConfigField(PinshCmd.PinshCmd):
         to figure out that localhost is the object that needs to be found and
         to return the dictionary for that object.
         '''
+        #print "get_top_lvl_data: tokens", tokens
         partial_first = tokens[index].split('.')[0]
         object_names = self.get_object_list()
         first_token_names = []
@@ -250,6 +256,7 @@ class ConfigField(PinshCmd.PinshCmd):
         otherwise, it will return 'localh'.
 
         '''
+        #print "PN: begin self.string = ", self.strict
         tokens[index] = tokens[index].replace('"', '')
         if not self.strict:
             return tokens[index:]
@@ -259,6 +266,8 @@ class ConfigField(PinshCmd.PinshCmd):
         else:
         #except TypeError:
             return FAIL, "Unable to read data from server"
+
+        #print "PN: first_token_names: ", first_token_names
         if len(first_token_names) == 0:
             return []
         if len(first_token_names) > 1:

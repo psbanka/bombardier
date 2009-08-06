@@ -42,12 +42,14 @@ TERM_OVERCOUNT = 8 # For some reason, the term width seems too long...
 class ShowType(PinshCmd.PinshCmd):
     '''A thing that can be shown.'''
     def __init__(self, name, help_text):
+        print "init in ShowType"
         PinshCmd.PinshCmd.__init__(self, name, help_text)
         self.config_field = None
         self.cmd_owner = 1
 
     def cmd(self, tokens, no_flag):
         '''Show the thing that the user is interested in'''
+        print "cmd in ShowType"
         if no_flag:
             return FAIL, []
         if len(tokens) < 3:
@@ -61,6 +63,13 @@ class Merged(ShowType):
     def __init__(self):
         ShowType.__init__(self, "merged", "merged\tdisplay a merged configuration")
         self.config_field = ConfigField.ConfigField()
+        self.children = [self.config_field]
+
+class Dist(ShowType):
+    'Displays basic machine configuration data from the server'
+    def __init__(self):
+        ShowType.__init__(self, "dist", "dist\tshow a python distribution tar-ball")
+        self.config_field = ConfigField.ConfigField(data_type=ConfigField.DIST)
         self.children = [self.config_field]
 
 class Machine(ShowType):
@@ -194,7 +203,9 @@ class Show(PinshCmd.PinshCmd):
     '''bomsh# show bom qa
        [OK, ['- new_tomcat', '- new_apache', '- new_database', '']]
        bomsh# show machine localhost
-       [OK, ['default_user: 208048363', "include:", '- foo', '- bar', '- spam', 'ip_address: 127.0.0.1', 'platform: win32', '']]
+       [OK, ['default_user: root', 'ip_address: 127.0.0.1', 'platform: linux', '']]
+       bomsh# show dist test.tar.gz
+       [OK, ['Provides: EMPTY_TEST', 'Version: 1', 'Description: Open Source Empty package']]
     '''
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "show")
@@ -206,7 +217,8 @@ class Show(PinshCmd.PinshCmd):
         #status = Status()
         package = Package()
         user    = User()
+        dist    = Dist()
         bom = Bom()
-        self.children = [merged, machine, include, bom, history, package, user]
+        self.children = [merged, machine, include, bom, history, package, user, dist]
         self.cmd_owner = 1
 

@@ -1,5 +1,5 @@
 #!/opt/python2.5/bin/python
-from bombardier_core.miniUtility import addDictionaries
+from bombardier_core.mini_utility import addDictionaries
 import os
 import yaml, syck
 import getpass

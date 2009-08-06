@@ -35,7 +35,7 @@ __author__ =  'Peter Banka'
 __version__ = '1.0'
 
 import PinshCmd
-from ConfigField import ConfigField, MACHINE
+from ConfigField import ConfigField, MACHINE, DIST
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState, ENABLE
 system_state = SystemState()
@@ -44,6 +44,8 @@ import libUi, time
 class Machine(PinshCmd.PinshCmd):
     '''bomsh# machine test localhost
        [OK, ['foo']]
+       bomsh# machine dist localhost test.tar.gz
+       [OK, ['localhost updated with test.tar.gz']]
     '''
     def __init__(self):
         """Top-level object has a 'test' child: test the machine
@@ -53,9 +55,13 @@ class Machine(PinshCmd.PinshCmd):
         self.cmd_owner = 1
 
         self.test = PinshCmd.PinshCmd("test")
-        self.children = [self.test]
+        self.dist = PinshCmd.PinshCmd("dist")
+
+        self.children = [self.test, self.dist]
         self.config_field = ConfigField(data_type=MACHINE)
+        self.dist_field = ConfigField(data_type=DIST)
         self.test.children = [self.config_field]
+        self.dist.children = [self.dist_field]
         self.auth = ENABLE
 
 

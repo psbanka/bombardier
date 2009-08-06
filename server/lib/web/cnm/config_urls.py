@@ -1,7 +1,12 @@
 from django.conf.urls.defaults import patterns, url
 from django_restapi.responder import JsonDictResponder, JSONResponder, YamlFileResponder
+
+from django import forms
+
+from django.shortcuts import render_to_response
 from CnmResource import CnmResource
 from configs.models import Machine, Include, Bom, ServerConfig, Package
+from configs.models import Dist
 import ServerConfigFile
 import syck, glob
 import os
@@ -10,7 +15,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 
 MAPPER = {"merged": Machine, "machine": Machine, "include": Include,
-          "bom": Bom, "package": Package}
+          "bom": Bom, "package": Package }
+MAPPER["dist"] = Dist
 
 class ConfigEntry(CnmResource):
     @login_required
@@ -84,6 +90,11 @@ class PackageCollection(ConfigCollection):
     def read(self, request, package_name):
         return super(PackageCollection, self).read(request, "package", package_name)
 
+class DistCollection(ConfigCollection):
+    @login_required
+    def read(self, request, dist_name):
+        return super(DistCollection, self).read(request, "dist", package_name)
+
 #==================================
 
 class ServerConfigCollection(CnmResource):
@@ -100,30 +111,31 @@ class ServerConfigCollection(CnmResource):
     def create(self, request):
         if not request.user.is_superuser:
             return HttpResponseForbidden()
-        query_dict = request.POST
-        for entry in query_dict:
-            server_co = ServerConfig.objects.get(name=entry)
-            server_co.value = query_dict.get(entry)
+        raw_query_dict = request.POST
+        query_dict = {}
+
+        if "form-0-id" in raw_query_dict:
+            ids = [ i for i in raw_query_dict if i.endswith('id') ]
+            for i in ids:
+                id_num = i.split('-')[1]
+                name = raw_query_dict['form-%s-name' % id_num]
+                value = raw_query_dict['form-%s-value' % id_num]
+                if name:
+                    query_dict[int(id_num)] = (name,value)
+        else:
+            query_dict = raw_query_dict
+
+        for id in query_dict:
+            server_co = ServerConfig.objects.get_or_create(id=id)[0]
+            name, value = query_dict.get(id)
+            server_co.value = value
+            server_co.name = name
             server_co.save()
         server_config_objects = ServerConfig.objects.all()
         output = {}
         for server_co in server_config_objects:
             output[server_co.name] = server_co.value
         responder = JsonDictResponder(output)
-        return responder.element(request)
-
-class ServerConfigSyncCollection(CnmResource):
-    @login_required
-    def read(self, request):
-        server_config_objects = ServerConfig.objects.all()
-        for server_co in server_config_objects:
-            server_co.delete()
-        server_config_file = ServerConfigFile.ServerConfigFile()
-        config_data = server_config_file.global_config
-        for element in config_data:
-            sc = ServerConfig(name=element, value=config_data[element])
-            sc.save()
-        responder = JsonDictResponder(config_data)
         return responder.element(request)
 
 class DbSyncCollection(CnmResource):
@@ -140,6 +152,7 @@ class DbSyncCollection(CnmResource):
         for server_co in server_config_objects:
             server_co.delete()
         server_config_file = ServerConfigFile.ServerConfigFile()
+        server_config_file.load_config()
         config_data = server_config_file.global_config
         for element in config_data:
             sc = ServerConfig(name=element, value=config_data[element])
@@ -154,19 +167,46 @@ class DbSyncCollection(CnmResource):
             if config_type == "merged":
                 continue
             config_data[config_type] = []
+
+            # delete all current data
             config_objects = MAPPER[config_type.lower()].objects.all()
             for config_object in config_objects:
                 config_object.delete()
+
+            # find all current files
             config_wildcard = os.path.join(server_home, config_type, "*.yml")
             config_files = glob.glob(config_wildcard)
+
+            # put a directory of the files ('without .yml') in the db
             for config_file in config_files:
                 base_name = config_file.split(os.path.sep)[-1]
                 config_name = base_name.split('.yml')[0]
+                # Make one
                 config_object = MAPPER[config_type.lower()](name=config_name)
+                config_object.initialize_from_file(config_file)
                 config_object.save()
+
                 config_data[config_type].append(base_name)
             new_config_objects += MAPPER[config_type.lower()].objects.all()
         return config_data
+
+def config_setting_form(request):
+    from django.forms.models import modelformset_factory
+    ServerConfigFormSet = modelformset_factory(ServerConfig)
+    server_config_objects = ServerConfig.objects.all()
+    formset = ServerConfigFormSet(queryset=server_config_objects)
+
+    return render_to_response('config_setting_form.html', {
+        'formset': formset,
+    })
+
+class ServerConfigForm(forms.ModelForm):
+    class Meta:
+        model = ServerConfig
+
+#    name  = forms.CharField(max_length=30, required=False)
+#    value = forms.CharField(max_length=30, required=False)
+        
 
 urlpatterns = patterns('',
    url(r'^json/server/config', ServerConfigCollection(permitted_methods = ['POST', "GET"])),
@@ -181,4 +221,7 @@ urlpatterns = patterns('',
    url(r'^json/bom/name/(?P<bom_name>.*)$', BomEntry(permitted_methods=['GET'])),
    url(r'^json/package/search/(?P<package_name>.*)', PackageCollection()),
    url(r'^json/package/name/(?P<package_name>.*)$', PackageEntry(permitted_methods=['GET'])),
+#   url(r'^json/dist/search/(?P<dist_name>.*)', DistCollection()),
+#   url(r'^json/dist/name/(?P<dist_name>.*)$', DistEntry(permitted_methods=['GET'])),
+   url(r'^server/config', config_setting_form),
 )

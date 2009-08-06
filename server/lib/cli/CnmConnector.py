@@ -77,8 +77,9 @@ class Header(Storage):
     def convert_from_yaml(self):
         '''Since a header is largely YAML, this simply converts it to a
         dictionary'''
-        yaml_string = '\n'.join(self.contents[1:])
-        data = syck.load(yaml_string)
+        yaml_lines = [ line for line in list(self.contents) if ':' in line ]
+        yaml_string = ''.join(yaml_lines)
+        data = yaml.load(yaml_string)
         return data
 
     def get_content_type(self):
