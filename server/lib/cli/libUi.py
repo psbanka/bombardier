@@ -55,7 +55,7 @@ def login(username, logger, password=None):
         system_state.username = username
     if not system_state.username:
         system_state.username = get_default("username", "root")
-    system_state.cnm_connector = CnmConnector("http://127.0.0.1:8000",
+    system_state.cnm_connector = CnmConnector(system_state.cnm_url,
                                  system_state.username, system_state.logger)
     tries = 0
     while tries < 3:

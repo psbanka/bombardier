@@ -57,10 +57,12 @@ class Machine(PinshCmd.PinshCmd):
         self.test = PinshCmd.PinshCmd("test")
         self.dist = PinshCmd.PinshCmd("dist")
 
-        self.children = [self.test, self.dist]
-        self.config_field = ConfigField(data_type=MACHINE)
+        self.machine_field = ConfigField(data_type=MACHINE)
+        self.children = [self.machine_field]
+
+        self.machine_field.children = [self.test, self.dist]
+
         self.dist_field = ConfigField(data_type=DIST)
-        self.test.children = [self.config_field]
         self.dist.children = [self.dist_field]
         self.auth = ENABLE
 
@@ -75,14 +77,18 @@ class Machine(PinshCmd.PinshCmd):
             return FAIL, []
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
-        if not tokens[1].lower().startswith('t'):
-            return FAIL, []
-        possible_machine_names = self.config_field.preferred_names(tokens, 2)
+        possible_machine_names = self.machine_field.preferred_names(tokens, 1)
         if len(possible_machine_names) == 0:
             return FAIL, ["Unknown machine name: %s" % tokens[2]]
         if len(possible_machine_names) > 1:
             return FAIL, ["Ambiguous machine name: %s" % tokens[2]]
+
         machine_name = possible_machine_names[0]
+
+        command = tokens[2].lower()
+        if command not in ['test', 'dist']:
+            return FAIL, ["Unknown command: %s" % command]
+
         url = "json/machine/start_test/%s" % machine_name
         out = system_state.cnm_connector.service_yaml_request(url, post_data={})
         if "traceback" in out:
