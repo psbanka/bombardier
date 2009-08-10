@@ -1,0 +1,11 @@
+<form action="/json/dbsync/" method="POST">
+<input type="submit" value="dbsync" />
+</form>
+
+<form action="/json/server/config/" method="POST"> <table>
+        {% for form in formset.forms %}
+        {{ form.as_table }}
+        {% endfor %}
+    </table>
+<input type="submit" value="Submit" />
+</form>
