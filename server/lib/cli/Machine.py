@@ -42,10 +42,10 @@ system_state = SystemState()
 import libUi, time
 
 class Machine(PinshCmd.PinshCmd):
-    '''bomsh# machine test localhost
+    '''bomsh# machine localhost test
        [OK, ['foo']]
-       bomsh# machine dist localhost test.tar.gz
-       [OK, ['localhost updated with test.tar.gz']]
+       bomsh# machine localhost dist test
+       [OK, ['localhost updated with test']]
     '''
     def __init__(self):
         """Top-level object has a 'test' child: test the machine

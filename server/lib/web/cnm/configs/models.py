@@ -44,8 +44,6 @@ class BombardierModelFactory:
             # Make one
             config_object = self.model(name=config_name)
             config_object.initialize_from_file(config_file)
-            if self.subdir == "dist":
-                print ">>>>>>>>>",config_object.version
             config_object.save()
 
     def summarize(self):

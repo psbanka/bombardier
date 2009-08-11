@@ -94,7 +94,8 @@ class BasicTest(TestCase):
                                     "app" : ["app1"] },
                        "bom":     { ""    : ["foo", "bomp"],
                                     "fo"  : ["foo"],
-                                    "swe" : [] } }
+                                    "swe" : [] },
+                       "dist": { "": ["test"]  } }
         for section in test_dict:
             for search_term in test_dict[section]:
                 expected = test_dict[section][search_term]
