@@ -20,11 +20,23 @@ class BasicTest(TestCase):
         self.staff_user = User.objects.create_user('test_guy', 'tester@testy.com', TEST_PASSWORD)
         self.staff_user.is_staff = True
         self.staff_user.save()
-        self.login()
 
         self.super_user = User.objects.create_user('super_guy', 'super@testy.com', TEST_PASSWORD)
         self.super_user.is_superuser = True
         self.super_user.save()
+
+        self.login_super()
+        # set the server home
+        cwd = os.getcwd()
+        config_url = '/json/server/config'
+        self.test_server_home = os.path.join(cwd, 'configs', 'fixtures')
+        response = self.client.post(path=config_url,
+                                    data={"server_home": self.test_server_home})
+        content_dict = json.loads( response.content )
+
+        # sync the DB
+        self.make_localhost_config()
+        self.dbsync()
 
     def login(self, user=None):
         if not user:
@@ -35,6 +47,14 @@ class BasicTest(TestCase):
     def login_super(self):
         result = self.client.login(username=self.super_user.username, password=TEST_PASSWORD)
         self.failUnless(result)
+
+    def make_localhost_config(self):
+        config = {"ip_address": "127.0.0.1",
+                  "default_user": os.getlogin(),
+                  "platform": sys.platform}
+        config_path = os.path.join(self.test_server_home, "machine",
+                                   "localhost.yml")
+        open(config_path, 'w').write(yaml.dump(config))
 
     def get_field_value_set(self, test_dict, value):
         return set([ i["fields"][value] for i in test_dict ])
@@ -55,20 +75,6 @@ class BasicTest(TestCase):
         name_set = self.get_field_value_set( content_dict, "name" )
         self.failUnlessEqual(name_set, expected)
 
-    def test_search(self):
-        test_dict  = { "machine":  { "tes": ["tester1", "tester2"],
-                                      "":  ["tester1", "tester2", "other1"],
-                                    "foo": [] },
-                       "include": { ""    : ["app1", "otherapp"],
-                                    "app" : ["app1"] },
-                       "bom":     { ""    : ["foo", "bomp"],
-                                    "fo"  : ["foo"],
-                                    "swe" : [] } }
-        for section in test_dict:
-            for search_term in test_dict[section]:
-                expected = test_dict[section][search_term]
-                self.yml_file_search_test( section, search_term, expected )
-
     def get_bombardier_yaml_dict(self):
         yaml_str = open(SERVER_CONFIG_FILE).read()
         config_dict = yaml.load(yaml_str)
@@ -80,23 +86,28 @@ class BasicTest(TestCase):
         response = self.client.post(path=url)
         self.failUnlessEqual(response.status_code, 200)
 
+    def test_search(self):
+        test_dict  = { "machine":  { "tes": ["tester1", "tester2"],
+                                      "":  ["tester1", "tester2", "other1", "localhost"],
+                                    "foo": [] },
+                       "include": { ""    : ["app1", "otherapp"],
+                                    "app" : ["app1"] },
+                       "bom":     { ""    : ["foo", "bomp"],
+                                    "fo"  : ["foo"],
+                                    "swe" : [] } }
+        for section in test_dict:
+            for search_term in test_dict[section]:
+                expected = test_dict[section][search_term]
+                self.yml_file_search_test( section, search_term, expected )
+
     def test_get_server_home(self):
         url = '/json/server/config'
-        content_dict = self.get_content_dict(url)
-        expected = {"server_home": "NULL"}
-        self.failUnlessEqual(content_dict["server_home"], expected["server_home"])
 
-        self.dbsync()
-
-        expected = self.get_bombardier_yaml_dict()
-        url = '/json/server/config'
         content_dict = self.get_content_dict(url)
-        self.failUnlessEqual(content_dict["server_home"], expected["server_home"])
+        self.failUnlessEqual(content_dict["server configuration"]["server_home"],
+                             self.test_server_home)
 
     def test_run_check_job(self):
-        self.dbsync()
-
-        self.login(self.super_user)
         machine_name = 'localhost'
         username = self.super_user.username
 
@@ -120,14 +131,6 @@ class BasicTest(TestCase):
 
         # Fails on cygwin sometimes. Might work elsewhere more reliably.
         #self.failUnlessEqual(content_dict["localhost"], OK)
-
-    def test_change_server_home(self):
-        self.login(self.super_user)
-        url = '/json/server/config'
-        response = self.client.post(path=url, data={"server_home": "NO_PATH"})
-        content_dict = json.loads( response.content )
-        expected = {"server_home": u"NO_PATH"}
-        self.failUnlessEqual(content_dict["server_home"], expected["server_home"])
 
     def test_merged(self):
         self.login(self.super_user)

@@ -9,7 +9,6 @@ from configs.models import Machine, Include, Bom, ServerConfig, Package
 from configs.models import Dist
 from configs.models import MachineModelFactory, IncludeModelFactory, BomModelFactory, PackageModelFactory
 from configs.models import DistModelFactory
-import ServerConfigFile
 import syck, glob
 import os
 import MachineConfig
@@ -141,26 +140,32 @@ class ServerConfigCollection(CnmResource):
     def create(self, request):
         if not request.user.is_superuser:
             return HttpResponseForbidden()
-        raw_query_dict = request.POST
-        query_dict = {}
+        query_dict = request.POST
 
-        if "form-0-id" in raw_query_dict:
-            ids = [ i for i in raw_query_dict if i.endswith('id') ]
-            for i in ids:
-                id_num = i.split('-')[1]
-                name = raw_query_dict['form-%s-name' % id_num]
-                value = raw_query_dict['form-%s-value' % id_num]
+        if "form-0-name" in query_dict:
+            [ obj.delete() for obj in ServerConfig.objects.all() ]
+            names = [ i for i in query_dict if i.endswith('name') ]
+            for form_entry in names:
+                id_num = form_entry.split('-')[1]
+                name = query_dict[form_entry]
+                value = query_dict['form-%s-value' % id_num]
                 if name:
-                    query_dict[int(id_num)] = (name,value)
-        else:
-            query_dict = raw_query_dict
+                    server_co = ServerConfig.objects.get_or_create(id=id_num)[0]
+                    server_co.value = value
+                    server_co.name = name
+                    server_co.save()
 
-        for id in query_dict:
-            server_co = ServerConfig.objects.get_or_create(id=id)[0]
-            name, value = query_dict.get(id)
-            server_co.value = value
-            server_co.name = name
-            server_co.save()
+        else:
+            for name in query_dict:
+                value = query_dict[name]
+                try:
+                    server_co = ServerConfig.objects.get(name=name)
+                except ServerConfig.DoesNotExist:
+                    server_co = ServerConfig.objects.create()
+                    server_co.name = name
+                server_co.value = value
+                server_co.save()
+
         server_config_objects = ServerConfig.objects.all()
         output = {}
         for server_co in server_config_objects:
@@ -171,28 +176,15 @@ class ServerConfigCollection(CnmResource):
 class DbSyncCollection(CnmResource):
     @login_required
     def create(self, request):
-        self._server_sync()
         self._server_home_sync()
         config_data = {"status": "OK"}
         responder = JsonDictResponder(config_data)
         return responder.element(request)
 
-    def _server_sync(self):
-        server_config_objects = ServerConfig.objects.all()
-        for server_co in server_config_objects:
-            server_co.delete()
-        server_config_file = ServerConfigFile.ServerConfigFile()
-        server_config_file.load_config()
-        config_data = server_config_file.global_config
-        for element in config_data:
-            sc = ServerConfig(name=element, value=config_data[element])
-            sc.save()
-
     def _server_home_sync(self):
         server_home = self.get_server_home()
         config_data = {}
         for Factory in FACTORIES:
-            print ">>>",Factory
             factory = Factory()
             factory.clean()
             factory.create()

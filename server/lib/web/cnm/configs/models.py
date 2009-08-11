@@ -20,10 +20,13 @@ class BombardierModelFactory:
         self.subdir = ''
         self.extension = 'yml'
         self.model = None
-        config_entry = ServerConfig.objects.get(name="server_home")
+        try:
+            config_entry = ServerConfig.objects.get(name="server_home")
+        except ServerConfig.DoesNotExist:
+            raise InvalidServerHome(None)
         self.server_home = config_entry.value
         if not os.path.isdir(self.server_home):
-            raise InvalidServerHome(server_home)
+            raise InvalidServerHome(self.server_home)
 
     def clean(self):
         config_objects = self.model.objects.all()

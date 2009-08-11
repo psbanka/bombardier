@@ -42,14 +42,12 @@ TERM_OVERCOUNT = 8 # For some reason, the term width seems too long...
 class ShowType(PinshCmd.PinshCmd):
     '''A thing that can be shown.'''
     def __init__(self, name, help_text):
-        print "init in ShowType"
         PinshCmd.PinshCmd.__init__(self, name, help_text)
         self.config_field = None
         self.cmd_owner = 1
 
     def cmd(self, tokens, no_flag):
         '''Show the thing that the user is interested in'''
-        print "cmd in ShowType"
         if no_flag:
             return FAIL, []
         if len(tokens) < 3:
