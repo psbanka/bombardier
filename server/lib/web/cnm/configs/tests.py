@@ -118,13 +118,26 @@ class BasicTest(TestCase):
         job_name = content_dict["job_name"]
         assert job_name.startswith("%s@%s" % (self.super_user.username, machine_name))
 
-        url = '/json/job/poll/%s' % job_name
-        content_dict = self.get_content_dict(url)
-        assert u"alive" in content_dict
+        testing = True
+        timeout_counter = 0
+        next_number = 1
+        while timeout_counter < 6:
+            url = '/json/job/poll/%s' % job_name
+            content_dict = self.get_content_dict(url)
+            assert u"alive" in content_dict
+            if str(next_number) in content_dict["new_output"]:
+                next_number += 1
+                if next_number == 4:
+                    break
+            time.sleep(1)
+            timeout_counter += 1
+        assert timeout_counter < 6
 
         url = '/json/job/join/%s' % job_name
-        content_dict = self.get_content_dict(url)
-        self.failUnlessEqual(content_dict["status"], OK)
+        content_dict2 = self.get_content_dict(url)
+        self.failUnlessEqual(content_dict2["status"], OK)
+
+        assert '1' in content_dict2["command_output"], content_dict2["command_output"]
 
         url = '/json/machine/cleanup'
         response = self.client.post(path=url, data={})

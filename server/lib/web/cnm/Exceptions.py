@@ -1,3 +1,13 @@
+class JoinTimeout(Exception):
+    def __init__(self, job_name, timeout):
+        Exception.__init__(self)
+        self.job_name = job_name
+        self.timeout = timeout
+    def __repr__(self):
+        return "Timed out joining a job %s (%s)" % (self.job_name, self.timeout)
+    def __str__(self):
+        return self.__repr__()
+
 class InvalidJobName(Exception):
     def __init__(self, job_name="NO_JOB_NAME"):
         Exception.__init__(self)

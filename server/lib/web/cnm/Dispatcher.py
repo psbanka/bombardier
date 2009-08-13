@@ -12,11 +12,12 @@ syslog.openlog("dispatcher", syslog.LOG_PID, syslog.LOG_USER)
 syslog.LOG_UPTO(syslog.LOG_INFO)
 
 from bombardier_core import Logger
-from Exceptions import InvalidJobName
+from Exceptions import InvalidJobName, JoinTimeout
 import logging, sys, os, shutil
 import logging.handlers
 
 FORMAT_STRING = '%(asctime)s|%(levelname)s|%(message)s|'
+PENDING = 4
 
 class SysLogger:
     def __init__(self):
@@ -72,10 +73,20 @@ def exception_dumper(func):
     return traceback_func
 
 
-class Job(Thread):
-    def __init__(self, name, machine_interface, command, logger):
+class Command:
+    def __init__(self, name, cmd, working_dir, dump_config):
         self.name = name
-        self.command = command
+        self.cmd = cmd
+        self.working_dir = working_dir
+        self.dump_config = dump_config
+        self.status = PENDING
+
+class Job(Thread):
+    def __init__(self, name, machine_interface, copy_dict,
+                 commands, logger):
+        self.name = name
+        self.copy_dict = copy_dict
+        self.commands = commands
         self.logger = logger
         self.output_handle = StringIO.StringIO()
         self.machine_interface = machine_interface
@@ -96,18 +107,22 @@ class Job(Thread):
     def run(self):
         self.logger.info("Starting...", self.name)
         self.start_time = time.time()
-        try:
-            self.command_output = self.machine_interface.run_cmd(self.command)
-        except Exception, err:
-            self.logger.error( "Failed to run %s" % self.command, self.name )
-            exc = StringIO.StringIO()
-            traceback.print_exc(file=exc)
-            exc.seek(0)
-            data = exc.read()
-            ermsg = ''
-            for line in data.split('\n'):
-                ermsg = "%% %s" % line
-                self.logger.error(ermsg, self.name)
+        for command in self.commands:
+            try:
+                self.logger.info("Processing command: %s" % command.name, self.name)
+                self.machine_interface.chdir(command.working_dir)
+                self.command_output = self.machine_interface.run_cmd(command.cmd)
+            except Exception, err:
+                msg = "Command %s: Failed to run %s" % (command.name, command.cmd)
+                self.logger.error( msg, self.name)
+                exc = StringIO.StringIO()
+                traceback.print_exc(file=exc)
+                exc.seek(0)
+                data = exc.read()
+                ermsg = ''
+                for line in data.split('\n'):
+                    ermsg = "%% %s" % line
+                    self.logger.error(ermsg, self.name)
         self.logger.info("Finishing", self.name)
         self.elapsed_time = time.time() - self.start_time
 
@@ -152,10 +167,13 @@ class Dispatcher(Pyro.core.ObjBase):
                 machine_interface = self.machine_interface_pool[machine_name]
             else:
                 self.logger.info("Connecting to %s" % machine_name, username)
-                machine_interface = BombardierMachineInterface(machine_config)
+                machine_interface = BombardierMachineInterface(machine_config, self.logger)
                 self.machine_interface_pool[machine_name] = machine_interface
             job_name = "%s@%s-%d" % (username, machine_name, self.next_job)
-            job = Job(job_name, machine_interface, "echo foo", self.logger)
+            cmd = "for i in 1 2 3 4; do sleep 1; echo '<<0|0|'$i'>>'; done"
+            commands = [Command("self_test", cmd, '.', False)]
+            copy_dict = {}
+            job = Job(job_name, machine_interface, copy_dict, commands, self.logger)
             self.jobs[job_name] = job
             self.next_job += 1
             job.start()
@@ -188,6 +206,7 @@ class Dispatcher(Pyro.core.ObjBase):
                 raise InvalidJobName(job_name)
             while job.isAlive():
                 if time.time() > end_time:
+                    raise JoinTimeout(job_name, timeout)
                     output["status"] = FAIL
                     return output
                 time.sleep(1)

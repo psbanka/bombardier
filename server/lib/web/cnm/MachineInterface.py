@@ -48,7 +48,8 @@ class MachineUnavailableException(Exception):
 
 class MachineInterface:
 
-    def __init__(self, machine_config):
+    def __init__(self, machine_config, server_log):
+        self.server_log    = server_log
         self.host_name     = machine_config.host_name
         self.server_home   = machine_config.server_home
         self.data          = machine_config.data

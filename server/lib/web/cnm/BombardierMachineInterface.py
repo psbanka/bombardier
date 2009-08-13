@@ -23,8 +23,8 @@ LOCAL_PACKAGES = "local-packages"
 
 class BombardierMachineInterface(MachineInterface):
 
-    def __init__(self, machine_config):
-        MachineInterface.__init__(self, machine_config)
+    def __init__(self, machine_config, server_log):
+        MachineInterface.__init__(self, machine_config, server_log)
         self.status_data    = {}
         self.local_filename = ''
         self.report_info    = ''
@@ -42,14 +42,14 @@ class BombardierMachineInterface(MachineInterface):
         self.trace_matcher = re.compile( "\|\|\>\>\>(.+)" )
         if self.platform == 'win32':
             self.python  = '/cygdrive/c/Python25/python.exe'
-            self.spkgDir = '/cygdrive/c/spkg'
+            self.spkg_dir = '/cygdrive/c/spkg'
         else:
             self.python  = '/usr/bin/python'
-            self.spkgDir = '/opt/spkg'
+            self.spkg_dir = '/opt/spkg'
         if self.data.get("python_path"):
             self.python = self.data.get("python_path")
         if self.data.get("spkg_path"):
-            self.spkgDir = self.data.get("spkg_path")
+            self.spkg_dir = self.data.get("spkg_path")
         self.cmd_debug = None
         self.pull_report = True
 
@@ -161,19 +161,32 @@ class BombardierMachineInterface(MachineInterface):
             self.debug("* OUTPUT: %s" % output)
         return output
 
+    def chdir(self, path):
+        if not path:
+            path = self.spkg_dir
+        self.info("Changing directory to %s" % path)
+        self.ssh_conn.sendline ('cd %s' % path)
+        self.ssh_conn.prompt()
+
     def run_cmd(self, command_string):
         self.report_info = ''
         if self.freshen() != OK:
             msg = "Unable to connect to %s." % self.host_name
             raise MachineUnavailableException(self.host_name, msg)
         return_code = OK
-        self.ssh_conn.sendline ('cd %s' %self.spkgDir)
-        self.ssh_conn.prompt()
         self.ssh_conn.sendline(command_string)
-        self.ssh_conn.prompt()
-        output = self.ssh_conn.before
+        command_complete = False
+        total_output = ''
+        output_checker = re.compile('(.*)'+self.ssh_conn.PROMPT)
+        while True:
+            output = self.ssh_conn.read_nonblocking()
+            total_output += output
+            self.output_handle.write(output)
+            if output_checker.findall(total_output):
+                self.output_handle.write("==== EXITING ====")
+                break
         self.ssh_conn.setecho(False)
-        return output
+        return '\n'.join(total_output.split('\n')[:-1])
 
     def dump_trace(self):
         stack_trace = []
@@ -265,7 +278,7 @@ class BombardierMachineInterface(MachineInterface):
     def upload_new_packages(self):
         new_packages = copy.deepcopy(self.data.get("packages"))
         newest_existing_packages = self.get_newest_existing_package()
-        destPath = os.path.join(self.spkgDir, self.host_name, "packages")
+        destPath = os.path.join(self.spkg_dir, self.host_name, "packages")
         for full_package_name in newest_existing_packages:
             base_package_name = strip_version(full_package_name)
             newest_package_data = self.get_package_data(base_package_name)
@@ -281,7 +294,7 @@ class BombardierMachineInterface(MachineInterface):
             self.send_package(newest_package_name+".spkg", destPath)
 
     def run_bc(self, action, package_names, script_name, debug):
-        self.ssh_conn.sendline ('cd %s' %self.spkgDir)
+        self.ssh_conn.sendline ('cd %s' %self.spkg_dir)
         self.ssh_conn.prompt()
         package_string = ' '.join(package_names)
         if self.platform == "win32":
@@ -399,7 +412,7 @@ class BombardierMachineInterface(MachineInterface):
     def get_script_output(self, script_name):
         remote_file_name = "%s-output.yml" % (script_name)
         self.local_filename  = "%s-%s.yml" % (self.host_name, script_name)
-        self.get("%s/output/%s" % (self.spkgDir, remote_file_name))
+        self.get("%s/output/%s" % (self.spkg_dir, remote_file_name))
         if os.path.isfile(remote_file_name):
             report_path = os.path.join(self.server_home, "output",
                                        self.local_filename)
@@ -413,7 +426,7 @@ class BombardierMachineInterface(MachineInterface):
             os.makedirs( status_dir )
 
         new_line = 'cat %s/%s/status.yml;echo "======="'
-        self.ssh_conn.sendline(new_line % (self.spkgDir, self.host_name))
+        self.ssh_conn.sendline(new_line % (self.spkg_dir, self.host_name))
         self.ssh_conn.prompt()
         status_yml = str(self.ssh_conn.before).split("======")[0]
         status_yml = status_yml.replace('\r','')
