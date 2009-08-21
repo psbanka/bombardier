@@ -104,11 +104,11 @@ STATUS           = '14'
 DRY_RUN          = '15'
 INIT             = '16'
 
-ACTION_DICT = { UNINSTALL:'uninstall', CONFIGURE:'configure', 
-                INSTALL:'install', VERIFY:'verify', 
-                RECONCILE:'reconcile', STATUS:'status', 
-                EXECUTE:'execute', FIX:'fix', PURGE:'purge',
-                DRY_RUN:'dry_run' } 
+ACTION_LOOKUP = { 'uninstall':UNINSTALL, 'configure':CONFIGURE, 
+                'install':INSTALL, 'verify':VERIFY, 
+                'reconcile':RECONCILE, 'status':STATUS, 
+                'execute':EXECUTE, 'fix':FIX, 'purge':PURGE,
+                'dry_run': DRY_RUN, "init": INIT } 
 
 BLOCK_SIZE    = 10000
 
@@ -156,18 +156,6 @@ DEBUG   = False
 
 PACKAGES_FILE = os.path.join("packages", "packages.yml")
 GLOBAL_CONFIG_FILE = "/etc/bombardier.yml"
-
-UNINSTALL = 0
-CONFIGURE = 1
-INSTALL   = 2
-VERIFY    = 3
-RECONCILE = 4
-STATUS    = 5
-EXECUTE   = 6
-FIX       = 7
-PURGE     = 8
-DRY_RUN   = 9
-INIT      = 10
 
 ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i',
                VERIFY: '-v', RECONCILE: '-r', STATUS: '-s',

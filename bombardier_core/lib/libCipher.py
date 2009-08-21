@@ -48,6 +48,7 @@ def encrypt(plainStr, passwd):
     b64Str     = pad(base64.encodestring(plainStr).strip())
     cipherText = encrypter.encrypt(b64Str)
     b64CipherB64Str = base64.encodestring(cipherText).strip()
+    assert cipherText == base64.decodestring(b64CipherB64Str)
     return b64CipherB64Str
 
 def changePass(dict, oldPasswd, newPasswd):
@@ -99,7 +100,7 @@ def decryptString(b64CipherB64Str, passwd, validChars=VALID_CHARS):
     if len(passwd) % 16:
         passwd = pad(passwd)
     try:
-        cipherB64Str = base64.decodestring(b64CipherB64Str).strip()
+        cipherB64Str = base64.decodestring(b64CipherB64Str)
         #print "cipherB64Str: (%s)" %cipherB64Str
         decrypter = AES.new(passwd, AES.MODE_ECB)
         b64Str = decrypter.decrypt(cipherB64Str)

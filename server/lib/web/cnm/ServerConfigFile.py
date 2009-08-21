@@ -50,17 +50,10 @@ class ServerConfigFile:
                 self.global_config["default_group"] = "root"
             self.default_group = self.global_config["default_group"]
             self.server_home = self.global_config.get("server_home")
-        except ConfigFileException, e:
-            print e
-            sys.exit(1)
         except syck.error, e:
-            print "Yaml error loading config file %s" %SERVER_CONFIG_FILE
-            print e[0]
-            sys.exit(1)
-        except IOError: 
-            print "%% The global Bombardier configuration file (%s) is not readable."\
-                  % SERVER_CONFIG_FILE
-            sys.exit(1)
+            raise ConfigFileException(e[0], SERVER_CONFIG_FILE)
+        except IOError, e: 
+            raise ConfigFileException(e[0], SERVER_CONFIG_FILE)
 
 if __name__ == "__main__":
     from libtest import starttest, runtest, endtest 

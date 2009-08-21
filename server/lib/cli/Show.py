@@ -63,6 +63,13 @@ class Merged(ShowType):
         self.config_field = ConfigField.ConfigField()
         self.children = [self.config_field]
 
+class Dist(ShowType):
+    'Displays basic machine configuration data from the server'
+    def __init__(self):
+        ShowType.__init__(self, "dist", "dist\tshow a python distribution tar-ball")
+        self.config_field = ConfigField.ConfigField(data_type=ConfigField.DIST)
+        self.children = [self.config_field]
+
 class Machine(ShowType):
     'Displays basic machine configuration data from the server'
     def __init__(self):
@@ -191,10 +198,12 @@ class Status(PinshCmd.PinshCmd):
 
 
 class Show(PinshCmd.PinshCmd):
-    '''bomsh# show bom qa
-       [OK, ['- new_tomcat', '- new_apache', '- new_database', '']]
-       bomsh# show machine localhost
-       [OK, ['default_user: 208048363', "include:", '- foo', '- bar', '- spam', 'ip_address: 127.0.0.1', 'platform: win32', '']]
+    '''bomsh# show bom foo
+       [OK, ['- tomcat_5.5.2', '- cheaterface_1.0', '']]
+       bomsh# show machine tester1
+       [OK, ['bom:', '- bomp', 'include:', '- otherapp', '- app1', 'ip_address: 127.0.0.1', '']]
+       bomsh# show dist test
+       [OK, ['description: Open Source Empty package', 'dist_name: EMPTY_TEST', 'name: test', "version: '1'", '']]
     '''
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "show")
@@ -206,7 +215,8 @@ class Show(PinshCmd.PinshCmd):
         #status = Status()
         package = Package()
         user    = User()
+        dist    = Dist()
         bom = Bom()
-        self.children = [merged, machine, include, bom, history, package, user]
+        self.children = [merged, machine, include, bom, history, package, user, dist]
         self.cmd_owner = 1
 

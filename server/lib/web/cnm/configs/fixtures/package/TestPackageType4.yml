@@ -1,0 +1,14 @@
+configuration:
+  test:
+    directory: '/tmp'
+    value: hello
+dependencies: []
+executables: ["echo"]
+install:
+  fullName: TestPackageType4-7
+  autoreboot: 'False'
+  console: 'False'
+  priority: '100'
+  reboot: 'False'
+package-version: 4
+virtualpackage: ''

@@ -1,0 +1,17 @@
+configuration:
+  test:
+    directory: '/tmp'
+    value: hello
+dependencies: []
+executables: ["echo"]
+injector: TestPackage-injector-7
+script: TestPackage-script-7
+template: ""
+libs: []
+install:
+  autoreboot: 'False'
+  console: 'False'
+  priority: '100'
+  reboot: 'False'
+package-version: 4
+virtualpackage: ''

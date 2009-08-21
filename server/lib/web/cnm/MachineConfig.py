@@ -1,5 +1,5 @@
 #!/opt/python2.5/bin/python
-from bombardier_core.miniUtility import addDictionaries
+from bombardier_core.mini_utility import addDictionaries
 import os
 import yaml, syck
 import getpass
@@ -13,6 +13,9 @@ class MachineConfig:
     def __init__(self, host_name, passwd, server_home):
         self.data       = {}
         self.includes   = []
+        if not host_name:
+            errmsg = "Machine name not specified"
+            raise MachineConfigurationException("NOT_DEFINED", errmsg)
         self.host_name = host_name
         self.server_home   = server_home
         if passwd:

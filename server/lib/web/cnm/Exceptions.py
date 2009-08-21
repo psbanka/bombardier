@@ -1,3 +1,84 @@
+class InvalidAction(Exception):
+    def __init__(self, package_name, action_name):
+        Exception.__init__(self)
+        self.package_name = package_name
+        self.action_name = action_name
+    def __repr__(self):
+        return "Cannot run action %s on package %s" % (self.action, self.package_name)
+    def __str__(self):
+        return self.__repr__()
+
+
+class JobAlreadySet(Exception):
+    def __init__(self, job_name):
+        Exception.__init__(self)
+        self.job_name = job_name
+    def __repr__(self):
+        return "Another job is already running: %s" % self.job_name
+    def __str__(self):
+        return self.__repr__()
+
+class EnableRequiredException(Exception):
+    def __init__(self):
+        Exception.__init__(self)
+    def __repr__(self):
+        return "Must be in enable mode to connect to this server"
+    def __str__(self):
+        return self.__repr__()
+
+class IncompleteConfigurationException(Exception):
+    def __init__(self, server, errmsg):
+        Exception.__init__(self)
+        self.server = server
+        self.errmsg = errmsg
+    def __repr__(self):
+        msg = "Server configuration for %s is incomplete (%s)"
+        return msg % (self.server, self.errmsg)
+    def __str__(self):
+        return self.__repr__()
+
+class MachineUnavailableException(Exception):
+    def __init__(self, server, errmsg):
+        Exception.__init__(self)
+        self.server = server
+        self.errmsg = errmsg
+    def __repr__(self):
+        return "Unable to connect to %s (%s)" % (self.server, self.errmsg)
+    def __str__(self):
+        return self.__repr__()
+
+class SecureCopyException(Exception):
+    def __init__(self, source, dest, errmsg):
+        Exception.__init__(self)
+        self.source = source
+        self.dest = dest
+        self.errmsg = errmsg
+    def __repr__(self):
+        msg = "Unable to copy (%s) to (%s): %s"
+        msg = msg % (self.source, self.dest, self.errmsg)
+        return msg
+    def __str__(self):
+        return self.__repr__()
+
+class InvalidInput(Exception):
+    def __init__(self, bad_characters):
+        Exception.__init__(self)
+        self.bad_characters = bad_characters
+    def __repr__(self):
+        return "Invalid input: %s" % (self.bad_characters)
+    def __str__(self):
+        return self.__repr__()
+
+class JoinTimeout(Exception):
+    def __init__(self, job_name, timeout):
+        Exception.__init__(self)
+        self.job_name = job_name
+        self.timeout = timeout
+    def __repr__(self):
+        return "Timed out joining a job %s (%s)" % (self.job_name, self.timeout)
+    def __str__(self):
+        return self.__repr__()
+
 class InvalidJobName(Exception):
     def __init__(self, job_name="NO_JOB_NAME"):
         Exception.__init__(self)
@@ -27,3 +108,11 @@ class MachineConfigurationException(Exception):
     def __repr__(self):
         return "Could not find valid configuration data for %s (%s)" % (self.server, self.message)
 
+class PackageNotFound(Exception):
+    def __init__(self, package_name):
+        Exception.__init__(self)
+        self.package_name = package_name
+    def __repr__(self):
+        return "Package not found: %s" % self.package_name
+    def __str__(self):
+        return self.__repr__()

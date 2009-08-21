@@ -1,3 +1,0 @@
-[{"pk": 1, "model": "configs.include", "fields": {"name": "otherapp"}}, {"pk": 2, "model": "configs.include", "fields": {"name": "app1"}}, {"pk": 1, "model": "configs.machine", "fields": {"name": "tester1"}}, {"pk": 2, "model": "configs.machine", "fields": {"name": "other1"}}, {"pk": 3, "model": "configs.machine", "fields": {"name": "tester2"}}, {"pk": 1, "model": "configs.bom", "fields": {"name": "foo"}}, {"pk": 2, "model": "configs.bom", "fields": {"name": "bomp"}},
-{"pk": 1, "model": "configs.serverconfig", "fields": {"name": "server_home", "value":"NULL"}},
-{"pk": 2, "model": "configs.serverconfig", "fields": {"name": "tmp_path", "value":"/tmp"}}]

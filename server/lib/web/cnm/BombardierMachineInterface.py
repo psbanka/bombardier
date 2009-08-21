@@ -9,7 +9,7 @@ from MachineInterface import MachineInterface, MachineUnavailableException
 from Exceptions import MachineConfigurationException
 from bombardier_core.mini_utility import strip_version
 from bombardier_core.static_data import OK, FAIL, PURGE, DEBUG, EXECUTE
-from bombardier_core.static_data import INIT, ACTION_DICT
+from bombardier_core.static_data import INIT, ACTION_DICT, RETURN_DICT
 
 from pexpect import EOF
 import syck
@@ -23,8 +23,8 @@ LOCAL_PACKAGES = "local-packages"
 
 class BombardierMachineInterface(MachineInterface):
 
-    def __init__(self, machine_config):
-        MachineInterface.__init__(self, machine_config)
+    def __init__(self, machine_config, server_log):
+        MachineInterface.__init__(self, machine_config, server_log)
         self.status_data    = {}
         self.local_filename = ''
         self.report_info    = ''
@@ -42,17 +42,33 @@ class BombardierMachineInterface(MachineInterface):
         self.trace_matcher = re.compile( "\|\|\>\>\>(.+)" )
         if self.platform == 'win32':
             self.python  = '/cygdrive/c/Python25/python.exe'
-            self.spkgDir = '/cygdrive/c/spkg'
+            self.spkg_dir = '/cygdrive/c/spkg'
         else:
             self.python  = '/usr/bin/python'
-            self.spkgDir = '/opt/spkg'
+            self.spkg_dir = '/opt/spkg'
         if self.data.get("python_path"):
             self.python = self.data.get("python_path")
         if self.data.get("spkg_path"):
-            self.spkgDir = self.data.get("spkg_path")
+            self.spkg_dir = self.data.get("spkg_path")
         self.cmd_debug = None
         self.pull_report = True
 
+    # BEING USED
+    def scp_dict(self, copy_dict):
+        self.connect()
+        for file_type in copy_dict:
+            if file_type == "dist":
+                dest_dir = '.'
+            else:
+                dest_dir = os.path.join(self.spkg_dir, self.host_name, file_type)
+            for source_file in copy_dict[file_type]:
+                source_path = os.path.join(self.server_home, file_type,
+                                           source_file)
+                self.polling_log.info("SOURCE_PATH: %s // DEST_DIR: %s" % (source_path, dest_dir))
+                status = self.scp(source_path, dest_dir)
+        return
+    
+    # BEING USED
     def freshen(self):
         status_file = os.path.join(self.server_home, "status",
                                    "%s.yml" % self.host_name)
@@ -63,23 +79,25 @@ class BombardierMachineInterface(MachineInterface):
             except Exception, exc:
                 if exc[0] == "syntax error":
                     msg = "Syntax error in status information for %s"
-                    self.traceback(msg % self.host_name)
+                    self.polling_log.error(msg % self.host_name)
                     self.status_data = ''
             if type(self.status_data) != type({}) \
                 or PROGRESS not in self.status_data \
                 or LOCAL_PACKAGES not in self.status_data:
                     msg = "Invalid status data. Ignoring."
-                    self.warning(msg)
+                    self.polling_log.warning(msg)
         return(MachineInterface.freshen(self))
 
     def action_result(self, data):
         action, package_name, result = data
         message = "%s %s: %s" % (action.lower(), RETURN_DICT[int(result)], package_name)
-        self.from_output(message)
+        self.polling_log.info(message)
+        self.server_log.info(message, self.host_name)
 
     def action_start(self, action, package_name):
         message = "%s installing %s" % (self.host_name, package_name)
-        self.from_output(message)
+        self.polling_log.info(message)
+        self.server_log.info(message, self.host_name)
 
     def install(self, package_name):
         self.action_start("installing", package_name)
@@ -90,13 +108,13 @@ class BombardierMachineInterface(MachineInterface):
     def no_report(self, data):
         self.pull_report = False
 
-    def send_package(self, package_name, destPath):
+    def send_package(self, package_name, dest_path):
         file_name = os.path.join(self.server_home, "packages", package_name)
         if not os.path.isfile(file_name):
             message = "Machine requested a file that is not on this server: %s"
-            self.error(message % file_name)
+            self.polling_log.error(message % file_name)
             return OK
-        self.scp(file_name, destPath, False)
+        self.scp(file_name, dest_path, False)
 
     def stream_file(self, file_name):
         plain_text = open(file_name, 'rb').read()
@@ -109,10 +127,9 @@ class BombardierMachineInterface(MachineInterface):
         self.ssh_conn.setecho(False)
         handle = StringIO.StringIO(encoded)
         msg = "==> Sending configuration information:"
-        self.debug.write(msg)
+        self.polling_log.info(msg)
         while True:
             chunk = handle.read(BLK_SIZE)
-            lines += 1
             if chunk == '':
                 chunk = ' '*(BLK_SIZE-1)+'\n'
                 self.ssh_conn.send(chunk)
@@ -146,7 +163,9 @@ class BombardierMachineInterface(MachineInterface):
 
     def gso(self, cmd, raise_on_error=True):
         if self.cmd_debug:
-            self.debug("* RUNNING: %s" % cmd)
+            msg = "* RUNNING: %s" % cmd
+            self.polling_log.debug(msg)
+            self.server_log.debug(msg, self.host_name)
         try:
             self.ssh_conn.sendline( cmd )
             self.ssh_conn.prompt()
@@ -158,8 +177,15 @@ class BombardierMachineInterface(MachineInterface):
                 return ""
         output = self.ssh_conn.before.strip()
         if self.cmd_debug:
-            self.debug("* OUTPUT: %s" % output)
+            self.polling_log.info("* OUTPUT: %s" % output)
         return output
+
+    def chdir(self, path):
+        if not path:
+            path = self.spkg_dir
+        self.polling_log.debug("Changing directory to %s" % path)
+        self.ssh_conn.sendline ('cd %s' % path)
+        self.ssh_conn.prompt()
 
     def run_cmd(self, command_string):
         self.report_info = ''
@@ -167,13 +193,19 @@ class BombardierMachineInterface(MachineInterface):
             msg = "Unable to connect to %s." % self.host_name
             raise MachineUnavailableException(self.host_name, msg)
         return_code = OK
-        self.ssh_conn.sendline ('cd %s' %self.spkgDir)
-        self.ssh_conn.prompt()
         self.ssh_conn.sendline(command_string)
-        self.ssh_conn.prompt()
-        output = self.ssh_conn.before
+        command_complete = False
+        total_output = ''
+        output_checker = re.compile('(.*)'+self.ssh_conn.PROMPT)
+        while True:
+            output = self.ssh_conn.read_nonblocking()
+            total_output += output
+            self.polling_log.info("CMD OUTPUT: %s" % output)
+            if output_checker.findall(total_output):
+                self.polling_log.info("EXITING")
+                break
         self.ssh_conn.setecho(False)
-        return output
+        return [OK, '\n'.join(total_output.split('\n')[:-1])] # FIXME, get status
 
     def dump_trace(self):
         stack_trace = []
@@ -190,31 +222,36 @@ class BombardierMachineInterface(MachineInterface):
         data = re_obj.findall(tString)
         if data:
             message1 = "Invalid client configuration data"
-            self.error(message1)
+            self.polling_log.error(message1)
+            self.server_log.error(message1, self.host_name)
             if len(data) == 2:
                 message2 = "Need option '%s' in section '%s'." % (data[0], data[1])
             else:
                 message2 = "Need options: %s" % data
-            self.debug(message2)
+            self.polling_log.info(message2)
+            self.server_log.error(message2, self.host_name)
         data = re.compile("NoSectionError\: No section\: \'(\w+)\'").findall(tString)
         if data:
             message1 = "Invalid client configuration data"
-            self.error(message1)
+            self.polling_log.error(message1)
+            self.server_log.error(message1, self.host_name)
             message2 = "Need section '%s'." % (data[0])
-            self.debug(message2)
+            self.polling_log.info(message2)
+            self.server_log.error(message2, self.host_name)
         else:
             for line in stack_trace:
-                self.traceback_output(line)
+                self.polling_log.error(line)
+                self.server_log.error(line, self.host_name)
 
     def get_package_names_from_progress(self):
         #CANNIBALIZED FROM PackageField.py
         status_yml = os.path.join(self.server_home, "status", "%s.yml" % self.host_name)
         if not os.path.isfile(status_yml):
-            self.debug("Cannot retrieve status (NO FILE: %s)" % status_yml)
+            self.polling_log.info("Cannot retrieve status (NO FILE: %s)" % status_yml)
             return {}
         yml = syck.load( open(status_yml).read() )
         if yml == None:
-            self.debug("Cannot retrieve status (EMPTY FILE: %s)" % status_yml)
+            self.polling_log.info("Cannot retrieve status (EMPTY FILE: %s)" % status_yml)
             return {}
         return yml
 
@@ -225,85 +262,55 @@ class BombardierMachineInterface(MachineInterface):
 
     def get_package_data(self, package_name):
         yml_path = os.path.join(self.server_home, "package", "%s.yml" % package_name)
-        package_data = syck.load(open(yml_path).read())
+        package_data = {}
+        if not os.path.isfile(yml_path):
+            self.server_log.warning("Requested invalid package: %s" % package_name)
+            raise MachineConfigurationException(self.host_name)
+        else:
+            package_data = syck.load(open(yml_path).read())
         return package_data
 
     def send_all_client_data(self, action):
-        send_data = {"configData": self.data, "package_data": {}}
+        send_data = {"configData": self.data, 
+                     "package_data": {},
+                     "packageData": {}, # FIXME
+                    }
         if action != PURGE:
             package_names = self.get_all_package_names()
             for package_name in package_names:
-                this_package_data = self.get_package_data
+                this_package_data = self.get_package_data(package_name)
                 if not this_package_data:
                     message = "Could not find package data for %s." % package_name
-                    self.error(message)
+                    self.polling_log.error(message)
                     raise MachineConfigurationException(self.host_name)
                 send_data["package_data"][package_name] = this_package_data
+                send_data["packageData"][package_name] = this_package_data # FIXME
         self.stream_data(yaml.dump(send_data))
 
-    def get_newest_existing_package(self):
-        output = []
-        existing_packages = self.get_package_names_from_progress().get(LOCAL_PACKAGES, [])
-        base_package_names = [strip_version(x) for x in existing_packages]
-        base_package_names = list(set(base_package_names)) # eliminates dups
-        for base_package_name in base_package_names:
-            package_versions = []
-            for pkg in existing_packages:
-                if pkg.startswith(base_package_name):
-                    suffix = pkg.split(base_package_name)[-1]
-                    matches = re.compile('^\-(\d+)').findall(suffix)
-                    if len(matches) != 1:
-                        #self.error("Invalid existing package name: %s" % pkg)
-                        continue
-                    package_versions.append(int(matches[0]))
-            package_versions.sort()
-            if package_versions:
-                newest_existing = "%s-%d" % (base_package_name, package_versions[-1])
-                output.append(newest_existing)
-        return output
-
-    def upload_new_packages(self):
-        new_packages = copy.deepcopy(self.data.get("packages"))
-        newest_existing_packages = self.get_newest_existing_package()
-        destPath = os.path.join(self.spkgDir, self.host_name, "packages")
-        for full_package_name in newest_existing_packages:
-            base_package_name = strip_version(full_package_name)
-            newest_package_data = self.get_package_data(base_package_name)
-            newest_package_name = newest_package_data.get("install", {}).get("fullName")
-            if newest_package_name and newest_package_name != full_package_name:
-                self.debug("Need to send package: %s" % newest_package_name)
-                self.send_package(newest_package_name+".spkg", destPath)
-            if base_package_name in new_packages:
-                new_packages.remove(base_package_name)
-        for base_package_name in new_packages:
-            newest_package_data = self.get_package_data(base_package_name)
-            newest_package_name = newest_package_data.get("install", {}).get("fullName")
-            self.send_package(newest_package_name+".spkg", destPath)
-
-    def run_bc(self, action, package_names, script_name, debug):
-        self.ssh_conn.sendline ('cd %s' %self.spkgDir)
-        self.ssh_conn.prompt()
-        package_string = ' '.join(package_names)
+    def run_bc(self, action, package_name, script_name, debug):
+        self.chdir(self.spkg_dir)
         if self.platform == "win32":
             cmd = "cat /proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/Python/PythonCore/2.5/InstallPath/@"
             python_home_win = self.gso(cmd)
             python_home_cyg = self.gso("cygpath $(%s)" %cmd)
             self.get_status_yml()
             cmd = "%spython.exe '%sScripts\\bc.py' %s %s %s %s" % (python_home_cyg, python_home_win,
-                  ACTION_DICT[action], self.host_name, package_string, script_name)
+                  ACTION_DICT[action], self.host_name, package_name, script_name)
         else:
             cmd = "export PYTHON_HOME=$(%s -c 'import sys; print sys.prefix')" % self.python
             gso_out = self.gso(cmd)
             cmd = '%s $PYTHON_HOME/bin/bc.py %s %s %s %s' % (self.python, ACTION_DICT[action],
-                                         self.host_name, package_string, script_name)
+                                         self.host_name, package_name, script_name)
         self.ssh_conn.sendline(cmd)
         self.send_all_client_data(action)
         found_index = 0
+        return_code = OK
         while True:
             expect_list = [self.ssh_conn.PROMPT, self.trace_matcher,
                            self.log_matcher]
             found_index = self.ssh_conn.expect(expect_list, timeout=6000)
             if found_index == 1: # Stack trace
+                self.server_log.error("FOUND A STACK TRACE")
                 self.dump_trace()
                 self.ssh_conn.prompt()
                 self.get_status_yml()
@@ -311,45 +318,56 @@ class BombardierMachineInterface(MachineInterface):
             elif found_index == 0: # BC exited
                 if self.ssh_conn.before.strip():
                     msg = "Remaining output: %s" % self.ssh_conn.before.strip()
-                    self.debug(msg)
+                    self.polling_log.info(msg)
+                    self.server_log.info(msg, self.host_name)
                 self.ssh_conn.setecho(False)
-                self.ssh_conn.sendline("echo $?")
-                self.ssh_conn.prompt()
-                try:
-                    return_code = int(str(self.ssh_conn.before.split()[0].strip()))
-                except Exception, exc:
-                    self.debug( str(exc) )
-                    msg = "Invalid return_code: ('%s')" % self.ssh_conn.before
-                    self.error(msg)
-                    return_code = FAIL
                 break
             elif found_index == 2: # Log message
-                message_type, message = self.ssh_conn.match.groups()
+                level, message = self.ssh_conn.match.groups()
+                if level in ["ERROR", "CRITICAL"]:
+                    return_code = FAIL
                 if not self.process_message(message):
                     message = message.strip()
-                    self.debug(message)
+                    self.polling_log.log_message(level, message)
+                    self.server_log.log_message(level, message, self.host_name)
+        return return_code
 
-    def process(self, action, package_names, script_name, debug):
-        self.report_info = ''
-        self.debug = debug
-        self.pull_report = True
-        if action == EXECUTE:
-            self.clear_script_output(script_name)
-        if self.freshen() != OK:
-            msg = "UNABLE TO CONNECT TO %s. No actions are available."
-            return FAIL, [msg % self.host_name]
-        return_code = OK
+    def send_package(self, package_name, dest_path):
+        filename = os.path.join(self.server_home, "packages", package_name)
+        if not os.path.isfile(filename):
+            message = "Client requested a file that is not on this server: %s" % filename
+            self.server_log.error(message, self.host_name)
+            return OK
+        self.scp(filename, dest_path, False)
+
+    def upload_new_packages(self):
+        dest_path = os.path.join(self.spkg_dir, self.host_name, "packages")
+        delivered_packages = self.get_package_names_from_progress().get(LOCAL_PACKAGES, [])
+        required_base_names = copy.deepcopy(self.data.get("packages"))
+        newest_names = []
+        for base_name in required_base_names:
+            newest_data = self.get_package_data(base_name)
+            newest_name = newest_data.get("install", {}).get("fullName")
+            if newest_name not in delivered_packages:
+                msg = "Need to send package: %s" % newest_name
+                self.server_log.info(msg, self.host_name)
+                self.send_package(newest_name+".spkg", dest_path)
+
+    def process(self, action, package_name, script_name, debug):
         try:
+            self.report_info = ''
+            self.pull_report = True
+            if action == EXECUTE:
+                self.clear_script_output(script_name)
+            if self.freshen() != OK:
+                msg = "UNABLE TO CONNECT TO %s. No actions are available."
+                self.server_log.error(msg, self.host_name)
+                return FAIL, [msg % self.host_name]
+            return_code = OK
             if action != INIT:
+                pass
                 self.upload_new_packages()
-            self.run_bc(action, package_names, script_name, debug)
-        except KeyboardInterrupt:
-            self.debug("Cleaning up...", "\ncleaning up...")
-            if self.terminate() == OK:
-                self.debug("Disconnected", "\ndisconnected")
-            else:
-                self.error("Could not disconnect.")
-            raise KeyboardInterrupt
+            return_code = self.run_bc(action, package_name, script_name, debug)
         except MachineUnavailableException:
             return FAIL, ["Remote system refused connection."]
         except MachineConfigurationException:
@@ -357,6 +375,7 @@ class BombardierMachineInterface(MachineInterface):
         except EOF:
             return FAIL, ["Machine unexpectedly disconnected."]
         except Exception, exc:
+            print "------------------- PROCESS EXEPTION"
             exc = StringIO.StringIO()
             traceback.print_exc(file=exc)
             exc.seek(0)
@@ -364,7 +383,8 @@ class BombardierMachineInterface(MachineInterface):
             ermsg = ''
             for line in data.split('\n'):
                 ermsg = "%% %s" % line
-                self.traceback(ermsg)
+                self.polling_log.error(ermsg)
+                self.server_log.error(ermsg, self.host_name)
             return FAIL, ["Exception in client-handling code."]
 
         self.get_status_yml()
@@ -399,7 +419,7 @@ class BombardierMachineInterface(MachineInterface):
     def get_script_output(self, script_name):
         remote_file_name = "%s-output.yml" % (script_name)
         self.local_filename  = "%s-%s.yml" % (self.host_name, script_name)
-        self.get("%s/output/%s" % (self.spkgDir, remote_file_name))
+        self.get("%s/output/%s" % (self.spkg_dir, remote_file_name))
         if os.path.isfile(remote_file_name):
             report_path = os.path.join(self.server_home, "output",
                                        self.local_filename)
@@ -413,7 +433,7 @@ class BombardierMachineInterface(MachineInterface):
             os.makedirs( status_dir )
 
         new_line = 'cat %s/%s/status.yml;echo "======="'
-        self.ssh_conn.sendline(new_line % (self.spkgDir, self.host_name))
+        self.ssh_conn.sendline(new_line % (self.spkg_dir, self.host_name))
         self.ssh_conn.prompt()
         status_yml = str(self.ssh_conn.before).split("======")[0]
         status_yml = status_yml.replace('\r','')
@@ -421,7 +441,7 @@ class BombardierMachineInterface(MachineInterface):
             syck.load(status_yml)
         except:
             msg = "status.yml could not be parsed (writing to error.yml)"
-            self.error(msg)
+            self.polling_log.error(msg)
             open( os.path.join(status_dir, "error.yml"), 'w' ).write(status_yml)
             return
         status_file = os.path.join(status_dir, "%s.yml" % self.host_name)
@@ -432,5 +452,5 @@ class BombardierMachineInterface(MachineInterface):
             cmd = "chmod 660 %s 2> /dev/null"
             os.system(cmd % (status_file))
         except IOError, ioe:
-            self.error("Unable to write '%s' (%s)" % (status_file, ioe))
+            self.polling_log.error("Unable to write '%s' (%s)" % (status_file, ioe))
 
