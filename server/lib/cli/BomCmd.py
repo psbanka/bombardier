@@ -3,12 +3,15 @@
 import sys, os, time
 import Client
 import PinshCmd
-import BomHostField, PackageField, ScriptField, LongList
+import PackageField, ScriptField, LongList
 from RemoteClient import IncompleteConfigurationException, EnableRequiredException
 from Mode import HostNotEnabledException
 from Client import ClientConfigurationException
 import yaml
 import syck
+from ConfigField import ConfigField, MACHINE
+from SystemStateSingleton import SystemState, ENABLE
+system_state = SystemState()
 
 def ennumerate(configDictOrList, currentPath):
     configList = []
@@ -31,14 +34,13 @@ def ennumerate(configDictOrList, currentPath):
 class BomCmd(PinshCmd.PinshCmd):
     def __init__(self, name):
         PinshCmd.PinshCmd.__init__(self, name)
-        self.bomHostField = BomHostField.BomHostField()
-        self.children = [self.bomHostField]
+        self.machine_field = ConfigField(data_type=MACHINE)
+        self.children = [self.machine_field]
         self.action = None
         self.level = 0
         self.cmdOwner = 1
 
     def cmd(self, tokens, noFlag, slash):
-        pyChucker(slash, tokens)
         start = time.time()
         if noFlag:
             return FAIL, []
@@ -46,11 +48,28 @@ class BomCmd(PinshCmd.PinshCmd):
             tokens = tokens[1:]
         if len(tokens) < 2:
             return FAIL, ["Incomplete command."]
-        hostName = tokens[1]
+        host_name = tokens[1]
         if self.action == RECONCILE and mode.password == '':
             return FAIL, ["Reconcile must be run in enable mode"]
+
+        if command not in ['test', 'dist', 'init']:
+            return FAIL, ["Unknown command: %s" % command]
+
+        post_data = {}
+        url = "json/package/"
+        if command == 'test':
+            url = "json/machine/start_test/%s" % machine_name
+        elif command == 'dist':
+            url = "json/machine/dist/%s" % machine_name
+            post_data = {"dist": tokens[-1]}
+        elif command == 'init':
+            url = "json/machine/init/%s" % machine_name
+
+        out = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
+
+
         try:
-            r = mode.getBomConnection(hostName, slash.fpOut)
+            r = mode.getBomConnection(host_name, slash.fpOut)
         except EnableRequiredException:
             return FAIL, ["Must be in enable mode to contact this system."]
         except HostNotEnabledException:
@@ -89,8 +108,8 @@ class PackageCommand(PinshCmd.PinshCmd):
     def __init__(self, name):
         PinshCmd.PinshCmd.__init__(self, name)
         self.helpText = "VIRTUAL\tTHIS AINT NO COMMAND"
-        self.bomHostField = BomHostField.BomHostField()
-        self.children = [self.bomHostField]
+        self.machine_field = ConfigField(data_type=MACHINE)
+        self.children = [self.machine_field]
         self.action = None
         self.packageField = None
         self.level = 0
@@ -138,24 +157,24 @@ class PackageCommand(PinshCmd.PinshCmd):
             tokens = tokens[1:]
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
-        hostName = tokens[1]
+        host_name = tokens[1]
         if self.bomHostField.match(tokens, 1) != (COMPLETE, 1):
             preferredNames = self.bomHostField.preferredNames(tokens, 1)
-            if hostName in preferredNames:
-                self.hostName = hostName
+            if host_name in preferredNames:
+                self.host_name = host_name
             else:
-                return FAIL, ["Invalid host: "+hostName]
+                return FAIL, ["Invalid host: "+host_name]
         else:
-            self.hostName = self.bomHostField.preferredNames(["command", hostName], 1)[0]
+            self.host_name = self.bomHostField.preferredNames(["command", host_name], 1)[0]
         if tokens[-1] == '':
             tokens = tokens[:-1]
         if self.action== EXECUTE:
-            packageNames = self.packageField.possiblePackageNames(hostName, tokens[2])
+            packageNames = self.packageField.possiblePackageNames(host_name, tokens[2])
             if len(packageNames) != 1:
                 return FAIL, ["Invalid package: "+tokens[2]]
             packageName = packageNames[0]
             try:
-                r = mode.getBomConnection(self.hostName, slash.fpOut)
+                r = mode.getBomConnection(self.host_name, slash.fpOut)
             except IOError, ioe:
                 msg  = ["Cannot read files necessary to contact this host"]
                 msg += [str(ioe)]
@@ -174,7 +193,7 @@ class PackageCommand(PinshCmd.PinshCmd):
             if not packageNames:
                 return FAIL, "No package names match %s. Check system status" % tokens[2]
             try:
-                r = mode.getBomConnection(self.hostName, slash.fpOut)
+                r = mode.getBomConnection(self.host_name, slash.fpOut)
             except EnableRequiredException:
                 return FAIL, ["Must be in enable mode to contact this system."]
             except HostNotEnabledException:
@@ -183,7 +202,7 @@ class PackageCommand(PinshCmd.PinshCmd):
                 msg =  ["Host configuration is not complete"]
                 msg += ["%s" % ice]
                 return FAIL, msg
-            if self.requireDecryption and self.checkEncryption(self.hostName, packageNames) == FAIL:
+            if self.requireDecryption and self.checkEncryption(self.host_name, packageNames) == FAIL:
                 return FAIL, ["This package requires sensitive data."]
             status, output = self.processObject(r, packageNames, tokens)
         if status == FAIL:
@@ -277,7 +296,7 @@ class Execute(PackageCommand):
                 scriptNames = [tokens[3]]
             else:
                 return FAIL, ["Ambiguous scriptName"]
-        if self.checkEncryption(self.hostName, packageName) == FAIL:
+        if self.checkEncryption(self.host_name, packageName) == FAIL:
             return FAIL, ["This package requires sensitive data."]
         try:
             status, output = r.process(self.action, [packageName], scriptNames[0], mode.debug)

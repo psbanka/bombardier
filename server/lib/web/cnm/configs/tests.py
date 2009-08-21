@@ -216,13 +216,15 @@ class BasicTest(TestCase):
 
     def test_package_global(self):
         self.reset_packages()
-        url = '/json/machine/reconcile/localhost'
         package_config = {"test": {"value":"nowisthetimeforalldooment",
                                    "directory": "/tmp/foogazi"},
                           "packages": ["TestPackageType4"],  
                          }
         self.make_localhost_config(additional_config=package_config)
 
+        url = '/json/machine/status/localhost'
+        status, output = self.run_job(url, data={}, timeout=60)
+        url = '/json/machine/reconcile/localhost'
         status, output = self.run_job(url, data={}, timeout=60)
         assert status == OK
 

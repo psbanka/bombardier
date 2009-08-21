@@ -91,6 +91,7 @@ class Job(Thread):
         self.elaped_time = None
         self.command_output = None
         self.output_pointer = 0
+        self.final_logs = []
         Thread.__init__(self)
         self.machine_interface.freshen()
 
@@ -116,6 +117,7 @@ class Job(Thread):
                     self.server_log.error(ermsg, self.name)
         self.server_log.info("Finishing", self.name)
         self.elapsed_time = time.time() - self.start_time
+        self.final_logs = self.machine_interface.polling_log.get_final_logs()
         self.machine_interface.unset_job()
 
 class Dispatcher(Pyro.core.ObjBase):
@@ -202,18 +204,24 @@ class Dispatcher(Pyro.core.ObjBase):
             return output
         return self.start_job(username, machine_interface, commands, copy_dict)
 
-    def reconcile_job(self, username, machine_name):
+    def bom_job(self, username, machine_name, action_string):
         output = {"status": OK}
         copy_dict = {}
         try:
             machine_interface = self.get_machine_interface(username, machine_name)
-            bombardier_recon = BombardierCommand("reconcile", '', '', False)
+            bombardier_recon = BombardierCommand(action_string, '', '', False)
             commands = [bombardier_recon]
         except Exception, err:
             output.update(self.dump_exception(username, err))
             output["status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands, copy_dict)
+
+    def status_job(self, username, machine_name):
+        return self.bom_job(username, machine_name, "status")
+
+    def reconcile_job(self, username, machine_name):
+        return self.bom_job(username, machine_name, "reconcile")
 
     def package_action_job(self, username, package_name, action_string, machine_name):
         output = {"status": OK}
@@ -259,7 +267,7 @@ class Dispatcher(Pyro.core.ObjBase):
         return self.start_job(username, machine_interface, commands, copy_dict)
 
     def test_job(self, username, machine_name):
-        cmd = "for i in 1 2 3 4; do sleep 1; echo '<<0|0|'$i'>>'; done"
+        cmd = 'for i in 1 2 3 4; do sleep 1; echo "Testing $i/4"; done'
         commands = [ShellCommand("self_test", cmd, '.')]
         machine_interface = self.get_machine_interface(username, machine_name)
         return self.start_job(username, machine_interface, commands)
@@ -293,6 +301,7 @@ class Dispatcher(Pyro.core.ObjBase):
                     return output
                 time.sleep(1)
             output["command_output"] = job.command_output
+            #output["new_output"] = job.machine_interface.get_final_logs()
         except Exception, err:
             output.update(self.dump_exception(username, err))
         return output
@@ -307,11 +316,12 @@ class Dispatcher(Pyro.core.ObjBase):
                 output["alive"] = True
                 output["command_output"] = None
                 output["elapsed_time"] = time.time() - job.start_time
+                output["new_output"] = job.machine_interface.get_new_logs()
             else:
                 output["alive"] = False
                 output["command_output"] = job.command_output
                 output["elapsed_time"] = job.elapsed_time
-            output["new_output"] = job.machine_interface.get_new_logs()
+                output["new_output"] = job.final_logs
         except Exception, err:
             output.update(self.dump_exception(username, err))
         return output

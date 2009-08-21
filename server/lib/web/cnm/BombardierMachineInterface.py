@@ -187,6 +187,13 @@ class BombardierMachineInterface(MachineInterface):
         self.ssh_conn.sendline ('cd %s' % path)
         self.ssh_conn.prompt()
 
+    def log_raw_data(self, output_queue):
+        while '\n' in output_queue:
+            position = len(output_queue.split('\n')[0])
+            self.polling_log.info(output_queue[:position-1])
+            output_queue = output_queue[position+2:]
+        return output_queue
+
     def run_cmd(self, command_string):
         self.report_info = ''
         if self.freshen() != OK:
@@ -196,16 +203,19 @@ class BombardierMachineInterface(MachineInterface):
         self.ssh_conn.sendline(command_string)
         command_complete = False
         total_output = ''
+        output_queue = ''
         output_checker = re.compile('(.*)'+self.ssh_conn.PROMPT)
         while True:
             output = self.ssh_conn.read_nonblocking()
+            output_queue += output
             total_output += output
-            self.polling_log.info("CMD OUTPUT: %s" % output)
+            output_queue = self.log_raw_data(output_queue)
             if output_checker.findall(total_output):
-                self.polling_log.info("EXITING")
+                #self.polling_log.info("EXITING")
                 break
+        #self.polling_log.info(output_queue)
         self.ssh_conn.setecho(False)
-        return [OK, '\n'.join(total_output.split('\n')[:-1])] # FIXME, get status
+        return [OK, []]
 
     def dump_trace(self):
         stack_trace = []
