@@ -189,7 +189,8 @@ class MachineInterface:
             self.polling_log.info(msg)
             self.server_log.info(msg, self.host_name)
         else:
-            self.polling_log.info("Sending %s..." % (source))
+            msg = "Sending %s..." % (source)
+            self.polling_log.info(msg)
             self.server_log.info(msg, self.host_name)
         cmd = 'scp -v %s %s@%s:%s'
         cmd = cmd % (source, self.username, self.ip_address, dest)

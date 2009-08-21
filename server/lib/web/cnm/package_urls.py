@@ -12,20 +12,39 @@ VALID_FILE_CHARS += [ chr(x) for x in range(ord('0'), ord('9')+1) ]
 VALID_FILE_CHARS += [ '_', '-', '.' ]
 VALID_FILE_CHARS  = set(VALID_FILE_CHARS)
 
-class MachineStartInstallEntry(CnmResource):
+def safe_get(request, option):
+    value = request.POST.get(option, "")
+    if not set(value).issubset(VALID_FILE_CHARS):
+        bad_characters = set(value) - VALID_FILE_CHARS
+        raise InvalidInput(bad_characters)
+    return value
+
+class PackageActionEntry(CnmResource):
+    @login_required
+    def create(self, request, package_name):
+        output = {"status": OK}
+        try:
+            action = safe_get(request, "action")
+            machine_name = safe_get(request, "machine")
+            dispatcher = self.get_dispatcher()
+            server_home = CnmResource.get_server_home()
+            dispatcher.set_server_home(request.user, server_home)
+            output = dispatcher.package_action_job(request.user, package_name,
+                                                   action, machine_name)
+        except Exception, err:
+            output.update(self.dump_exception(request, err))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
+class MachineStartReconcileEntry(CnmResource):
     @login_required
     def create(self, request, machine_name):
         output = {"status": OK}
         try:
-            package_name = request.POST.get("package", "")
-            if not set(package_name).issubset(VALID_FILE_CHARS):
-                bad_characters = set(package_name) - VALID_FILE_CHARS
-                raise InvalidInput(bad_characters)
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.package_install_job(request.user, 
-                                                    machine_name, package_name)
+            output = dispatcher.reconcile_job(request.user, machine_name)
         except Exception, err:
             output.update(self.dump_exception(request, err))
         responder = JsonDictResponder(output)
@@ -114,7 +133,8 @@ class JobPollEntry(CnmResource):
         return responder.element(request)
 
 urlpatterns = patterns('',
-   url(r'^json/machine/install/(?P<machine_name>.*)', MachineStartInstallEntry(permitted_methods = ['POST'])),
+   url(r'^json/package/(?P<package_name>.*)', PackageActionEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/reconcile/(?P<machine_name>.*)', MachineStartReconcileEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/init/(?P<machine_name>.*)', MachineStartInitEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/dist/(?P<machine_name>.*)', MachineStartDistEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/start_test/(?P<machine_name>.*)', MachineStartTestEntry(permitted_methods = ['POST'])),

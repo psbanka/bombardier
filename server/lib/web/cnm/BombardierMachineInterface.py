@@ -108,13 +108,13 @@ class BombardierMachineInterface(MachineInterface):
     def no_report(self, data):
         self.pull_report = False
 
-    def send_package(self, package_name, destPath):
+    def send_package(self, package_name, dest_path):
         file_name = os.path.join(self.server_home, "packages", package_name)
         if not os.path.isfile(file_name):
             message = "Machine requested a file that is not on this server: %s"
             self.polling_log.error(message % file_name)
             return OK
-        self.scp(file_name, destPath, False)
+        self.scp(file_name, dest_path, False)
 
     def stream_file(self, file_name):
         plain_text = open(file_name, 'rb').read()
@@ -258,14 +258,16 @@ class BombardierMachineInterface(MachineInterface):
     def get_all_package_names(self):
         package_names = set([strip_version(x) for x in self.get_package_names_from_progress().get(PROGRESS, {})])
         package_names = package_names.union(set(self.data.get("packages")))
-        print " --------------- PACKAGE NAMES:",package_names
         return list(package_names)
 
     def get_package_data(self, package_name):
-        print "------------ get_pacakge_data"
         yml_path = os.path.join(self.server_home, "package", "%s.yml" % package_name)
-        package_data = syck.load(open(yml_path).read())
-        self.server_log.debug("PACKAGE_DATA: %s" % package_data)
+        package_data = {}
+        if not os.path.isfile(yml_path):
+            self.server_log.warning("Requested invalid package: %s" % package_name)
+            raise MachineConfigurationException(self.host_name)
+        else:
+            package_data = syck.load(open(yml_path).read())
         return package_data
 
     def send_all_client_data(self, action):
@@ -285,24 +287,24 @@ class BombardierMachineInterface(MachineInterface):
                 send_data["packageData"][package_name] = this_package_data # FIXME
         self.stream_data(yaml.dump(send_data))
 
-    def run_bc(self, action, package_names, script_name, debug):
+    def run_bc(self, action, package_name, script_name, debug):
         self.chdir(self.spkg_dir)
-        package_string = ' '.join(package_names)
         if self.platform == "win32":
             cmd = "cat /proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/Python/PythonCore/2.5/InstallPath/@"
             python_home_win = self.gso(cmd)
             python_home_cyg = self.gso("cygpath $(%s)" %cmd)
             self.get_status_yml()
             cmd = "%spython.exe '%sScripts\\bc.py' %s %s %s %s" % (python_home_cyg, python_home_win,
-                  ACTION_DICT[action], self.host_name, package_string, script_name)
+                  ACTION_DICT[action], self.host_name, package_name, script_name)
         else:
             cmd = "export PYTHON_HOME=$(%s -c 'import sys; print sys.prefix')" % self.python
             gso_out = self.gso(cmd)
             cmd = '%s $PYTHON_HOME/bin/bc.py %s %s %s %s' % (self.python, ACTION_DICT[action],
-                                         self.host_name, package_string, script_name)
+                                         self.host_name, package_name, script_name)
         self.ssh_conn.sendline(cmd)
         self.send_all_client_data(action)
         found_index = 0
+        return_code = OK
         while True:
             expect_list = [self.ssh_conn.PROMPT, self.trace_matcher,
                            self.log_matcher]
@@ -319,26 +321,39 @@ class BombardierMachineInterface(MachineInterface):
                     self.polling_log.info(msg)
                     self.server_log.info(msg, self.host_name)
                 self.ssh_conn.setecho(False)
-                self.ssh_conn.sendline("echo $?")
-                self.ssh_conn.prompt()
-                try:
-                    return_code = int(str(self.ssh_conn.before.split()[0].strip()))
-                except Exception, exc:
-                    self.polling_log.error( str(exc) )
-                    self.server_log.error( str(exc) , self.host_name)
-                    msg = "Invalid return_code: ('%s')" % self.ssh_conn.before
-                    self.polling_log.error(msg)
-                    self.server_log.error(msg, self.host_name)
-                    return_code = FAIL
                 break
             elif found_index == 2: # Log message
                 level, message = self.ssh_conn.match.groups()
+                if level in ["ERROR", "CRITICAL"]:
+                    return_code = FAIL
                 if not self.process_message(message):
                     message = message.strip()
                     self.polling_log.log_message(level, message)
                     self.server_log.log_message(level, message, self.host_name)
+        return return_code
 
-    def process(self, action, package_names, script_name, debug):
+    def send_package(self, package_name, dest_path):
+        filename = os.path.join(self.server_home, "packages", package_name)
+        if not os.path.isfile(filename):
+            message = "Client requested a file that is not on this server: %s" % filename
+            self.server_log.error(message, self.host_name)
+            return OK
+        self.scp(filename, dest_path, False)
+
+    def upload_new_packages(self):
+        dest_path = os.path.join(self.spkg_dir, self.host_name, "packages")
+        delivered_packages = self.get_package_names_from_progress().get(LOCAL_PACKAGES, [])
+        required_base_names = copy.deepcopy(self.data.get("packages"))
+        newest_names = []
+        for base_name in required_base_names:
+            newest_data = self.get_package_data(base_name)
+            newest_name = newest_data.get("install", {}).get("fullName")
+            if newest_name not in delivered_packages:
+                msg = "Need to send package: %s" % newest_name
+                self.server_log.info(msg, self.host_name)
+                self.send_package(newest_name+".spkg", dest_path)
+
+    def process(self, action, package_name, script_name, debug):
         try:
             self.report_info = ''
             self.pull_report = True
@@ -351,8 +366,8 @@ class BombardierMachineInterface(MachineInterface):
             return_code = OK
             if action != INIT:
                 pass
-                #self.upload_new_packages()
-            self.run_bc(action, package_names, script_name, debug)
+                self.upload_new_packages()
+            return_code = self.run_bc(action, package_name, script_name, debug)
         except MachineUnavailableException:
             return FAIL, ["Remote system refused connection."]
         except MachineConfigurationException:

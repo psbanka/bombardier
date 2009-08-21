@@ -10,9 +10,13 @@ import StringIO, traceback
 import ServerLogger
 
 from Exceptions import InvalidJobName, JoinTimeout, PackageNotFound
-from bombardier_core.static_data import INIT, INSTALL, ACTION_DICT
+from Exceptions import InvalidAction
+from bombardier_core.static_data import INIT, INSTALL, ACTION_LOOKUP
+from bombardier_core.static_data import ACTION_DICT
 
 PENDING = 4
+
+
 def exception_dumper(func):
     argnames = func.func_code.co_varnames[:func.func_code.co_argcount]
     fname = func.func_name
@@ -58,16 +62,19 @@ class ShellCommand(AbstractCommand):
         return self.cmd
 
 class BombardierCommand(AbstractCommand):
-    def __init__(self, action, package_names, script_name, debug):
-        name = "Bombardier-%s" % (ACTION_DICT[action])
+    def __init__(self, action_string, package_name, script_name, debug):
+        action_const = ACTION_LOOKUP.get(action_string.lower().strip())
+        if action_const == None:
+            raise InvalidAction(package_name, action_string)
+        name = "Bombardier-%s-%s" % (action_string, package_name)
         AbstractCommand.__init__(self, name)
-        self.action = action
-        self.package_names = package_names
+        self.action = action_const
+        self.package_name = package_name
         self.script_name = script_name
         self.debug = debug
 
     def execute(self, machine_interface):
-        return machine_interface.process(self.action, self.package_names,
+        return machine_interface.process(self.action, self.package_name,
                                          self.script_name, self.debug)
     def info(self):
         return self.name
@@ -186,7 +193,7 @@ class Dispatcher(Pyro.core.ObjBase):
             else:
                 cmd = 'echo spkgPath: %s > /etc/bombardier.yml' % machine_interface.spkg_dir
             set_spkg_config = ShellCommand("Setting spkg path", cmd, '.')
-            bombardier_init = BombardierCommand(INIT, '', '', False)
+            bombardier_init = BombardierCommand("init", '', '', False)
 
             commands = [set_spkg_config, bombardier_init]
         except Exception, err:
@@ -195,12 +202,25 @@ class Dispatcher(Pyro.core.ObjBase):
             return output
         return self.start_job(username, machine_interface, commands, copy_dict)
 
-    def package_install_job(self, username, machine_name, package_name):
+    def reconcile_job(self, username, machine_name):
+        output = {"status": OK}
+        copy_dict = {}
+        try:
+            machine_interface = self.get_machine_interface(username, machine_name)
+            bombardier_recon = BombardierCommand("reconcile", '', '', False)
+            commands = [bombardier_recon]
+        except Exception, err:
+            output.update(self.dump_exception(username, err))
+            output["status"] = FAIL
+            return output
+        return self.start_job(username, machine_interface, commands, copy_dict)
+
+    def package_action_job(self, username, package_name, action_string, machine_name):
         output = {"status": OK}
         try:
             machine_interface = self.get_machine_interface(username, machine_name)
-            install = BombardierCommand(INSTALL, [package_name], '', True)
-            commands = [install]
+            bom_cmd = BombardierCommand(action_string, package_name, '', True)
+            commands = [bom_cmd]
             package_path = os.path.join(self.server_home, "package", package_name + ".yml")
             if not os.path.isfile(package_path):
                 raise PackageNotFound(package_path)

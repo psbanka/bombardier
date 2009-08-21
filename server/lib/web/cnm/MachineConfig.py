@@ -13,6 +13,9 @@ class MachineConfig:
     def __init__(self, host_name, passwd, server_home):
         self.data       = {}
         self.includes   = []
+        if not host_name:
+            errmsg = "Machine name not specified"
+            raise MachineConfigurationException("NOT_DEFINED", errmsg)
         self.host_name = host_name
         self.server_home   = server_home
         if passwd:

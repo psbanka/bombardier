@@ -1,3 +1,14 @@
+class InvalidAction(Exception):
+    def __init__(self, package_name, action_name):
+        Exception.__init__(self)
+        self.package_name = package_name
+        self.action_name = action_name
+    def __repr__(self):
+        return "Cannot run action %s on package %s" % (self.action, self.package_name)
+    def __str__(self):
+        return self.__repr__()
+
+
 class JobAlreadySet(Exception):
     def __init__(self, job_name):
         Exception.__init__(self)

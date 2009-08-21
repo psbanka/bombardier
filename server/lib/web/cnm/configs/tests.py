@@ -118,13 +118,14 @@ class BasicTest(TestCase):
         open("/opt/spkg/localhost/status.yml", 'w').write(yaml_str)
         open("configs/fixtures/status/localhost.yml", 'w').write(yaml_str)
 
-    def reset_status(self):
+    def reset_packages(self):
         status_dict = {"clientVersion": "0.70-591",
                        "install-progress": {},
                         "local-packages": [],
                         "status": {"newInstall": 'True'},
                         "timestamp": 1250868198.8639009,
                       }
+        os.system("rm -rf /opt/spkg/localhost/packages/*")
         self.set_status(status_dict)
 
     def run_job(self, url, data={}, timeout=6, verbose=False):
@@ -158,17 +159,28 @@ class BasicTest(TestCase):
         content_dict = json.loads( response.content )
         return content_dict2["command_output"]
 
-    def test_run_check_job(self):
+    def package_action(self, action):
+        url = '/json/package/TestPackageType4'
+        package_config = {"test": {"value":"nowisthetimeforalldooment",
+                                   "directory": "/tmp/foogazi"},
+                           "packages": ["TestPackageType4"],  
+                         }
+        self.make_localhost_config(additional_config=package_config)
+        post_data={"machine": "localhost", "action": action}
+        output = self.run_job(url, data=post_data, timeout=60)
+        return output
+
+    def NOtest_run_check_job(self):
         url = '/json/machine/start_test/localhost'
         status, output = self.run_job(url)
         assert "1" in output, output
 
-    def test_dist_update(self):
+    def NOtest_dist_update(self):
         url = '/json/machine/dist/localhost'
         status, output = self.run_job(url, data={"dist": "test"}, timeout=60)
         assert "EMPTY_TEST-1.egg-info" in output, output
 
-    def test_client_update(self):
+    def NOtest_client_update(self):
         url = '/json/machine/dist/localhost'
         status, output = self.run_job(url, data={"dist": "bombardier-0.70-591"}, timeout=60, verbose=False)
         assert "bombardier-0.70_591.egg-info" in output, output
@@ -176,16 +188,56 @@ class BasicTest(TestCase):
         url = '/json/machine/init/localhost'
         output = self.run_job(url, data={}, timeout=60)
 
-    def test_package_install(self):
-        self.reset_status()
-        url = '/json/machine/install/localhost'
+    def NOtest_package_error(self):
+        self.reset_packages()
+        status, output = self.package_action("configure")
+        assert status == FAIL
+        status, output = self.package_action("verify")
+        assert status == FAIL
+        status, output = self.package_action("uninstall")
+        assert status == FAIL
+
+    def NOtest_package_actions(self):
+        self.reset_packages()
+        status, output = self.package_action("install")
+        assert status == OK
+        status, output = self.package_action("configure")
+        assert status == OK
+        status, output = self.package_action("verify")
+        assert status == OK
+        status, output = self.package_action("install")
+        assert status == OK # bc shines us on
+        status, output = self.package_action("uninstall")
+        assert status == OK
+        status, output = self.package_action("fix")
+        assert status == OK
+        status, output = self.package_action("purge")
+        assert status == OK
+
+    def test_package_global(self):
+        self.reset_packages()
+        url = '/json/machine/reconcile/localhost'
         package_config = {"test": {"value":"nowisthetimeforalldooment",
-                                   "directory": "/tmp"},
-                           "packages": ["TestPackageType4"],  
+                                   "directory": "/tmp/foogazi"},
+                          "packages": ["TestPackageType4"],  
                          }
         self.make_localhost_config(additional_config=package_config)
-        output = self.run_job(url, data={"package": "TestPackageType4"}, timeout=60)
-        assert output == [OK, []]
+
+        status, output = self.run_job(url, data={}, timeout=60)
+        assert status == OK
+
+        package_config = {"test": {"value":"nowisthetimeforalldooment",
+                                   "directory": "/tmp/foogazi"},
+                          "packages": [],  
+                         }
+        self.make_localhost_config(additional_config=package_config)
+
+        status, output = self.run_job(url, data={}, timeout=60)
+        assert status == OK
+
+
+
+        return output
 
     def test_merged(self):
         self.login(self.super_user)
