@@ -48,10 +48,13 @@ class BasicTest(TestCase):
         result = self.client.login(username=self.super_user.username, password=TEST_PASSWORD)
         self.failUnless(result)
 
-    def make_localhost_config(self):
+    def make_localhost_config(self, additional_config={}):
         config = {"ip_address": "127.0.0.1",
                   "default_user": os.getlogin(),
-                  "platform": sys.platform}
+                  "spkg_path": "/opt/spkg",
+                  "platform": sys.platform,
+                 }
+        config.update(additional_config)
         config_path = os.path.join(self.test_server_home, "machine",
                                    "localhost.yml")
         open(config_path, 'w').write(yaml.dump(config))
@@ -95,7 +98,8 @@ class BasicTest(TestCase):
                        "bom":     { ""    : ["foo", "bomp"],
                                     "fo"  : ["foo"],
                                     "swe" : [] },
-                       "dist": { "": ["test"]  } }
+                       "dist": { "": ["test", "bombardier-0.70-591"]  }, 
+                       "package": { "": ["TestPackageType5", "TestPackageType4"]  } }
         for section in test_dict:
             for search_term in test_dict[section]:
                 expected = test_dict[section][search_term]
@@ -108,43 +112,80 @@ class BasicTest(TestCase):
         self.failUnlessEqual(content_dict["server configuration"]["server_home"],
                              self.test_server_home)
 
-    def test_run_check_job(self):
-        machine_name = 'localhost'
-        username = self.super_user.username
 
-        url = '/json/machine/start_test/%s' % machine_name
-        response = self.client.post(path=url, data={})
+    def set_status(self, status_dict):
+        yaml_str = yaml.dump(status_dict)
+        open("/opt/spkg/localhost/status.yml", 'w').write(yaml_str)
+        open("configs/fixtures/status/localhost.yml", 'w').write(yaml_str)
+
+    def reset_status(self):
+        status_dict = {"clientVersion": "0.70-591",
+                       "install-progress": {},
+                        "local-packages": [],
+                        "status": {"newInstall": 'True'},
+                        "timestamp": 1250868198.8639009,
+                      }
+        self.set_status(status_dict)
+
+    def run_job(self, url, data={}, timeout=6, verbose=False):
+        username = self.super_user.username
+        
+        response = self.client.post(path=url, data=data)
         content_dict = json.loads( response.content )
         job_name = content_dict["job_name"]
-        assert job_name.startswith("%s@%s" % (self.super_user.username, machine_name))
+        assert job_name.startswith("%s@localhost" % (self.super_user.username))
 
         testing = True
         timeout_counter = 0
         next_number = 1
-        while timeout_counter < 6:
+        while timeout_counter < timeout:
             url = '/json/job/poll/%s' % job_name
             content_dict = self.get_content_dict(url)
-            assert u"alive" in content_dict
-            if str(next_number) in content_dict["new_output"]:
-                next_number += 1
-                if next_number == 4:
-                    break
+            assert "alive" in content_dict
+            if verbose:
+                print "NEW OUTPUT:", content_dict["new_output"], "ALIVE:", content_dict["alive"]
+            if not content_dict["alive"]:
+                break
             time.sleep(1)
             timeout_counter += 1
-        assert timeout_counter < 6
 
         url = '/json/job/join/%s' % job_name
         content_dict2 = self.get_content_dict(url)
         self.failUnlessEqual(content_dict2["status"], OK)
 
-        assert '1' in content_dict2["command_output"], content_dict2["command_output"]
-
         url = '/json/machine/cleanup'
         response = self.client.post(path=url, data={})
         content_dict = json.loads( response.content )
+        return content_dict2["command_output"]
 
-        # Fails on cygwin sometimes. Might work elsewhere more reliably.
-        #self.failUnlessEqual(content_dict["localhost"], OK)
+    def test_run_check_job(self):
+        url = '/json/machine/start_test/localhost'
+        status, output = self.run_job(url)
+        assert "1" in output, output
+
+    def test_dist_update(self):
+        url = '/json/machine/dist/localhost'
+        status, output = self.run_job(url, data={"dist": "test"}, timeout=60)
+        assert "EMPTY_TEST-1.egg-info" in output, output
+
+    def test_client_update(self):
+        url = '/json/machine/dist/localhost'
+        status, output = self.run_job(url, data={"dist": "bombardier-0.70-591"}, timeout=60, verbose=False)
+        assert "bombardier-0.70_591.egg-info" in output, output
+
+        url = '/json/machine/init/localhost'
+        output = self.run_job(url, data={}, timeout=60)
+
+    def test_package_install(self):
+        self.reset_status()
+        url = '/json/machine/install/localhost'
+        package_config = {"test": {"value":"nowisthetimeforalldooment",
+                                   "directory": "/tmp"},
+                           "packages": ["TestPackageType4"],  
+                         }
+        self.make_localhost_config(additional_config=package_config)
+        output = self.run_job(url, data={"package": "TestPackageType4"}, timeout=60)
+        assert output == [OK, []]
 
     def test_merged(self):
         self.login(self.super_user)
@@ -164,7 +205,7 @@ class BasicTest(TestCase):
             if type(expected[key]) != type([]):
                 self.failUnlessEqual(content_dict[key], expected[key])
             else:
-                self.failUnlessEqual(set(content_dict[key]), set(expected[key]))
+                assert set(expected[key]).issubset(set(content_dict[key]))
 
     def test_authentication(self):
         self.client.logout()

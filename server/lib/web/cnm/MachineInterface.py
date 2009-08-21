@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
 import pxssh, pexpect
-import sys, time
+import sys, time, os
 from bombardier_core.static_data import OK, FAIL, SERVER, TRACEBACK
 from bombardier_core.static_data import DEBUG, INFO, WARNING, ERROR, CRITICAL
-
-
+from ServerLogger import ServerLogger
+from Exceptions import JobAlreadySet, EnableRequiredException
+from Exceptions import IncompleteConfigurationException, MachineUnavailableException
+from Exceptions import SecureCopyException
 
 #Statuses:
 DISCONNECTED = 0
@@ -17,39 +19,12 @@ GOOD_BREAK_CHARS = ['.', '-', ' ', '\\', '/', '=', ')', ']', '_']
 CONNECTION_TIMEOUT = 90 * 3600 #90 min
 SSH_NEW_KEY = 'Are you sure you want to continue connecting'
 
-class EnableRequiredException(Exception):
-    def __init__(self):
-        Exception.__init__(self)
-    def __repr__(self):
-        return "Must be in enable mode to connect to this server"
-    def __str__(self):
-        return self.__repr__()
-
-class IncompleteConfigurationException(Exception):
-    def __init__(self, server, errmsg):
-        Exception.__init__(self)
-        self.server = server
-        self.errmsg = errmsg
-    def __repr__(self):
-        msg = "Server configuration for %s is incomplete (%s)"
-        return msg % (self.server, self.errmsg)
-    def __str__(self):
-        return self.__repr__()
-
-class MachineUnavailableException(Exception):
-    def __init__(self, server, errmsg):
-        Exception.__init__(self)
-        self.server = server
-        self.errmsg = errmsg
-    def __repr__(self):
-        return "Unable to connect to %s (%s)" % (self.server, self.errmsg)
-    def __str__(self):
-        return self.__repr__()
-
 class MachineInterface:
 
     def __init__(self, machine_config, server_log):
         self.server_log    = server_log
+        self.polling_log   = None
+        self.job_name      = None
         self.host_name     = machine_config.host_name
         self.server_home   = machine_config.server_home
         self.data          = machine_config.data
@@ -78,23 +53,25 @@ class MachineInterface:
         self.connect_time = 0
         self.save_directory = ''
 
-    def set_output_handle(self, output_handle):
-        self.output_handle = output_handle
+    def set_job(self, job_name):
+        if self.job_name:
+            raise JobAlreadySet(self.job_name)
+        self.job_name = job_name
+        self.polling_log = ServerLogger(job_name)
+        self.polling_log.add_stringio_handle()
+        msg = "Binding interface %s to job %s" % (self.host_name, job_name)
+        self.server_log.info(msg, self.host_name)
 
-    def debug(self, msg, source=SERVER):
-        self.log(source, DEBUG, msg)
+    def unset_job(self):
+        self.job_name = None
+        self.polling_log = None
+        msg = "UN-Binding interface %s to job %s" % (self.host_name, self.job_name)
+        self.server_log.info(msg, self.host_name)
 
-    def info(self, msg, source=SERVER):
-        self.log(source, INFO, msg)
-
-    def warning(self, msg, source=SERVER):
-        self.log(source, WARNING, msg)
-
-    def error(self, msg, source=SERVER):
-        self.log(source, ERROR, msg)
-
-    def critical(self, msg, source=SERVER):
-        self.log(source, CRITICAL, msg)
+    def get_new_logs(self):
+        if self.polling_log:
+            return self.polling_log.get_new_logs()
+        return []
 
     def traceback_output(self, source, msg):
         self.log(source, TRACEBACK, msg)
@@ -103,7 +80,7 @@ class MachineInterface:
         self.log(self.host_name, severity, msg)
 
     def log(self, source, severity, msg):
-        formatted_msg = "<<%s|%d|%s>>" % (source, severity, msg)
+        formatted_msg = "<<%s|%d|%s>>\n" % (source, severity, msg)
         self.output_handle.write(formatted_msg)
         self.output_handle.flush()
 
@@ -118,7 +95,8 @@ class MachineInterface:
         self.ssh_conn = pxssh.pxssh()
         self.ssh_conn.timeout = 6000
         msg = "Connecting to %s..." % self.host_name
-        self.debug(msg)
+        self.polling_log.info(msg)
+        self.server_log.info(msg, self.host_name)
         try:
             login_okay = self.ssh_conn.login(self.ip_address, self.username,
                                        self.ssh_pass, login_timeout=6000)
@@ -129,7 +107,8 @@ class MachineInterface:
             self.ssh_conn.prompt()
         except (MachineUnavailableException, pexpect.TIMEOUT):
             msg = "SSH session failed on login."
-            self.debug(msg)
+            self.polling_log.error(msg)
+            self.server_log.error(msg, self.host_name)
             self.status = BROKEN
             return FAIL
         self.status = CONNECTED
@@ -145,7 +124,7 @@ class MachineInterface:
                 msg = "Assuming our connection to %s is stale after "\
                       "%4.2f minutes. Reconnecting..."
                 msg = msg % (self.host_name, connection_age / 60.0)
-                self.debug(msg)
+                self.polling_log.warning(msg)
                 self.disconnect()
             if self.connect() != OK:
                 return FAIL
@@ -159,7 +138,8 @@ class MachineInterface:
 
         if dead:
             msg = "Our connection handle is dead. Reconnecting..."
-            self.debug(msg)
+            self.polling_log.warning(msg)
+            self.server_log.warning(msg, self.host_name)
             try:
                 self.disconnect()
             except:
@@ -192,19 +172,25 @@ class MachineInterface:
         return OK
 
     def get(self, dest_file):
-        self.debug( "Getting %s" % dest_file)
+        self.polling_log.info( "Getting %s" % dest_file)
         cmd = 'scp -v %s@%s:%s .'
         cmd = cmd % (self.username, self.ip_address, dest_file)
-        self.debug("EXECUTING: %s" % cmd, cmd)
+        self.polling_log.debug("EXECUTING: %s" % cmd, cmd)
         scp_conn = pexpect.spawn(cmd, timeout=30)
         return self.process_scp(scp_conn)
 
     def scp(self, source, dest, verbose=True):
+        if not os.path.isfile(source):
+            msg = "Attempting to send nonexistant file: %s" % source
+            self.error(msg)
+            raise SecureCopyException(source, dest, msg)
         if verbose:
             msg = "Sending %s to %s:%s" % (source, self.host_name, dest)
-            self.debug(msg)
+            self.polling_log.info(msg)
+            self.server_log.info(msg, self.host_name)
         else:
-            self.debug("Sending %s..." % (source))
+            self.polling_log.info("Sending %s..." % (source))
+            self.server_log.info(msg, self.host_name)
         cmd = 'scp -v %s %s@%s:%s'
         cmd = cmd % (source, self.username, self.ip_address, dest)
         try:
@@ -229,7 +215,7 @@ class MachineInterface:
                 raise MachineUnavailableException(dest, errMsg)
             scp_conn.sendline(self.ssh_pass)
         if select_index == 2:
-            self.debug('Using password authentication')
+            self.polling_log.warning('Using password authentication')
             scp_conn.sendline(self.ssh_pass)
         if select_index == 3:
             pass
