@@ -55,6 +55,12 @@ class BomModelFactory(BombardierModelFactory):
         self.subdir = "bom"
         self.model = Bom
 
+class StatusModelFactory(BombardierModelFactory):
+    def __init__(self):
+        BombardierModelFactory.__init__(self)
+        self.subdir = "status"
+        self.model = Status
+
 class IncludeModelFactory(BombardierModelFactory):
     def __init__(self):
         BombardierModelFactory.__init__(self)
@@ -89,6 +95,9 @@ class Bom(BombardierModel):
     name = models.CharField(max_length=64)
 
 class Include(BombardierModel):
+    name = models.CharField(max_length=64)
+
+class Status(BombardierModel):
     name = models.CharField(max_length=64)
 
 class Machine(BombardierModel):

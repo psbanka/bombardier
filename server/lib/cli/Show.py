@@ -63,6 +63,13 @@ class Merged(ShowType):
         self.config_field = ConfigField.ConfigField()
         self.children = [self.config_field]
 
+class Status(ShowType):
+    'Displays status of a machine'
+    def __init__(self):
+        ShowType.__init__(self, "status", "status\tshows installation status")
+        self.config_field = ConfigField.ConfigField(data_type=ConfigField.STATUS)
+        self.children = [self.config_field]
+
 class Dist(ShowType):
     'Displays basic machine configuration data from the server'
     def __init__(self):
@@ -131,36 +138,36 @@ class History(PinshCmd.PinshCmd):
             output.append("%4d\t%s" % (i, readline.get_history_item(i)))
         return OK, output
 
-# FIXME: THIS IS BROKEN
-class Status(PinshCmd.PinshCmd):
-    '''Displays status information. SHOULD PULL FROM THE SERVER, BUT IS
-    BROKEN'''
-    def __init__(self):
-        PinshCmd.PinshCmd.__init__(self, "status")
-        self.help_text = "status\tstatus of a host"
-        #self.bom_host_field = BomHostField.BomHostField()
-        #self.children = [self.bom_host_field]
-        self.cmd_owner = 1
-
-    @classmethod
-    def printify(cls, input_objects):
-        'pretty-print status information'
-        text_list = list(input_objects)
-        text_list.sort()
-        output = []
-        if not text_list:
-            return []
-        max_length = max( [ len(t) for t in text_list ] )
-        columns = (system_state.termwidth - TERM_OVERCOUNT) / max_length
-        for i in range(0, len(text_list), columns):
-            newLine = ''
-            for item in text_list[i:i+columns]:
-                newLine += item.ljust(max_length+2)
-            output.append(newLine)
-        return output
-
-    def cmd(self, _tokens, _no_flag):
-        'prints status information, but does not work'
+## FIXME: THIS IS BROKEN
+#class Status(PinshCmd.PinshCmd):
+#    '''Displays status information. SHOULD PULL FROM THE SERVER, BUT IS
+#    BROKEN'''
+#    def __init__(self):
+#        PinshCmd.PinshCmd.__init__(self, "status")
+#        self.help_text = "status\tstatus of a host"
+#        #self.bom_host_field = BomHostField.BomHostField()
+#        #self.children = [self.bom_host_field]
+#        self.cmd_owner = 1
+#
+#    @classmethod
+#    def printify(cls, input_objects):
+#        'pretty-print status information'
+#        text_list = list(input_objects)
+#        text_list.sort()
+#        output = []
+#        if not text_list:
+#            return []
+#        max_length = max( [ len(t) for t in text_list ] )
+#        columns = (system_state.termwidth - TERM_OVERCOUNT) / max_length
+#        for i in range(0, len(text_list), columns):
+#            newLine = ''
+#            for item in text_list[i:i+columns]:
+#                newLine += item.ljust(max_length+2)
+#            output.append(newLine)
+#        return output
+#
+#    def cmd(self, _tokens, _no_flag):
+#        'prints status information, but does not work'
 #        if no_flag:
 #            return FAIL, []
 #        if len(tokens) < 3:
@@ -212,11 +219,11 @@ class Show(PinshCmd.PinshCmd):
         merged = Merged()
         machine = Machine()
         include = Include()
-        #status = Status()
+        status = Status()
         package = Package()
         user    = User()
         dist    = Dist()
         bom = Bom()
-        self.children = [merged, machine, include, bom, history, package, user, dist]
+        self.children = [merged, machine, include, bom, history, package, user, dist, status]
         self.cmd_owner = 1
 

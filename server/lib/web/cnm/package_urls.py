@@ -36,6 +36,20 @@ class PackageActionEntry(CnmResource):
         responder = JsonDictResponder(output)
         return responder.element(request)
 
+class MachineStartStatusEntry(CnmResource):
+    @login_required
+    def create(self, request, machine_name):
+        output = {"status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            server_home = CnmResource.get_server_home()
+            dispatcher.set_server_home(request.user, server_home)
+            output = dispatcher.status_job(request.user, machine_name)
+        except Exception, err:
+            output.update(self.dump_exception(request, err))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
 class MachineStartReconcileEntry(CnmResource):
     @login_required
     def create(self, request, machine_name):
@@ -134,6 +148,7 @@ class JobPollEntry(CnmResource):
 
 urlpatterns = patterns('',
    url(r'^json/package/(?P<package_name>.*)', PackageActionEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/status/(?P<machine_name>.*)', MachineStartStatusEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/reconcile/(?P<machine_name>.*)', MachineStartReconcileEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/init/(?P<machine_name>.*)', MachineStartInitEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/dist/(?P<machine_name>.*)', MachineStartDistEntry(permitted_methods = ['POST'])),

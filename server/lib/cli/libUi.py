@@ -372,17 +372,10 @@ def error(msg):
     'logging function'
     system_state.fp_out.write(">>> ERROR: %s\n" % msg)
 
-def process_cnm(text_stream):
+def process_cnm(server_output_lines):
     'Handles output from the CNM and pretty-prints to the screen'
-    output = re.compile("\<\<(\d)\|(\d)\|(.*?)\>\>").findall(text_stream)
-    for match in output:
-        _source, level, msg = match
-        if level == WARNING:
-            warning(msg)
-        elif level == ERROR:
-            error(msg)
-        else:
-            info(msg)
+    for line in server_output_lines:
+        print "  ",line
 
 def user_output(output, status, output_handle = sys.stdout,
                 _err_handle = sys.stderr, prepend = '', test = False):

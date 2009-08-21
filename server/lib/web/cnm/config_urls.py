@@ -5,10 +5,10 @@ from django import forms
 
 from django.shortcuts import render_to_response
 from CnmResource import CnmResource
-from configs.models import Machine, Include, Bom, ServerConfig, Package
+from configs.models import Machine, Include, Bom, ServerConfig, Package, Status
 from configs.models import Dist
 from configs.models import MachineModelFactory, IncludeModelFactory, BomModelFactory, PackageModelFactory
-from configs.models import DistModelFactory
+from configs.models import DistModelFactory, StatusModelFactory
 import syck, glob
 import os
 import MachineConfig
@@ -16,11 +16,11 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 
 MAPPER = {"merged": Machine, "machine": Machine, "include": Include,
-          "bom": Bom, "package": Package }
+          "bom": Bom, "package": Package, "status": Status }
 MAPPER["dist"] = Dist
 
 FACTORIES = [MachineModelFactory, IncludeModelFactory, BomModelFactory,
-             PackageModelFactory, DistModelFactory]
+             PackageModelFactory, DistModelFactory, StatusModelFactory]
 
 class ConfigEntry(CnmResource):
     @login_required
@@ -49,6 +49,11 @@ class IncludeEntry(ConfigEntry):
     @login_required
     def read(self, request, include_name):
         return super(IncludeEntry, self).read(request, "include", include_name)
+
+class StatusEntry(ConfigEntry):
+    @login_required
+    def read(self, request, machine_name):
+        return super(StatusEntry, self).read(request, "status", machine_name)
 
 class DistEntry(ConfigEntry):
     @login_required
@@ -81,10 +86,15 @@ class ConfigCollection(CnmResource):
         responder.expose_fields = ["name"]
         return responder.list(request, objects)
 
+class StatusCollection(ConfigCollection):
+    @login_required
+    def read(self, request, machine_name):
+        return super(StatusCollection, self).read(request, "status", machine_name)
+
 class MergedCollection(ConfigCollection):
     @login_required
     def read(self, request, machine_name):
-        return super(MachineCollection, self).read(request, "merged", machine_name)
+        return super(MergedCollection, self).read(request, "merged", machine_name)
 
 class MachineCollection(ConfigCollection):
     @login_required
@@ -219,5 +229,7 @@ urlpatterns = patterns('',
    url(r'^json/package/name/(?P<package_name>.*)$', PackageEntry(permitted_methods=['GET'])),
    url(r'^json/dist/search/(?P<dist_name>.*)', DistCollection()),
    url(r'^json/dist/name/(?P<dist_name>.*)', DistEntry()),
+   url(r'^json/status/search/(?P<machine_name>.*)', StatusCollection()),
+   url(r'^json/status/name/(?P<machine_name>.*)$', StatusEntry(permitted_methods=['GET'])),
    url(r'^server/config', config_setting_form),
 )

@@ -46,6 +46,12 @@ class Machine(PinshCmd.PinshCmd):
        [OK, ['foo']]
        bomsh# machine localhost dist test
        [OK, ['localhost updated with test']]
+       bomsh# machine localhost init
+       [OK, []]
+       bomsh# machine localhost reconcile
+       [OK, []]
+       bomsh# machine localhost status
+       [OK, []]
     '''
     def __init__(self):
         """Top-level object has a 'test' child: test the machine
@@ -60,8 +66,11 @@ class Machine(PinshCmd.PinshCmd):
         self.test = PinshCmd.PinshCmd("test")
         self.dist = PinshCmd.PinshCmd("dist")
         self.init = PinshCmd.PinshCmd("init")
+        self.reconcile = PinshCmd.PinshCmd("reconcile")
+        self.status = PinshCmd.PinshCmd("status")
 
-        self.machine_field.children = [self.test, self.dist, self.init]
+        self.machine_field.children = [self.test, self.dist, self.init,
+                                       self.status, self.reconcile]
 
         self.dist_field = ConfigField(data_type=DIST)
         self.dist.children = [self.dist_field]
@@ -87,7 +96,7 @@ class Machine(PinshCmd.PinshCmd):
         machine_name = possible_machine_names[0]
 
         command = tokens[2].lower()
-        if command not in ['test', 'dist', 'init']:
+        if command not in ['test', 'dist', 'init', 'status', 'reconcile']:
             return FAIL, ["Unknown command: %s" % command]
 
         post_data = {}
@@ -98,6 +107,10 @@ class Machine(PinshCmd.PinshCmd):
             post_data = {"dist": tokens[-1]}
         elif command == 'init':
             url = "json/machine/init/%s" % machine_name
+        elif command == 'reconcile':
+            url = "json/machine/reconcile/%s" % machine_name
+        elif command == 'status':
+            url = "json/machine/status/%s" % machine_name
 
         out = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
         if "traceback" in out:
