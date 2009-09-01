@@ -182,7 +182,8 @@ class MachineInterface:
     def scp(self, source, dest, verbose=True):
         if not os.path.isfile(source):
             msg = "Attempting to send nonexistant file: %s" % source
-            self.error(msg)
+            self.server_log.error(msg)
+            self.polling_log.error(msg, self.host_name)
             raise SecureCopyException(source, dest, msg)
         if verbose:
             msg = "Sending %s to %s:%s" % (source, self.host_name, dest)

@@ -98,7 +98,7 @@ class BasicTest(TestCase):
                        "bom":     { ""    : ["foo", "bomp"],
                                     "fo"  : ["foo"],
                                     "swe" : [] },
-                       "dist": { "": ["test", "bombardier-0.70-591"]  }, 
+                       "dist": { "": ["test", "bombardier-0.70-595"]  }, 
                        "package": { "": ["TestPackageType5", "TestPackageType4"]  } }
         for section in test_dict:
             for search_term in test_dict[section]:
@@ -119,7 +119,7 @@ class BasicTest(TestCase):
         open("configs/fixtures/status/localhost.yml", 'w').write(yaml_str)
 
     def reset_packages(self):
-        status_dict = {"clientVersion": "0.70-591",
+        status_dict = {"clientVersion": "0.70-595",
                        "install-progress": {},
                         "local-packages": [],
                         "status": {"newInstall": 'True'},
@@ -151,67 +151,75 @@ class BasicTest(TestCase):
             timeout_counter += 1
 
         url = '/json/job/join/%s' % job_name
-        content_dict2 = self.get_content_dict(url)
-        self.failUnlessEqual(content_dict2["status"], OK)
+        join_output = self.get_content_dict(url)
+        #self.failUnlessEqual(join_output["command_status"], OK)
 
         url = '/json/machine/cleanup'
         response = self.client.post(path=url, data={})
-        content_dict = json.loads( response.content )
-        return content_dict2["command_output"]
+        return join_output["command_status"], join_output["complete_log"]
 
-    def package_action(self, action):
-        url = '/json/package/TestPackageType4'
+    def package_action(self, action, package_name):
+        url = '/json/package_action/%s' % package_name
         package_config = {"test": {"value":"nowisthetimeforalldooment",
                                    "directory": "/tmp/foogazi"},
-                           "packages": ["TestPackageType4"],  
+                          "packages": ["TestPackageType4"],  
                          }
         self.make_localhost_config(additional_config=package_config)
         post_data={"machine": "localhost", "action": action}
-        output = self.run_job(url, data=post_data, timeout=60)
-        return output
+        status, output = self.run_job(url, data=post_data, timeout=60)
+        return status, output
 
-    def NOtest_run_check_job(self):
+    def test_run_check_job(self):
         url = '/json/machine/start_test/localhost'
         status, output = self.run_job(url)
         assert "1" in output, output
 
-    def NOtest_dist_update(self):
+    def test_dist_update(self):
         url = '/json/machine/dist/localhost'
         status, output = self.run_job(url, data={"dist": "test"}, timeout=60)
+        assert status == OK
         assert "EMPTY_TEST-1.egg-info" in output, output
 
-    def NOtest_client_update(self):
+    def test_client_update(self):
         url = '/json/machine/dist/localhost'
-        status, output = self.run_job(url, data={"dist": "bombardier-0.70-591"}, timeout=60, verbose=False)
-        assert "bombardier-0.70_591.egg-info" in output, output
+        status, output = self.run_job(url, data={"dist": "bombardier-0.70-595"}, timeout=60, verbose=False)
+        assert "bombardier-0.70_595.egg-info" in output, output
 
         url = '/json/machine/init/localhost'
-        output = self.run_job(url, data={}, timeout=60)
+        status,output = self.run_job(url, data={}, timeout=60)
+        assert status == OK
 
-    def NOtest_package_error(self):
+    def test_package_error(self):
         self.reset_packages()
-        status, output = self.package_action("configure")
+        package_name = "TestPackageType4"
+        status, output = self.package_action("configure", package_name)
         assert status == FAIL
-        status, output = self.package_action("verify")
+        status, output = self.package_action("verify", package_name)
         assert status == FAIL
-        status, output = self.package_action("uninstall")
+        status, output = self.package_action("uninstall", package_name)
         assert status == FAIL
 
-    def NOtest_package_actions(self):
+    def test_package_actions(self):
         self.reset_packages()
-        status, output = self.package_action("install")
+        package_name = "TestPackageType4"
+        status, output = self.package_action("install", package_name)
         assert status == OK
-        status, output = self.package_action("configure")
+        url = '/json/status/name/localhost'
+        status_data = self.get_content_dict(url)
+        progress_data = status_data["install-progress"]["TestPackageType4-7"]
+        assert "INSTALLED" in progress_data
+
+        status, output = self.package_action("configure", package_name)
         assert status == OK
-        status, output = self.package_action("verify")
+        status, output = self.package_action("verify", package_name)
         assert status == OK
-        status, output = self.package_action("install")
+        status, output = self.package_action("install", package_name)
         assert status == OK # bc shines us on
-        status, output = self.package_action("uninstall")
+        status, output = self.package_action("uninstall", package_name)
         assert status == OK
-        status, output = self.package_action("fix")
+        status, output = self.package_action("fix", package_name)
         assert status == OK
-        status, output = self.package_action("purge")
+        status, output = self.package_action("purge", package_name+"-7")
         assert status == OK
 
     def test_package_global(self):
@@ -224,6 +232,7 @@ class BasicTest(TestCase):
 
         url = '/json/machine/status/localhost'
         status, output = self.run_job(url, data={}, timeout=60)
+        assert status == OK
         url = '/json/machine/reconcile/localhost'
         status, output = self.run_job(url, data={}, timeout=60)
         assert status == OK
@@ -236,9 +245,6 @@ class BasicTest(TestCase):
 
         status, output = self.run_job(url, data={}, timeout=60)
         assert status == OK
-
-
-
         return output
 
     def test_merged(self):

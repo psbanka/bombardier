@@ -6,7 +6,6 @@ import re
 import Slash
 from bombardier_core.Logger import Logger
 
-DEBUG = False
 IGNORE_MODULE_NAMES = 'tester', 'libUi', 'Slash', 'SystemStateSingleton', '_version'
 
 def get_cls(module_name):
@@ -51,7 +50,7 @@ def get_tests(cls, module_name):
     return tests
 
 
-def run_tests(cls, tests):
+def run_tests(cls, tests, debug):
     object = cls()
     slash = Slash.Slash([object])
 
@@ -60,20 +59,27 @@ def run_tests(cls, tests):
         expected_result = tests[command]
         expected_status = expected_result[0]
         expected_cmd_output = expected_result[1]
+        if debug:
+            print "TESTING: ", cls, command
+            print "Expected result:", expected_result
         no_flag, help_flag, tokens, comment = libUi.process_input(command)
         cmd_status, cmd_output = slash.process_command(command.strip())
+        print ">>>>>>>>",cmd_status, cmd_output
+        if debug:
+            print "COMMAND OUTPUT:",cmd_output
         if cmd_status != expected_status:
+            print "FAILED: (%s) != (%s)" % (cmd_status, expected_status)
             output[command] = "FAIL"
-            print cmd_output
             continue
         if len(cmd_output) != len(expected_cmd_output):
             output[command] = "FAIL"
-            print cmd_output, expected_cmd_output
+            print "FAILED: (%s) != (%s)" % (cmd_output, expected_cmd_output)
             continue
         for index in range(0,len(cmd_output)):
             received_user_line = cmd_output[index].strip()
             expected_user_line = expected_cmd_output[index]
             if received_user_line != expected_user_line:
+                print "FAILED: (%s) != (%s)" % (received_user_line, expected_user_line)
                 output[command] = "FAIL"
         output[command] = "PASSED"
     return output
@@ -84,9 +90,13 @@ if __name__ == "__main__":
     logger = Logger('bombardier_test', 'test.log')
     libUi.login("admin", logger, 'abc123')
 
+    print "(clearing existing connections)"
+    system_state.cnm_connector.cleanup()
     file_names = glob.glob("*.py")
     module_names = [ x.split('.')[0] for x in file_names ]
-    if not DEBUG:
+    debug = True
+    if sys.argv[-1] != '-d':
+        debug = False
         print "(suppressing output)"
         output_handle = StringIO.StringIO()
         system_state.set_output(output_handle)
@@ -99,6 +109,6 @@ if __name__ == "__main__":
         if not tests:
             continue
 
-        output = run_tests(cls, tests)
+        output = run_tests(cls, tests, debug)
         for command in output:
             print "%s:  '%s' (%s)" % (output[command], command, module_name)

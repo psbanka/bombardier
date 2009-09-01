@@ -89,11 +89,13 @@ class Job(Thread):
         self.machine_interface.set_job(name)
         self.start_time = None
         self.elaped_time = None
+        self.command_status = FAIL
         self.command_output = None
         self.output_pointer = 0
         self.final_logs = []
         Thread.__init__(self)
         self.machine_interface.freshen()
+        self.complete_log = ''
 
     def run(self):
         self.server_log.info("Starting...", self.name)
@@ -102,7 +104,9 @@ class Job(Thread):
         for command in self.commands:
             try:
                 self.server_log.info("Processing command: %s" % command.name, self.name)
-                self.command_output = command.execute(self.machine_interface)
+                status, output = command.execute(self.machine_interface)
+                self.command_status = status
+                self.command_output = output
             except Exception, err:
                 self.elapsed_time = time.time() - self.start_time
                 msg = "Command %s: Failed to run %s" % (command.name, command.info())
@@ -118,6 +122,7 @@ class Job(Thread):
         self.server_log.info("Finishing", self.name)
         self.elapsed_time = time.time() - self.start_time
         self.final_logs = self.machine_interface.polling_log.get_final_logs()
+        self.complete_log = self.machine_interface.polling_log.get_complete_log()
         self.machine_interface.unset_job()
 
 class Dispatcher(Pyro.core.ObjBase):
@@ -223,30 +228,19 @@ class Dispatcher(Pyro.core.ObjBase):
     def reconcile_job(self, username, machine_name):
         return self.bom_job(username, machine_name, "reconcile")
 
-    def package_action_job(self, username, package_name, action_string, machine_name):
+    def package_action_job(self, username, package_name, action_string, 
+                           machine_name, package_revision=None):
         output = {"status": OK}
         try:
             machine_interface = self.get_machine_interface(username, machine_name)
             bom_cmd = BombardierCommand(action_string, package_name, '', True)
             commands = [bom_cmd]
-            package_path = os.path.join(self.server_home, "package", package_name + ".yml")
-            if not os.path.isfile(package_path):
-                raise PackageNotFound(package_path)
-            package_info = yaml.load(open(package_path).read())
-            if package_info.get("package-version", 5) == 5:
-                script_file = package_info.get("script")+".tar.gz"
-                injector_file = package_info.get("injector")+".tar.gz"
-                copy_dict = {"scripts": [script_file],
-                             "injectors": [injector_file]}
-            else:
-                package_file = package_info.get("install",{}).get("fullName",'')+".spkg"
-                copy_dict = {"packages": [package_file]}
 
         except Exception, err:
             output.update(self.dump_exception(username, err))
             output["status"] = FAIL
             return output
-        return self.start_job(username, machine_interface, commands, copy_dict)
+        return self.start_job(username, machine_interface, commands, {})
 
     def dist_job(self, username, machine_name, dist_name):
         output = {"status": OK}
@@ -300,8 +294,9 @@ class Dispatcher(Pyro.core.ObjBase):
                     output["status"] = FAIL
                     return output
                 time.sleep(1)
+            output["command_status"] = job.command_status
             output["command_output"] = job.command_output
-            #output["new_output"] = job.machine_interface.get_final_logs()
+            output["complete_log"] = job.complete_log
         except Exception, err:
             output.update(self.dump_exception(username, err))
         return output
@@ -314,11 +309,13 @@ class Dispatcher(Pyro.core.ObjBase):
                 raise InvalidJobName(job_name)
             if job.isAlive():
                 output["alive"] = True
-                output["command_output"] = None
+                output["command_status"] = None
+                output["command_output"] = []
                 output["elapsed_time"] = time.time() - job.start_time
                 output["new_output"] = job.machine_interface.get_new_logs()
             else:
                 output["alive"] = False
+                output["command_status"] = job.command_status
                 output["command_output"] = job.command_output
                 output["elapsed_time"] = job.elapsed_time
                 output["new_output"] = job.final_logs
