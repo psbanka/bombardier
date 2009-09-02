@@ -159,8 +159,8 @@ class CliCompletionTest(CliUnitTest):
 
 if __name__ == "__main__":
     suite = unittest.TestSuite()
-    #suite.addTest(unittest.makeSuite(CliCmdTest))
+    suite.addTest(unittest.makeSuite(CliCmdTest))
     suite.addTest(unittest.makeSuite(Scratchy))
-    #suite.addTest(unittest.makeSuite(CliCompletionTest))
-    #suite.addTest(unittest.makeSuite(CliHelpTest))
+    suite.addTest(unittest.makeSuite(CliCompletionTest))
+    suite.addTest(unittest.makeSuite(CliHelpTest))
     unittest.TextTestRunner(verbosity=2).run(suite)

@@ -48,15 +48,31 @@ class Slash(PinshCmd.PinshCmd):
         self.cmd_owner = 1
         self.help_text = ''
 
+    def complete_tokens(self, tokens):
+        completed_tokens = []
+        current_tokens = []
+        for token in tokens:
+            current_tokens.append(token)
+            names, token_delimeter = self.get_names_and_token_delimeter(current_tokens)
+            if not names:
+                raise UnknownCommand(' '.join(current_tokens))
+            if token in names:
+                completed_tokens.append(token)
+            else:
+                if len(names) > 1:
+                    raise AmbiguousCommand(current_tokens[-1], names)
+                completed_tokens.append(names[0])
+        return completed_tokens
+
     def run(self, tokens, no_flag):
         'finds the correct object and runs a command'
-        print "RUN -- TOKENS: ",tokens
         if tokens[-1] == '':
             tokens = tokens[:-1]
         owner = self.find_last_responsible_child(tokens, 0)
         if not owner:
             return FAIL, []
         try:
+            tokens = self.complete_tokens(tokens)
             return_value = owner.cmd(tokens, no_flag)
         except AmbiguousCommand, amb_err:
             return FAIL, [str(amb_err)]
@@ -148,6 +164,18 @@ class Slash(PinshCmd.PinshCmd):
                 names = names + new_name
         return names
 
+    def get_names_and_token_delimeter(self, tokens):
+        index = 0
+        if tokens == []:
+            completion_objects = self.children
+        else:
+            completion_objects, index = self.find_completions(tokens, 0)
+        if len(completion_objects) == 0:
+            return None, ' '
+        token_delimeter = completion_objects[0].token_delimeter
+        names = self.get_names(completion_objects, tokens, index-1)
+        return names, token_delimeter
+
     def complete(self, _text, status):
         '''Command line completer, called with [tab]
         or [?] (if we could bind it)
@@ -163,16 +191,10 @@ class Slash(PinshCmd.PinshCmd):
                     libUi.process_input(readline.get_line_buffer())
                 # this is where we would process help if
                 # we could bind the '?' key properly
-                index = 0
-                if tokens == []:
-                    completion_objects = self.children
-                else:
-                    completion_objects, index = self.find_completions(tokens, 0)
-                if len(completion_objects) == 0:
-                    return None
-                self.names = self.get_names(completion_objects, tokens, index-1)
+                names, token_delimeter = self.get_names_and_token_delimeter(tokens)
+                self.names = names
                 if len(self.names) == 1:
-                    return self.names[0] + completion_objects[0].token_delimeter
+                    return self.names[0] + token_delimeter
                 if self.names:
                     return self.names[0]
                 return []

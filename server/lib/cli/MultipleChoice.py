@@ -65,9 +65,6 @@ class MultipleChoice(PinshCmd.PinshCmd):
     def preferred_names(self, tokens, index):
         '''provides the full name of the choice if a partial one
         was given.'''
-
-
-        print "I AM GETTING CALLED"
         possible_choices = []
         if tokens[index] == '':
             return self.choices
