@@ -205,9 +205,9 @@ class History(PinshCmd.PinshCmd):
 
 
 class Show(PinshCmd.PinshCmd):
-    '''bomsh# show bom foo
-       [OK, ['- tomcat_5.5.2', '- cheaterface_1.0', '']]
-       bomsh# show machine tester1
+    '''bomsh# show bom qa
+       [OK, ['- new_tomcat', '- new_apache', '- new_database', '']]
+       bomsh# show machine localhost
        [OK, ['bom:', '- bomp', 'include:', '- otherapp', '- app1', 'ip_address: 127.0.0.1', '']]
        bomsh# show dist test
        [OK, ['description: Open Source Empty package', 'dist_name: EMPTY_TEST', 'name: test', "version: '1'", '']]

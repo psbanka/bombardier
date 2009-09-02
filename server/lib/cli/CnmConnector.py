@@ -37,7 +37,7 @@ import urllib2, urlparse, os
 import yaml, syck
 import pycurl
 import urllib
-from Exceptions import UnexpectedDataException, ServerException
+from Exceptions import UnexpectedDataException, ServerException, MachineTraceback
 
 LOGIN_PATH = "/accounts/login/"
 
@@ -248,4 +248,22 @@ class CnmConnector:
         except urllib2.HTTPError:
             self.logger.error("Unable to connect to the service %s" % path)
             return {}
+
+    def cleanup(self):
+        url = "json/machine/cleanup"
+        self.service_yaml_request(url, post_data={})
+
+    def get_job(self, url, post_data):
+        out = self.service_yaml_request(url, post_data=post_data)
+        if "traceback" in out:
+            raise MachineTraceback(url, out["traceback"])
+        job_name = out.get("job_name")
+        return job_name
+
+    def join_job(self, job_name):
+        url = "json/job/join/%s" % job_name
+        output = self.service_yaml_request(url)
+        if "traceback" in output:
+            raise MachineTraceback(url, out["traceback"])
+        return output
 

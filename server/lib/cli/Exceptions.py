@@ -97,3 +97,15 @@ class AmbiguousCommand(Exception):
         return 'Command "%s" ambiguous -- could be %s.' % (self.command, self.options)
     def __str__(self):
         return self.__repr__()
+
+class MachineTraceback(Exception):
+    "When trying to execute a command on a machine, it raised."
+    def __init__(self, url, traceback):
+        Exception.__init__(self)
+        self.url = url
+        self.traceback = traceback
+    def __repr__(self):
+        return 'Raised an exception in server url: %s' % (self.url)
+    def __str__(self):
+        return self.__repr__()
+

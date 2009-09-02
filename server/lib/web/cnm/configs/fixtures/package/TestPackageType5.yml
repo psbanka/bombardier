@@ -4,6 +4,7 @@ configuration:
     value: hello
 dependencies: []
 executables: ["echo"]
+package_version: 23
 injector: TestPackage-injector-7
 script: TestPackage-script-7
 template: ""
@@ -13,5 +14,5 @@ install:
   console: 'False'
   priority: '100'
   reboot: 'False'
-package-version: 4
+package-version: 5
 virtualpackage: ''

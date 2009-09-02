@@ -30,7 +30,9 @@ class BombardierMachineInterface(MachineInterface):
         self.report_info    = ''
         self.state_machine  = []
         self.default_group  = "root"
+        self.exit_code      = FAIL
 
+        self.state_machine.append([re.compile("\=\=EXIT-CODE\=\=:(\d+)"), self.get_exit_code])
         self.state_machine.append([re.compile("\=\=REPORT\=\=:(.*)"), self.get_report])
         self.state_machine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.send_client])
         self.state_machine.append([re.compile("Unable to shred before deleting"), self.no_report])
@@ -87,6 +89,12 @@ class BombardierMachineInterface(MachineInterface):
                     msg = "Invalid status data. Ignoring."
                     self.polling_log.warning(msg)
         return(MachineInterface.freshen(self))
+
+    def get_exit_code(self, exit_code):
+        message = "Client process complete: %s" % exit_code
+        self.polling_log.info(message)
+        self.server_log.info(message, self.host_name)
+        self.exit_code = int(exit_code)
 
     def action_result(self, data):
         action, package_name, result = data
@@ -298,6 +306,7 @@ class BombardierMachineInterface(MachineInterface):
         self.stream_data(yaml.dump(send_data))
 
     def run_bc(self, action, package_name, script_name, debug):
+        self.report_info = ''
         self.chdir(self.spkg_dir)
         if self.platform == "win32":
             cmd = "cat /proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/Python/PythonCore/2.5/InstallPath/@"
@@ -314,33 +323,39 @@ class BombardierMachineInterface(MachineInterface):
         self.ssh_conn.sendline(cmd)
         self.send_all_client_data(action)
         found_index = 0
-        return_code = OK
         while True:
             expect_list = [self.ssh_conn.PROMPT, self.trace_matcher,
                            self.log_matcher]
             found_index = self.ssh_conn.expect(expect_list, timeout=6000)
-            if found_index == 1: # Stack trace
-                self.server_log.error("FOUND A STACK TRACE")
-                self.dump_trace()
-                self.ssh_conn.prompt()
-                self.get_status_yml()
-                return FAIL, ["Machine raised an exception."]
-            elif found_index == 0: # BC exited
+            if found_index == 0: # BC exited
                 if self.ssh_conn.before.strip():
                     msg = "Remaining output: %s" % self.ssh_conn.before.strip()
                     self.polling_log.info(msg)
                     self.server_log.info(msg, self.host_name)
                 self.ssh_conn.setecho(False)
                 break
+            elif found_index == 1: # Stack trace
+                self.server_log.error("FOUND A STACK TRACE")
+                self.dump_trace()
+                self.ssh_conn.prompt()
+                self.get_status_yml()
+                self.exit_code = FAIL
+                return ["Machine raised an exception."]
             elif found_index == 2: # Log message
                 level, message = self.ssh_conn.match.groups()
-                if level in ["ERROR", "CRITICAL"]:
-                    return_code = FAIL
                 if not self.process_message(message):
                     message = message.strip()
                     self.polling_log.log_message(level, message)
                     self.server_log.log_message(level, message, self.host_name)
-        return return_code
+        try:
+            if self.report_info:
+                return yaml.load(self.report_info)
+            return []
+        except Exception:
+            msg = "Cannot load report info list: (%s)" % self.report_info
+            self.polling_log.error(msg)
+            self.exit_code = FAIL
+            return []
 
     def send_package(self, package_name, dest_path):
         filename = os.path.join(self.server_home, "packages", package_name)
@@ -364,8 +379,8 @@ class BombardierMachineInterface(MachineInterface):
                 self.send_package(newest_name+".spkg", dest_path)
 
     def process(self, action, package_name, script_name, debug):
+        message = []
         try:
-            self.report_info = ''
             self.pull_report = True
             if action == EXECUTE:
                 self.clear_script_output(script_name)
@@ -373,19 +388,20 @@ class BombardierMachineInterface(MachineInterface):
                 msg = "UNABLE TO CONNECT TO %s. No actions are available."
                 self.server_log.error(msg, self.host_name)
                 return FAIL, [msg % self.host_name]
-            return_code = OK
             if action != INIT:
                 pass
                 self.upload_new_packages()
-            return_code = self.run_bc(action, package_name, script_name, debug)
+            message = self.run_bc(action, package_name, script_name, debug)
         except MachineUnavailableException:
-            return FAIL, ["Remote system refused connection."]
+            message = ["Remote system refused connection."]
+            self.exit_code = FAIL
         except MachineConfigurationException:
-            return FAIL, []
+            self.exit_code = FAIL
         except EOF:
-            return FAIL, ["Machine unexpectedly disconnected."]
+            self.exit_code = FAIL
+            message = ["Machine unexpectedly disconnected."]
         except Exception, exc:
-            print "------------------- PROCESS EXEPTION"
+            print "------------------- PROCESS EXCEPTION"
             exc = StringIO.StringIO()
             traceback.print_exc(file=exc)
             exc.seek(0)
@@ -395,29 +411,11 @@ class BombardierMachineInterface(MachineInterface):
                 ermsg = "%% %s" % line
                 self.polling_log.error(ermsg)
                 self.server_log.error(ermsg, self.host_name)
-            return FAIL, ["Exception in client-handling code."]
-
+            self.exit_code = FAIL
+            message = ["Exception in client-handling code."]
         self.get_status_yml()
-        if action == EXECUTE:
-            if self.report_info:
-                file_name = "%s-%s.yml" % (self.host_name, script_name)
-                file_path = os.path.join(self.server_home, "output", file_name)
-                open(file_path, 'w').write(self.report_info)
-                cmd = "chgrp %s %s 2> /dev/null"
-                os.system(cmd % (self.default_group, file_path))
-                cmd = "chmod 660 %s 2> /dev/null"
-                os.system(cmd % (file_path))
-            else:
-                if not self.pull_report:
-                    return return_code, []
-                self.get_script_output(script_name)
-
-            try:
-                report_data = yaml.load(self.report_info)
-            except:
-                return FAIL, ["Bad output from script:", self.report_info]
-            return return_code, report_data
-        return return_code, []
+        self.server_log.info("process is returning: %s / %s" % (self.exit_code, message))
+        return self.exit_code, message
 
     def clear_script_output(self, script_name):
         file_name = "%s-%s.yml" % (self.host_name, script_name)

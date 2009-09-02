@@ -81,12 +81,12 @@ def login(username, logger, password=None):
     system_state.prompt = ['>']
     system_state.set_prompt()
 
-def motd(output_handle):
+def motd():
     'Print out the message of the day after login'
     from bombardier_server.cli.banner import banner
     for line in banner:
-        output_handle.write(line)
-        output_handle.flush()
+        system_state.fp_out.write(line)
+        system_state.fp_out.flush()
 
 def append_not_blank(current_token, tokens):
     '''append something to the list if it isn't blank. Handles users typing
@@ -272,10 +272,10 @@ def ask_yes_no(prompt, default = NEUTRAL):
             result = NO
     return result
 
-def page_it(output_handle):
+def page_it():
     "asks for the user to hit enter or 'b' to backup"
-    output_handle.write("--- more ---")
-    output_handle.flush()
+    system_state.fp_out.write("--- more ---")
+    system_state.fp_out.flush()
     file_handle = sys.stdin.fileno()
     old_settings = termios.tcgetattr(file_handle)
     try:
@@ -283,8 +283,8 @@ def page_it(output_handle):
         char = sys.stdin.read(1)
     finally:
         termios.tcsetattr(file_handle, termios.TCSADRAIN, old_settings)
-    output_handle.write("\r                \r")
-    output_handle.flush()
+    system_state.fp_out.write("\r                \r")
+    system_state.fp_out.flush()
     if char == chr(13):
         return ONE_LINE
     if char == chr(113) or char == chr(81):
@@ -293,7 +293,7 @@ def page_it(output_handle):
         return BACKUP
     return PAGE
 
-def pager_out(print_data, output_handle):
+def pager_out(print_data):
     "pages output to the screen if there's more than the terminal will handle"
     if system_state.termlen == 0:
         print print_data
@@ -303,12 +303,12 @@ def pager_out(print_data, output_handle):
     backup = 0
     print_data = print_data.split("\n")
     while current_line < len(print_data):
-        output_handle.write(print_data[current_line]+"\n")
-        output_handle.flush()
+        system_state.fp_out.write(print_data[current_line]+"\n")
+        system_state.fp_out.flush()
         current_line += 1
         pager_line += 1
         if not system_state.batch and pager_line > system_state.termlen:
-            action = page_it(output_handle)
+            action = page_it()
             if action == QUIT:
                 break
             elif action == ONE_LINE:
@@ -318,8 +318,8 @@ def pager_out(print_data, output_handle):
                 backup_len = (backup + 1) * system_state.termlen + 1
                 if backup_len > current_line:
                     backup_len = current_line
-                output_handle.write("\n\n-- backing up %d lines -- \n\r" % backup_len)
-                output_handle.flush()
+                system_state.fp_out.write("\n\n-- backing up %d lines -- \n\r" % backup_len)
+                system_state.fp_out.flush()
                 current_line -= backup_len
                 backup += 1
                 pager_line = 0
@@ -375,10 +375,9 @@ def error(msg):
 def process_cnm(server_output_lines):
     'Handles output from the CNM and pretty-prints to the screen'
     for line in server_output_lines:
-        print "  ",line
+        system_state.fp_out.write("  %s\n" % line )
 
-def user_output(output, status, output_handle = sys.stdout,
-                _err_handle = sys.stderr, prepend = '', test = False):
+def user_output(output, status, prepend = '', test = False):
     "Generic function for printing return values from a command"
     if output == []:
         return
@@ -389,8 +388,13 @@ def user_output(output, status, output_handle = sys.stdout,
             prepend = ' '
     if test:
         return prepender(prepend, output, 0)
-    pager_out(prepender(prepend, output, 0), output_handle)
+    pager_out(prepender(prepend, output, 0))
     return
+
+def process_traceback(machine_exception):
+    output = {"Exception": str(machine_exception),
+              "data": machine_exception.traceback}
+    user_output(output, FAIL)
 
 def user(string):
     "just print some text to stderr for user feedback"

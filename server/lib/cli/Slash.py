@@ -87,8 +87,7 @@ class Slash(PinshCmd.PinshCmd):
                 status, output = self.run(tokens, no_flag)
                 #if comment:
                     #makeComment(comment) # MISSING
-            libUi.user_output(output, status, system_state.fp_out,
-                              system_state.fp_err)
+            libUi.user_output(output, status)
             return status, output
         except exceptions.SystemExit:
             #if system_state.comment_commands:
