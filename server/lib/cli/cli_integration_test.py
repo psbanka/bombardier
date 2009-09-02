@@ -7,10 +7,13 @@ import Slash
 from bombardier_core.Logger import Logger
 IGNORE_MODULE_NAMES = 'tester', 'libUi', 'Slash', 'SystemStateSingleton', '_version'
 
-def get_cls(module_name):
+def get_cls(module_name, module_to_test):
     setup_test = None
     if module_name in IGNORE_MODULE_NAMES:
         return None, None
+    if modules_to_test:
+        if not module_name in modules_to_test:
+            return None, None
     module = __import__(module_name)
     if not hasattr(module, module_name):
         return None, None
@@ -92,6 +95,16 @@ def run_tests(cls, tests, debug):
     return output
 
 if __name__ == "__main__":
+    import optparse
+
+    parser = optparse.OptionParser("usage: %prog [-d] <Test Module>")
+    parser.add_option("-d", "--debug", dest="debug", action="store_const", const=True,
+                      help="Turn on debugging")
+    (options, modules_to_test) = parser.parse_args()
+    debug = False
+    if options.debug:
+        debug = True
+
     system_state = SystemState()
     system_state.load_config()
     logger = Logger('bombardier_test', 'test.log')
@@ -101,7 +114,6 @@ if __name__ == "__main__":
     system_state.cnm_connector.cleanup()
     file_names = glob.glob("*.py")
     module_names = [ x.split('.')[0] for x in file_names ]
-    debug = True
     if sys.argv[-1] != '-d':
         debug = False
         print "(suppressing output)"
@@ -109,7 +121,7 @@ if __name__ == "__main__":
         system_state.set_output(output_handle)
 
     for module_name in module_names:
-        cls, setup_test = get_cls(module_name)
+        cls, setup_test = get_cls(module_name, modules_to_test)
         if not cls:
             continue
         if setup_test:

@@ -50,6 +50,7 @@ class Slash(PinshCmd.PinshCmd):
 
     def run(self, tokens, no_flag):
         'finds the correct object and runs a command'
+        print "RUN -- TOKENS: ",tokens
         if tokens[-1] == '':
             tokens = tokens[:-1]
         owner = self.find_last_responsible_child(tokens, 0)

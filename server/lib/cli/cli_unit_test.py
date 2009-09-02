@@ -98,6 +98,7 @@ class CliHelpTest(CliUnitTest):
             'cli          do not use this',
             'exit         exit current mode',
             'machine      commands that operate on a given machine',
+            'package      commands that operate on a single package',
             'show         display components of the system',
             'terminal     change settings for the current terminal',
         ]
@@ -132,6 +133,13 @@ class CliCmdTest(CliUnitTest):
         output = self.run_command(command)
         assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
 
+class Scratchy(CliUnitTest):
+    def test_shortened_command2(self):
+        command = 'cl spotty A'
+        expected_output = [command, "cli", "spotty", "AA"]
+        output = self.run_command(command)
+        assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
+
 class CliCompletionTest(CliUnitTest):
 
     def test_simple_completion(self):
@@ -151,7 +159,8 @@ class CliCompletionTest(CliUnitTest):
 
 if __name__ == "__main__":
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(CliCmdTest))
-    suite.addTest(unittest.makeSuite(CliCompletionTest))
-    suite.addTest(unittest.makeSuite(CliHelpTest))
+    #suite.addTest(unittest.makeSuite(CliCmdTest))
+    suite.addTest(unittest.makeSuite(Scratchy))
+    #suite.addTest(unittest.makeSuite(CliCompletionTest))
+    #suite.addTest(unittest.makeSuite(CliHelpTest))
     unittest.TextTestRunner(verbosity=2).run(suite)

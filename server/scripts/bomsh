@@ -39,7 +39,7 @@ from bombardier_core.Logger import Logger
 
 HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
 LOG_PATH = "%s/.bomsh_log" % os.environ['HOME']
-COMMANDS = ["Show", "Terminal", "Machine", "CliTest", "Exit"]
+COMMANDS = ["Show", "Terminal", "Machine", "CliTest", "Exit", "Package"]
 
 
 ##########################################################################
