@@ -62,7 +62,8 @@ class ShellCommand(AbstractCommand):
         return self.cmd
 
 class BombardierCommand(AbstractCommand):
-    def __init__(self, action_string, package_name, script_name, debug):
+    def __init__(self, action_string, package_name=None,
+                 script_name = '', package_revision=None, debug=False):
         action_const = ACTION_LOOKUP.get(action_string.lower().strip())
         if action_const == None:
             raise InvalidAction(package_name, action_string)
@@ -71,11 +72,14 @@ class BombardierCommand(AbstractCommand):
         self.action = action_const
         self.package_name = package_name
         self.script_name = script_name
+        self.package_revision = package_revision
         self.debug = debug
 
     def execute(self, machine_interface):
-        return machine_interface.process(self.action, self.package_name,
-                                         self.script_name, self.debug)
+        return machine_interface.take_action(self.action, self.package_name,
+                                             self.script_name, self.package_revision,
+                                             self.debug)
+                                         
     def info(self):
         return self.name
 
@@ -200,7 +204,7 @@ class Dispatcher(Pyro.core.ObjBase):
             else:
                 cmd = 'echo spkgPath: %s > /etc/bombardier.yml' % machine_interface.spkg_dir
             set_spkg_config = ShellCommand("Setting spkg path", cmd, '.')
-            bombardier_init = BombardierCommand("init", '', '', False)
+            bombardier_init = BombardierCommand("init")
 
             commands = [set_spkg_config, bombardier_init]
         except Exception, err:
@@ -214,7 +218,7 @@ class Dispatcher(Pyro.core.ObjBase):
         copy_dict = {}
         try:
             machine_interface = self.get_machine_interface(username, machine_name)
-            bombardier_recon = BombardierCommand(action_string, '', '', False)
+            bombardier_recon = BombardierCommand(action_string)
             commands = [bombardier_recon]
         except Exception, err:
             output.update(self.dump_exception(username, err))
@@ -233,7 +237,8 @@ class Dispatcher(Pyro.core.ObjBase):
         output = {"status": OK}
         try:
             machine_interface = self.get_machine_interface(username, machine_name)
-            bom_cmd = BombardierCommand(action_string, package_name, '', True)
+            bom_cmd = BombardierCommand(action_string, package_name=package_name, 
+                                        package_revision=package_revision)
             commands = [bom_cmd]
 
         except Exception, err:

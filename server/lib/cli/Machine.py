@@ -38,7 +38,7 @@ import PinshCmd
 from ConfigField import ConfigField, MACHINE, DIST, PACKAGE
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState, ENABLE
-from Exceptions import MachineTraceback
+from Exceptions import MachineTraceback, CommandError
 import Integer
 system_state = SystemState()
 import libUi, time
@@ -50,24 +50,33 @@ URL_LOOKUP = {'test': "json/machine/start_test/%s",
               'status': "json/machine/status/%s",
              }
 
+def setup_test():
+    fresh_status_yaml = """ 
+clientVersion: 0.70-596
+install-progress: {}
+local-packages: []
+status: {newInstall: 'True'}
+timestamp: 1251918530.6349609"""
+
+    status_file = "/opt/spkg/localhost/status.yml"
+    open(status_file, "w").write(fresh_status_yaml)
+
 class Machine(PinshCmd.PinshCmd):
-#    '''bomsh# machine localhost test
-#       [OK, ['Machine localhost is ready to take commands.']]
-#       bomsh# machine localhost dist test
-#       [OK, ['localhost updated with test']]
-#       bomsh# machine localhost init
-#       [OK, []]
-#       bomsh# machine localhost reconcile
-#       [OK, ['Reconcile complete on localhost']]
-#       bomsh# machine localhost status
-#       [OK, []]
+    '''bomsh# machine localhost test
+       [OK, ['Machine localhost is ready to take commands.']]
+       bomsh# machine localhost dist test
+       [OK, ['localhost updated with test']]
+       bomsh# machine localhost init
+       [OK, []]
+       bomsh# machine localhost reconcile
+       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7']]
+       bomsh# machine localhost status
+       [OK, []]
+       bomsh# machine localhost status fix TestPackageType4
+       [OK, ['TestPackageType4-7 has been set to INSTALLED.']]
+       bomsh# machine localhost status purge TestPackageType4 7
+       [OK, ['TestPackageType4-7 has been removed from localhost status']]
     '''
-        bomsh# machine localhost status fix TestPackageType4
-        [OK, ['Package TestPackageType4 fixed on localhost']]
-    '''
-#       bomsh# machine localhost status purge TestPackageType4 7
-#       [OK, []]
-#    '''
     def __init__(self):
         """Top-level object has a 'test' child: test the machine
         """
@@ -103,20 +112,8 @@ class Machine(PinshCmd.PinshCmd):
         
         self.auth = ENABLE
 
-    def watch_job(self, job_name):
-        output = {"alive": 1}
-        while output.get("alive", 0):
-            time.sleep(0.25)
-            url = "json/job/poll/%s" % job_name
-            output = system_state.cnm_connector.service_yaml_request(url)
-            if "traceback" in output:
-                raise MachineTraceback(url, output["traceback"])
-            new_output = output["new_output"]
-            if new_output:
-                libUi.process_cnm(new_output)
-        return 
-
-    def analyze_output(self, machine_name, command, output, post_data):
+    def analyze_output(self, machine_name, tokens, output, post_data):
+        command = tokens[2].lower()
         if command == "test":
             for i in range(1,5):
                 if "Testing %d/4" % i not in output["complete_log"]:
@@ -127,13 +124,62 @@ class Machine(PinshCmd.PinshCmd):
                 return OK, ["%s updated with %s" % (machine_name, post_data["dist"])]
             else:
                 return FAIL, ["%s FAILED to install %s" % (machine_name, post_data["dist"])]
-        elif command == "reconcile":
-            if output["command_status"] == OK:
-                return OK, ["Reconcile complete on %s" % machine_name]
-            else:
-                return FAIL, ["Reconcile FAILED on %s" % machine_name]
-
         return output["command_status"], output["command_output"]
+
+    def watch_job(self, job_name):
+        libUi.info("Job name: %s" % job_name)
+        output = {"alive": 1}
+        while output.get("alive", 0):
+            time.sleep(0.25)
+            url = "json/job/poll/%s" % job_name
+            output = system_state.cnm_connector.service_yaml_request(url)
+            if "traceback" in output:
+                raise MachineTraceback(url, output["traceback"])
+            new_output = output["new_output"]
+            if new_output:
+                libUi.process_cnm(new_output)
+        libUi.info("Joining...")
+        output = system_state.cnm_connector.join_job(job_name)
+        return output
+
+    def check_machine_name(self, tokens, no_flag):
+        possible_machine_names = self.machine_field.preferred_names(tokens, 1)
+        machine_name = possible_machine_names[0]
+        if no_flag:
+            raise CommandError("NO cannot be used here")
+        if len(tokens) < 3:
+            raise CommandError("Incomplete command.")
+        if len(possible_machine_names) == 0:
+            raise CommandError("Unknown machine name: %s" % tokens[2])
+        if len(possible_machine_names) > 1:
+            raise CommandError("Ambiguous machine name: %s" % tokens[2])
+        return machine_name
+
+    def get_url_and_post(self, machine_name, tokens):
+        command = tokens[2].lower()
+        if command not in URL_LOOKUP:
+            raise CommandError("%s is not a valid command" % command)
+
+        post_data = {}
+        url = URL_LOOKUP[command] % machine_name
+        if command == "dist":
+            post_data = {"dist": tokens[-1]}
+        if command == "status":
+            if len(tokens) > 3:
+                if len(tokens) < 5:
+                    raise CommandError("Incomplete command")
+                sub_command = tokens[3].lower()
+                if sub_command not in ["fix", "purge"]:
+                    raise CommandError("%s is not a valid command" % sub_command)
+                post_data["action"] = sub_command
+                post_data["machine"] = machine_name
+                url = "/json/package_action/%s" % tokens[4]
+                if sub_command == "purge":
+                    if len(tokens) < 6:
+                        msg = "Incomplete command - must include revision to remove"
+                        raise CommandError(msg)
+                    post_data["revision"] = tokens[5]
+        return url, post_data
 
     def cmd(self, tokens, no_flag):
         """
@@ -141,38 +187,13 @@ class Machine(PinshCmd.PinshCmd):
         no_flag -- whether the 'no' keyword was used in the command string
         """
 
-        if no_flag:
-            return FAIL, []
-        if len(tokens) < 3:
-            return FAIL, ["Incomplete command."]
-        possible_machine_names = self.machine_field.preferred_names(tokens, 1)
-        if len(possible_machine_names) == 0:
-            return FAIL, ["Unknown machine name: %s" % tokens[2]]
-        if len(possible_machine_names) > 1:
-            return FAIL, ["Ambiguous machine name: %s" % tokens[2]]
-
-        machine_name = possible_machine_names[0]
-
+        machine_name = self.check_machine_name(tokens, no_flag)
         command = tokens[2].lower()
-        if command not in URL_LOOKUP:
-            return FAIL, ["Unknown command: %s" % command]
-
-        post_data = {}
-        url = URL_LOOKUP[command] % machine_name
-        if command == "dist":
-            post_data = {"dist": tokens[-1]}
-
-        # FIXME: Left off here with status fix command
+        url, post_data = self.get_url_and_post(machine_name, tokens)
 
         try:
             job_name = system_state.cnm_connector.get_job(url, post_data)
-            libUi.info("Job name: %s" % job_name)
-            self.watch_job(job_name)
-
-            libUi.info("Joining...")
-            output = system_state.cnm_connector.join_job(job_name)
-            print "OUTPUT::::", output
-            return self.analyze_output(machine_name, command, output, post_data)
-            #return output["command_status"], output["command_output"]
+            output = self.watch_job(job_name)
+            return self.analyze_output(machine_name, tokens, output, post_data)
         except MachineTraceback, m_err:
             libUi.process_traceback(m_err)

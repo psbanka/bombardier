@@ -172,7 +172,7 @@ if __name__ == "__main__":
     if scripts:
         status = run_scripts(scripts)
         sys.exit(status)
-    libUi.motd(system_state.fp_out)
+    libUi.motd()
     if os.path.isfile(HISTORY_FILE):
         try:
             readline.read_history_file(HISTORY_FILE)

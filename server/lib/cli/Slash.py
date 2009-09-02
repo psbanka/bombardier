@@ -35,7 +35,7 @@ import traceback, StringIO
 import exceptions, readline
 import sys
 import PinshCmd, libUi
-from Exceptions import AmbiguousCommand, UnknownCommand
+from Exceptions import AmbiguousCommand, UnknownCommand, CommandError
 from SystemStateSingleton import SystemState
 system_state = SystemState()
 from bombardier_core.static_data import FAIL, OK, DEBUG
@@ -93,6 +93,8 @@ class Slash(PinshCmd.PinshCmd):
             #if system_state.comment_commands:
                 #makeComment()
             sys.exit(0)
+        except CommandError, err:
+            system_state.fp_out.write(" %% %s\n\n" % err )
         except Exception, err:
             msg = " %%%% Error detected in %s (%s)." % (command, err)
             system_state.fp_err.write( msg )

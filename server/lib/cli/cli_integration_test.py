@@ -5,20 +5,28 @@ import libUi
 import re
 import Slash
 from bombardier_core.Logger import Logger
-
 IGNORE_MODULE_NAMES = 'tester', 'libUi', 'Slash', 'SystemStateSingleton', '_version'
 
 def get_cls(module_name):
+    setup_test = None
     if module_name in IGNORE_MODULE_NAMES:
-        return None
+        return None, None
     module = __import__(module_name)
     if not hasattr(module, module_name):
-        return None
+        return None, None
+    if hasattr(module, "setup_test"):
+        setup_test = module.setup_test
     cls = getattr(module, module_name)
-    return cls
+    return cls, setup_test
+
+class TestCmd:
+    def __init__(self, command, status, output_lines):
+        self.command = command
+        self.status = status
+        self.output_lines = output_lines
 
 def get_tests(cls, module_name):
-    tests = {}
+    tests = []
     if module_name in IGNORE_MODULE_NAMES:
         return tests
     module = __import__(module_name)
@@ -38,7 +46,7 @@ def get_tests(cls, module_name):
                     parsed_test = yaml.load(yaml_str)
                     status = STRING_TO_RETURN_VALUE_MAPPING[parsed_test[0]]
                     output_lines = parsed_test[1]
-                    tests[command] = [status, output_lines]
+                    tests.append(TestCmd(command, status, output_lines))
                 except yaml.parser.ParserError:
                     print "Invalid result: ", line
                     break
@@ -55,16 +63,15 @@ def run_tests(cls, tests, debug):
     slash = Slash.Slash([object])
 
     output = {}
-    for command in tests:
-        expected_result = tests[command]
-        expected_status = expected_result[0]
-        expected_cmd_output = expected_result[1]
+    for test_cmd in tests:
+        command = test_cmd.command
+        expected_status = test_cmd.status
+        expected_cmd_output = test_cmd.output_lines
         if debug:
             print "TESTING: ", cls, command
-            print "Expected result:", expected_result
+            print "Expected result:", expected_status, expected_cmd_output
         no_flag, help_flag, tokens, comment = libUi.process_input(command)
         cmd_status, cmd_output = slash.process_command(command.strip())
-        print ">>>>>>>>",cmd_status, cmd_output
         if debug:
             print "COMMAND OUTPUT:",cmd_output
         if cmd_status != expected_status:
@@ -102,9 +109,11 @@ if __name__ == "__main__":
         system_state.set_output(output_handle)
 
     for module_name in module_names:
-        cls = get_cls(module_name)
+        cls, setup_test = get_cls(module_name)
         if not cls:
             continue
+        if setup_test:
+            setup_test()
         tests = get_tests(cls, module_name)
         if not tests:
             continue

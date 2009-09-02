@@ -208,7 +208,8 @@ class Show(PinshCmd.PinshCmd):
     '''bomsh# show bom qa
        [OK, ['- new_tomcat', '- new_apache', '- new_database', '']]
        bomsh# show machine localhost
-       [OK, ['bom:', '- bomp', 'include:', '- otherapp', '- app1', 'ip_address: 127.0.0.1', '']]
+
+       [OK, ['default_user: root', 'ip_address: 127.0.0.1', 'packages:', '- TestPackageType4', 'platform: linux', 'test:', '  directory: /tmp/testthing', '  value: hello_kitty', '']]
        bomsh# show dist test
        [OK, ['description: Open Source Empty package', 'dist_name: EMPTY_TEST', 'name: test', "version: '1'", '']]
     '''

@@ -1,10 +1,11 @@
+"Package urls module"
 from django.conf.urls.defaults import patterns, url
 from django.contrib.auth.decorators import login_required
 from django_restapi.responder import JsonDictResponder
 from CnmResource import CnmResource
-from Exceptions import InvalidJobName
-import StringIO, traceback
-from bombardier_core.static_data import OK, FAIL
+from Exceptions import InvalidInput
+from bombardier_core.static_data import OK
+import os, yaml
 
 VALID_FILE_CHARS  = [ chr(x) for x in range(ord('a'), ord('z')+1) ]
 VALID_FILE_CHARS += [ chr(x) for x in range(ord('A'), ord('Z')+1) ]
@@ -13,18 +14,22 @@ VALID_FILE_CHARS += [ '_', '-', '.' ]
 VALID_FILE_CHARS  = set(VALID_FILE_CHARS)
 
 def check_string(value):
+    "Check string to make sure it only contains valid characters"
     if not set(value).issubset(VALID_FILE_CHARS):
         bad_characters = set(value) - VALID_FILE_CHARS
         raise InvalidInput(bad_characters)
 
 def safe_get(request, option):
+    "User check_string to validate input from a POST"
     value = request.POST.get(option, "")
     check_string(value)
     return value
 
 class PackageActionEntry(CnmResource):
+    "Run a package action job on a remote machine "
     @login_required
     def create(self, request, package_name):
+        "Dispatch a package action"
         output = {"status": OK}
         try:
             action = safe_get(request, "action")
@@ -34,15 +39,18 @@ class PackageActionEntry(CnmResource):
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
             output = dispatcher.package_action_job(request.user, package_name,
-                                                   action, machine_name, revision)
+                                                   action, machine_name, 
+                                                   package_revision=revision)
         except Exception, err:
             output.update(self.dump_exception(request, err))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
 class MachineStatusEntry(CnmResource):
+    "Status check class for machines"
     @login_required
     def create(self, request, machine_name):
+        "Check status of on a remote machine"
         output = {"status": OK}
         try:
             dispatcher = self.get_dispatcher()
@@ -55,6 +63,7 @@ class MachineStatusEntry(CnmResource):
         return responder.element(request)
 
     def read(self, request, machine_name):
+        "Show cached status for a machine"
         server_home = self.get_server_home()
         check_string(machine_name)
         status_path = os.path.join(server_home, "status", machine_name)
@@ -65,8 +74,10 @@ class MachineStatusEntry(CnmResource):
         return responder.element(request)
 
 class MachineStartReconcileEntry(CnmResource):
+    "Machine reconcile class"
     @login_required
     def create(self, request, machine_name):
+        "Start a reconcile job on a machine"
         output = {"status": OK}
         try:
             dispatcher = self.get_dispatcher()
@@ -79,8 +90,10 @@ class MachineStartReconcileEntry(CnmResource):
         return responder.element(request)
 
 class MachineStartInitEntry(CnmResource):
+    "Initialize bombardier client class"
     @login_required
     def create(self, request, machine_name):
+        "Run a job to initialize bombardier client on a machine"
         output = {"status": OK}
         try:
             dispatcher = self.get_dispatcher()
@@ -93,8 +106,10 @@ class MachineStartInitEntry(CnmResource):
         return responder.element(request)
 
 class MachineStartDistEntry(CnmResource):
+    "Distutils package install class"
     @login_required
     def create(self, request, machine_name):
+        "Run a job that installs a python distutils package on a machine"
         output = {"status": OK}
         try:
             dist_name = safe_get(request, "dist")
@@ -109,8 +124,10 @@ class MachineStartDistEntry(CnmResource):
         return responder.element(request)
 
 class MachineStartTestEntry(CnmResource):
+    "Test entry class"
     @login_required
     def create(self, request, machine_name):
+        "Run a test job on a machine"
         output = {"status": OK}
         try:
             dispatcher = self.get_dispatcher()
@@ -123,8 +140,10 @@ class MachineStartTestEntry(CnmResource):
         return responder.element(request)
 
 class MachineCleanupEntry(CnmResource):
+    "Machine connection cleanup"
     @login_required
     def create(self, request):
+        "Clean up all machine connections in the dispatcher"
         output = {"status": OK}
         try:
             dispatcher = self.get_dispatcher()
@@ -135,8 +154,10 @@ class MachineCleanupEntry(CnmResource):
         return responder.element(request)
 
 class JobJoinEntry(CnmResource):
+    "Job join class"
     @login_required
     def read(self, request, job_name):
+        "Tell dispatcher to wait a job thread to return"
         output = {"status": OK}
         try:
             dispatcher = self.get_dispatcher()
@@ -147,8 +168,10 @@ class JobJoinEntry(CnmResource):
         return responder.element(request)
 
 class JobPollEntry(CnmResource):
+    "Job polling class"
     @login_required
     def read(self, request, job_name):
+        "Ask dispatcher for output from a job"
         output = {"status": OK}
         try:
             dispatcher = self.get_dispatcher()
@@ -159,14 +182,22 @@ class JobPollEntry(CnmResource):
         return responder.element(request)
 
 urlpatterns = patterns('',
-   url(r'^json/package_action/(?P<package_name>.*)', PackageActionEntry(permitted_methods = ['POST'])),
-   url(r'^json/machine/status/(?P<machine_name>.*)', MachineStatusEntry(permitted_methods = ['POST'])),
-   url(r'^json/machine/check_status/(?P<machine_name>.*)', MachineStatusEntry(permitted_methods = ['GET','POST'])),
-   url(r'^json/machine/reconcile/(?P<machine_name>.*)', MachineStartReconcileEntry(permitted_methods = ['POST'])),
-   url(r'^json/machine/init/(?P<machine_name>.*)', MachineStartInitEntry(permitted_methods = ['POST'])),
-   url(r'^json/machine/dist/(?P<machine_name>.*)', MachineStartDistEntry(permitted_methods = ['POST'])),
-   url(r'^json/machine/start_test/(?P<machine_name>.*)', MachineStartTestEntry(permitted_methods = ['POST'])),
-   url(r'^json/machine/cleanup', MachineCleanupEntry(permitted_methods = ['POST'])),
+   url(r'^json/package_action/(?P<package_name>.*)',
+       PackageActionEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/status/(?P<machine_name>.*)',
+       MachineStatusEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/check_status/(?P<machine_name>.*)',
+       MachineStatusEntry(permitted_methods = ['GET','POST'])),
+   url(r'^json/machine/reconcile/(?P<machine_name>.*)',
+       MachineStartReconcileEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/init/(?P<machine_name>.*)',
+       MachineStartInitEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/dist/(?P<machine_name>.*)',
+       MachineStartDistEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/start_test/(?P<machine_name>.*)',
+       MachineStartTestEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/cleanup',
+       MachineCleanupEntry(permitted_methods = ['POST'])),
    url(r'^json/job/join/(?P<job_name>.*)', JobJoinEntry()),
    url(r'^json/job/poll/(?P<job_name>.*)', JobPollEntry()),
 )

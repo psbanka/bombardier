@@ -31,16 +31,28 @@ class BombardierMachineInterface(MachineInterface):
         self.state_machine  = []
         self.default_group  = "root"
         self.exit_code      = FAIL
+        self.action_result  = []
 
-        self.state_machine.append([re.compile("\=\=EXIT-CODE\=\=:(\d+)"), self.get_exit_code])
-        self.state_machine.append([re.compile("\=\=REPORT\=\=:(.*)"), self.get_report])
-        self.state_machine.append([re.compile("\=\=REQUEST-CONFIG\=\="), self.send_client])
-        self.state_machine.append([re.compile("Unable to shred before deleting"), self.no_report])
-        self.state_machine.append([re.compile("Uninstalling package \((\S+)\)"), self.uninstall])
-        self.state_machine.append([re.compile("Beginning installation of \((\S+)\)"), self.install])
-        self.state_machine.append([re.compile("(\S+) result for (\S+) : (\d)"), self.action_result])
+        exit_re        = re.compile("\=\=EXIT-CODE\=\=:(\d+)")
+        report_re      = re.compile("\=\=REPORT\=\=:(.*)")
+        output_re      = re.compile("\=\=OUTPUT\=\=:(.*)")
+        no_report_re   = re.compile("Unable to shred before deleting")
+        uninstall_re   = re.compile("Uninstalling package \((\S+)\)")
+        install_re     = re.compile("Beginning installation of \((\S+)\)")
+        result_re      = re.compile("(\S+) result for (\S+) : (\d)")
 
-        self.log_matcher = re.compile( "\d+\-\d+\-\d+\s\d+\:\d+\:\d+\,\d+\|([A-Z]+)\|(.+)\|" )
+        self.state_machine = [ [exit_re,        self.get_exit_code],
+                               [report_re,      self.get_report],
+                               [output_re,      self.get_output],
+                               [no_report_re,   self.no_report],
+                               [uninstall_re,   self.uninstall],
+                               [install_re,     self.install],
+                               [result_re,      self.get_action_result],
+                             ]
+
+        log_re_str = "\d+\-\d+\-\d+\s\d+\:\d+\:\d+\,\d+\|([A-Z]+)\|(.+)\|" 
+        self.log_matcher = re.compile(log_re_str) 
+
         self.trace_matcher = re.compile( "\|\|\>\>\>(.+)" )
         if self.platform == 'win32':
             self.python  = '/cygdrive/c/Python25/python.exe'
@@ -90,17 +102,23 @@ class BombardierMachineInterface(MachineInterface):
                     self.polling_log.warning(msg)
         return(MachineInterface.freshen(self))
 
+    def get_output(self, output):
+        self.server_log.info(output)
+        self.polling_log.info(output, self.host_name)
+        self.action_result.append(output)
+
     def get_exit_code(self, exit_code):
-        message = "Client process complete: %s" % exit_code
+        message = "Output received: %s" % exit_code
         self.polling_log.info(message)
         self.server_log.info(message, self.host_name)
         self.exit_code = int(exit_code)
 
-    def action_result(self, data):
+    def get_action_result(self, data):
         action, package_name, result = data
         message = "%s %s: %s" % (action.lower(), RETURN_DICT[int(result)], package_name)
         self.polling_log.info(message)
         self.server_log.info(message, self.host_name)
+        self.action_result.append(message)
 
     def action_start(self, action, package_name):
         message = "%s installing %s" % (self.host_name, package_name)
@@ -305,9 +323,13 @@ class BombardierMachineInterface(MachineInterface):
                 send_data["packageData"][package_name] = this_package_data # FIXME
         self.stream_data(yaml.dump(send_data))
 
-    def run_bc(self, action, package_name, script_name, debug):
+    def run_bc(self, action, package_name, script_name, package_revision, debug):
         self.report_info = ''
         self.chdir(self.spkg_dir)
+        self.server_log.info("PACKAGE_REVISION: %s" % package_revision)
+        if package_revision:
+            package_name += '-%s' % package_revision
+            self.server_log.info("PACKAGE_NAME: %s" % package_name)
         if self.platform == "win32":
             cmd = "cat /proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/Python/PythonCore/2.5/InstallPath/@"
             python_home_win = self.gso(cmd)
@@ -350,12 +372,12 @@ class BombardierMachineInterface(MachineInterface):
         try:
             if self.report_info:
                 return yaml.load(self.report_info)
-            return []
+            return self.action_result
         except Exception:
-            msg = "Cannot load report info list: (%s)" % self.report_info
+            msg = "Cannot read report data: (%s)" % self.report_info
             self.polling_log.error(msg)
             self.exit_code = FAIL
-            return []
+            return [msg]
 
     def send_package(self, package_name, dest_path):
         filename = os.path.join(self.server_home, "packages", package_name)
@@ -378,9 +400,11 @@ class BombardierMachineInterface(MachineInterface):
                 self.server_log.info(msg, self.host_name)
                 self.send_package(newest_name+".spkg", dest_path)
 
-    def process(self, action, package_name, script_name, debug):
+    def take_action(self, action, package_name, script_name, 
+                    package_revision, debug):
         message = []
         try:
+            self.action_result = []
             self.pull_report = True
             if action == EXECUTE:
                 self.clear_script_output(script_name)
@@ -391,7 +415,8 @@ class BombardierMachineInterface(MachineInterface):
             if action != INIT:
                 pass
                 self.upload_new_packages()
-            message = self.run_bc(action, package_name, script_name, debug)
+            message = self.run_bc(action, package_name, script_name,
+                                  package_revision, debug)
         except MachineUnavailableException:
             message = ["Remote system refused connection."]
             self.exit_code = FAIL
@@ -414,7 +439,7 @@ class BombardierMachineInterface(MachineInterface):
             self.exit_code = FAIL
             message = ["Exception in client-handling code."]
         self.get_status_yml()
-        self.server_log.info("process is returning: %s / %s" % (self.exit_code, message))
+        self.server_log.info("take_action is returning: %s / %s" % (self.exit_code, message))
         return self.exit_code, message
 
     def clear_script_output(self, script_name):

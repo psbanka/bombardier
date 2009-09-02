@@ -29,6 +29,18 @@
 
 'Classes that hold command-line interface-specific exceptions'
 
+class CommandError(Exception):
+    '''If any command is improper, this can be thrown instead of a fail'''
+    def __init__(self, error_string):
+        Exception.__init__(self)
+        self.error_string = error_string
+    def __repr__(self):
+        return [self.error_string]
+    def __list__(self):
+        return self.__repr__()
+    def __str__(self):
+        return '\n'.join(self.__repr__())
+
 class HostNotEnabledException(Exception):
     '''It is necessary to enable a host before trying to work with it.
     if a user attempts to do something with a host that is not enabled,
