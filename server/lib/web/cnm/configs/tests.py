@@ -89,30 +89,6 @@ class BasicTest(TestCase):
         response = self.client.post(path=url)
         self.failUnlessEqual(response.status_code, 200)
 
-    def test_search(self):
-        test_dict  = { "machine":  { "tes": ["tester1", "tester2"],
-                                      "":  ["tester1", "tester2", "other1", "localhost"],
-                                    "foo": [] },
-                       "include": { ""    : ["app1", "otherapp"],
-                                    "app" : ["app1"] },
-                       "bom":     { ""    : ["foo", "bomp"],
-                                    "fo"  : ["foo"],
-                                    "swe" : [] },
-                       "dist": { "": ["test", "bombardier-0.70-595"]  }, 
-                       "package": { "": ["TestPackageType5", "TestPackageType4"]  } }
-        for section in test_dict:
-            for search_term in test_dict[section]:
-                expected = test_dict[section][search_term]
-                self.yml_file_search_test( section, search_term, expected )
-
-    def test_get_server_home(self):
-        url = '/json/server/config'
-
-        content_dict = self.get_content_dict(url)
-        self.failUnlessEqual(content_dict["server configuration"]["server_home"],
-                             self.test_server_home)
-
-
     def set_status(self, status_dict):
         yaml_str = yaml.dump(status_dict)
         open("/opt/spkg/localhost/status.yml", 'w').write(yaml_str)
@@ -168,6 +144,31 @@ class BasicTest(TestCase):
         post_data={"machine": "localhost", "action": action}
         status, output = self.run_job(url, data=post_data, timeout=60)
         return status, output
+
+class InactiveTests:
+
+    def test_search(self):
+        test_dict  = { "machine":  { "tes": ["tester1", "tester2"],
+                                      "":  ["tester1", "tester2", "other1", "localhost"],
+                                    "foo": [] },
+                       "include": { ""    : ["app1", "otherapp"],
+                                    "app" : ["app1"] },
+                       "bom":     { ""    : ["foo", "bomp"],
+                                    "fo"  : ["foo"],
+                                    "swe" : [] },
+                       "dist": { "": ["test", "bombardier-0.70-595"]  }, 
+                       "package": { "": ["TestPackageType5", "TestPackageType4"]  } }
+        for section in test_dict:
+            for search_term in test_dict[section]:
+                expected = test_dict[section][search_term]
+                self.yml_file_search_test( section, search_term, expected )
+
+    def test_get_server_home(self):
+        url = '/json/server/config'
+
+        content_dict = self.get_content_dict(url)
+        self.failUnlessEqual(content_dict["server configuration"]["server_home"],
+                             self.test_server_home)
 
     def test_run_check_job(self):
         url = '/json/machine/start_test/localhost'
@@ -316,3 +317,18 @@ class BasicTest(TestCase):
 
         content_dict = self.get_content_dict('/json/user/name/delete_me')
         self.failUnlessEqual(content_dict[u"first_name"], "Buffy")
+
+class ActiveTest(BasicTest):
+    def test_set_password(self):
+        self.login(self.super_user)
+        url = '/json/dispatcher/set_password'
+        response = self.client.post(url, {"password": "F8t3Babb1%tz"})
+        content_dict = json.loads( response.content )
+        self.failUnlessEqual( content_dict[ u"status" ], FAIL)
+        self.failUnlessEqual( content_dict[ u"output" ], "Incorrect password.")
+
+        response = self.client.post(url, {"password": "abc123"})
+        content_dict = json.loads( response.content )
+        self.failUnlessEqual( content_dict[ u"status" ], OK)
+        self.failUnlessEqual( content_dict[ u"output" ], "Password valid.")
+

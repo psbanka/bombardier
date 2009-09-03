@@ -116,3 +116,4 @@ class PackageNotFound(Exception):
         return "Package not found: %s" % self.package_name
     def __str__(self):
         return self.__repr__()
+

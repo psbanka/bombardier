@@ -5,6 +5,7 @@ import Pyro.naming
 from MachineConfig import MachineConfig
 from BombardierMachineInterface import BombardierMachineInterface
 from bombardier_core.static_data import OK, FAIL, COMMAND_LOG_MARKER
+from bombardier_core.libCipher import decrypt, DecryptionException
 from threading import Thread
 import StringIO, traceback
 import ServerLogger
@@ -15,7 +16,6 @@ from bombardier_core.static_data import INIT, INSTALL, ACTION_LOOKUP
 from bombardier_core.static_data import ACTION_DICT
 
 PENDING = 4
-
 
 def exception_dumper(func):
     argnames = func.func_code.co_varnames[:func.func_code.co_argcount]
@@ -334,11 +334,33 @@ class Dispatcher(Pyro.core.ObjBase):
         return "time running: %5.2f; calls: %d" % (time_running, self.calls)
 
     def set_password(self, password):
-        self.password = password
+        status = OK
+        status, validate_output = self._validate_password(password)
+        if status == OK:
+            self.password = password
+        output = {"status": status,
+                  "output": validate_output}
+        return output
 
     def check_password(self):
         return self.password
 
+    def _validate_password(self, password):
+        "Very shallow password validation"
+        test_decrypt_file = os.path.join(self.server_home, 'admin', 'encryption_validation.yml')
+        if not os.path.isfile(test_decrypt_file):
+            return FAIL, "Password is not set: %s doesn't exist" % test_decrypt_file
+        try:
+            cipher_dict = yaml.load(open(test_decrypt_file, 'r').read())
+        except IOError:
+            return FAIL, "Encryption not set up properly. %s not readable"
+        try:
+            clear_dict = decrypt(cipher_dict, password)
+        except DecryptionException:
+            return FAIL, "Incorrect password."
+        if clear_dict.get("test") == "the_quick_brown_fox_jumped_over_the_lazy_dog\n":
+            return OK, "Password valid."
+        return FAIL, "Incorrect password."
 
 from django.core.management import setup_environ
 import settings

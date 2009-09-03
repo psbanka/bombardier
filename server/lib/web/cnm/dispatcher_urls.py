@@ -113,7 +113,6 @@ class MachineStartDistEntry(CnmResource):
         output = {"status": OK}
         try:
             dist_name = safe_get(request, "dist")
-            print "DIST NAME:",dist_name
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
@@ -181,6 +180,24 @@ class JobPollEntry(CnmResource):
         responder = JsonDictResponder(output)
         return responder.element(request)
 
+class PasswordSetEntry(CnmResource):
+    "Set decryption password on the disptcher"
+
+    @login_required
+    def create(self, request):
+        "Set password on the dispatcher from request"
+        output = {"status": OK}
+        try:
+            server_home = CnmResource.get_server_home()
+            dispatcher = self.get_dispatcher()
+            dispatcher.set_server_home(request.user, server_home)
+            password = request.POST.get("password", "")
+            output = dispatcher.set_password(password)
+        except Exception, err:
+            output.update(self.dump_exception(request, err))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
 urlpatterns = patterns('',
    url(r'^json/package_action/(?P<package_name>.*)',
        PackageActionEntry(permitted_methods = ['POST'])),
@@ -200,5 +217,7 @@ urlpatterns = patterns('',
        MachineCleanupEntry(permitted_methods = ['POST'])),
    url(r'^json/job/join/(?P<job_name>.*)', JobJoinEntry()),
    url(r'^json/job/poll/(?P<job_name>.*)', JobPollEntry()),
+   url(r'^json/dispatcher/set_password',
+       PasswordSetEntry(permitted_methods = ['POST'])),
 )
 

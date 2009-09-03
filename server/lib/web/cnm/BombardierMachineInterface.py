@@ -1,3 +1,4 @@
+"Bombardier Machine Interface"
 #!/usr/bin/env python
 
 import re, os, base64
@@ -22,33 +23,17 @@ PROGRESS = "install-progress"
 LOCAL_PACKAGES = "local-packages"
 
 class BombardierMachineInterface(MachineInterface):
-
+    "Bombardier subclass of MachineInterface"
     def __init__(self, machine_config, server_log):
+        "Set up machine interface and set up based on the environment."        
         MachineInterface.__init__(self, machine_config, server_log)
         self.status_data    = {}
         self.local_filename = ''
         self.report_info    = ''
-        self.state_machine  = []
         self.default_group  = "root"
         self.exit_code      = FAIL
         self.action_result  = []
-
-        exit_re        = re.compile("\=\=EXIT-CODE\=\=:(\d+)")
-        report_re      = re.compile("\=\=REPORT\=\=:(.*)")
-        output_re      = re.compile("\=\=OUTPUT\=\=:(.*)")
-        no_report_re   = re.compile("Unable to shred before deleting")
-        uninstall_re   = re.compile("Uninstalling package \((\S+)\)")
-        install_re     = re.compile("Beginning installation of \((\S+)\)")
-        result_re      = re.compile("(\S+) result for (\S+) : (\d)")
-
-        self.state_machine = [ [exit_re,        self.get_exit_code],
-                               [report_re,      self.get_report],
-                               [output_re,      self.get_output],
-                               [no_report_re,   self.no_report],
-                               [uninstall_re,   self.uninstall],
-                               [install_re,     self.install],
-                               [result_re,      self.get_action_result],
-                             ]
+        self.state_machine  = self._get_state_machine()
 
         log_re_str = "\d+\-\d+\-\d+\s\d+\:\d+\:\d+\,\d+\|([A-Z]+)\|(.+)\|" 
         self.log_matcher = re.compile(log_re_str) 
@@ -67,18 +52,42 @@ class BombardierMachineInterface(MachineInterface):
         self.cmd_debug = None
         self.pull_report = True
 
+    def _get_state_machine(self):
+        "Return a list of compiled regular expression objects for log handling"
+        exit_re        = re.compile("\=\=EXIT-CODE\=\=:(\d+)")
+        report_re      = re.compile("\=\=REPORT\=\=:(.*)")
+        output_re      = re.compile("\=\=OUTPUT\=\=:(.*)")
+        no_report_re   = re.compile("Unable to shred before deleting")
+        uninstall_re   = re.compile("Uninstalling package \((\S+)\)")
+        install_re     = re.compile("Beginning installation of \((\S+)\)")
+        result_re      = re.compile("(\S+) result for (\S+) : (\d)")
+
+        state_machine = [ [exit_re,        self.get_exit_code],
+                          [report_re,      self.get_report],
+                          [output_re,      self.get_output],
+                          [no_report_re,   self.no_report],
+                          [uninstall_re,   self.uninstall],
+                          [install_re,     self.install],
+                          [result_re,      self.get_action_result],
+                        ]
+        return state_machine
+
     # BEING USED
     def scp_dict(self, copy_dict):
+        "Use scp with a dictionary to copy files grouped by file type"
         self.connect()
         for file_type in copy_dict:
             if file_type == "dist":
                 dest_dir = '.'
             else:
-                dest_dir = os.path.join(self.spkg_dir, self.host_name, file_type)
+                dest_dir = os.path.join(self.spkg_dir, 
+                                        self.host_name, file_type)
             for source_file in copy_dict[file_type]:
                 source_path = os.path.join(self.server_home, file_type,
                                            source_file)
-                self.polling_log.info("SOURCE_PATH: %s // DEST_DIR: %s" % (source_path, dest_dir))
+                msg = "SOURCE_PATH: %s // DEST_DIR: %s"
+                msg =  msg % (source_path, dest_dir)
+                self.polling_log.info(msg)
                 status = self.scp(source_path, dest_dir)
         return
     
@@ -95,12 +104,16 @@ class BombardierMachineInterface(MachineInterface):
                     msg = "Syntax error in status information for %s"
                     self.polling_log.error(msg % self.host_name)
                     self.status_data = ''
-            if type(self.status_data) != type({}) \
-                or PROGRESS not in self.status_data \
-                or LOCAL_PACKAGES not in self.status_data:
-                    msg = "Invalid status data. Ignoring."
-                    self.polling_log.warning(msg)
+            self.check_status_data()
         return(MachineInterface.freshen(self))
+
+    def check_status_data(self):
+        valid = type(self.status_data) == type({}) and \
+                PROGRESS in self.status_data and \
+                LOCAL_PACKAGES in self.status_data
+        if not valid:
+            msg = "Invalid status data. Ignoring."
+            self.polling_log.warning(msg)
 
     def get_output(self, output):
         self.server_log.info(output)
@@ -115,7 +128,8 @@ class BombardierMachineInterface(MachineInterface):
 
     def get_action_result(self, data):
         action, package_name, result = data
-        message = "%s %s: %s" % (action.lower(), RETURN_DICT[int(result)], package_name)
+        message = "%s %s: %s" % (action.lower(),
+                    RETURN_DICT[int(result)], package_name)
         self.polling_log.info(message)
         self.server_log.info(message, self.host_name)
         self.action_result.append(message)
@@ -166,8 +180,6 @@ class BombardierMachineInterface(MachineInterface):
             self.ssh_conn.send(chunk)
 
     def send_client(self, data):
-        if data:
-            pass
         tmp_file_path = self.server_home+"/"+TMP_FILE
         open(tmp_file_path, 'w').write(yaml.dump( self.data ))
         self.stream_file(tmp_file_path)
@@ -253,27 +265,28 @@ class BombardierMachineInterface(MachineInterface):
             found_index = self.ssh_conn.expect(expect_list, timeout=6000)
         tString = ''.join(stack_trace)
 
-        noop_search = "NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'"
-        re_obj = re.compile(noop_search)
+        noop_re = "NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'"
+        re_obj = re.compile(noop_re)
         data = re_obj.findall(tString)
+        invalid_data_msg = "Invalid client configuration data"
         if data:
-            message1 = "Invalid client configuration data"
-            self.polling_log.error(message1)
-            self.server_log.error(message1, self.host_name)
+            self.polling_log.error(invalid_data_msg)
+            self.server_log.error(invalid_data_msg, self.host_name)
             if len(data) == 2:
-                message2 = "Need option '%s' in section '%s'." % (data[0], data[1])
+                need_msg = "Need option '%s' in section '%s'." % \
+                            (data[0], data[1])
             else:
-                message2 = "Need options: %s" % data
-            self.polling_log.info(message2)
-            self.server_log.error(message2, self.host_name)
-        data = re.compile("NoSectionError\: No section\: \'(\w+)\'").findall(tString)
+                need_msg = "Need options: %s" % data
+            self.polling_log.info(need_msg)
+            self.server_log.error(need_msg, self.host_name)
+        no_section_re = re.compile("NoSectionError\: No section\: \'(\w+)\'")
+        data = no_sectin_re.findall(tString)
         if data:
-            message1 = "Invalid client configuration data"
-            self.polling_log.error(message1)
-            self.server_log.error(message1, self.host_name)
-            message2 = "Need section '%s'." % (data[0])
-            self.polling_log.info(message2)
-            self.server_log.error(message2, self.host_name)
+            self.polling_log.error(invalid_data_msg)
+            self.server_log.error(invalid_data_msg, self.host_name)
+            need_msg = "Need section '%s'." % (data[0])
+            self.polling_log.info(need_msg)
+            self.server_log.error(need_msg, self.host_name)
         else:
             for line in stack_trace:
                 self.polling_log.error(line)
@@ -281,26 +294,32 @@ class BombardierMachineInterface(MachineInterface):
 
     def get_package_names_from_progress(self):
         #CANNIBALIZED FROM PackageField.py
-        status_yml = os.path.join(self.server_home, "status", "%s.yml" % self.host_name)
+        status_yml = os.path.join(self.server_home, "status", \
+                                  "%s.yml" % self.host_name)
         if not os.path.isfile(status_yml):
-            self.polling_log.info("Cannot retrieve status (NO FILE: %s)" % status_yml)
+            msg = "Cannot retrieve status (NO FILE: %s)" % status_yml
+            self.polling_log.info(msg)
             return {}
         yml = syck.load( open(status_yml).read() )
         if yml == None:
-            self.polling_log.info("Cannot retrieve status (EMPTY FILE: %s)" % status_yml)
+            msg = "Cannot retrieve status (EMPTY FILE: %s)" % status_yml
+            self.polling_log.info(msg)
             return {}
         return yml
 
     def get_all_package_names(self):
-        package_names = set([strip_version(x) for x in self.get_package_names_from_progress().get(PROGRESS, {})])
+        package_list = self.get_package_names_from_progress().get(PROGRESS, {})
+        package_names = set([strip_version(x) for x in package_list])
         package_names = package_names.union(set(self.data.get("packages")))
         return list(package_names)
 
     def get_package_data(self, package_name):
-        yml_path = os.path.join(self.server_home, "package", "%s.yml" % package_name)
+        yml_path = os.path.join(self.server_home, "package",
+                                "%s.yml" % package_name)
         package_data = {}
         if not os.path.isfile(yml_path):
-            self.server_log.warning("Requested invalid package: %s" % package_name)
+            msg = "Requested invalid package: %s" % package_name
+            self.server_log.warning()
             raise MachineConfigurationException(self.host_name)
         else:
             package_data = syck.load(open(yml_path).read())
@@ -316,14 +335,16 @@ class BombardierMachineInterface(MachineInterface):
             for package_name in package_names:
                 this_package_data = self.get_package_data(package_name)
                 if not this_package_data:
-                    message = "Could not find package data for %s." % package_name
-                    self.polling_log.error(message)
+                    message = "Could not find package data for %s."
+                    self.polling_log.error(message % package_name)
                     raise MachineConfigurationException(self.host_name)
                 send_data["package_data"][package_name] = this_package_data
-                send_data["packageData"][package_name] = this_package_data # FIXME
+                # FIXME
+                send_data["packageData"][package_name] = this_package_data 
         self.stream_data(yaml.dump(send_data))
 
-    def run_bc(self, action, package_name, script_name, package_revision, debug):
+    def run_bc(self, action,
+               package_name, script_name, package_revision, debug):
         self.report_info = ''
         self.chdir(self.spkg_dir)
         self.server_log.info("PACKAGE_REVISION: %s" % package_revision)
@@ -331,17 +352,21 @@ class BombardierMachineInterface(MachineInterface):
             package_name += '-%s' % package_revision
             self.server_log.info("PACKAGE_NAME: %s" % package_name)
         if self.platform == "win32":
-            cmd = "cat /proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/Python/PythonCore/2.5/InstallPath/@"
+            cmd = "cat /proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/"
+            cmd += "Python/PythonCore/2.5/InstallPath/@"
             python_home_win = self.gso(cmd)
             python_home_cyg = self.gso("cygpath $(%s)" %cmd)
             self.get_status_yml()
-            cmd = "%spython.exe '%sScripts\\bc.py' %s %s %s %s" % (python_home_cyg, python_home_win,
-                  ACTION_DICT[action], self.host_name, package_name, script_name)
+            cmd = "%spython.exe '%sScripts\\bc.py' %s %s %s %s" % \
+                  (python_home_cyg, python_home_win, ACTION_DICT[action], \
+                   self.host_name, package_name, script_name)
         else:
-            cmd = "export PYTHON_HOME=$(%s -c 'import sys; print sys.prefix')" % self.python
+            cmd = "export PYTHON_HOME=$(%s -c 'import sys; print sys.prefix')"
+            cmd = cmd % self.python
             gso_out = self.gso(cmd)
-            cmd = '%s $PYTHON_HOME/bin/bc.py %s %s %s %s' % (self.python, ACTION_DICT[action],
-                                         self.host_name, package_name, script_name)
+            cmd = '%s $PYTHON_HOME/bin/bc.py %s %s %s %s' % \
+                  (self.python, ACTION_DICT[action],
+                   self.host_name, package_name, script_name)
         self.ssh_conn.sendline(cmd)
         self.send_all_client_data(action)
         found_index = 0
@@ -382,14 +407,16 @@ class BombardierMachineInterface(MachineInterface):
     def send_package(self, package_name, dest_path):
         filename = os.path.join(self.server_home, "packages", package_name)
         if not os.path.isfile(filename):
-            message = "Client requested a file that is not on this server: %s" % filename
+            message = "Client requested a file that is not on this server: %s"
+            message = message  % filename
             self.server_log.error(message, self.host_name)
             return OK
         self.scp(filename, dest_path, False)
 
     def upload_new_packages(self):
         dest_path = os.path.join(self.spkg_dir, self.host_name, "packages")
-        delivered_packages = self.get_package_names_from_progress().get(LOCAL_PACKAGES, [])
+        package_names = self.get_package_names_from_progress()
+        delivered_packages = package_names.get(LOCAL_PACKAGES, [])
         required_base_names = copy.deepcopy(self.data.get("packages"))
         newest_names = []
         for base_name in required_base_names:
@@ -439,7 +466,8 @@ class BombardierMachineInterface(MachineInterface):
             self.exit_code = FAIL
             message = ["Exception in client-handling code."]
         self.get_status_yml()
-        self.server_log.info("take_action is returning: %s / %s" % (self.exit_code, message))
+        msg = "take_action is returning: %s / %s" % (self.exit_code, message)
+        self.server_log.info(msg)
         return self.exit_code, message
 
     def clear_script_output(self, script_name):
@@ -485,5 +513,6 @@ class BombardierMachineInterface(MachineInterface):
             cmd = "chmod 660 %s 2> /dev/null"
             os.system(cmd % (status_file))
         except IOError, ioe:
-            self.polling_log.error("Unable to write '%s' (%s)" % (status_file, ioe))
+            msg = "Unable to write '%s' (%s)" % (status_file, ioe)
+            self.polling_log.error(msg)
 
