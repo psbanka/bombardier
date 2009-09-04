@@ -1,7 +1,7 @@
 "Bombardier Machine Interface"
 #!/usr/bin/env python
 
-import re, os, base64
+import re, os
 import yaml
 import StringIO
 import copy
@@ -18,7 +18,6 @@ import syck
 
 TMP_FILE = "tmp.yml"
 DOT_LENGTH = 20
-BLK_SIZE = 77
 PROGRESS = "install-progress"
 LOCAL_PACKAGES = "local-packages"
 
@@ -49,7 +48,6 @@ class BombardierMachineInterface(MachineInterface):
             self.python = self.data.get("python_path")
         if self.data.get("spkg_path"):
             self.spkg_dir = self.data.get("spkg_path")
-        self.cmd_debug = None
         self.pull_report = True
 
     def _get_state_machine(self):
@@ -72,25 +70,6 @@ class BombardierMachineInterface(MachineInterface):
                         ]
         return state_machine
 
-    # BEING USED
-    def scp_dict(self, copy_dict):
-        "Use scp with a dictionary to copy files grouped by file type"
-        self.connect()
-        for file_type in copy_dict:
-            if file_type == "dist":
-                dest_dir = '.'
-            else:
-                dest_dir = os.path.join(self.spkg_dir, 
-                                        self.host_name, file_type)
-            for source_file in copy_dict[file_type]:
-                source_path = os.path.join(self.server_home, file_type,
-                                           source_file)
-                msg = "SOURCE_PATH: %s // DEST_DIR: %s"
-                msg =  msg % (source_path, dest_dir)
-                self.polling_log.info(msg)
-                status = self.scp(source_path, dest_dir)
-        return
-    
     # BEING USED
     def freshen(self):
         "Refresh config data"
@@ -116,19 +95,6 @@ class BombardierMachineInterface(MachineInterface):
         if not valid:
             msg = "Invalid status data. Ignoring."
             self.polling_log.warning(msg)
-
-    def get_output(self, output):
-        "Add output to logging and action result"
-        self.server_log.info(output)
-        self.polling_log.info(output, self.host_name)
-        self.action_result.append(output)
-
-    def get_exit_code(self, exit_code):
-        "Parse action code from string data, this needs to be more defensive."
-        message = "Output received: %s" % exit_code
-        self.polling_log.info(message)
-        self.server_log.info(message, self.host_name)
-        self.exit_code = int(exit_code)
 
     def get_action_result(self, data):
         "Add action result to logs"
@@ -168,31 +134,6 @@ class BombardierMachineInterface(MachineInterface):
             return OK
         self.scp(filename, dest_path, False)
 
-    def stream_file(self, file_name):
-        "Stream a file"
-        plain_text = open(file_name, 'rb').read()
-        return self.stream_data(plain_text)
-
-    def stream_data(self, plain_text):
-        "Send file contents over stdin via pxssh"
-        import zlib
-        compressed = zlib.compress(plain_text)
-        encoded    = base64.encodestring(compressed)
-        self.ssh_conn.setecho(False)
-        handle = StringIO.StringIO(encoded)
-        msg = "==> Sending configuration information:"
-        self.polling_log.info(msg)
-        while True:
-            chunk = handle.read(BLK_SIZE)
-            if chunk == '':
-                chunk = ' '*(BLK_SIZE-1)+'\n'
-                self.ssh_conn.send(chunk)
-                break
-            if len(chunk) < BLK_SIZE:
-                pad = ' '*(BLK_SIZE-len(chunk))
-                chunk = chunk[:-1] + pad + '\n'
-            self.ssh_conn.send(chunk)
-
     def send_client(self, data):
         "Stream yaml data to a client"
         tmp_file_path = self.server_home+"/"+TMP_FILE
@@ -215,104 +156,6 @@ class BombardierMachineInterface(MachineInterface):
                     function(grep_info[0])
                     return True
         return False
-
-    def gso(self, cmd, raise_on_error=True):
-        "Run a remote shell command"
-        if self.cmd_debug:
-            msg = "* RUNNING: %s" % cmd
-            self.polling_log.debug(msg)
-            self.server_log.debug(msg, self.host_name)
-        try:
-            self.ssh_conn.sendline( cmd )
-            self.ssh_conn.prompt()
-        except EOF:
-            if raise_on_error:
-                msg = "Error running %s" % (cmd)
-                raise MachineUnavailableException(self.host_name, msg)
-            else:
-                return ""
-        output = self.ssh_conn.before.strip()
-        if self.cmd_debug:
-            self.polling_log.info("* OUTPUT: %s" % output)
-        return output
-
-    def chdir(self, path):
-        "Change the current directory on a remote session"
-        if not path:
-            path = self.spkg_dir
-        self.polling_log.debug("Changing directory to %s" % path)
-        self.ssh_conn.sendline ('cd %s' % path)
-        self.ssh_conn.prompt()
-
-    def log_raw_data(self, output_queue):
-        "Transfer full lines from queue into the polling log"
-        while '\n' in output_queue:
-            position = len(output_queue.split('\n')[0])
-            self.polling_log.info(output_queue[:position-1])
-            output_queue = output_queue[position+2:]
-        return output_queue
-
-    def run_cmd(self, command_string):
-        "Run a remote shell command"
-        self.report_info = ''
-        if self.freshen() != OK:
-            msg = "Unable to connect to %s." % self.host_name
-            raise MachineUnavailableException(self.host_name, msg)
-        return_code = OK
-        self.ssh_conn.sendline(command_string)
-        command_complete = False
-        total_output = ''
-        output_queue = ''
-        output_checker = re.compile('(.*)'+self.ssh_conn.PROMPT)
-        while True:
-            output = self.ssh_conn.read_nonblocking()
-            output_queue += output
-            total_output += output
-            output_queue = self.log_raw_data(output_queue)
-            if output_checker.findall(total_output):
-                #self.polling_log.info("EXITING")
-                break
-        #self.polling_log.info(output_queue)
-        self.ssh_conn.setecho(False)
-        return [OK, []]
-
-    def dump_trace(self):
-        "Pretty print a stack trace into the logs"
-        stack_trace = []
-        found_index = 1
-        while found_index == 1:
-            stack_trace.append(self.ssh_conn.match.groups()[0])
-            expect_list = [self.ssh_conn.PROMPT, self.trace_matcher,
-                           self.log_matcher]
-            found_index = self.ssh_conn.expect(expect_list, timeout=6000)
-        t_string = ''.join(stack_trace)
-
-        noop_re = "NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'"
-        re_obj = re.compile(noop_re)
-        data = re_obj.findall(t_string)
-        invalid_data_msg = "Invalid client configuration data"
-        if data:
-            self.polling_log.error(invalid_data_msg)
-            self.server_log.error(invalid_data_msg, self.host_name)
-            if len(data) == 2:
-                need_msg = "Need option '%s' in section '%s'." % \
-                            (data[0], data[1])
-            else:
-                need_msg = "Need options: %s" % data
-            self.polling_log.info(need_msg)
-            self.server_log.error(need_msg, self.host_name)
-        no_section_re = re.compile("NoSectionError\: No section\: \'(\w+)\'")
-        data = no_section_re.findall(t_string)
-        if data:
-            self.polling_log.error(invalid_data_msg)
-            self.server_log.error(invalid_data_msg, self.host_name)
-            need_msg = "Need section '%s'." % (data[0])
-            self.polling_log.info(need_msg)
-            self.server_log.error(need_msg, self.host_name)
-        else:
-            for line in stack_trace:
-                self.polling_log.error(line)
-                self.server_log.error(line, self.host_name)
 
     def get_package_names_from_progress(self):
         "Pull status yaml data from local file"
@@ -370,6 +213,8 @@ class BombardierMachineInterface(MachineInterface):
         self.stream_data(yaml.dump(send_data))
 
     def get_bc_command(self):
+        "Get shell command to run bc.py on the target system."
+        cmd = ""
         if self.platform == "win32":
             cmd = "cat /proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/"
             cmd += "Python/PythonCore/2.5/InstallPath/@"
@@ -383,7 +228,7 @@ class BombardierMachineInterface(MachineInterface):
             cmd = cmd % self.python
             gso_out = self.gso(cmd)
             cmd = '%s $PYTHON_HOME/bin/bc.py ' % self.python
-        
+        return cmd
 
     def run_bc(self, action,
                package_name, script_name, package_revision, debug):
@@ -416,6 +261,7 @@ class BombardierMachineInterface(MachineInterface):
             return [msg]
 
     def watch_bc(self):
+        "Watch log output from bc.py"
         expect_list = [self.ssh_conn.PROMPT, self.trace_matcher,
                        self.log_matcher]
         found_index = self.ssh_conn.expect(expect_list, timeout=6000)

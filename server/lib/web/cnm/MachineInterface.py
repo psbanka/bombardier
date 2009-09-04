@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import pxssh, pexpect
-import sys, time, os
+import sys, time, os, base64
+import StringIO
 from bombardier_core.static_data import OK, FAIL, SERVER, TRACEBACK
 from bombardier_core.static_data import DEBUG, INFO, WARNING, ERROR, CRITICAL
 from ServerLogger import ServerLogger
@@ -18,6 +19,7 @@ BAD_BREAK_CHARS = ['[', '\033', 'm', ';', '0', '3', '1']
 GOOD_BREAK_CHARS = ['.', '-', ' ', '\\', '/', '=', ')', ']', '_']
 CONNECTION_TIMEOUT = 90 * 3600 #90 min
 SSH_NEW_KEY = 'Are you sure you want to continue connecting'
+BLK_SIZE = 77
 
 class MachineInterface:
 
@@ -225,6 +227,161 @@ class MachineInterface:
         scp_conn.close()
         return OK
 
+    # BEING USED
+    def scp_dict(self, copy_dict):
+        "Use scp with a dictionary to copy files grouped by file type"
+        self.connect()
+        for file_type in copy_dict:
+            if file_type == "dist":
+                dest_dir = '.'
+            else:
+                dest_dir = os.path.join(self.spkg_dir, 
+                                        self.host_name, file_type)
+            for source_file in copy_dict[file_type]:
+                source_path = os.path.join(self.server_home, file_type,
+                                           source_file)
+                msg = "SOURCE_PATH: %s // DEST_DIR: %s"
+                msg =  msg % (source_path, dest_dir)
+                self.polling_log.info(msg)
+                status = self.scp(source_path, dest_dir)
+        return
+    
+    def get_output(self, output):
+        "Add output to logging and action result"
+        self.server_log.info(output)
+        self.polling_log.info(output, self.host_name)
+        self.action_result.append(output)
+
+    def get_exit_code(self, exit_code):
+        "Parse action code from string data, this needs to be more defensive."
+        message = "Output received: %s" % exit_code
+        self.polling_log.info(message)
+        self.server_log.info(message, self.host_name)
+        self.exit_code = int(exit_code)
+
+    def stream_file(self, file_name):
+        "Stream a file"
+        plain_text = open(file_name, 'rb').read()
+        return self.stream_data(plain_text)
+
+    def stream_data(self, plain_text):
+        "Send file contents over stdin via pxssh"
+        import zlib
+        compressed = zlib.compress(plain_text)
+        encoded    = base64.encodestring(compressed)
+        self.ssh_conn.setecho(False)
+        handle = StringIO.StringIO(encoded)
+        msg = "==> Sending configuration information:"
+        self.polling_log.info(msg)
+        while True:
+            chunk = handle.read(BLK_SIZE)
+            if chunk == '':
+                chunk = ' '*(BLK_SIZE-1)+'\n'
+                self.ssh_conn.send(chunk)
+                break
+            if len(chunk) < BLK_SIZE:
+                pad = ' '*(BLK_SIZE-len(chunk))
+                chunk = chunk[:-1] + pad + '\n'
+            self.ssh_conn.send(chunk)
+
+    def chdir(self, path):
+        "Change the current directory on a remote session"
+        if not path:
+            path = self.spkg_dir
+        self.polling_log.debug("Changing directory to %s" % path)
+        self.ssh_conn.sendline ('cd %s' % path)
+        self.ssh_conn.prompt()
+
+    def log_raw_data(self, output_queue):
+        "Transfer full lines from queue into the polling log"
+        while '\n' in output_queue:
+            position = len(output_queue.split('\n')[0])
+            self.polling_log.info(output_queue[:position-1])
+            output_queue = output_queue[position+2:]
+        return output_queue
+
+    def gso(self, cmd, raise_on_error=True, cmd_debug=False):
+        "Run a remote shell command"
+        if cmd_debug:
+            msg = "* RUNNING: %s" % cmd
+            self.polling_log.debug(msg)
+            self.server_log.debug(msg, self.host_name)
+        try:
+            self.ssh_conn.sendline( cmd )
+            self.ssh_conn.prompt()
+        except EOF:
+            if raise_on_error:
+                msg = "Error running %s" % (cmd)
+                raise MachineUnavailableException(self.host_name, msg)
+            else:
+                return ""
+        output = self.ssh_conn.before.strip()
+        if cmd_debug:
+            self.polling_log.info("* OUTPUT: %s" % output)
+        return output
+
+    def run_cmd(self, command_string):
+        "Run a remote shell command"
+        self.report_info = ''
+        if self.freshen() != OK:
+            msg = "Unable to connect to %s." % self.host_name
+            raise MachineUnavailableException(self.host_name, msg)
+        return_code = OK
+        self.ssh_conn.sendline(command_string)
+        command_complete = False
+        total_output = ''
+        output_queue = ''
+        output_checker = re.compile('(.*)'+self.ssh_conn.PROMPT)
+        while True:
+            output = self.ssh_conn.read_nonblocking()
+            output_queue += output
+            total_output += output
+            output_queue = self.log_raw_data(output_queue)
+            if output_checker.findall(total_output):
+                #self.polling_log.info("EXITING")
+                break
+        #self.polling_log.info(output_queue)
+        self.ssh_conn.setecho(False)
+        return [OK, []]
+
+    def dump_trace(self):
+        "Pretty print a stack trace into the logs"
+        stack_trace = []
+        found_index = 1
+        while found_index == 1:
+            stack_trace.append(self.ssh_conn.match.groups()[0])
+            expect_list = [self.ssh_conn.PROMPT, self.trace_matcher,
+                           self.log_matcher]
+            found_index = self.ssh_conn.expect(expect_list, timeout=6000)
+        t_string = ''.join(stack_trace)
+
+        noop_re = "NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'"
+        re_obj = re.compile(noop_re)
+        data = re_obj.findall(t_string)
+        invalid_data_msg = "Invalid client configuration data"
+        if data:
+            self.polling_log.error(invalid_data_msg)
+            self.server_log.error(invalid_data_msg, self.host_name)
+            if len(data) == 2:
+                need_msg = "Need option '%s' in section '%s'." % \
+                            (data[0], data[1])
+            else:
+                need_msg = "Need options: %s" % data
+            self.polling_log.info(need_msg)
+            self.server_log.error(need_msg, self.host_name)
+        no_section_re = re.compile("NoSectionError\: No section\: \'(\w+)\'")
+        data = no_section_re.findall(t_string)
+        if data:
+            self.polling_log.error(invalid_data_msg)
+            self.server_log.error(invalid_data_msg, self.host_name)
+            need_msg = "Need section '%s'." % (data[0])
+            self.polling_log.info(need_msg)
+            self.server_log.error(need_msg, self.host_name)
+        else:
+            for line in stack_trace:
+                self.polling_log.error(line)
+                self.server_log.error(line, self.host_name)
+
     def check_result(self):
         self.ssh_conn.setecho(False)
         self.ssh_conn.sendline("echo $?")
@@ -285,25 +442,4 @@ class MachineInterface:
                 raise IncompleteConfigurationException(msg, None, None)
             data = default
         return data
-
-    def getobj(self, section_string, default, expType, optional):
-        value = self.parse_section(section_string, default, optional)
-        if type(expType) == type("string"):
-            if type(value) == type(1234) or type(value) == type(123.32):
-                value = str(value)
-        if type(value) == type(expType):
-            return value
-        raise IncompleteConfigurationException(section_string, type(value), type(expType))
-
-    def listobj(self, section_string, default=[], optional=True):
-        return self.getobj(section_string, default, [], optional)
-
-    def string(self, section_string, default='', optional=True):
-        return self.getobj(section_string, default, "string", optional)
-
-    def integer(self, section_string, default=1, optional=True):
-        return self.getobj(section_string, default, 1, optional)
-
-    def dictionary(self, section_string, default={}, optional=True):
-        return self.getobj(section_string, default, {}, optional)
 

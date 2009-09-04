@@ -1,36 +1,26 @@
-from django.conf.urls.defaults import patterns, url
-from django_restapi.model_resource import Collection, Entry, reverse
-from django_restapi.responder import JsonDictResponder, JSONResponder, YamlFileResponder
+"CnmResource module"
 from django_restapi.resource import Resource
-from configs.models import Machine, Include, Bom, ServerConfig, Package
-import ServerConfigFile
-import syck, glob
+from configs.models import ServerConfig
+import syck
 import os
-import MachineConfig
-from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden, HttpResponse
+from django.http import HttpResponse
 from Exceptions import InvalidServerHome
 from django.utils import simplejson
-from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import FAIL
 
 import Pyro.core
-from django_restapi.resource import Resource
 import StringIO
 import traceback
 
 class CnmResource(Resource):
+    "Base resource class"
     def __init__(self, authentication=None, permitted_methods=None,
                  mimetype=None):
         Resource.__init__(self, authentication, permitted_methods, mimetype)
 
     @classmethod
-    def dump_json(cls, data):
-        response = HttpResponse(mimetype = "application/json")
-        response_dict = syck.load(data)
-        return simplejson.dump(response_dict, response)
-
-    @classmethod
     def get_server_home(cls):
+        "Return server_home"
         config_entry = ServerConfig.objects.get(name="server_home")
         server_home = config_entry.value
         if not os.path.isdir(server_home):
@@ -39,6 +29,7 @@ class CnmResource(Resource):
 
     @classmethod
     def get_dispatcher(cls):
+        "Create and return a dispatcher"
         dispatcher = Pyro.core.getProxyForURI("PYRONAME://dispatcher")
         return dispatcher
 
