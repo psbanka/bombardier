@@ -1,11 +1,8 @@
 "CnmResource module"
 from django_restapi.resource import Resource
 from configs.models import ServerConfig
-import syck
 import os
-from django.http import HttpResponse
 from Exceptions import InvalidServerHome
-from django.utils import simplejson
 from bombardier_core.static_data import FAIL
 
 import Pyro.core
@@ -33,7 +30,9 @@ class CnmResource(Resource):
         dispatcher = Pyro.core.getProxyForURI("PYRONAME://dispatcher")
         return dispatcher
 
-    def dump_exception(self, request, err):
+    @classmethod
+    def dump_exception(cls, request, err):
+        "Pretty print an exception"
         exc = StringIO.StringIO()
         traceback.print_exc(file=exc)
         exc.seek(0)

@@ -11,7 +11,6 @@ from configs.models import Machine, Include, Bom, ServerConfig, Package, Status
 from configs.models import Dist, MachineModelFactory, IncludeModelFactory
 from configs.models import BomModelFactory, PackageModelFactory
 from configs.models import DistModelFactory, StatusModelFactory
-import syck, glob
 import os
 import MachineConfig
 from django.contrib.auth.decorators import login_required
@@ -74,11 +73,11 @@ class DistEntry(ConfigEntry):
     @login_required
     def read(self, request, dist_name):
         "Create dictionary from Dist object and return as json"
-        object = Dist.objects.get(name__startswith=dist_name)
-        output = {"name": object.name,
-                  "version": object.version,
-                  "description": object.desc,
-                  "dist_name": object.dist_name
+        dist_object = Dist.objects.get(name__startswith=dist_name)
+        output = {"name": dist_object.name,
+                  "version": dist_object.version,
+                  "description": dist_object.desc,
+                  "dist_name": dist_object.dist_name
                  }
         responder = JsonDictResponder(output)
         return responder.element(request)
@@ -251,8 +250,8 @@ class DbSyncCollection(CnmResource):
         "Use each Factory to sync itself from its corresponding yaml file"
         server_home = self.get_server_home()
         config_data = {}
-        for Factory in FACTORIES:
-            factory = Factory()
+        for factory_constructor in FACTORIES:
+            factory = factory_constructor()
             factory.clean()
             factory.create()
 
