@@ -31,7 +31,7 @@ class CnmResource(Resource):
         return dispatcher
 
     @classmethod
-    def dump_exception(cls, request, err):
+    def dump_exception(cls, request):
         "Pretty print an exception"
         exc = StringIO.StringIO()
         traceback.print_exc(file=exc)

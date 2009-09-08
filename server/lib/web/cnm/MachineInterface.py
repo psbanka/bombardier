@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import pxssh, pexpect
-import sys, time, os, base64
+import sys, time, os, re
 import StringIO
 from bombardier_core.static_data import OK, FAIL, SERVER, TRACEBACK
 from bombardier_core.static_data import DEBUG, INFO, WARNING, ERROR, CRITICAL
@@ -19,7 +19,6 @@ BAD_BREAK_CHARS = ['[', '\033', 'm', ';', '0', '3', '1']
 GOOD_BREAK_CHARS = ['.', '-', ' ', '\\', '/', '=', ')', ']', '_']
 CONNECTION_TIMEOUT = 90 * 3600 #90 min
 SSH_NEW_KEY = 'Are you sure you want to continue connecting'
-BLK_SIZE = 77
 
 class MachineInterface:
 
@@ -246,44 +245,6 @@ class MachineInterface:
                 status = self.scp(source_path, dest_dir)
         return
     
-    def get_output(self, output):
-        "Add output to logging and action result"
-        self.server_log.info(output)
-        self.polling_log.info(output, self.host_name)
-        self.action_result.append(output)
-
-    def get_exit_code(self, exit_code):
-        "Parse action code from string data, this needs to be more defensive."
-        message = "Output received: %s" % exit_code
-        self.polling_log.info(message)
-        self.server_log.info(message, self.host_name)
-        self.exit_code = int(exit_code)
-
-    def stream_file(self, file_name):
-        "Stream a file"
-        plain_text = open(file_name, 'rb').read()
-        return self.stream_data(plain_text)
-
-    def stream_data(self, plain_text):
-        "Send file contents over stdin via pxssh"
-        import zlib
-        compressed = zlib.compress(plain_text)
-        encoded    = base64.encodestring(compressed)
-        self.ssh_conn.setecho(False)
-        handle = StringIO.StringIO(encoded)
-        msg = "==> Sending configuration information:"
-        self.polling_log.info(msg)
-        while True:
-            chunk = handle.read(BLK_SIZE)
-            if chunk == '':
-                chunk = ' '*(BLK_SIZE-1)+'\n'
-                self.ssh_conn.send(chunk)
-                break
-            if len(chunk) < BLK_SIZE:
-                pad = ' '*(BLK_SIZE-len(chunk))
-                chunk = chunk[:-1] + pad + '\n'
-            self.ssh_conn.send(chunk)
-
     def chdir(self, path):
         "Change the current directory on a remote session"
         if not path:

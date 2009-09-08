@@ -37,6 +37,14 @@ class IncompleteConfigurationException(Exception):
     def __str__(self):
         return self.__repr__()
 
+class BombardierMachineException(Exception):
+    def __init__(self):
+        Exception.__init__(self)
+    def __repr__(self):
+        return "Error running bc.py"
+    def __str__(self):
+        return self.__repr__()
+
 class MachineUnavailableException(Exception):
     def __init__(self, server, errmsg):
         Exception.__init__(self)

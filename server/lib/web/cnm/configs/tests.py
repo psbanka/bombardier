@@ -145,7 +145,7 @@ class BasicTest(TestCase):
         status, output = self.run_job(url, data=post_data, timeout=60)
         return status, output
 
-class InactiveTests(BasicTest):
+class ActiveTests(BasicTest):
 
     def test_search(self):
         test_dict  = { "machine":  { "tes": ["tester1", "tester2"],

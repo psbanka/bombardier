@@ -1,13 +1,13 @@
 "Bombardier Machine Interface"
 #!/usr/bin/env python
 
-import re, os
+import re, os, base64
 import yaml
 import StringIO
 import copy
 import traceback
 from MachineInterface import MachineInterface, MachineUnavailableException
-from Exceptions import MachineConfigurationException
+from Exceptions import MachineConfigurationException, BombardierMachineException
 from bombardier_core.mini_utility import strip_version
 from bombardier_core.static_data import OK, FAIL, PURGE, EXECUTE
 from bombardier_core.static_data import INIT, ACTION_DICT, RETURN_DICT
@@ -16,6 +16,7 @@ from pexpect import EOF
 import syck
 
 
+BLK_SIZE = 77
 TMP_FILE = "tmp.yml"
 DOT_LENGTH = 20
 PROGRESS = "install-progress"
@@ -146,6 +147,44 @@ class BombardierMachineInterface(MachineInterface):
         "Add a yaml line to the report"
         self.report_info += yaml_line + "\n"
 
+    def get_output(self, output):
+        "Add output to logging and action result"
+        self.server_log.info(output)
+        self.polling_log.info(output, self.host_name)
+        self.action_result.append(output)
+
+    def get_exit_code(self, exit_code):
+        "Parse action code from string data, this needs to be more defensive."
+        message = "Output received: %s" % exit_code
+        self.polling_log.info(message)
+        self.server_log.info(message, self.host_name)
+        self.exit_code = int(exit_code)
+
+    def stream_file(self, file_name):
+        "Stream a file"
+        plain_text = open(file_name, 'rb').read()
+        return self.stream_data(plain_text)
+
+    def stream_data(self, plain_text):
+        "Send file contents over stdin via pxssh"
+        import zlib
+        compressed = zlib.compress(plain_text)
+        encoded    = base64.encodestring(compressed)
+        self.ssh_conn.setecho(False)
+        handle = StringIO.StringIO(encoded)
+        msg = "==> Sending configuration information:"
+        self.polling_log.info(msg)
+        while True:
+            chunk = handle.read(BLK_SIZE)
+            if chunk == '':
+                chunk = ' '*(BLK_SIZE-1)+'\n'
+                self.ssh_conn.send(chunk)
+                break
+            if len(chunk) < BLK_SIZE:
+                pad = ' '*(BLK_SIZE-len(chunk))
+                chunk = chunk[:-1] + pad + '\n'
+            self.ssh_conn.send(chunk)
+
     def process_message(self, message):
         "Parse log message and possibly take action"
         for state in self.state_machine:
@@ -245,11 +284,8 @@ class BombardierMachineInterface(MachineInterface):
                                 self.host_name, package_name, script_name)
         self.ssh_conn.sendline(cmd)
         self.send_all_client_data(action)
-        found_index = 0
-        while True:
-            bc_result = self.watch_bc()
-            if bc_result:
-                return bc_result
+        self.watch_bc()
+
         try:
             if self.report_info:
                 return yaml.load(self.report_info)
@@ -262,28 +298,25 @@ class BombardierMachineInterface(MachineInterface):
 
     def watch_bc(self):
         "Watch log output from bc.py"
-        expect_list = [self.ssh_conn.PROMPT, self.trace_matcher,
-                       self.log_matcher]
-        found_index = self.ssh_conn.expect(expect_list, timeout=6000)
-        if found_index == 0: # BC exited
-            if self.ssh_conn.before.strip():
-                msg = "Remaining output: %s" % self.ssh_conn.before.strip()
-                self.polling_log.info(msg)
-                self.server_log.info(msg, self.host_name)
-            self.ssh_conn.setecho(False)
-        elif found_index == 1: # Stack trace
-            self.server_log.error("FOUND A STACK TRACE")
-            self.dump_trace()
-            self.ssh_conn.prompt()
-            self.get_status_yml()
-            self.exit_code = FAIL
-            return ["Machine raised an exception."]
-        elif found_index == 2: # Log message
-            level, message = self.ssh_conn.match.groups()
-            if not self.process_message(message):
-                message = message.strip()
-                self.polling_log.log_message(level, message)
-                self.server_log.log_message(level, message, self.host_name)
+        while True:
+            expect_list = [self.ssh_conn.PROMPT, self.trace_matcher,
+                           self.log_matcher]
+            found_index = self.ssh_conn.expect(expect_list, timeout=6000)
+            if found_index == 0: # BC exited
+                if self.ssh_conn.before.strip():
+                    msg = "Remaining output: %s" % self.ssh_conn.before.strip()
+                    self.polling_log.info(msg)
+                    self.server_log.info(msg, self.host_name)
+                self.ssh_conn.setecho(False)
+                break
+            elif found_index == 1: # Stack trace
+                raise BombardierMachineException()
+            elif found_index == 2: # Log message
+                level, message = self.ssh_conn.match.groups()
+                if not self.process_message(message):
+                    message = message.strip()
+                    self.polling_log.log_message(level, message)
+                    self.server_log.log_message(level, message, self.host_name)
 
     def upload_new_packages(self):
         "Send needed packages to a machine"
@@ -325,6 +358,13 @@ class BombardierMachineInterface(MachineInterface):
         except EOF:
             self.exit_code = FAIL
             message = ["Machine unexpectedly disconnected."]
+        except BombardierMachineException, exc:
+            self.server_log.error("FOUND A STACK TRACE")
+            self.dump_trace()
+            self.ssh_conn.prompt()
+            self.get_status_yml()
+            self.exit_code = FAIL
+            message = ["Machine raised an exception."]
         except Exception, exc:
             print "------------------- PROCESS EXCEPTION"
             exc = StringIO.StringIO()

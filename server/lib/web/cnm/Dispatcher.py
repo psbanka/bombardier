@@ -24,7 +24,7 @@ def exception_dumper(func):
         try:
             print "watching the %s function" % fname
             return func(*args, **kwargs)
-        except Exception, err:
+        except Exception:
             exc = StringIO.StringIO()
             traceback.print_exc(file=exc)
             exc.seek(0)
@@ -111,7 +111,7 @@ class Job(Thread):
                 status, output = command.execute(self.machine_interface)
                 self.command_status = status
                 self.command_output = output
-            except Exception, err:
+            except Exception:
                 self.elapsed_time = time.time() - self.start_time
                 msg = "Command %s: Failed to run %s" % (command.name, command.info())
                 self.server_log.error( msg, self.name)
@@ -142,7 +142,7 @@ class Dispatcher(Pyro.core.ObjBase):
         self.server_log.add_std_err()
         self.machine_interface_pool = {}
 
-    def dump_exception(self, username, err):
+    def dump_exception(self, username):
         exc = StringIO.StringIO()
         traceback.print_exc(file=exc)
         exc.seek(0)
@@ -184,8 +184,8 @@ class Dispatcher(Pyro.core.ObjBase):
             machine_interface.scp_dict(copy_dict)
             job.start()
             output["job_name"] = job.name
-        except Exception, err:
-            output.update(self.dump_exception(username, err))
+        except Exception:
+            output.update(self.dump_exception(username))
             output["status"] = FAIL
         return output
 
@@ -207,8 +207,8 @@ class Dispatcher(Pyro.core.ObjBase):
             bombardier_init = BombardierCommand("init")
 
             commands = [set_spkg_config, bombardier_init]
-        except Exception, err:
-            output.update(self.dump_exception(username, err))
+        except Exception:
+            output.update(self.dump_exception(username))
             output["status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands, copy_dict)
@@ -220,8 +220,8 @@ class Dispatcher(Pyro.core.ObjBase):
             machine_interface = self.get_machine_interface(username, machine_name)
             bombardier_recon = BombardierCommand(action_string)
             commands = [bombardier_recon]
-        except Exception, err:
-            output.update(self.dump_exception(username, err))
+        except Exception:
+            output.update(self.dump_exception(username))
             output["status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands, copy_dict)
@@ -241,8 +241,8 @@ class Dispatcher(Pyro.core.ObjBase):
                                         package_revision=package_revision)
             commands = [bom_cmd]
 
-        except Exception, err:
-            output.update(self.dump_exception(username, err))
+        except Exception:
+            output.update(self.dump_exception(username))
             output["status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands, {})
@@ -259,8 +259,8 @@ class Dispatcher(Pyro.core.ObjBase):
             commands = [unpack, install]
             src_file = dist_name+".tar.gz"
             copy_dict = {"dist": [src_file]}
-        except Exception, err:
-            output.update(self.dump_exception(username, err))
+        except Exception:
+            output.update(self.dump_exception(username))
             output["status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands, copy_dict)
@@ -281,8 +281,8 @@ class Dispatcher(Pyro.core.ObjBase):
                 status = machine_interface.terminate()
                 output[machine_name] = status
             self.machine_interface_pool = {}
-        except Exception, err:
-            output.update(self.dump_exception(username, err))
+        except Exception:
+            output.update(self.dump_exception(username))
         return output
 
     def job_join(self, username, job_name, timeout):
@@ -302,8 +302,8 @@ class Dispatcher(Pyro.core.ObjBase):
             output["command_status"] = job.command_status
             output["command_output"] = job.command_output
             output["complete_log"] = job.complete_log
-        except Exception, err:
-            output.update(self.dump_exception(username, err))
+        except Exception:
+            output.update(self.dump_exception(username))
         return output
 
     def job_poll(self, username, job_name):
@@ -324,8 +324,8 @@ class Dispatcher(Pyro.core.ObjBase):
                 output["command_output"] = job.command_output
                 output["elapsed_time"] = job.elapsed_time
                 output["new_output"] = job.final_logs
-        except Exception, err:
-            output.update(self.dump_exception(username, err))
+        except Exception:
+            output.update(self.dump_exception(username))
         return output
 
     def check_in(self):

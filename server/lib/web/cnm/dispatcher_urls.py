@@ -41,8 +41,8 @@ class PackageActionEntry(CnmResource):
             output = dispatcher.package_action_job(request.user, package_name,
                                                    action, machine_name, 
                                                    package_revision=revision)
-        except Exception, err:
-            output.update(self.dump_exception(request, err))
+        except Exception:
+            output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -57,8 +57,8 @@ class MachineStatusEntry(CnmResource):
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
             output = dispatcher.status_job(request.user, machine_name)
-        except Exception, err:
-            output.update(self.dump_exception(request, err))
+        except Exception:
+            output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -84,8 +84,8 @@ class MachineStartReconcileEntry(CnmResource):
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
             output = dispatcher.reconcile_job(request.user, machine_name)
-        except Exception, err:
-            output.update(self.dump_exception(request, err))
+        except Exception:
+            output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -100,8 +100,8 @@ class MachineStartInitEntry(CnmResource):
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
             output = dispatcher.init_job(request.user, machine_name)
-        except Exception, err:
-            output.update(self.dump_exception(request, err))
+        except Exception:
+            output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -117,8 +117,8 @@ class MachineStartDistEntry(CnmResource):
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
             output = dispatcher.dist_job(request.user, machine_name, dist_name)
-        except Exception, err:
-            output.update(self.dump_exception(request, err))
+        except Exception:
+            output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -133,8 +133,8 @@ class MachineStartTestEntry(CnmResource):
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
             output = dispatcher.test_job(request.user, machine_name)
-        except Exception, err:
-            output.update(self.dump_exception(request, err))
+        except Exception:
+            output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -147,8 +147,8 @@ class MachineCleanupEntry(CnmResource):
         try:
             dispatcher = self.get_dispatcher()
             output = dispatcher.cleanup(request.user)
-        except Exception, err:
-            output.update(self.dump_exception(request, err))
+        except Exception:
+            output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -161,8 +161,8 @@ class JobJoinEntry(CnmResource):
         try:
             dispatcher = self.get_dispatcher()
             output = dispatcher.job_join(request.user, job_name, 10)
-        except Exception, err:
-            output.update(self.dump_exception(request, err))
+        except Exception:
+            output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -175,8 +175,8 @@ class JobPollEntry(CnmResource):
         try:
             dispatcher = self.get_dispatcher()
             output = dispatcher.job_poll(request.user, job_name)
-        except Exception, err:
-            output.update(self.dump_exception(request, err))
+        except Exception:
+            output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -193,8 +193,8 @@ class PasswordSetEntry(CnmResource):
             dispatcher.set_server_home(request.user, server_home)
             password = request.POST.get("password", "")
             output = dispatcher.set_password(password)
-        except Exception, err:
-            output.update(self.dump_exception(request, err))
+        except Exception:
+            output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
