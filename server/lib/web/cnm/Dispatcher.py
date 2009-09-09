@@ -338,8 +338,8 @@ class Dispatcher(Pyro.core.ObjBase):
         status, validate_output = self._validate_password(password)
         if status == OK:
             self.password = password
-        output = {"status": status,
-                  "output": validate_output}
+        output = {"command_status": status,
+                  "command_output": validate_output}
         return output
 
     def check_password(self):
@@ -357,10 +357,10 @@ class Dispatcher(Pyro.core.ObjBase):
         try:
             clear_dict = decrypt(cipher_dict, password)
         except DecryptionException:
-            return FAIL, "Incorrect password."
+            return FAIL, ["Invalid configuration key."]
         if clear_dict.get("test") == "the_quick_brown_fox_jumped_over_the_lazy_dog\n":
-            return OK, "Password valid."
-        return FAIL, "Incorrect password."
+            return OK, ['Configuration key set.']
+        return FAIL, ["Invalid configuration key."]
 
 from django.core.management import setup_environ
 import settings

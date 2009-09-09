@@ -5,7 +5,8 @@ import libUi
 import re
 import Slash
 from bombardier_core.Logger import Logger
-IGNORE_MODULE_NAMES = 'tester', 'libUi', 'Slash', 'SystemStateSingleton', '_version'
+IGNORE_MODULE_NAMES = ['tester', 'libUi', 'Slash', 'SystemStateSingleton',
+                       '_version', "Machine", "Show", "Package"]
 
 def get_cls(module_name, module_to_test):
     setup_test = None
@@ -73,7 +74,7 @@ def run_tests(cls, tests, debug):
         if debug:
             print "TESTING: ", cls, command
             print "Expected result:", expected_status, expected_cmd_output
-        no_flag, help_flag, tokens, comment = libUi.process_input(command)
+        #no_flag, help_flag, tokens, comment = libUi.process_input(command)
         cmd_status, cmd_output = slash.process_command(command.strip())
         if debug:
             print "COMMAND OUTPUT:",cmd_output
