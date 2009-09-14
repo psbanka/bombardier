@@ -163,12 +163,14 @@ class Dispatcher(Pyro.core.ObjBase):
         machine_config = MachineConfig(machine_name, self.password,
                                        self.server_home)
         machine_config.merge()
+        if self.password:
+            machine_config.decrypt_config()
         machine_interface = None
         if machine_name in self.machine_interface_pool:
             self.server_log.info("Reusing existing connection to %s" % machine_name, username)
             machine_interface = self.machine_interface_pool[machine_name]
         else:
-            self.server_log.info("Instantiating a MachineInterface for  %s" % machine_name, username)
+            self.server_log.info("Instantiating a MachineInterface for %s" % machine_name, username)
             machine_interface = BombardierMachineInterface(machine_config, self.server_log)
             self.machine_interface_pool[machine_name] = machine_interface
         return machine_interface 
@@ -334,10 +336,19 @@ class Dispatcher(Pyro.core.ObjBase):
         return "time running: %5.2f; calls: %d" % (time_running, self.calls)
 
     def set_password(self, password):
-        status = OK
         status, validate_output = self._validate_password(password)
         if status == OK:
+            self.server_log.info("Setting configuration password.")
             self.password = password
+            for machine_name in self.machine_interface_pool:
+                machine_config = MachineConfig(machine_name, self.password,
+                                               self.server_home)
+                machine_config.merge()
+                machine_config.decrypt_config()
+                machine_interface = self.machine_interface_pool[machine_name]
+                self.server_log.info("Decrypting config for %s" % machine_name)
+                machine_interface.set_data(machine_config)
+
         output = {"command_status": status,
                   "command_output": validate_output}
         return output

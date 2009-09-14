@@ -618,7 +618,8 @@ class Bombardier:
                 status = package.verify()
             if action == CONFIGURE:
                 if self.checkConfiguration(package) == FAIL:
-                    return FAIL
+                    raise Exceptions.BadPackage(newPackage.name, "Bad Config")
+                    #return FAIL
                 else:
                     status = package.configure()
                     hashPath = os.path.join(getPackagePath(self.instanceName), 

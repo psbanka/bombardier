@@ -26,13 +26,17 @@ class MachineInterface:
         self.server_log    = server_log
         self.polling_log   = None
         self.job_name      = None
+        self.output_handle = sys.stdout
+        self.status        = DISCONNECTED
+        self.connect_time = 0
+        self.ssh_pass      = ''
+        self.ssh_conn      = None
+        self.set_data(machine_config)
+
+    def set_data(self, machine_config):
         self.host_name     = machine_config.host_name
         self.server_home   = machine_config.server_home
         self.data          = machine_config.data
-        self.output_handle = sys.stdout
-        self.status        = DISCONNECTED
-        self.ssh_pass      = ''
-        self.ssh_conn      = None
         self.username      = self.data.get("default_user", None)
         if self.username == None:
             if self.data.get("enc_username"):
@@ -51,8 +55,6 @@ class MachineInterface:
                 raise EnableRequiredException()
             msg = "'platform' is not defined"
             raise IncompleteConfigurationException(self.host_name, msg)
-        self.connect_time = 0
-        self.save_directory = ''
 
     def set_job(self, job_name):
         if self.job_name:
@@ -353,17 +355,6 @@ class MachineInterface:
         except Exception:
             return FAIL
         return return_code
-
-    def return_to_start(self):
-        if self.save_directory:
-            self.ssh_conn.setecho(False)
-            self.ssh_conn.sendline("cd %s" % self.save_directory)
-            self.ssh_conn.prompt()
-            self.ssh_conn.sendline("pwd")
-            self.ssh_conn.prompt()
-            cwd = self.ssh_conn.before.split()[0]
-            if cwd != self.save_directory:
-                sys.exit(1)
 
     def check_possible_paths(self, test_path):
         while len(test_path):

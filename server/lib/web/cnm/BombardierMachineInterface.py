@@ -274,10 +274,10 @@ class BombardierMachineInterface(MachineInterface):
         "Run bc.py on a remote machine, and watch the logs"
         self.report_info = ''
         self.chdir(self.spkg_dir)
-        self.server_log.info("PACKAGE_REVISION: %s" % package_revision)
+        #self.server_log.info("PACKAGE_REVISION: %s" % package_revision)
         if package_revision:
             package_name += '-%s' % package_revision
-            self.server_log.info("PACKAGE_NAME: %s" % package_name)
+            #self.server_log.info("PACKAGE_NAME: %s" % package_name)
 
         cmd = self.get_bc_command()
         cmd += " %s %s %s %s" % (ACTION_DICT[action],

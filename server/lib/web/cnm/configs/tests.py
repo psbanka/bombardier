@@ -8,9 +8,11 @@ import webbrowser, re
 import os, sys, yaml
 from bombardier_core.static_data import SERVER_CONFIG_FILE, OK, FAIL
 from Exceptions import InvalidServerHome
+from bombardier_core import libCipher
 import time
 
 TEST_PASSWORD = "testpass1234"
+CONFIG_PASSWORD = "abc123"
 
 class BasicTest(TestCase):
 
@@ -35,8 +37,20 @@ class BasicTest(TestCase):
         content_dict = json.loads( response.content )
 
         # sync the DB
-        self.make_localhost_config()
+        #self.make_localhost_config()
         self.dbsync()
+
+        # set the configuration string
+        content_dict = self.set_config_password(CONFIG_PASSWORD)
+        self.failUnlessEqual( content_dict[ u"command_status" ], OK)
+        self.failUnlessEqual( content_dict[ u"command_output" ], ['Configuration key set.'])
+
+    def set_config_password(self, password):
+        # set the configuration string
+        url = '/json/dispatcher/set_password'
+        response = self.client.post(url, {"password": password})
+        content_dict = json.loads( response.content )
+        return content_dict
 
     def login(self, user=None):
         if not user:
@@ -145,7 +159,7 @@ class BasicTest(TestCase):
         status, output = self.run_job(url, data=post_data, timeout=60)
         return status, output
 
-class ActiveTests(BasicTest):
+class ActiveTests:
 
     def test_search(self):
         test_dict  = { "machine":  { "tes": ["tester1", "tester2"],
@@ -318,17 +332,41 @@ class ActiveTests(BasicTest):
         content_dict = self.get_content_dict('/json/user/name/delete_me')
         self.failUnlessEqual(content_dict[u"first_name"], "Buffy")
 
-class ActiveTest(BasicTest):
-    def test_set_password(self):
+    def test_set_bad_password(self):
         self.login(self.super_user)
         url = '/json/dispatcher/set_password'
-        response = self.client.post(url, {"password": "F8t3Babb1%tz"})
-        content_dict = json.loads( response.content )
-        self.failUnlessEqual( content_dict[ u"status" ], FAIL)
-        self.failUnlessEqual( content_dict[ u"output" ], "Incorrect password.")
+        content_dict = self.set_config_password("F8t3Babb1%tz")
+        self.failUnlessEqual( content_dict[ u"command_status" ], FAIL)
+        self.failUnlessEqual( content_dict[ u"command_output" ], ["Invalid configuration key."])
 
-        response = self.client.post(url, {"password": "abc123"})
-        content_dict = json.loads( response.content )
-        self.failUnlessEqual( content_dict[ u"status" ], OK)
-        self.failUnlessEqual( content_dict[ u"output" ], "Password valid.")
+    def test_insufficient_config(self):
+        self.reset_packages()
+        package_config = {"test": {"value":"nowisthetimeforalldooment"},
+                          "packages": ["TestPackageType4"],  
+                         }
+        self.make_localhost_config(additional_config=package_config)
+
+        self.reset_packages()
+        url = '/json/machine/reconcile/localhost'
+        status, output = self.run_job(url, data={}, timeout=60)
+        assert status == FAIL
+
+class ActiveTest(BasicTest):
+    def test_encrypted_ci(self):
+        self.reset_packages()
+        cipher_text = libCipher.encrypt("/tmp/foogazi", CONFIG_PASSWORD)
+        package_config = {"test": {"value":"nowisthetimeforalldooment",
+                                   "enc_directory": cipher_text},
+                          "packages": ["TestPackageType4"],  
+                         }
+        self.make_localhost_config(additional_config=package_config)
+
+        self.reset_packages()
+        content_dict = self.set_config_password(CONFIG_PASSWORD)
+        self.failUnlessEqual( content_dict[ u"command_status" ], OK)
+        self.failUnlessEqual( content_dict[ u"command_output" ], ['Configuration key set.'])
+
+        url = '/json/machine/reconcile/localhost'
+        status, output = self.run_job(url, data={}, timeout=60)
+        assert status == OK
 
