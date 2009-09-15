@@ -6,7 +6,7 @@ import re
 import Slash
 from bombardier_core.Logger import Logger
 IGNORE_MODULE_NAMES = ['tester', 'libUi', 'Slash', 'SystemStateSingleton',
-                       '_version', "Machine", "Show", "Package"]
+                       '_version']
 
 def get_cls(module_name, module_to_test):
     setup_test = None

@@ -55,13 +55,12 @@ timestamp: 1251918530.6349609"""
     open(status_file, "w").write(fresh_status_yaml)
 
 class Package(PinshCmd.PinshCmd):
-#    '''bomsh# package Testpackagetype4 install localhost 
-#       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7']]
-#       bomsh# package Testpackagetype4 install localhost 
-#       [OK, []]
-#       bomsh# package Testpackagetype4 uninstall localhost 
-#       [OK, ['uninstall OK: TestPackageType4-7']]
-    '''
+    '''bomsh# package Testpackagetype4 install localhost 
+       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7']]
+       bomsh# package Testpackagetype4 install localhost 
+       [OK, []]
+       bomsh# package Testpackagetype4 uninstall localhost 
+       [OK, ['uninstall OK: TestPackageType4-7']]
        bomsh# package bogusPackage install localhost 
        [FAIL, []]
     '''

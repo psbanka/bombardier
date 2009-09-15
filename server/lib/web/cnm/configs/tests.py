@@ -159,7 +159,7 @@ class BasicTest(TestCase):
         status, output = self.run_job(url, data=post_data, timeout=60)
         return status, output
 
-class ActiveTests:
+class InActiveTests:
 
     def test_search(self):
         test_dict  = { "machine":  { "tes": ["tester1", "tester2"],
@@ -351,7 +351,6 @@ class ActiveTests:
         status, output = self.run_job(url, data={}, timeout=60)
         assert status == FAIL
 
-class ActiveTest(BasicTest):
     def test_encrypted_ci(self):
         self.reset_packages()
         cipher_text = libCipher.encrypt("/tmp/foogazi", CONFIG_PASSWORD)
@@ -370,3 +369,15 @@ class ActiveTest(BasicTest):
         status, output = self.run_job(url, data={}, timeout=60)
         assert status == OK
 
+class ActiveTest(BasicTest):
+    def test_data_modification(self):
+        url = "/json/machine/name/tester"
+        config_data = {"ip_address": "127.0.0.2", 
+                       "default_user": "rudy",
+                       "platform": "linux",
+                      }
+        yaml_string = yaml.dump(config_data)
+        response = self.client.put(path=url, data={"yaml": yaml_string})
+        content_dict = json.loads( response.content )
+        assert content_dict["status"] == OK
+        assert content_dict["message"] == "update"

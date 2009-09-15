@@ -4,6 +4,7 @@ from django_restapi.responder import JsonDictResponder, JSONResponder
 from django_restapi.responder import YamlFileResponder
 
 from django import forms
+import yaml
 
 from django.shortcuts import render_to_response
 from CnmResource import CnmResource
@@ -11,6 +12,7 @@ from configs.models import Machine, Include, Bom, ServerConfig, Package, Status
 from configs.models import Dist, MachineModelFactory, IncludeModelFactory
 from configs.models import BomModelFactory, PackageModelFactory
 from configs.models import DistModelFactory, StatusModelFactory
+from bombardier_core.static_data import OK, FAIL
 import os
 import MachineConfig
 from django.contrib.auth.decorators import login_required
@@ -33,12 +35,36 @@ class ConfigEntry(CnmResource):
         responder = YamlFileResponder(config_file)
         return responder.element(request, config_name)
 
+    @login_required
+    def update(self, request, config_type,config_name):
+        "Default PUT method for ConfigEntry"
+        yaml_string = request.PUT["yaml"]
+        server_home = self.get_server_home()
+        file_path = os.path.join(server_home, config_type, "%s.yml" % config_name)
+        output = {"status": OK}
+        if os.path.isfile(file_path):
+            output["message"] = "update"
+        else:
+            output["message"] = "create" 
+        try:
+            open(file_path, 'w').write(yaml_string)
+        except IOError, ioe:
+            output["status"] = FAIL
+            output["message"] = "IO Error: %s" % str(ioe)
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
 class MachineEntry(ConfigEntry):
     "Machine config entry"
     @login_required
     def read(self, request, machine_name):
         "Call superclass read method with config type"
         return super(MachineEntry, self).read(request, "machine", machine_name)
+
+    @login_required
+    def update(self, request, machine_name):
+        "Call superclass read method with config type"
+        return super(MachineEntry, self).update(request, "machine", machine_name)
 
 class PackageEntry(ConfigEntry):
     "Package config entry"
@@ -47,6 +73,11 @@ class PackageEntry(ConfigEntry):
         "Call superclass read method with config type"
         return super(PackageEntry, self).read(request, "package", package_name)
 
+    @login_required
+    def update(self, request, package_name):
+        "Call superclass read method with config type"
+        return super(PackageEntry, self).update(request, "package", package_name)
+
 class BomEntry(ConfigEntry):
     "Bom config entry"
     @login_required
@@ -54,12 +85,22 @@ class BomEntry(ConfigEntry):
         "Call superclass read method with config type"
         return super(BomEntry, self).read(request, "bom", bom_name)
 
+    @login_required
+    def update(self, request, bom_name):
+        "Call superclass read method with config type"
+        return super(BomEntry, self).update(request, "bom", bom_name)
+
 class IncludeEntry(ConfigEntry):
     "Include config entry"
     @login_required
     def read(self, request, include_name):
         "Call superclass read method with config type"
         return super(IncludeEntry, self).read(request, "include", include_name)
+
+    @login_required
+    def update(self, request, include_name):
+        "Call superclass read method with config type"
+        return super(IncludeEntry, self).update(request, "include", include_name)
 
 class StatusEntry(ConfigEntry):
     "Status config entry"
@@ -284,16 +325,16 @@ urlpatterns = patterns('',
    url(r'^json/machine/search/(?P<machine_name>.*)',
        MachineCollection()),
    url(r'^json/machine/name/(?P<machine_name>.*)$',
-       MachineEntry(permitted_methods=['GET'])),
+       MachineEntry(permitted_methods=['GET', 'PUT'])),
    url(r'^json/include/search/(?P<include_name>.*)', IncludeCollection()),
    url(r'^json/include/name/(?P<include_name>.*)$',
-       IncludeEntry(permitted_methods=['GET'])),
+       IncludeEntry(permitted_methods=['GET', 'PUT'])),
    url(r'^json/bom/search/(?P<bom_name>.*)', BomCollection()),
    url(r'^json/bom/name/(?P<bom_name>.*)$',
-       BomEntry(permitted_methods=['GET'])),
+       BomEntry(permitted_methods=['GET', 'PUT'])),
    url(r'^json/package/search/(?P<package_name>.*)', PackageCollection()),
    url(r'^json/package/name/(?P<package_name>.*)$',
-       PackageEntry(permitted_methods=['GET'])),
+       PackageEntry(permitted_methods=['GET', 'PUT'])),
    url(r'^json/dist/search/(?P<dist_name>.*)', DistCollection()),
    url(r'^json/dist/name/(?P<dist_name>.*)', DistEntry()),
    url(r'^json/status/search/(?P<machine_name>.*)', StatusCollection()),
