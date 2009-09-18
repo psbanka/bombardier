@@ -4,7 +4,6 @@ from django_restapi.responder import JsonDictResponder, JSONResponder
 from django_restapi.responder import YamlFileResponder
 
 from django import forms
-import yaml
 
 from django.shortcuts import render_to_response
 from CnmResource import CnmResource
@@ -36,11 +35,12 @@ class ConfigEntry(CnmResource):
         return responder.element(request, config_name)
 
     @login_required
-    def update(self, request, config_type,config_name):
+    def update(self, request, config_type, config_name):
         "Default PUT method for ConfigEntry"
         yaml_string = request.PUT["yaml"]
         server_home = self.get_server_home()
-        file_path = os.path.join(server_home, config_type, "%s.yml" % config_name)
+        file_path = os.path.join(server_home, config_type,
+                                 "%s.yml" % config_name)
         output = {"status": OK}
         if os.path.isfile(file_path):
             output["message"] = "update"
@@ -64,7 +64,8 @@ class MachineEntry(ConfigEntry):
     @login_required
     def update(self, request, machine_name):
         "Call superclass read method with config type"
-        return super(MachineEntry, self).update(request, "machine", machine_name)
+        return super(MachineEntry, self).update(request,
+                                                "machine", machine_name)
 
 class PackageEntry(ConfigEntry):
     "Package config entry"
@@ -76,7 +77,8 @@ class PackageEntry(ConfigEntry):
     @login_required
     def update(self, request, package_name):
         "Call superclass read method with config type"
-        return super(PackageEntry, self).update(request, "package", package_name)
+        return super(PackageEntry, self).update(request,
+                                                "package", package_name)
 
 class BomEntry(ConfigEntry):
     "Bom config entry"
@@ -100,7 +102,8 @@ class IncludeEntry(ConfigEntry):
     @login_required
     def update(self, request, include_name):
         "Call superclass read method with config type"
-        return super(IncludeEntry, self).update(request, "include", include_name)
+        return super(IncludeEntry, self).update(request,
+                                                "include", include_name)
 
 class StatusEntry(ConfigEntry):
     "Status config entry"
@@ -222,8 +225,8 @@ class ServerConfigCollection(CnmResource):
             server_config[server_co.name] = server_co.value
         output["server configuration"] = server_config
         object_config = {}
-        for Factory in FACTORIES:
-            factory = Factory()
+        for factory_name in FACTORIES:
+            factory = factory_name()
             object_config[factory.subdir] = factory.summarize()
 
         output["object lists"] = object_config
@@ -250,7 +253,8 @@ class ServerConfigCollection(CnmResource):
         responder = JsonDictResponder(output)
         return responder.element(request)
 
-    def _form_update(self, query_dict):
+    @classmethod
+    def _form_update(cls, query_dict):
         "Update or create values based on form POST."
         [ obj.delete() for obj in ServerConfig.objects.all() ]
         names = [ i for i in query_dict if i.endswith('name') ]
@@ -289,8 +293,6 @@ class DbSyncCollection(CnmResource):
 
     def _server_home_sync(self):
         "Use each Factory to sync itself from its corresponding yaml file"
-        server_home = self.get_server_home()
-        config_data = {}
         for factory_constructor in FACTORIES:
             factory = factory_constructor()
             factory.clean()
