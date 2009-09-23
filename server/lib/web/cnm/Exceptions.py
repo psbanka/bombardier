@@ -1,3 +1,9 @@
+class ExceptionBase(Exception):
+    def __init__(self):
+        Exception.__init__(self)
+    def __str__(self):
+        return self.__repr__()
+
 class InvalidAction(Exception):
     def __init__(self, package_name, action_name):
         Exception.__init__(self)
@@ -8,6 +14,12 @@ class InvalidAction(Exception):
     def __str__(self):
         return self.__repr__()
 
+class InvalidDispatcherAction(ExceptionBase):
+    def __init__(self, action_name):
+        ExceptionBase.__init__(self)
+        self.action_name = action_name
+    def __repr__(self):
+        return "Invalid action: %s" % self.action
 
 class JobAlreadySet(Exception):
     def __init__(self, job_name):
@@ -125,3 +137,10 @@ class PackageNotFound(Exception):
     def __str__(self):
         return self.__repr__()
 
+class DispatcherOffline(Exception):
+    def __init__(self):
+        Exception.__init__(self)
+    def __repr__(self):
+        return "Dispatcher offline"
+    def __str__(self):
+        return self.__repr__()

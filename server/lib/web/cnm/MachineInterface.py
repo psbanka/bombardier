@@ -233,7 +233,7 @@ class MachineInterface:
         "Use scp with a dictionary to copy files grouped by file type"
         self.connect()
         for file_type in copy_dict:
-            if file_type == "dist":
+            if file_type == "dist" or file_type == 'admin':
                 dest_dir = '.'
             else:
                 dest_dir = os.path.join(self.spkg_dir, 

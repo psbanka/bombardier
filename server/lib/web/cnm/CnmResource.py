@@ -2,7 +2,7 @@
 from django_restapi.resource import Resource
 from configs.models import ServerConfig
 import os
-from Exceptions import InvalidServerHome
+from Exceptions import InvalidServerHome, DispatcherOffline
 from bombardier_core.static_data import FAIL
 
 import Pyro.core
@@ -27,7 +27,12 @@ class CnmResource(Resource):
     @classmethod
     def get_dispatcher(cls):
         "Create and return a dispatcher"
-        dispatcher = Pyro.core.getProxyForURI("PYRONAME://dispatcher")
+        try:
+            dispatcher = Pyro.core.getProxyForURI("PYRONAME://dispatcher")
+            dispatcher.check_status()
+        except Pyro.core.ProtocolError:
+            raise DispatcherOffline()
+
         return dispatcher
 
     @classmethod

@@ -6,7 +6,7 @@ import Pyro.naming
 from MachineConfig import MachineConfig
 from BombardierMachineInterface import BombardierMachineInterface
 from bombardier_core.static_data import OK, FAIL
-from bombardier_core.libCipher import decrypt, DecryptionException
+from bombardier_core.libCipher import encrypt, decrypt, DecryptionException
 from threading import Thread
 import StringIO, traceback
 import ServerLogger
@@ -154,7 +154,6 @@ class Dispatcher(Pyro.core.ObjBase):
     def __init__(self):
         Pyro.core.ObjBase.__init__(self)
         self.start_time = time.time()
-        self.calls = 0
         self.password = None
         self.server_home = None
         self.jobs = {}
@@ -309,6 +308,57 @@ class Dispatcher(Pyro.core.ObjBase):
             return output
         return self.start_job(username, machine_interface, commands, copy_dict)
 
+    def enable_job(self, username, machine_name, password):
+        output = {"status": OK}
+        try:
+            machine_interface = self.get_machine_interface(username,
+                                                           machine_name)
+            machine_interface.ssh_pass = password
+            public_key = "id_dsa.pub"
+            copy_dict = { "admin" : [public_key] }
+            ssh_keys_dir = "~/.ssh"
+            ssh_keys_dir_cmd = "[ -e %s ] || mkdir %s && chmod 700 %s" \
+                             % (ssh_keys_dir, ssh_keys_dir, ssh_keys_dir)
+            make_ssh_dir = ShellCommand("Creating .ssh dir if necessary",
+                                        ssh_keys_dir_cmd, "~")
+
+            cat_cmd = "cat ~/%s >> authorized_keys2" % public_key
+            cat_key = ShellCommand("Adding ssh key to %s" % machine_name,
+                                   cat_cmd, ssh_keys_dir)
+
+            commands = [make_ssh_dir, cat_key]
+        except Exception:
+            output.update(self.dump_exception(username))
+            output["status"] = FAIL
+            return output
+        return self.start_job(username, machine_interface, commands, copy_dict)
+
+    def disable_job(self, username, machine_name):
+        output = {"status": OK}
+        try:
+            machine_interface = self.get_machine_interface(username,
+                                                           machine_name)
+            public_key = "id_dsa.pub"
+            auth_keys = ".ssh/authorized_keys2"
+            tmp_auth = "tmp_auth_keys2"
+            copy_dict = { "admin" : [public_key] }
+
+            filter_cmd = """grep -v "$( awk '{print $3}' < %s""" % public_key
+            filter_cmd += """)" < %s > %s""" % ( auth_keys, tmp_auth )
+            filter = ShellCommand("Filtering ssh key from %s" % machine_name,
+                                      filter_cmd, '~')
+            overwrite_cmd = "cat %s > %s && rm %s"
+            overwrite_cmd = overwrite_cmd  % ( tmp_auth, auth_keys, tmp_auth )
+            overwrite = ShellCommand("Overwriting authorized_keys",
+                                     overwrite_cmd, '~')
+            
+            commands = [filter, overwrite]
+        except Exception:
+            output.update(self.dump_exception(username))
+            output["status"] = FAIL
+            return output
+        return self.start_job(username, machine_interface, commands, copy_dict)
+
     def test_job(self, username, machine_name):
         "Simple test job"
         cmd = 'for i in 1 2 3 4; do sleep 1; echo "Testing $i/4"; done'
@@ -374,11 +424,11 @@ class Dispatcher(Pyro.core.ObjBase):
             output.update(self.dump_exception(username))
         return output
 
-    def check_in(self):
+    def check_status(self):
         "Return elapsed time"
         time_running = time.time() - self.start_time
-        self.calls += 1
-        return "time running: %5.2f; calls: %d" % (time_running, self.calls)
+        return { "uptime": time_running,
+                 "active_jobs": self.jobs.keys() } 
 
     def set_password(self, password):
         "Set password for configuration item encryption"
@@ -405,11 +455,15 @@ class Dispatcher(Pyro.core.ObjBase):
 
     def _validate_password(self, password):
         "Very shallow password validation"
+        lazy_dog = "the_quick_brown_fox_jumped_over_the_lazy_dog\n"
         test_decrypt_file = os.path.join(self.server_home, 'admin',
                                          'encryption_validation.yml')
         if not os.path.isfile(test_decrypt_file):
-            msg = "Password is not set: %s doesn't exist" % test_decrypt_file
-            return FAIL, msg
+            msg = "%s doesn't exist, creating..." % test_decrypt_file
+            self.server_log.warning( msg )
+            enc_lazy = encrypt(lazy_dog, password)
+            enc_dict = { "enc_test" : enc_lazy }
+            open( test_decrypt_file, 'w' ).write(yaml.dump( enc_dict ))
         try:
             cipher_dict = yaml.load(open(test_decrypt_file, 'r').read())
         except IOError:
@@ -418,25 +472,25 @@ class Dispatcher(Pyro.core.ObjBase):
             clear_dict = decrypt(cipher_dict, password)
         except DecryptionException:
             return FAIL, ["Invalid configuration key."]
-        lazy_dog = "the_quick_brown_fox_jumped_over_the_lazy_dog\n"
         if clear_dict.get("test") == lazy_dog:
             return OK, ['Configuration key set.']
         return FAIL, ["Invalid configuration key."]
 
-from django.core.management import setup_environ
-import settings
-setup_environ(settings)
+if __name__ == '__main__':
+    from django.core.management import setup_environ
+    import settings
+    setup_environ(settings)
 
-#Pyro.core.initServer()
-daemon = Pyro.core.Daemon()
-ns = Pyro.naming.NameServerLocator().getNS()
-daemon.useNameServer(ns)
+    #Pyro.core.initServer()
+    daemon = Pyro.core.Daemon()
+    ns = Pyro.naming.NameServerLocator().getNS()
+    daemon.useNameServer(ns)
 
-#daemon=Pyro.core.Daemon()
-#print "The daemon runs on port:",daemon.port
-#print "The object's uri is:",uri
+    #daemon=Pyro.core.Daemon()
+    #print "The daemon runs on port:",daemon.port
+    #print "The object's uri is:",uri
 
-uri = daemon.connect(Dispatcher(),"dispatcher")
-print "Started server."
-daemon.requestLoop()
+    uri = daemon.connect(Dispatcher(),"dispatcher")
+    print "Started server."
+    daemon.requestLoop()
 

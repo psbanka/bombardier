@@ -3,7 +3,7 @@ from django.conf.urls.defaults import patterns, url
 from django.contrib.auth.decorators import login_required
 from django_restapi.responder import JsonDictResponder
 from CnmResource import CnmResource
-from Exceptions import InvalidInput
+from Exceptions import InvalidInput, InvalidDispatcherAction
 from bombardier_core.static_data import OK
 import os, yaml
 
@@ -41,6 +41,42 @@ class PackageActionEntry(CnmResource):
             output = dispatcher.package_action_job(request.user, package_name,
                                                    action, machine_name, 
                                                    package_revision=revision)
+        except Exception:
+            output.update(self.dump_exception(request))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
+class MachineEnableEntry(CnmResource):
+    "MachineEnableEntry is used to share ssh keys to a machine"
+    @login_required
+    def create(self, request, machine_name):
+        "Dispatch key sharing"
+        output = {"status": OK}
+        try:
+            post_dict = yaml.load(request.POST.get("yaml"))
+            password = post_dict.get('password')
+            if not password:
+                raise InvalidInput("Password needed")
+            dispatcher = self.get_dispatcher()
+            server_home = CnmResource.get_server_home()
+            dispatcher.set_server_home(request.user, server_home)
+            output = dispatcher.enable_job(request.user, machine_name, password)
+        except Exception:
+            output.update(self.dump_exception(request))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
+class MachineDisableEntry(CnmResource):
+    "MachineDisableEntry is remove ssh keys from a machine"
+    @login_required
+    def create(self, request, machine_name):
+        "Dispatch key removal"
+        output = {"status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            server_home = CnmResource.get_server_home()
+            dispatcher.set_server_home(request.user, server_home)
+            output = dispatcher.disable_job(request.user, machine_name)
         except Exception:
             output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
@@ -180,19 +216,40 @@ class JobPollEntry(CnmResource):
         responder = JsonDictResponder(output)
         return responder.element(request)
 
-class PasswordSetEntry(CnmResource):
-    "Set decryption password on the disptcher"
+class DispatcherControlEntry(CnmResource):
+    "Dispatcher control handler"
+    @login_required
+    def read(self, request, action):
+        "Check dispatcher status, time and running jobs"
+        try:
+            dispatcher = self.get_dispatcher()
+            if action == "status":
+                output = dispatcher.check_status()
+            else:
+                raise InvalidDispatcherAction(action)
+
+        except Exception:
+            output.update(self.dump_exception(request))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
 
     @login_required
-    def create(self, request):
+    def create(self, request, action):
         "Set password on the dispatcher from request"
-        output = {"status": OK}
+        output = {"status" : OK}
         try:
-            server_home = CnmResource.get_server_home()
             dispatcher = self.get_dispatcher()
-            dispatcher.set_server_home(request.user, server_home)
-            password = request.POST.get("password", "")
-            output = dispatcher.set_password(password)
+            if action == "set-password":
+                server_home = CnmResource.get_server_home()
+                dispatcher.set_server_home(request.user, server_home)
+                password = request.POST.get("password", "")
+                output = dispatcher.set_password(password)
+            elif action == "stop":
+                output["command_output"] = dispatcher.stop()
+            elif action == "start":
+                output["command_output"] = dispatcher.start()
+            else:
+                raise InvalidDispatcherAction(action)
         except Exception:
             output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
@@ -201,6 +258,10 @@ class PasswordSetEntry(CnmResource):
 urlpatterns = patterns('',
    url(r'^json/package_action/(?P<package_name>.*)',
        PackageActionEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/enable/(?P<machine_name>.*)$',
+       MachineEnableEntry(permitted_methods=['POST'])),
+   url(r'^json/machine/disable/(?P<machine_name>.*)$',
+       MachineDisableEntry(permitted_methods=['POST'])),
    url(r'^json/machine/status/(?P<machine_name>.*)',
        MachineStatusEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/check_status/(?P<machine_name>.*)',
@@ -217,7 +278,7 @@ urlpatterns = patterns('',
        MachineCleanupEntry(permitted_methods = ['POST'])),
    url(r'^json/job/join/(?P<job_name>.*)', JobJoinEntry()),
    url(r'^json/job/poll/(?P<job_name>.*)', JobPollEntry()),
-   url(r'^json/dispatcher/set_password',
-       PasswordSetEntry(permitted_methods = ['POST'])),
+   url(r'^json/dispatcher/(?P<action>.*)', 
+       DispatcherControlEntry(permitted_methods = ['GET', 'POST'])),
 )
 

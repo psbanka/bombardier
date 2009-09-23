@@ -193,6 +193,8 @@ class Slash(PinshCmd.PinshCmd):
                 # we could bind the '?' key properly
                 names, token_delimeter = self.get_names_and_token_delimeter(tokens)
                 self.names = names
+                if not self.names:
+                    return []
                 if len(self.names) == 1:
                     return self.names[0] + token_delimeter
                 if self.names:

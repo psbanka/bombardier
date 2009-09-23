@@ -32,8 +32,10 @@
 
 import sys, os, time, glob, md5, random
 import PinshCmd, libUi, Expression
+from bombardier_core.static_data import OK, FAIL
 #from bombardier_server.cli.SystemStateSingleton import SystemState
 from SystemStateSingleton import SystemState
+from Exceptions import CommandError
 system_state = SystemState()
 
 class Set(PinshCmd.PinshCmd):
@@ -46,21 +48,43 @@ class Set(PinshCmd.PinshCmd):
         PinshCmd.PinshCmd.__init__(self, "set", "set\tset a configuration value")
         # TOP LEVEL
         help = "configuration-key\tset the key for encrypting configuation items"
+        home_help = "server-home\tset the root directory for configuration"
         self.configuration_key = PinshCmd.PinshCmd("configuration-key", help)
+        server_home = PinshCmd.PinshCmd("server-home", home_help)
+        server_home.children = [Expression.Expression("path")]
         self.configuration_key.children = [Expression.Expression("password")]
-        self.children = [self.configuration_key]
+        self.children = [self.configuration_key, server_home]
         self.level = 0
         self.cmd_owner = 1
 
     def cmd(self, tokens, no_flag):
-        if len(tokens) == 2:
-            configuration_key = libUi.pwd_input("Enter CI decryption password: ")
-        else:
-            configuration_key = tokens[2]
-        url = "/json/dispatcher/set_password/"
-        post_data = {"password": configuration_key}
+        if tokens[1] == "configuration-key":
+            if len(tokens) == 2:
+                configuration_key = libUi.pwd_input("Enter CI decryption password: ")
+            else:
+                configuration_key = tokens[2]
+            url = "/json/dispatcher/set_password/"
+            post_data = {"password": configuration_key}
+            output = self.post( url, post_data )
+            return output["command_status"], output["command_output"]
+
+        elif tokens[1] == "server-home":
+            if len(tokens) != 3:
+                raise CommandError("Incomplete command.")
+            url = '/json/server/config'
+            server_home = tokens[2]
+            post_data={"server_home": server_home}
+            output = self.post(url, post_data)
+            if not output["server_home"] == server_home:
+                return FAIL, ["Server home was not set properly"]
+            output = self.post("/json/dbsync", {})
+            if not output["status"] == "OK":
+                return FAIL, ["Server could not sync"]
+            return OK, ["Server home set to %s" % server_home]
+
+    def post(self, url, post_data):
         connector = system_state.cnm_connector
         output = connector.service_yaml_request(url, post_data=post_data)
-        return output["command_status"], output["command_output"]
+        return output
 
 

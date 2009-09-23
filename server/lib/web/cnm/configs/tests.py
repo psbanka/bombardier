@@ -47,7 +47,7 @@ class BasicTest(TestCase):
 
     def set_config_password(self, password):
         # set the configuration string
-        url = '/json/dispatcher/set_password'
+        url = '/json/dispatcher/set-password'
         response = self.client.post(url, {"password": password})
         content_dict = json.loads( response.content )
         return content_dict
@@ -123,7 +123,11 @@ class BasicTest(TestCase):
         
         response = self.client.post(path=url, data=data)
         content_dict = json.loads( response.content )
-        job_name = content_dict["job_name"]
+        try:
+            job_name = content_dict["job_name"]
+        except KeyError:
+            print "CONT========", content_dict
+            assert False
         assert job_name.startswith("%s@localhost" % (self.super_user.username))
 
         testing = True
@@ -160,6 +164,7 @@ class BasicTest(TestCase):
         return status, output
 
 class ActiveTests(BasicTest):
+#class ActiveTests:
 
     def test_search(self):
         test_dict  = { "machine":  { "tes": ["tester", "tester1", "tester2"],
@@ -236,6 +241,12 @@ class ActiveTests(BasicTest):
         assert status == OK
         status, output = self.package_action("purge", package_name+"-7")
         assert status == OK
+
+    def test_dist_update(self):
+        url = '/json/machine/dist/localhost'
+        status, output = self.run_job(url, data={"dist": "test"}, timeout=60)
+        assert status == OK
+        assert "EMPTY_TEST-1.egg-info" in output, output
 
     def test_package_global(self):
         self.reset_packages()
@@ -369,7 +380,6 @@ class ActiveTests(BasicTest):
         status, output = self.run_job(url, data={}, timeout=60)
         assert status == OK
 
-class ActiveTest(BasicTest):
     def test_data_modification(self):
         url = "/json/machine/name/tester"
         config_data = {"ip_address": "127.0.0.2", 
@@ -381,3 +391,36 @@ class ActiveTest(BasicTest):
         content_dict = json.loads( response.content )
         assert content_dict["status"] == OK
         assert content_dict["message"] == "update"
+
+
+#class ActiveTest(BasicTest):
+class ActiveTest:
+    def test_dispatcher_status(self):
+        url = "/json/dispatcher/status"
+        response = self.client.get(url)
+        content_dict = json.loads( response.content )
+        assert float(content_dict["uptime"]) > 1.0
+        assert content_dict["active_jobs"] == []
+
+class NotYet:
+
+    def test_disable(self):
+        url = "/json/machine/disable/localhost" 
+        response = self.client.post(path=url, data={})
+        content_dict = json.loads( response.content )
+        assert content_dict["status"] == OK
+
+    def test_good_enable(self):
+        url = "/json/machine/enable/localhost"
+        import getpass
+        password = getpass.getpass("What is the correct password?")
+        config_data = {
+                          "password" : password
+                      }
+        yaml_string = yaml.dump(config_data)
+        response = self.client.post(path=url, data={"yaml": yaml_string})
+        content_dict = json.loads( response.content )
+        assert content_dict["status"] == OK
+
+
+

@@ -41,13 +41,15 @@ from SystemStateSingleton import SystemState, ENABLE
 from Exceptions import MachineTraceback, CommandError
 import Integer
 system_state = SystemState()
-import libUi, time
+import libUi, time, yaml
 
 URL_LOOKUP = {'test': "json/machine/start_test/%s",
               'dist': "json/machine/dist/%s",
               'init': "json/machine/init/%s",
               'reconcile': "json/machine/reconcile/%s",
               'status': "json/machine/status/%s",
+              'enable': "json/machine/enable/%s",
+              'disable': "json/machine/disable/%s",
              }
 
 def setup_test():
@@ -62,7 +64,10 @@ timestamp: 1251918530.6349609"""
     open(status_file, "w").write(fresh_status_yaml)
 
 class Machine(PinshCmd.PinshCmd):
-    '''bomsh# machine localhost test
+    '''
+       bomsh# machine localhost enable
+       [OK, []]
+       bomsh# machine localhost test
        [OK, ['Machine localhost is ready to take commands.']]
        bomsh# machine localhost dist test
        [OK, ['localhost updated with test']]
@@ -76,6 +81,10 @@ class Machine(PinshCmd.PinshCmd):
        [OK, ['TestPackageType4-7 has been set to INSTALLED.']]
        bomsh# machine localhost status purge TestPackageType4 7
        [OK, ['TestPackageType4-7 has been removed from localhost status']]
+       bomsh# machine localhost disable
+       [OK, []]
+       bomsh# machine localhost enable
+       [OK, []]
     '''
     def __init__(self):
         """Top-level object has a 'test' child: test the machine
@@ -89,12 +98,14 @@ class Machine(PinshCmd.PinshCmd):
 
         test = PinshCmd.PinshCmd("test", "test\ttest a machine connection")
         dist = PinshCmd.PinshCmd("dist", "dist\tdeploy a library to a machine")
+        enable = PinshCmd.PinshCmd("enable", "enable\tshare ssh keys with a machine")
+        disable = PinshCmd.PinshCmd("disable", "disable\tremove ssh key from a machine")
         init = PinshCmd.PinshCmd("init", "init\tintialize bombardier on a machine")
         reconcile = PinshCmd.PinshCmd("reconcile", "reconcile\treconcile machine state to bill of materials")
         status = PinshCmd.PinshCmd("status", "status\tstatus reporting or manipulation")
 
-        self.machine_field.children = [test, dist, init,
-                                       status, reconcile]
+        self.machine_field.children = [test, dist, init, enable,
+                                       disable, status, reconcile]
 
         self.dist_field = ConfigField(data_type=DIST)
         dist.children = [self.dist_field]
@@ -164,7 +175,12 @@ class Machine(PinshCmd.PinshCmd):
         url = URL_LOOKUP[command] % machine_name
         if command == "dist":
             post_data = {"dist": tokens[-1]}
-        if command == "status":
+        elif command == "enable":
+            prompt = "%s administrative ssh password: " % machine_name
+            password = libUi.pwd_input(prompt)
+            yml_dict = yaml.dump( {"password" : password } )
+            post_data = {"yaml" : yml_dict}
+        elif command == "status":
             if len(tokens) > 3:
                 if len(tokens) < 5:
                     raise CommandError("Incomplete command")

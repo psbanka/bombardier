@@ -103,11 +103,13 @@ class ConfigField(PinshCmd.PinshCmd):
         to return the dictionary for that object.
         '''
         #print "get_top_lvl_data: tokens", tokens
-        partial_first = tokens[index].split('.')[0]
+        partial_first = tokens[index]
         object_names = self.get_object_list()
+        #print "OBJECT NAMES:",object_names
         first_token_names = []
         for ftn in object_names:
             if ftn.lower().startswith(partial_first.lower()):
+                #print "%s starts with the same as partial_first: %s" % (ftn, partial_first)
                 first_token_names.append(ftn)
         if len(first_token_names) == 0:
             return [], {}
@@ -119,113 +121,6 @@ class ConfigField(PinshCmd.PinshCmd):
         data = self.get_data(first_token_name)
         return [first_token_name], data
 
-    def remove_one_item(self, current_value, tokens, index):
-        "NOT WORKING WITH WEB SERVICE"
-#        item = tokens[index+1]
-#        if item in current_value:
-#            current_value.remove(item)
-#            status, output = self.set_value(tokens, 2, current_value)
-#            return status, output + ["%s removed from list" % item]
-#        try:
-#            if int(item) in current_value:
-#                current_value.remove(int(item))
-#                status, output = self.set_value(tokens, 2, current_value)
-#                return status, output + ["%s removed from list" % item]
-#        except:
-#            pass
-#        return FAIL, ["%s is not in the current list of values." % item]
-
-    def remove_value(self, tokens, index):
-        "NOT WORKING WITH WEB SERVICE"
-#        if self.data_type == MERGED:
-#            return FAIL, []
-#
-#        try:
-#            first_token_names, clear_data = self.get_top_level_data(tokens, index)
-#            first_token_names, enc_data = self.get_top_level_data(tokens, index)
-#        except TypeError:
-#            return FAIL, "Unable to read data from server"
-#        if not clear_data:
-#            return FAIL, []
-#        if type(clear_data) == type(["list"]):
-#            return self.remove_one_item(clear_data, tokens, index)
-#        first_token_name = first_token_names[0]
-#        config_name = self.preferred_names(tokens, index)
-#        if config_name == []:
-#            config_name = [tokens[index]] # if this item doesn't exist
-#        exec_string = "del enc_data"
-#        current_dict = enc_data
-#        output = []
-#        for config_value in config_name[0].split('.')[1:]:
-#            if config_value in current_dict:
-#                current_dict = current_dict.get(config_value)
-#                exec_string += "['%s']" % config_value
-#            else:
-#                config_value = "enc_" + config_value
-#                current_dict = current_dict.get(config_value)
-#                exec_string += "['%s']" % config_value
-#        exec( exec_string )
-#        string = yaml.dump(enc_data, default_flow_style=False)
-#        file_name = "%s/%s.yml" % (self.directory, first_token_name)
-#        open(file_name, 'w').write(string)
-#        os.system("chgrp %s %s 2> /dev/null" % (system_state.defaultGroup, file_name))
-#        os.system("chmod 660 %s 2> /dev/null" % (file_name))
-        return OK, []
-
-
-    def set_value(self, tokens, index, new_value):
-        "NOT WORKING WITH WEB SERVICE"
-#        if self.data_type == MERGED:
-#            return FAIL, []
-#        if new_value == "{}":
-#            new_value = {}
-#        if new_value == "[]":
-#            new_value = []
-#        first_token_names, clear_data = self.get_top_level_data(tokens, index)
-#        first_token_names, enc_data = self.get_top_level_data(tokens, index)
-#        if not clear_data:
-#            return FAIL, []
-#        first_token_name = first_token_names[0]
-#        config_name = self.preferred_names(tokens, index)
-#        if config_name == []:
-#            config_name=[tokens[index]] # if this item doesn't exist
-#        exec_string = "enc_data"
-#        current_dict = clear_data
-#        output = []
-#        if type(current_dict) == type(['list']):
-#            enc_data = new_value
-#        else:
-#            config_tokens = config_name[0].split('.')[1:]
-#            for config_value in config_tokens[:-1]:
-#                current_dict = current_dict.get(config_value)
-#                exec_string += "['%s']" % config_value
-#
-#            config_value = config_tokens[-1]
-#            current_dict = current_dict.get(config_value)
-#            if current_dict == CENSORED or encrypt:
-#                if current_dict and current_dict != CENSORED:
-#                    self.remove_value(tokens, index)
-#                    first_token_names, enc_data = self.get_top_level_data(tokens, index)
-#                exec_string += "['enc_%s']" % config_value
-#                if not system_state.password:
-#                    return FAIL, ["Cannot encipher data except in enable mode"]
-#                new_value = encrypt(new_value, system_state.password)
-#                output = ["Encrypted sensitive data"]
-#            else:
-#                exec_string += "['%s']" % config_value
-#
-#            if type(new_value) == type('string'):
-#                exec_string += " = \"%s\"" % new_value
-#            else:
-#                exec_string += " = %s" % new_value
-#            exec( exec_string )
-#        string = yaml.dump(enc_data, default_flow_style=False)
-#        file_name = "%s/%s.yml" % (self.directory, first_token_name)
-#        open(file_name, 'w').write(string)
-#        os.system("chgrp %s %s > /dev/null" % (system_state.defaultGroup, file_name))
-#        os.system("chmod 660 %s > /dev/null" % (file_name))
-        return OK, []
-
     def get_specific_data(self, tokens, index):
         '''used with the show command to display data to the screen'''
         tokens[index] = tokens[index].replace('"', '')
@@ -235,22 +130,7 @@ class ConfigField(PinshCmd.PinshCmd):
             return FAIL, "Unable to read data from server"
         if len(first_token_names) != 1:
             return '' # EXPERIMENTAL CHANGE from []
-        if len(tokens[index].split('.')) > 1:
-            config_name = self.preferred_names(tokens, index)
-            if len(config_name) == 0:
-                return '' # EXPERIMENTAL CHANGE from []
-            if len(config_name) > 1:
-                return config_name
-            current_dict = data
-            for config_value in config_name[0].split('.')[1:]:
-                config_value = config_value.replace('"', '')
-                if type(current_dict) == type({}):
-                    current_dict = current_dict.get(config_value)
-                else:
-                    return current_dict
-        else:
-            current_dict = data
-        return current_dict
+        return data
 
     def preferred_names(self, tokens, index):
         '''Provide a list of names that the system would prefer to use, other
@@ -263,11 +143,9 @@ class ConfigField(PinshCmd.PinshCmd):
         tokens[index] = tokens[index].replace('"', '')
         if not self.strict:
             return tokens[index:]
-        if 1 == 1:
-        #try:
+        try:
             first_token_names, data = self.get_top_level_data(tokens, index)
-        else:
-        #except TypeError:
+        except TypeError:
             return FAIL, "Unable to read data from server"
 
         #print "PN: first_token_names: ", first_token_names
@@ -276,41 +154,7 @@ class ConfigField(PinshCmd.PinshCmd):
         if len(first_token_names) > 1:
             return first_token_names
         first_token_name = first_token_names[0]
-        if len(tokens[index].split('.')) == 1:
-            return [first_token_name]
-        config_values = tokens[index].split('.')[1:]
-        #print "PN: config_values", config_values, data
-        current_dict = None
-        if type(data) == type({}):
-            current_dict = data
-            for config_value in config_values[:-1]:
-                config_value = config_value.replace('"', '')
-                new_current_dict = current_dict.get(config_value)
-                if type(new_current_dict) in [type({})]:
-                    current_dict = new_current_dict
-                else:
-                    current_dict = []
-                    break
-        #print "PN::: current_dict",current_dict
-        possible_matches = []
-        prefix = '.'.join(config_values[:-1])
-        if current_dict == None:
-            if prefix:
-                return ["%s.%s" % (first_token_name, prefix)]
-            else:
-                return ["%s" % (first_token_name)]
-        for item in current_dict:
-            test_value = config_values[-1].replace('"','').lower()
-            if item.lower().startswith(test_value):
-                if prefix:
-                    p_match = "%s.%s.%s" % (first_token_name, prefix, item)
-                    possible_matches.append(p_match)
-                else:
-                    possible_matches.append("%s.%s" % (first_token_name, item))
-
-        if possible_matches:
-            return possible_matches
-        return []
+        return [first_token_name]
 
     def match(self, tokens, index):
         '''Determines if what has been typed in by the user matches a

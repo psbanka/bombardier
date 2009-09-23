@@ -88,7 +88,7 @@ def run_tests(cls, tests, debug):
             continue
         for index in range(0,len(cmd_output)):
             received_user_line = cmd_output[index].strip()
-            expected_user_line = expected_cmd_output[index]
+            expected_user_line = expected_cmd_output[index].strip()
             if received_user_line != expected_user_line:
                 print "FAILED: (%s) != (%s)" % (received_user_line, expected_user_line)
                 output[command] = "FAIL"
