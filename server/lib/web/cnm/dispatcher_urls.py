@@ -4,7 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django_restapi.responder import JsonDictResponder
 from CnmResource import CnmResource
 from Exceptions import InvalidInput, InvalidDispatcherAction
-from bombardier_core.static_data import OK
+from Exceptions import DispatcherAlreadyStarted, DispatcherOffline
+from bombardier_core.static_data import OK, FAIL
 import os, yaml
 
 VALID_FILE_CHARS  = [ chr(x) for x in range(ord('a'), ord('z')+1) ]
@@ -182,7 +183,7 @@ class MachineCleanupEntry(CnmResource):
         output = {"status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.cleanup(request.user)
+            output = dispatcher.cleanup_connections(request.user)
         except Exception:
             output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
@@ -221,13 +222,18 @@ class DispatcherControlEntry(CnmResource):
     @login_required
     def read(self, request, action):
         "Check dispatcher status, time and running jobs"
+        output = {"command_status" : OK,
+                  "command_output" : '',
+                 }
         try:
             dispatcher = self.get_dispatcher()
             if action == "status":
                 output = dispatcher.check_status()
             else:
                 raise InvalidDispatcherAction(action)
-
+        except DispatcherOffline:
+            output["command_status"] = FAIL
+            output["command_output"] = "Dispatcher is offline."
         except Exception:
             output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
@@ -236,18 +242,28 @@ class DispatcherControlEntry(CnmResource):
     @login_required
     def create(self, request, action):
         "Set password on the dispatcher from request"
-        output = {"status" : OK}
+        output = {"command_status" : OK}
         try:
-            dispatcher = self.get_dispatcher()
             if action == "set-password":
+                dispatcher = self.get_dispatcher()
                 server_home = CnmResource.get_server_home()
                 dispatcher.set_server_home(request.user, server_home)
                 password = request.POST.get("password", "")
                 output = dispatcher.set_password(password)
-            elif action == "stop":
-                output["command_output"] = dispatcher.stop()
+
             elif action == "start":
-                output["command_output"] = dispatcher.start()
+                try:
+                    status = self.start_dispatcher()
+                    output["command_status"] = status
+                    output["command_output"] = ""
+                except DispatcherAlreadyStarted:
+                    output["command_output"] = "Dispatcher already started"
+
+            elif action == "stop":
+                status = self.stop_dispatcher(request.user)
+                output["command_status"] = status
+                output["command_output"] = ""
+
             else:
                 raise InvalidDispatcherAction(action)
         except Exception:
@@ -274,7 +290,7 @@ urlpatterns = patterns('',
        MachineStartDistEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/start_test/(?P<machine_name>.*)',
        MachineStartTestEntry(permitted_methods = ['POST'])),
-   url(r'^json/machine/cleanup',
+   url(r'^json/machine/cleanup_connections',
        MachineCleanupEntry(permitted_methods = ['POST'])),
    url(r'^json/job/join/(?P<job_name>.*)', JobJoinEntry()),
    url(r'^json/job/poll/(?P<job_name>.*)', JobPollEntry()),

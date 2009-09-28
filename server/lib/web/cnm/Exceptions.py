@@ -14,12 +14,25 @@ class InvalidAction(Exception):
     def __str__(self):
         return self.__repr__()
 
+class DispatcherAlreadyStarted(ExceptionBase):
+    def __repr__(self):
+        return ""
+
+class DispatcherError(ExceptionBase):
+    def __init__(self, explanation):
+        ExceptionBase.__init__(self)
+        self.explanation = explanation
+    def __repr__(self):
+        return "Dispatcher error: %s" % self.explanation
+
 class InvalidDispatcherAction(ExceptionBase):
     def __init__(self, action_name):
         ExceptionBase.__init__(self)
         self.action_name = action_name
     def __repr__(self):
         return "Invalid action: %s" % self.action
+    def __str__(self):
+        return self.__repr__()
 
 class JobAlreadySet(Exception):
     def __init__(self, job_name):

@@ -253,34 +253,6 @@ class ServerConfigCollection(CnmResource):
         responder = JsonDictResponder(output)
         return responder.element(request)
 
-    @classmethod
-    def _form_update(cls, query_dict):
-        "Update or create values based on form POST."
-        [ obj.delete() for obj in ServerConfig.objects.all() ]
-        names = [ i for i in query_dict if i.endswith('name') ]
-        for form_entry in names:
-            id_num = form_entry.split('-')[1]
-            name = query_dict[form_entry]
-            value = query_dict['form-%s-value' % id_num]
-            if name:
-                server_co = ServerConfig.objects.get_or_create(id=id_num)[0]
-                server_co.value = value
-                server_co.name = name
-                server_co.save()
-
-    def _standard_update(self, query_dict):
-        "Update or create on standard POST"
-        for name in query_dict:
-            value = query_dict[name]
-            try:
-                server_co = ServerConfig.objects.get(name=name)
-            except ServerConfig.DoesNotExist:
-                server_co = ServerConfig.objects.create()
-                server_co.name = name
-            server_co.value = value
-            server_co.save()
-
-
 class DbSyncCollection(CnmResource):
     "Class for populating the database from yaml files present in server home."
     @login_required

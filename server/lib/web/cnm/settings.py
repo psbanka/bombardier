@@ -17,6 +17,9 @@ ROOT_URLCONF = 'urls'
 DATABASE_NAME = realpath('cnmdb')
 DATABASE_ENGINE = 'sqlite3'
 TEMPLATE_DIRS = 'templates'
+TEST_DATABASE_NAME = realpath('testdb')
+DATABASE_SUPPORTS_TRANSACTIONS = False
+DATABASE_OPTIONS = {'timeout': 30}
 
 MIDDLEWARE_CLASSES = (
     'django.contrib.sessions.middleware.SessionMiddleware',

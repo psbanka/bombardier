@@ -158,8 +158,9 @@ class Dispatcher(Pyro.core.ObjBase):
         self.server_home = None
         self.jobs = {}
         self.next_job = 1
-        self.server_log = ServerLogger.ServerLogger("Dispatcher")
-        self.server_log.add_std_err()
+        self.server_log = ServerLogger.ServerLogger("Dispatcher",
+                                                    use_syslog=True)
+        #self.server_log.add_std_err()
         self.machine_interface_pool = {}
 
     def dump_exception(self, username):
@@ -194,6 +195,7 @@ class Dispatcher(Pyro.core.ObjBase):
             msg = "Reusing existing connection to %s" % machine_name
             self.server_log.info(msg, username)
             machine_interface = self.machine_interface_pool[machine_name]
+            machine_interface.set_data(machine_config)
         else:
             msg = "Instantiating a MachineInterface for %s" % machine_name
             self.server_log.info(msg, username)
@@ -366,7 +368,7 @@ class Dispatcher(Pyro.core.ObjBase):
         machine_interface = self.get_machine_interface(username, machine_name)
         return self.start_job(username, machine_interface, commands)
 
-    def cleanup(self, username):
+    def cleanup_connections(self, username):
         "Close connections for machine interfaces in interface pool"
         output = {"status": OK}
         try:
@@ -399,6 +401,7 @@ class Dispatcher(Pyro.core.ObjBase):
             output["complete_log"] = job.complete_log
         except Exception:
             output.update(self.dump_exception(username))
+        del self.jobs[job_name]
         return output
 
     def job_poll(self, username, job_name):

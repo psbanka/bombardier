@@ -1,29 +1,42 @@
+import os, sys, yaml
+sys.path.append('.')
+sys.path.append('..')
+os.environ["DJANGO_SETTINGS_MODULE"] = 'cnm.settings'
+
 from binascii import b2a_base64
 from datetime import datetime
 from django.core import serializers
-from django.test import TestCase
-from django.contrib.auth.models import User
 import django.utils.simplejson as json
-import webbrowser, re
-import os, sys, yaml
 from bombardier_core.static_data import SERVER_CONFIG_FILE, OK, FAIL
 from Exceptions import InvalidServerHome
 from bombardier_core import libCipher
 import time
 
+from settings import *
+from django.contrib.auth.models import User
+import django.utils.simplejson as json
+import os, sys, yaml
+from bombardier_core.static_data import SERVER_CONFIG_FILE, OK, FAIL
+import time
+
+# WEIRD SHIT: ============
+import unittest
+from django.test.client import Client
+# =========================
+
+
 TEST_PASSWORD = "testpass1234"
 CONFIG_PASSWORD = "abc123"
 
-class BasicTest(TestCase):
-
-    fixtures = ['init.json']
-
+class BasicTest:
     def setUp(self):
-        self.staff_user = User.objects.create_user('test_guy', 'tester@testy.com', TEST_PASSWORD)
+        self.client = Client()
+
+        self.staff_user = User.objects.get(username='test_guy')
         self.staff_user.is_staff = True
         self.staff_user.save()
 
-        self.super_user = User.objects.create_user('super_guy', 'super@testy.com', TEST_PASSWORD)
+        self.super_user = User.objects.get(username='super_guy')
         self.super_user.is_superuser = True
         self.super_user.save()
 
@@ -37,7 +50,6 @@ class BasicTest(TestCase):
         content_dict = json.loads( response.content )
 
         # sync the DB
-        #self.make_localhost_config()
         self.dbsync()
 
         # set the configuration string
@@ -61,17 +73,6 @@ class BasicTest(TestCase):
     def login_super(self):
         result = self.client.login(username=self.super_user.username, password=TEST_PASSWORD)
         self.failUnless(result)
-
-    def make_localhost_config(self, additional_config={}):
-        config = {"ip_address": "127.0.0.1",
-                  "default_user": os.getlogin(),
-                  "spkg_path": "/opt/spkg",
-                  "platform": sys.platform,
-                 }
-        config.update(additional_config)
-        config_path = os.path.join(self.test_server_home, "machine",
-                                   "localhost.yml")
-        open(config_path, 'w').write(yaml.dump(config))
 
     def get_field_value_set(self, test_dict, value):
         return set([ i["fields"][value] for i in test_dict ])
@@ -108,16 +109,6 @@ class BasicTest(TestCase):
         open("/opt/spkg/localhost/status.yml", 'w').write(yaml_str)
         open("configs/fixtures/status/localhost.yml", 'w').write(yaml_str)
 
-    def reset_packages(self):
-        status_dict = {"clientVersion": "0.70-595",
-                       "install-progress": {},
-                        "local-packages": [],
-                        "status": {"newInstall": 'True'},
-                        "timestamp": 1250868198.8639009,
-                      }
-        os.system("rm -rf /opt/spkg/localhost/packages/*")
-        self.set_status(status_dict)
-
     def run_job(self, url, data={}, timeout=6, verbose=False):
         username = self.super_user.username
         
@@ -146,25 +137,16 @@ class BasicTest(TestCase):
 
         url = '/json/job/join/%s' % job_name
         join_output = self.get_content_dict(url)
-        #self.failUnlessEqual(join_output["command_status"], OK)
+        assert "command_status" in join_output, join_output
 
         url = '/json/machine/cleanup'
         response = self.client.post(path=url, data={})
         return join_output["command_status"], join_output["complete_log"]
 
-    def package_action(self, action, package_name):
-        url = '/json/package_action/%s' % package_name
-        package_config = {"test": {"value":"nowisthetimeforalldooment",
-                                   "directory": "/tmp/foogazi"},
-                          "packages": ["TestPackageType4"],  
-                         }
-        self.make_localhost_config(additional_config=package_config)
-        post_data={"machine": "localhost", "action": action}
-        status, output = self.run_job(url, data=post_data, timeout=60)
-        return status, output
+class CnmTests(unittest.TestCase, BasicTest):
 
-class ActiveTests(BasicTest):
-#class ActiveTests:
+    def setUp(self):
+        BasicTest.setUp(self)
 
     def test_search(self):
         test_dict  = { "machine":  { "tes": ["tester", "tester1", "tester2"],
@@ -188,90 +170,6 @@ class ActiveTests(BasicTest):
         content_dict = self.get_content_dict(url)
         self.failUnlessEqual(content_dict["server configuration"]["server_home"],
                              self.test_server_home)
-
-    def test_run_check_job(self):
-        url = '/json/machine/start_test/localhost'
-        status, output = self.run_job(url)
-        assert "1" in output, output
-
-    def test_dist_update(self):
-        url = '/json/machine/dist/localhost'
-        status, output = self.run_job(url, data={"dist": "test"}, timeout=60)
-        assert status == OK
-        assert "EMPTY_TEST-1.egg-info" in output, output
-
-    def test_client_update(self):
-        url = '/json/machine/dist/localhost'
-        status, output = self.run_job(url, data={"dist": "bombardier-0.70-595"}, timeout=60, verbose=False)
-        assert "bombardier-0.70_595.egg-info" in output, output
-
-        url = '/json/machine/init/localhost'
-        status,output = self.run_job(url, data={}, timeout=60)
-        assert status == OK
-
-    def test_package_error(self):
-        self.reset_packages()
-        package_name = "TestPackageType4"
-        status, output = self.package_action("configure", package_name)
-        assert status == FAIL
-        status, output = self.package_action("verify", package_name)
-        assert status == FAIL
-        status, output = self.package_action("uninstall", package_name)
-        assert status == FAIL
-
-    def test_package_actions(self):
-        self.reset_packages()
-        package_name = "TestPackageType4"
-        status, output = self.package_action("install", package_name)
-        assert status == OK
-        url = '/json/status/name/localhost'
-        status_data = self.get_content_dict(url)
-        progress_data = status_data["install-progress"]["TestPackageType4-7"]
-        assert "INSTALLED" in progress_data
-
-        status, output = self.package_action("configure", package_name)
-        assert status == OK
-        status, output = self.package_action("verify", package_name)
-        assert status == OK
-        status, output = self.package_action("install", package_name)
-        assert status == OK # bc shines us on
-        status, output = self.package_action("uninstall", package_name)
-        assert status == OK
-        status, output = self.package_action("fix", package_name)
-        assert status == OK
-        status, output = self.package_action("purge", package_name+"-7")
-        assert status == OK
-
-    def test_dist_update(self):
-        url = '/json/machine/dist/localhost'
-        status, output = self.run_job(url, data={"dist": "test"}, timeout=60)
-        assert status == OK
-        assert "EMPTY_TEST-1.egg-info" in output, output
-
-    def test_package_global(self):
-        self.reset_packages()
-        package_config = {"test": {"value":"nowisthetimeforalldooment",
-                                   "directory": "/tmp/foogazi"},
-                          "packages": ["TestPackageType4"],  
-                         }
-        self.make_localhost_config(additional_config=package_config)
-
-        url = '/json/machine/status/localhost'
-        status, output = self.run_job(url, data={}, timeout=60)
-        assert status == OK
-        url = '/json/machine/reconcile/localhost'
-        status, output = self.run_job(url, data={}, timeout=60)
-        assert status == OK
-
-        package_config = {"test": {"value":"nowisthetimeforalldooment",
-                                   "directory": "/tmp/foogazi"},
-                          "packages": [],  
-                         }
-        self.make_localhost_config(additional_config=package_config)
-
-        status, output = self.run_job(url, data={}, timeout=60)
-        assert status == OK
-        return output
 
     def test_merged(self):
         self.login(self.super_user)
@@ -350,6 +248,151 @@ class ActiveTests(BasicTest):
         self.failUnlessEqual( content_dict[ u"command_status" ], FAIL)
         self.failUnlessEqual( content_dict[ u"command_output" ], ["Invalid configuration key."])
 
+    def test_data_modification(self):
+        url = "/json/machine/name/tester"
+        config_data = {"ip_address": "127.0.0.2", 
+                       "default_user": "rudy",
+                       "platform": "linux",
+                      }
+        yaml_string = yaml.dump(config_data)
+        response = self.client.put(path=url, data={"yaml": yaml_string})
+        content_dict = json.loads( response.content )
+        assert content_dict["status"] == OK
+        assert content_dict["message"] == "update"
+
+class DispatcherTests(unittest.TestCase, BasicTest):
+
+    def setUp(self):
+        BasicTest.setUp(self)
+
+    def test_run_check_job(self):
+        url = '/json/machine/start_test/localhost'
+        status, output = self.run_job(url)
+        assert "1" in output, output
+
+    def test_dist_update(self):
+        url = '/json/machine/dist/localhost'
+        status, output = self.run_job(url, data={"dist": "test"}, timeout=60)
+        assert status == OK
+        assert "EMPTY_TEST-1.egg-info" in output, output
+
+    def test_client_update(self):
+        url = '/json/machine/dist/localhost'
+        status, output = self.run_job(url, data={"dist": "bombardier-0.70-595"}, timeout=60, verbose=False)
+        assert "bombardier-0.70_595.egg-info" in output, output
+
+        url = '/json/machine/init/localhost'
+        status,output = self.run_job(url, data={}, timeout=60)
+        assert status == OK
+
+    def test_dist_update(self):
+        url = '/json/machine/dist/localhost'
+        status, output = self.run_job(url, data={"dist": "test"}, timeout=60)
+        assert status == OK
+        assert "EMPTY_TEST-1.egg-info" in output, output
+
+    def test_dispatcher_status(self):
+        url = "/json/dispatcher/status"
+        response = self.client.get(url)
+        content_dict = json.loads( response.content )
+        assert float(content_dict["uptime"]) > 0.000001
+        assert content_dict["active_jobs"] == [], content_dict
+
+class PackageTests(unittest.TestCase, BasicTest):
+
+    def setUp(self):
+        BasicTest.setUp(self)
+
+    def package_action(self, action, package_name):
+        url = '/json/package_action/%s' % package_name
+        package_config = {"test": {"value":"nowisthetimeforalldooment",
+                                   "directory": "/tmp/foogazi"},
+                          "packages": ["TestPackageType4"],  
+                         }
+        self.make_localhost_config(additional_config=package_config)
+        post_data={"machine": "localhost", "action": action}
+        status, output = self.run_job(url, data=post_data, timeout=60)
+        return status, output
+
+    def make_localhost_config(self, additional_config={}):
+        config = {"ip_address": "127.0.0.1",
+                  "default_user": os.getlogin(),
+                  "spkg_path": "/opt/spkg",
+                  "platform": sys.platform,
+                 }
+        config.update(additional_config)
+        config_path = os.path.join(self.test_server_home, "machine",
+                                   "localhost.yml")
+        open(config_path, 'w').write(yaml.dump(config))
+
+    def reset_packages(self):
+        status_dict = {"clientVersion": "0.70-595",
+                       "install-progress": {},
+                        "local-packages": [],
+                        "status": {"newInstall": 'True'},
+                        "timestamp": 1250868198.8639009,
+                      }
+        os.system("rm -rf /opt/spkg/localhost/packages/*")
+        self.set_status(status_dict)
+
+    def test_package_error(self):
+        self.reset_packages()
+        package_name = "TestPackageType4"
+        status, output = self.package_action("configure", package_name)
+        assert status == FAIL
+        status, output = self.package_action("verify", package_name)
+        assert status == FAIL
+        status, output = self.package_action("uninstall", package_name)
+        assert status == FAIL
+
+    def test_package_actions(self):
+        self.reset_packages()
+        package_name = "TestPackageType4"
+        status, output = self.package_action("install", package_name)
+        assert status == OK
+        url = '/json/status/name/localhost'
+        status_data = self.get_content_dict(url)
+        progress_data = status_data["install-progress"]["TestPackageType4-7"]
+        assert "INSTALLED" in progress_data
+
+        status, output = self.package_action("configure", package_name)
+        assert status == OK
+        status, output = self.package_action("verify", package_name)
+        assert status == OK
+        status, output = self.package_action("install", package_name)
+        assert status == OK # bc shines us on
+        status, output = self.package_action("uninstall", package_name)
+        assert status == OK
+        status, output = self.package_action("fix", package_name)
+        assert status == OK
+        status, output = self.package_action("purge", package_name+"-7")
+        assert status == OK
+
+    def test_package_global(self):
+        self.reset_packages()
+        package_config = {"test": {"value":"nowisthetimeforalldooment",
+                                   "directory": "/tmp/foogazi"},
+                          "packages": ["TestPackageType4"],  
+                         }
+        self.make_localhost_config(additional_config=package_config)
+
+        url = '/json/machine/status/localhost'
+        status, output = self.run_job(url, data={}, timeout=60)
+        assert status == OK
+        url = '/json/machine/reconcile/localhost'
+        status, output = self.run_job(url, data={}, timeout=60)
+        assert status == OK
+
+        package_config = {"test": {"value":"nowisthetimeforalldooment",
+                                   "directory": "/tmp/foogazi"},
+                          "packages": [],  
+                         }
+        self.make_localhost_config(additional_config=package_config)
+
+        status, output = self.run_job(url, data={}, timeout=60)
+        assert status == OK
+        return output
+
     def test_insufficient_config(self):
         self.reset_packages()
         package_config = {"test": {"value":"nowisthetimeforalldooment"},
@@ -380,29 +423,11 @@ class ActiveTests(BasicTest):
         status, output = self.run_job(url, data={}, timeout=60)
         assert status == OK
 
-    def test_data_modification(self):
-        url = "/json/machine/name/tester"
-        config_data = {"ip_address": "127.0.0.2", 
-                       "default_user": "rudy",
-                       "platform": "linux",
-                      }
-        yaml_string = yaml.dump(config_data)
-        response = self.client.put(path=url, data={"yaml": yaml_string})
-        content_dict = json.loads( response.content )
-        assert content_dict["status"] == OK
-        assert content_dict["message"] == "update"
 
+class DangerousTests(unittest.TestCase, BasicTest):
 
-#class ActiveTest(BasicTest):
-class ActiveTest:
-    def test_dispatcher_status(self):
-        url = "/json/dispatcher/status"
-        response = self.client.get(url)
-        content_dict = json.loads( response.content )
-        assert float(content_dict["uptime"]) > 1.0
-        assert content_dict["active_jobs"] == []
-
-class NotYet:
+    def setUp(self):
+        BasicTest.setUp(self)
 
     def test_disable(self):
         url = "/json/machine/disable/localhost" 
@@ -423,4 +448,58 @@ class NotYet:
         assert content_dict["status"] == OK
 
 
+class ExperimentTest(unittest.TestCase, BasicTest):
 
+    def setUp(self):
+        BasicTest.setUp(self)
+
+def initialize_tests(client):
+    from django.test.utils import connection
+
+    connection.creation.create_test_db(autoclobber=True)
+    fixtures = ['init.json']
+    staff_user = User.objects.create_user('test_guy', 'tester@testy.com', TEST_PASSWORD)
+    staff_user.is_staff = True
+    staff_user.save()
+
+    super_user = User.objects.create_user('super_guy', 'super@testy.com', TEST_PASSWORD)
+    super_user.is_superuser = True
+    super_user.save()
+    login_result = client.login(username="super_guy", password=TEST_PASSWORD)
+    cwd = os.getcwd()
+    url = '/json/server/config'
+    test_server_home = os.path.join(cwd, 'configs', 'fixtures')
+    print "test_server_home", test_server_home
+    response = client.post(url, data={"server_home": test_server_home})
+    url = '/json/dbsync'
+    response = client.post(path=url)
+
+    url = '/json/dispatcher/start'
+    response = client.post(url, {})
+    content_dict = json.loads( response.content )
+    assert content_dict["command_status"] == OK
+
+def rip_out_test_intestines(client):
+    url = '/json/dispatcher/stop'
+    response = client.post(url, {})
+    content_dict = json.loads( response.content )
+    assert content_dict["command_status"] == OK, content_dict
+
+if __name__ == '__main__':
+    client = Client()
+    initialize_tests(client)
+
+    full_suite = True
+    suite = unittest.TestSuite()
+    if full_suite:
+        suite.addTest(unittest.makeSuite(CnmTests))
+        suite.addTest(unittest.makeSuite(DispatcherTests))
+        suite.addTest(unittest.makeSuite(PackageTests))
+        suite.addTest(unittest.makeSuite(ExperimentTest))
+    else:
+        suite.addTest(PackageTests("test_insufficient_config"))
+        suite.addTest(PackageTests("test_package_actions"))
+
+    status = unittest.TextTestRunner(verbosity=2).run(suite)
+
+    rip_out_test_intestines(client)

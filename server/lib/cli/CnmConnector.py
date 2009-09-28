@@ -171,8 +171,11 @@ class CnmConnector:
         curl_obj.setopt(pycurl.WRITEFUNCTION, output.store)
         curl_obj.setopt(pycurl.HEADERFUNCTION, header.store)
         response = Response(header, output)
+        raise
         try:
+            print "perform..."
             curl_obj.perform()
+            print "done..."
             http_code = curl_obj.getinfo(pycurl.HTTP_CODE)
             response.set_http_code(http_code)
             return response
@@ -204,7 +207,8 @@ class CnmConnector:
         self.password = password
         return data.get("super_user")
 
-    def service_request(self, path, args=None, put_data=None, post_data=None):
+    def service_request(self, path, args=None,
+                        put_data=None, post_data=None, timeout=None):
         '''Performs a GET or a POST or a PUT, depending on data provided
         and returns text data based on output
         path -- relative path
@@ -220,6 +224,8 @@ class CnmConnector:
         if self.debug:
             self.logger.debug("Performing service request to %s" % url)
         curl_obj = self.prepare_curl_object(url)
+        if timeout:
+            curl_obj.setopt(pycurl.TIMEOUT, timeout)
         if put_data:
             curl_obj.setopt(pycurl.UPLOAD, 1)
             curl_obj.setopt(pycurl.INFILESIZE, len(put_data))
@@ -232,9 +238,11 @@ class CnmConnector:
             encoded_post_data = urllib.urlencode(post_list)
             curl_obj.setopt(pycurl.POSTFIELDS, encoded_post_data)
             curl_obj.setopt(pycurl.POST, 1)
+        print "PERFORMING REQUEST"
         return self.perform_request(curl_obj, full_path)
 
-    def service_yaml_request(self, path, args=None, put_data=None, post_data=None):
+    def service_yaml_request(self, path, args=None,
+                             put_data=None, post_data=None, timeout=None):
         '''same as service_request, but assumes that return data from the server
         is YAML(JSON) and converts it to return a python dictionary instead of
         text.'''
@@ -243,7 +251,9 @@ class CnmConnector:
                 if type(put_data) == type(["list"]) or \
                    type(put_data) == type({}):
                     put_data = yaml.dump(put_data)
-            response = self.service_request(path, args, put_data, post_data)
+            print "REQUEST ENTER"
+            response = self.service_request(path, args, put_data, post_data, timeout)
+            print "REQUEST EXIT"
             return response.convert_from_yaml()
         except urllib2.HTTPError:
             self.logger.error("Unable to connect to the service %s" % path)
