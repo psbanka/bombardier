@@ -61,6 +61,21 @@ def get_tests(cls, module_name):
                 command = result[0]
     return tests
 
+def compare_expected(expected, received):
+    exp_list = [ x for x in expected.split(' ') if x != '' ]
+    rec_list = [ x for x in received.split(' ') if x != '' ]
+    if len(exp_list) != len(rec_list):
+        return False
+    for i in xrange(len(exp_list)):
+        exp = exp_list[i]
+        rec = rec_list[i]
+        if exp == rec:
+            continue
+        elif exp == "==UNKNOWN==":
+            continue
+        else:
+            return False
+    return True
 
 def run_tests(cls, tests, debug):
     object = cls()
@@ -79,18 +94,18 @@ def run_tests(cls, tests, debug):
         if debug:
             print "COMMAND OUTPUT:",cmd_output
         if cmd_status != expected_status:
-            print "FAILED: (%s) != (%s)" % (cmd_status, expected_status)
+            print "STATUS FAIL: (%s) != (%s)" % (cmd_status, expected_status)
             output[command] = "FAIL"
             continue
         if len(cmd_output) != len(expected_cmd_output):
             output[command] = "FAIL"
-            print "FAILED: (%s) != (%s)" % (cmd_output, expected_cmd_output)
+            print "LENGTH FAIL: len(%s) != len(%s)" % (cmd_output, expected_cmd_output)
             continue
         for index in range(0,len(cmd_output)):
             received_user_line = cmd_output[index].strip()
             expected_user_line = expected_cmd_output[index].strip()
-            if received_user_line != expected_user_line:
-                print "FAILED: (%s) != (%s)" % (received_user_line, expected_user_line)
+            if not compare_expected(expected_user_line, received_user_line):
+                print "FAILED: (%s) != (%s)" % (expected_user_line, received_user_line)
                 output[command] = "FAIL"
         output[command] = "PASSED"
     return output
@@ -112,9 +127,10 @@ if __name__ == "__main__":
     libUi.login("admin", logger, 'abc123')
 
     print "(clearing existing connections)"
-    system_state.cnm_connector.cleanup()
+    system_state.cnm_connector.cleanup_connections()
     file_names = glob.glob("*.py")
     module_names = [ x.split('.')[0] for x in file_names ]
+    module_names = [ n for n in module_names if n not in IGNORE_MODULE_NAMES ]
     if sys.argv[-1] != '-d':
         debug = False
         print "(suppressing output)"

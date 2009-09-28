@@ -171,11 +171,8 @@ class CnmConnector:
         curl_obj.setopt(pycurl.WRITEFUNCTION, output.store)
         curl_obj.setopt(pycurl.HEADERFUNCTION, header.store)
         response = Response(header, output)
-        raise
         try:
-            print "perform..."
             curl_obj.perform()
-            print "done..."
             http_code = curl_obj.getinfo(pycurl.HTTP_CODE)
             response.set_http_code(http_code)
             return response
@@ -238,7 +235,6 @@ class CnmConnector:
             encoded_post_data = urllib.urlencode(post_list)
             curl_obj.setopt(pycurl.POSTFIELDS, encoded_post_data)
             curl_obj.setopt(pycurl.POST, 1)
-        print "PERFORMING REQUEST"
         return self.perform_request(curl_obj, full_path)
 
     def service_yaml_request(self, path, args=None,
@@ -251,16 +247,14 @@ class CnmConnector:
                 if type(put_data) == type(["list"]) or \
                    type(put_data) == type({}):
                     put_data = yaml.dump(put_data)
-            print "REQUEST ENTER"
             response = self.service_request(path, args, put_data, post_data, timeout)
-            print "REQUEST EXIT"
             return response.convert_from_yaml()
         except urllib2.HTTPError:
             self.logger.error("Unable to connect to the service %s" % path)
             return {}
 
-    def cleanup(self):
-        url = "json/machine/cleanup"
+    def cleanup_connections(self):
+        url = "json/machine/cleanup_connections"
         self.service_yaml_request(url, post_data={})
 
     def get_job(self, url, post_data):

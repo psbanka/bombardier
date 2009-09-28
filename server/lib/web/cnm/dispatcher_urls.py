@@ -255,16 +255,17 @@ class DispatcherControlEntry(CnmResource):
                 try:
                     status = self.start_dispatcher()
                     output["command_status"] = status
-                    output["command_output"] = ""
+                    output["command_output"] = ["Dispatcher started"]
                 except DispatcherAlreadyStarted:
-                    output["command_output"] = "Dispatcher already started"
+                    output["command_output"] = ["Dispatcher already started"]
 
             elif action == "stop":
                 status = self.stop_dispatcher(request.user)
                 output["command_status"] = status
-                output["command_output"] = ""
+                output["command_output"] = ["Dispatcher stopped"]
 
             else:
+                print "INVALID ACTION %s" % action
                 raise InvalidDispatcherAction(action)
         except Exception:
             output.update(self.dump_exception(request))

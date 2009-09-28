@@ -94,15 +94,15 @@ class CliHelpTest(CliUnitTest):
     def test_slash_help(self):
         command = "?"
         expected_output = [
-            '?',
-            'cli          do not use this',
-            'exit         exit current mode',
-            'machine      commands that operate on a given machine',
-            'package      commands that operate on a single package',
-            'set          set a configuration value',
-            'show         display components of the system',
-            'terminal     change settings for the current terminal',
-        ]
+             '?',
+             'cli            do not use this',
+             'dispatcher     dispatcher control commands and status',
+             'exit           exit current mode',
+             'machine        commands that operate on a given machine',
+             'package        commands that operate on a single package',
+             'set            set a configuration value',
+             'show           display components of the system',
+             'terminal       change settings for the current terminal']
         output = self.run_command(command)
         assert output == expected_output, "(%s) != (%s)" % (output, expected_output)
 

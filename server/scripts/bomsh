@@ -117,7 +117,7 @@ def main_loop(system_state, slash):
             cleanup = libUi.ask_yes_no(question, libUi.YES)
             if cleanup:
                 libUi.info("cleaning up")
-                url = "json/machine/cleanup"
+                url = "json/machine/cleanup_connections"
                 data = system_state.cnm_connector.service_yaml_request(url, post_data={})
             if len(system_state.exit_methods) > 0:
                 status, output = system_state.exit_methods[-1](slash)

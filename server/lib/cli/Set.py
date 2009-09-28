@@ -63,7 +63,7 @@ class Set(PinshCmd.PinshCmd):
                 configuration_key = libUi.pwd_input("Enter CI decryption password: ")
             else:
                 configuration_key = tokens[2]
-            url = "/json/dispatcher/set_password/"
+            url = "/json/dispatcher/set-password"
             post_data = {"password": configuration_key}
             output = self.post( url, post_data )
             return output["command_status"], output["command_output"]
