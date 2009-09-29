@@ -1,13 +1,14 @@
+"pexpect machine interface module"
 #!/usr/bin/env python
 
 import pxssh, pexpect
 import sys, time, os, re
 import StringIO
-from bombardier_core.static_data import OK, FAIL, SERVER, TRACEBACK
-from bombardier_core.static_data import DEBUG, INFO, WARNING, ERROR, CRITICAL
+from bombardier_core.static_data import OK, FAIL, SERVER, TRACEBACK, INFO
 from ServerLogger import ServerLogger
 from Exceptions import JobAlreadySet, EnableRequiredException
-from Exceptions import IncompleteConfigurationException, MachineUnavailableException
+from Exceptions import IncompleteConfigurationException
+from Exceptions import MachineUnavailableException
 from Exceptions import SecureCopyException
 
 #Statuses:
@@ -21,7 +22,7 @@ CONNECTION_TIMEOUT = 90 * 3600 #90 min
 SSH_NEW_KEY = 'Are you sure you want to continue connecting'
 
 class MachineInterface:
-
+    "Interface to a remote machine via pxssh"
     def __init__(self, machine_config, server_log):
         self.server_log    = server_log
         self.polling_log   = None
@@ -34,6 +35,7 @@ class MachineInterface:
         self.set_data(machine_config)
 
     def set_data(self, machine_config):
+        "Set up MachineInterface data"
         self.host_name     = machine_config.host_name
         self.server_home   = machine_config.server_home
         self.data          = machine_config.data
@@ -68,7 +70,8 @@ class MachineInterface:
     def unset_job(self):
         self.job_name = None
         self.polling_log = None
-        msg = "UN-Binding interface %s to job %s" % (self.host_name, self.job_name)
+        msg = "UN-Binding interface %s to job %s"
+        msg = msg % (self.host_name, self.job_name)
         self.server_log.info(msg, self.host_name)
 
     def get_new_logs(self):
@@ -161,7 +164,8 @@ class MachineInterface:
         if select_index == 1:
             scp_conn.sendline('yes')
             scp_conn.expect('[pP]assword: ', timeout=30)
-            select_index = scp_conn.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=50)
+            select_index = scp_conn.expect([pexpect.TIMEOUT,
+                                           '[pP]assword: '], timeout=50)
             if select_index == 0:
                 msg = scp_conn.before+'|'+scp_conn.after
                 raise MachineUnavailableException(self.host_name, msg)
@@ -201,23 +205,27 @@ class MachineInterface:
         try:
             scp_conn = pexpect.spawn(cmd, timeout=600)
             select_index = scp_conn.expect([pexpect.TIMEOUT, SSH_NEW_KEY,
-                         '[pP]assword: ', 'Exit status'], timeout=600)
+                                           '[pP]assword: ', 'Exit status'],
+                                           timeout=600)
         except pexpect.EOF:
-            errMsg = "Connection refused."
-            raise MachineUnavailableException(dest, errMsg)
+            msg = "Connection refused."
+            raise MachineUnavailableException(dest, msg)
         if select_index == 0:
-            raise MachineUnavailableException(dest, scp_conn.before+'|'+scp_conn.after)
+            msg = scp_conn.before+'|'+scp_conn.after
+            raise MachineUnavailableException(dest, msg)
         if select_index == 1:
             scp_conn.sendline('yes')
             scp_conn.expect('[pP]assword: ', timeout=30)
-            select_index = scp_conn.expect([pexpect.TIMEOUT, '[pP]assword: '], timeout=50)
+            select_index = scp_conn.expect([pexpect.TIMEOUT,
+                                           '[pP]assword: '], timeout=50)
             if select_index == 0:
                 if type(scp_conn.before) == type("string") and \
                    type(scp_conn.after) == type("string"):
-                    errMsg = scp_conn.before+'|'+scp_conn.after
+                    msg = scp_conn.before+'|'+scp_conn.after
                 else:
-                    errMsg = "before: (%s) after: (%s)" % (scp_conn.before, scp_conn.after)
-                raise MachineUnavailableException(dest, errMsg)
+                    msg = "before: (%s) after: (%s)"
+                    msg = msg % (scp_conn.before, scp_conn.after)
+                raise MachineUnavailableException(dest, msg)
             scp_conn.sendline(self.ssh_pass)
         if select_index == 2:
             self.polling_log.warning('Using password authentication')
@@ -377,21 +385,4 @@ class MachineInterface:
         finally:
             self.status = DISCONNECTED
 
-    # FIXME: Duplicate code
-
-    def parse_section(self, section_string, default, optional):
-        sections = section_string.split('.')
-        data = self.data
-        for section in sections:
-            try:
-                data = data[section]
-            except:
-                data = None
-                break
-        if data == None:
-            if not optional:
-                msg = "Option %s not found" % section_string
-                raise IncompleteConfigurationException(msg, None, None)
-            data = default
-        return data
 

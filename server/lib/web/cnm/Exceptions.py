@@ -10,7 +10,8 @@ class InvalidAction(Exception):
         self.package_name = package_name
         self.action_name = action_name
     def __repr__(self):
-        return "Cannot run action %s on package %s" % (self.action, self.package_name)
+        msg = "Cannot run action %s on package %s"
+        return msg % (self.action, self.package_name)
     def __str__(self):
         return self.__repr__()
 
@@ -132,14 +133,15 @@ class InvalidServerHome(Exception):
 
 class MachineConfigurationException(Exception):
     def __init__(self, server, message=''):
-        e = Exception()
-        Exception.__init__(e)
+        err = Exception()
+        Exception.__init__(err)
         self.server = server
         self.message = message
-    def __str__(self):
-        return "Could not find valid configuration data for %s (%s)" % (self.server, self.message)
     def __repr__(self):
-        return "Could not find valid configuration data for %s (%s)" % (self.server, self.message)
+        msg = "Could not find valid configuration data for %s (%s)" 
+        return msg % (self.server, self.message)
+    def __str__(self):
+        return self.__repr__()
 
 class PackageNotFound(Exception):
     def __init__(self, package_name):

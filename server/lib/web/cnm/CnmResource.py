@@ -5,7 +5,6 @@ import os, time
 import yaml
 from Exceptions import InvalidServerHome, DispatcherOffline
 from Exceptions import DispatcherAlreadyStarted, DispatcherError
-from bombardier_core.static_data import FAIL
 from daemonize import daemonize
 
 from bombardier_core.static_data import OK, FAIL
@@ -45,22 +44,28 @@ class CnmResource(Resource):
 
         return dispatcher
 
-    def check_dispatcher_running(self, uri):
+    @classmethod
+    def _check_dispatcher_running(cls, uri):
+        "Check for tcp port listener"
         tcp_port = uri.split(':')[-1].split('/')[0]
         cmd = 'lsof -i tcp:%s | grep python | grep -v grep' % tcp_port
-        status, output = gso(cmd)
+        _status, output = gso(cmd)
         if output:
             return True
         return False
 
-    def check_dispatcher_stopped(self, pid):
+    @classmethod
+    def _check_dispatcher_stopped(cls, pid):
+        "Check for running pid"
         cmd = "lsof -p %s | wc -l" % pid
-        status, output = gso(cmd)
+        _status, output = gso(cmd)
         if output.strip() == "0":
             return True
         return False
 
-    def wait_for_dispatcher_state(self, check_func, arg, timeout=10.0):
+    @classmethod
+    def _wait_for_dispatcher(cls, check_func, arg, timeout=10.0):
+        "Use check_func to check for desired dispatcher state"
         start_time = time.time()
         while not check_func(arg):
             if (time.time() - start_time) > timeout:
@@ -70,6 +75,7 @@ class CnmResource(Resource):
         return OK
 
     def stop_dispatcher(self, username):
+        "Stop dispatcher and cleanup ServerConfig items"
         try:
             dispatcher = self.get_dispatcher()
             dispatcher.cleanup_connections(username)
@@ -79,7 +85,8 @@ class CnmResource(Resource):
             pid = ServerConfig.objects.get(name="dispatcher_pid")
             status = os.kill(int(pid.value), SIGTERM)
             dispatcher_pid = ServerConfig.objects.get(name="dispatcher_pid")
-            status = self.wait_for_dispatcher_state(self.check_dispatcher_stopped, dispatcher_pid.value)
+            status = self._wait_for_dispatcher(self._check_dispatcher_stopped,
+                                                    dispatcher_pid.value)
             dispatcher_pid.delete()
         except ServerConfig.DoesNotExist:
             pass
@@ -93,6 +100,7 @@ class CnmResource(Resource):
         return OK
 
     def start_dispatcher(self):
+        "Start dispatcher if it's not running"
         try:
             self.get_dispatcher()
             raise DispatcherAlreadyStarted()
@@ -106,7 +114,8 @@ class CnmResource(Resource):
                 dispatcher_dict = yaml.load(dispatcher_info)
             self._standard_update(dispatcher_dict)
             server_co = ServerConfig.objects.get(name="dispatcher_uri")
-            return self.wait_for_dispatcher_state(self.check_dispatcher_running, server_co.value)
+            return self._wait_for_dispatcher(self._check_dispatcher_running,
+                                                  server_co.value)
         raise DispatcherError("Cannot be started")
 
     @classmethod
@@ -138,8 +147,8 @@ class CnmResource(Resource):
                 server_co.name = name
                 server_co.save()
 
-    #@classmethod
-    def _standard_update(self, query_dict):
+    @classmethod
+    def _standard_update(cls, query_dict):
         "Update or create on standard POST"
         for name in query_dict:
             value = query_dict[name]

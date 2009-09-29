@@ -204,9 +204,11 @@ class Dispatcher(Pyro.core.ObjBase):
             self.machine_interface_pool[machine_name] = machine_interface
         return machine_interface 
     
-    def start_job(self, username, machine_interface, commands, copy_dict = {}):
+    def start_job(self, username, machine_interface, commands, copy_dict=None):
         "Add a job into the jobs dictionary and start it"
         output = {"status": OK}
+        if not copy_dict:
+            copy_dict = {}
         try:
             machine_name = machine_interface.host_name
             job_name = "%s@%s-%d" % (username, machine_name, self.next_job)
@@ -311,6 +313,7 @@ class Dispatcher(Pyro.core.ObjBase):
         return self.start_job(username, machine_interface, commands, copy_dict)
 
     def enable_job(self, username, machine_name, password):
+        "Set up ssh shared keys with a remote machine"
         output = {"status": OK}
         try:
             machine_interface = self.get_machine_interface(username,
@@ -336,6 +339,7 @@ class Dispatcher(Pyro.core.ObjBase):
         return self.start_job(username, machine_interface, commands, copy_dict)
 
     def disable_job(self, username, machine_name):
+        "Remove shared ssh key from a remote machine"
         output = {"status": OK}
         try:
             machine_interface = self.get_machine_interface(username,
@@ -347,14 +351,14 @@ class Dispatcher(Pyro.core.ObjBase):
 
             filter_cmd = """grep -v "$( awk '{print $3}' < %s""" % public_key
             filter_cmd += """)" < %s > %s""" % ( auth_keys, tmp_auth )
-            filter = ShellCommand("Filtering ssh key from %s" % machine_name,
+            filter_sc = ShellCommand("Filtering ssh key from %s" % machine_name,
                                       filter_cmd, '~')
             overwrite_cmd = "cat %s > %s && rm %s"
             overwrite_cmd = overwrite_cmd  % ( tmp_auth, auth_keys, tmp_auth )
-            overwrite = ShellCommand("Overwriting authorized_keys",
+            overwrite_sc = ShellCommand("Overwriting authorized_keys",
                                      overwrite_cmd, '~')
             
-            commands = [filter, overwrite]
+            commands = [filter_sc, overwrite_sc]
         except Exception:
             output.update(self.dump_exception(username))
             output["status"] = FAIL
@@ -484,16 +488,16 @@ if __name__ == '__main__':
     import settings
     setup_environ(settings)
 
-    #Pyro.core.initServer()
-    daemon = Pyro.core.Daemon()
-    ns = Pyro.naming.NameServerLocator().getNS()
-    daemon.useNameServer(ns)
-
-    #daemon=Pyro.core.Daemon()
-    #print "The daemon runs on port:",daemon.port
-    #print "The object's uri is:",uri
-
-    uri = daemon.connect(Dispatcher(),"dispatcher")
-    print "Started server."
-    daemon.requestLoop()
-
+#    #Pyro.core.initServer()
+#    daemon = Pyro.core.Daemon()
+#    ns = Pyro.naming.NameServerLocator().getNS()
+#    daemon.useNameServer(ns)
+#
+#    #daemon=Pyro.core.Daemon()
+#    #print "The daemon runs on port:",daemon.port
+#    #print "The object's uri is:",uri
+#
+#    uri = daemon.connect(Dispatcher(),"dispatcher")
+#    print "Started server."
+#    daemon.requestLoop()
+#
