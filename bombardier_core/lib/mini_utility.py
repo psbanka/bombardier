@@ -196,23 +196,23 @@ def strip_version(packageFile):
             packageFile = packageFile[:packageFile.rfind('-')]
     return packageFile
 
-def strip_version_from_keys(progressData):
+def strip_version_from_keys(progress_data):
     output = {}
-    for key in progressData.keys():
-        output[strip_version(key)] = progressData[key]
+    for key in progress_data.keys():
+        output[strip_version(key)] = progress_data[key]
     return output
 
-def determineInstallStatus(item, progressData):
+def determine_install_status(item, progress_data):
     # 1. Broken installation
     # 2. Installed, not uninstalled.
     # 3. Broken uninstallation
     # 4. ok uninstallation
-    if progressData[item].get("INSTALLED") == None:
-        progressData[item]["INSTALLED"] = ''
-    if progressData[item].get("UNINSTALLED") == None:
-        progressData[item]["UNINSTALLED"] = ''
-    iTxt = progressData[item]["INSTALLED"]
-    uTxt = progressData[item]["UNINSTALLED"]
+    if progress_data[item].get("INSTALLED") == None:
+        progress_data[item]["INSTALLED"] = ''
+    if progress_data[item].get("UNINSTALLED") == None:
+        progress_data[item]["UNINSTALLED"] = ''
+    iTxt = progress_data[item]["INSTALLED"]
+    uTxt = progress_data[item]["UNINSTALLED"]
     if iTxt == "BROKEN":
         return BROKEN_INSTALL, None
     if uTxt == "BROKEN":
@@ -226,19 +226,19 @@ def determineInstallStatus(item, progressData):
             return UNINSTALLED, uInt
     return INSTALLED, iInt
 
-def getInstalledUninstalledTimes(progressData):
+def get_installed_uninstalled_times(progress_data):
     output = {"installed":[], "uninstalled":[], 
-              "brokenInstalled":[], "brokenUninstalled":[]}
-    for item in progressData.keys():
-        status, lastAction = determineInstallStatus(item, progressData)
+              "broken_installed":[], "broken_uninstalled":[]}
+    for item in progress_data.keys():
+        status, last_action = determine_install_status(item, progress_data)
         if status == INSTALLED:
-            output["installed"].append([item, lastAction])
+            output["installed"].append([item, last_action])
         elif status == UNINSTALLED:
-            output["uninstalled"].append([item, lastAction])
+            output["uninstalled"].append([item, last_action])
         elif status == BROKEN_INSTALL:
-            output["brokenInstalled"].append([item, lastAction])
+            output["broken_installed"].append([item, last_action])
         elif status == BROKEN_UNINSTALL:
-            output["brokenUninstalled"].append([item, lastAction])
+            output["broken_uninstalled"].append([item, last_action])
     output["installed"].sort(datesort)
     output["uninstalled"].sort(datesort)
     return output
@@ -262,7 +262,7 @@ def checkToRemove(basePackageName, actionTime, comparisonList):
 
 def strip_version_info(pkgInfo):
     output = {"installed":[], "uninstalled":[], 
-              "brokenInstalled":[], "brokenUninstalled":[]}
+              "broken_installed":[], "broken_uninstalled":[]}
     packageListNames = output.keys()
     for packageListName in packageListNames: # look at packageListName for duplicates in other listTypes
         for fullPackageName, actionTime in pkgInfo[packageListName]: # do other package lists have this basename?
@@ -278,13 +278,13 @@ def strip_version_info(pkgInfo):
     return output
 
 
-def getInstalled(progressData):
-    #installed, uninstalled, brokenInstalled, brokenUninstalled = getInstalledUninstalledTimes(progressData)
-    pkgInfo = getInstalledUninstalledTimes(progressData)
+def getInstalled(progress_data):
+    #installed, uninstalled, broken_installed, broken_uninstalled = getInstalledUninstalledTimes(progress_data)
+    pkgInfo = getInstalledUninstalledTimes(progress_data)
     pkgInfo = strip_version_info(pkgInfo)
     installedPackageNames = [packageName[0] for packageName in pkgInfo["installed"]]
-    brokenPackageNames    = [packageName[0] for packageName in pkgInfo["brokenInstalled"]]
-    brokenPackageNames   += [packageName[0] for packageName in pkgInfo["brokenUninstalled"]]
+    brokenPackageNames    = [packageName[0] for packageName in pkgInfo["broken_installed"]]
+    brokenPackageNames   += [packageName[0] for packageName in pkgInfo["broken_uninstalled"]]
     return installedPackageNames, brokenPackageNames
 
 def integrate(data, dictionary, overwrite):

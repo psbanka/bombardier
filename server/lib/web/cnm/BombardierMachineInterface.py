@@ -11,6 +11,7 @@ from Exceptions import MachineConfigurationException, BombardierMachineException
 from bombardier_core.mini_utility import strip_version
 from bombardier_core.static_data import OK, FAIL, PURGE, EXECUTE
 from bombardier_core.static_data import INIT, ACTION_DICT, RETURN_DICT
+from MachineStatus import MachineStatus, LOCAL_PACKAGES
 
 from pexpect import EOF
 import syck
@@ -18,9 +19,6 @@ import syck
 
 BLK_SIZE = 77
 TMP_FILE = "tmp.yml"
-DOT_LENGTH = 20
-PROGRESS = "install-progress"
-LOCAL_PACKAGES = "local-packages"
 
 class BombardierMachineInterface(MachineInterface):
     "Bombardier subclass of MachineInterface"
@@ -34,6 +32,7 @@ class BombardierMachineInterface(MachineInterface):
         self.exit_code      = FAIL
         self.action_result  = []
         self.state_machine  = self._get_state_machine()
+        self.machine_status = MachineStatus(self.server_home, self.machine_name)
 
         log_re_str = "\d+\-\d+\-\d+\s\d+\:\d+\:\d+\,\d+\|([A-Z]+)\|(.+)\|" 
         self.log_matcher = re.compile(log_re_str) 
@@ -71,31 +70,14 @@ class BombardierMachineInterface(MachineInterface):
                         ]
         return state_machine
 
-    # BEING USED
     def freshen(self):
         "Refresh config data"
-        status_file = os.path.join(self.server_home, "status",
-                                   "%s.yml" % self.host_name)
-        self.status_data = ''
-        if os.path.isfile(status_file):
-            try:
-                self.status_data = syck.load(open(status_file).read())
-            except Exception, exc:
-                if exc[0] == "syntax error":
-                    msg = "Syntax error in status information for %s"
-                    self.polling_log.error(msg % self.host_name)
-                    self.status_data = ''
-            self.check_status_data()
-        return(MachineInterface.freshen(self))
-
-    def check_status_data(self):
-        "Check for proper elements being present in status data"
-        valid = type(self.status_data) == type({}) and \
-                PROGRESS in self.status_data and \
-                LOCAL_PACKAGES in self.status_data
-        if not valid:
+        self.machine_status.freshen()
+        status = MachineInterface.freshen(self)
+        if not status:
             msg = "Invalid status data. Ignoring."
             self.polling_log.warning(msg)
+        return status
 
     def get_action_result(self, data):
         "Add action result to logs"
@@ -103,14 +85,14 @@ class BombardierMachineInterface(MachineInterface):
         message = "%s %s: %s" % (action.lower(),
                     RETURN_DICT[int(result)], package_name)
         self.polling_log.info(message)
-        self.server_log.info(message, self.host_name)
+        self.server_log.info(message, self.machine_name)
         self.action_result.append(message)
 
     def action_start(self, action, package_name):
         "Logging for beginning of an action"
-        message = "%s installing %s" % (self.host_name, package_name)
+        message = "%s installing %s" % (self.machine_name, package_name)
         self.polling_log.info(message)
-        self.server_log.info(message, self.host_name)
+        self.server_log.info(message, self.machine_name)
 
     def install(self, package_name):
         "install"
@@ -130,7 +112,7 @@ class BombardierMachineInterface(MachineInterface):
         if not os.path.isfile(filename):
             message = "Client requested a file that is not on this server: %s"
             message = message  % filename
-            self.server_log.error(message, self.host_name)
+            self.server_log.error(message, self.machine_name)
             self.polling_log.error(message)
             return OK
         self.scp(filename, dest_path, False)
@@ -150,14 +132,14 @@ class BombardierMachineInterface(MachineInterface):
     def get_output(self, output):
         "Add output to logging and action result"
         self.server_log.info(output)
-        self.polling_log.info(output, self.host_name)
+        self.polling_log.info(output, self.machine_name)
         self.action_result.append(output)
 
     def get_exit_code(self, exit_code):
         "Parse action code from string data, this needs to be more defensive."
         message = "Output received: %s" % exit_code
         self.polling_log.info(message)
-        self.server_log.info(message, self.host_name)
+        self.server_log.info(message, self.machine_name)
         self.exit_code = int(exit_code)
 
     def stream_file(self, file_name):
@@ -196,42 +178,6 @@ class BombardierMachineInterface(MachineInterface):
                     return True
         return False
 
-    def get_package_names_from_progress(self):
-        "Pull status yaml data from local file"
-        #CANNIBALIZED FROM PackageField.py
-        status_yml = os.path.join(self.server_home, "status", \
-                                  "%s.yml" % self.host_name)
-        if not os.path.isfile(status_yml):
-            msg = "Cannot retrieve status (NO FILE: %s)" % status_yml
-            self.polling_log.info(msg)
-            return {}
-        yml = syck.load( open(status_yml).read() )
-        if yml == None:
-            msg = "Cannot retrieve status (EMPTY FILE: %s)" % status_yml
-            self.polling_log.info(msg)
-            return {}
-        return yml
-
-    def get_all_package_names(self):
-        "Get package names from status and this object and union them together."
-        package_list = self.get_package_names_from_progress().get(PROGRESS, {})
-        package_names = set([strip_version(x) for x in package_list])
-        package_names = package_names.union(set(self.data.get("packages")))
-        return list(package_names)
-
-    def get_package_data(self, package_name):
-        "Get package metadata from a local yaml file."
-        yml_path = os.path.join(self.server_home, "package",
-                                "%s.yml" % package_name)
-        package_data = {}
-        if not os.path.isfile(yml_path):
-            msg = "Requested invalid package: %s" % package_name
-            self.server_log.warning()
-            raise MachineConfigurationException(self.host_name)
-        else:
-            package_data = syck.load(open(yml_path).read())
-        return package_data
-
     def send_all_client_data(self, action):
         "Stream package metadata to a remote client"
         send_data = {"configData": self.data, 
@@ -239,13 +185,13 @@ class BombardierMachineInterface(MachineInterface):
                      "packageData": {}, # FIXME
                     }
         if action != PURGE:
-            package_names = self.get_all_package_names()
+            package_names = self.machine_status.get_all_package_names(self.data.get("packages"))
             for package_name in package_names:
-                this_package_data = self.get_package_data(package_name)
+                this_package_data = self.machine_status.get_package_data(package_name)
                 if not this_package_data:
                     message = "Could not find package data for %s."
                     self.polling_log.error(message % package_name)
-                    raise MachineConfigurationException(self.host_name)
+                    raise MachineConfigurationException(self.machine_name)
                 send_data["package_data"][package_name] = this_package_data
                 # FIXME
                 send_data["packageData"][package_name] = this_package_data 
@@ -281,7 +227,7 @@ class BombardierMachineInterface(MachineInterface):
 
         cmd = self.get_bc_command()
         cmd += " %s %s %s %s" % (ACTION_DICT[action],
-                                self.host_name, package_name, script_name)
+                                self.machine_name, package_name, script_name)
         self.ssh_conn.sendline(cmd)
         self.send_all_client_data(action)
         self.watch_bc()
@@ -306,7 +252,7 @@ class BombardierMachineInterface(MachineInterface):
                 if self.ssh_conn.before.strip():
                     msg = "Remaining output: %s" % self.ssh_conn.before.strip()
                     self.polling_log.info(msg)
-                    self.server_log.info(msg, self.host_name)
+                    self.server_log.info(msg, self.machine_name)
                 self.ssh_conn.setecho(False)
                 break
             elif found_index == 1: # Stack trace
@@ -316,21 +262,21 @@ class BombardierMachineInterface(MachineInterface):
                 if not self.process_message(message):
                     message = message.strip()
                     self.polling_log.log_message(level, message)
-                    self.server_log.log_message(level, message, self.host_name)
+                    self.server_log.log_message(level, message, self.machine_name)
 
     def upload_new_packages(self):
         "Send needed packages to a machine"
-        dest_path = os.path.join(self.spkg_dir, self.host_name, "packages")
-        package_names = self.get_package_names_from_progress()
+        dest_path = os.path.join(self.spkg_dir, self.machine_name, "packages")
+        package_names = self.machine_status.get_package_names_from_progress()
         delivered_packages = package_names.get(LOCAL_PACKAGES, [])
         required_base_names = copy.deepcopy(self.data.get("packages"))
         newest_names = []
         for base_name in required_base_names:
-            newest_data = self.get_package_data(base_name)
+            newest_data = self.machine_status.get_package_data(base_name)
             newest_name = newest_data.get("install", {}).get("fullName")
             if newest_name not in delivered_packages:
                 msg = "Need to send package: %s" % newest_name
-                self.server_log.info(msg, self.host_name)
+                self.server_log.info(msg, self.machine_name)
                 self.send_package(newest_name+".spkg", dest_path)
 
     def take_action(self, action, package_name, script_name, 
@@ -344,8 +290,8 @@ class BombardierMachineInterface(MachineInterface):
                 self.clear_script_output(script_name)
             if self.freshen() != OK:
                 msg = "UNABLE TO CONNECT TO %s. No actions are available."
-                self.server_log.error(msg, self.host_name)
-                return FAIL, [msg % self.host_name]
+                self.server_log.error(msg, self.machine_name)
+                return FAIL, [msg % self.machine_name]
             if action != INIT:
                 self.upload_new_packages()
             message = self.run_bc(action, package_name, script_name,
@@ -375,7 +321,7 @@ class BombardierMachineInterface(MachineInterface):
             for line in data.split('\n'):
                 ermsg = "%% %s" % line
                 self.polling_log.error(ermsg)
-                self.server_log.error(ermsg, self.host_name)
+                self.server_log.error(ermsg, self.machine_name)
             self.exit_code = FAIL
             message = ["Exception in client-handling code."]
         self.get_status_yml()
@@ -385,7 +331,7 @@ class BombardierMachineInterface(MachineInterface):
 
     def clear_script_output(self, script_name):
         "Remove old output yml file if it exists on remote machine"
-        file_name = "%s-%s.yml" % (self.host_name, script_name)
+        file_name = "%s-%s.yml" % (self.machine_name, script_name)
         file_path = os.path.join(self.server_home, "output", file_name)
         if os.path.isfile(file_path):
             os.unlink(file_path)
@@ -394,7 +340,7 @@ class BombardierMachineInterface(MachineInterface):
     def get_script_output(self, script_name):
         "Read output yaml file and add it to the report"
         remote_file_name = "%s-output.yml" % (script_name)
-        self.local_filename  = "%s-%s.yml" % (self.host_name, script_name)
+        self.local_filename  = "%s-%s.yml" % (self.machine_name, script_name)
         self.get("%s/output/%s" % (self.spkg_dir, remote_file_name))
         if os.path.isfile(remote_file_name):
             report_path = os.path.join(self.server_home, "output",
@@ -410,7 +356,7 @@ class BombardierMachineInterface(MachineInterface):
             os.makedirs( status_dir )
 
         new_line = 'cat %s/%s/status.yml;echo "======="'
-        self.ssh_conn.sendline(new_line % (self.spkg_dir, self.host_name))
+        self.ssh_conn.sendline(new_line % (self.spkg_dir, self.machine_name))
         self.ssh_conn.prompt()
         status_yml = str(self.ssh_conn.before).split("======")[0]
         status_yml = status_yml.replace('\r','')
@@ -421,7 +367,7 @@ class BombardierMachineInterface(MachineInterface):
             self.polling_log.error(msg)
             open( os.path.join(status_dir, "error.yml"), 'w' ).write(status_yml)
             return
-        status_file = os.path.join(status_dir, "%s.yml" % self.host_name)
+        status_file = os.path.join(status_dir, "%s.yml" % self.machine_name)
         try:
             open( status_file, 'w' ).write(status_yml)
             cmd = "chgrp %s %s 2> /dev/null"

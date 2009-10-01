@@ -114,12 +114,16 @@ if __name__ == "__main__":
     import optparse
 
     parser = optparse.OptionParser("usage: %prog [-d] <Test Module>")
-    parser.add_option("-d", "--debug", dest="debug", action="store_const", const=True,
-                      help="Turn on debugging")
+    parser.add_option("-d", "--debug", dest="debug", action="store_const",
+                      const=True, help="Turn on debugging")
+    parser.add_option("-s", "--server_home", dest="server_home", metavar = "HOME",
+                      help="Set server home")
+
     (options, modules_to_test) = parser.parse_args()
     debug = False
     if options.debug:
         debug = True
+        
 
     system_state = SystemState()
     system_state.load_config()
@@ -128,6 +132,10 @@ if __name__ == "__main__":
 
     print "(clearing existing connections)"
     system_state.cnm_connector.cleanup_connections()
+
+    if options.server_home:
+        system_state.cnm_connector.sync_server_home(options.server_home)
+
     file_names = glob.glob("*.py")
     module_names = [ x.split('.')[0] for x in file_names ]
     module_names = [ n for n in module_names if n not in IGNORE_MODULE_NAMES ]

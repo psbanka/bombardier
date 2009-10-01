@@ -12,13 +12,13 @@ class MachineConfig:
     """Configuration management class for a machine, this class ties together
        multiple include files, merges them together as well as decrypting 
        individual configuration items"""
-    def __init__(self, host_name, password, server_home):
+    def __init__(self, machine_name, password, server_home):
         self.data       = {}
         self.includes   = []
-        if not host_name:
+        if not machine_name:
             errmsg = "Machine name not specified"
             raise MachineConfigurationException("NOT_DEFINED", errmsg)
-        self.host_name = host_name
+        self.machine_name = machine_name
         self.server_home   = server_home
         if password:
             self.passwd = pad(password)
@@ -53,7 +53,7 @@ class MachineConfig:
         "Apply config items from include files into main config"
         if config_name == '':
             yml_directory = "machine"
-            config_name = self.host_name
+            config_name = self.machine_name
         else:
             yml_directory = "include"
         file_name = os.path.join(self.server_home, yml_directory,
@@ -73,7 +73,7 @@ class MachineConfig:
             file_name = os.path.join(self.server_home, "bom", "%s.yml" % bom)
             if not os.path.isfile(file_name):
                 errmsg = "%s does not exist" % file_name
-                raise MachineConfigurationException(self.host_name, errmsg)
+                raise MachineConfigurationException(self.machine_name, errmsg)
             packages = packages.union(set(syck.load(open(file_name).read())))
         self.data["packages"] = list(packages)
         if self.data.get("bom"):

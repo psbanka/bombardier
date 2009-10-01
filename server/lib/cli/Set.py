@@ -71,15 +71,12 @@ class Set(PinshCmd.PinshCmd):
         elif tokens[1] == "server-home":
             if len(tokens) != 3:
                 raise CommandError("Incomplete command.")
-            url = '/json/server/config'
+            connector = system_state.cnm_connector
             server_home = tokens[2]
-            post_data={"server_home": server_home}
-            output = self.post(url, post_data)
-            if not output["server_home"] == server_home:
-                return FAIL, ["Server home was not set properly"]
-            output = self.post("/json/dbsync", {})
-            if not output["status"] == "OK":
-                return FAIL, ["Server could not sync"]
+            try:
+                connector.sync_server_home(server_home)
+            except UnexpectedDataException, ude:
+                return FAIL, [str(ude)] 
             return OK, ["Server home set to %s" % server_home]
 
     def post(self, url, post_data):

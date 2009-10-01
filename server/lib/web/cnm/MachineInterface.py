@@ -29,14 +29,18 @@ class MachineInterface:
         self.job_name      = None
         self.output_handle = sys.stdout
         self.status        = DISCONNECTED
-        self.connect_time = 0
+        self.connect_time  = 0
         self.ssh_pass      = ''
         self.ssh_conn      = None
+        self.machine_name     = None
+        self.server_home   = None
+        self.data          = {}
+        self.user_name     = None
         self.set_data(machine_config)
 
     def set_data(self, machine_config):
         "Set up MachineInterface data"
-        self.host_name     = machine_config.host_name
+        self.machine_name     = machine_config.machine_name
         self.server_home   = machine_config.server_home
         self.data          = machine_config.data
         self.username      = self.data.get("default_user", None)
@@ -44,19 +48,19 @@ class MachineInterface:
             if self.data.get("enc_username"):
                 raise EnableRequiredException()
             msg = "'default_user' is not defined"
-            raise IncompleteConfigurationException(self.host_name, msg)
+            raise IncompleteConfigurationException(self.machine_name, msg)
         self.ip_address    = self.data.get("ip_address", None)
         if self.ip_address == None:
             if self.data.get("enc_ip_address"):
                 raise EnableRequiredException()
             msg = "'ip_address' is not defined"
-            raise IncompleteConfigurationException(self.host_name, msg)
+            raise IncompleteConfigurationException(self.machine_name, msg)
         self.platform     = self.data.get("platform", None)
         if self.platform == None:
             if self.data.get("enc_platform"):
                 raise EnableRequiredException()
             msg = "'platform' is not defined"
-            raise IncompleteConfigurationException(self.host_name, msg)
+            raise IncompleteConfigurationException(self.machine_name, msg)
 
     def set_job(self, job_name):
         if self.job_name:
@@ -64,15 +68,15 @@ class MachineInterface:
         self.job_name = job_name
         self.polling_log = ServerLogger(job_name)
         self.polling_log.add_stringio_handle()
-        msg = "Binding interface %s to job %s" % (self.host_name, job_name)
-        self.server_log.info(msg, self.host_name)
+        msg = "Binding interface %s to job %s" % (self.machine_name, job_name)
+        self.server_log.info(msg, self.machine_name)
 
     def unset_job(self):
         self.job_name = None
         self.polling_log = None
         msg = "UN-Binding interface %s to job %s"
-        msg = msg % (self.host_name, self.job_name)
-        self.server_log.info(msg, self.host_name)
+        msg = msg % (self.machine_name, self.job_name)
+        self.server_log.info(msg, self.machine_name)
 
     def get_new_logs(self):
         if self.polling_log:
@@ -83,7 +87,7 @@ class MachineInterface:
         self.log(source, TRACEBACK, msg)
 
     def from_output(self, msg, severity=INFO):
-        self.log(self.host_name, severity, msg)
+        self.log(self.machine_name, severity, msg)
 
     def log(self, source, severity, msg):
         formatted_msg = "<<%s|%d|%s>>\n" % (source, severity, msg)
@@ -100,21 +104,21 @@ class MachineInterface:
     def connect(self):
         self.ssh_conn = pxssh.pxssh()
         self.ssh_conn.timeout = 6000
-        msg = "Connecting to %s..." % self.host_name
+        msg = "Connecting to %s..." % self.machine_name
         self.polling_log.info(msg)
-        self.server_log.info(msg, self.host_name)
+        self.server_log.info(msg, self.machine_name)
         try:
             login_okay = self.ssh_conn.login(self.ip_address, self.username,
                                        self.ssh_pass, login_timeout=6000)
             if not login_okay:
                 msg = "Could not connect."
-                raise MachineUnavailableException(self.host_name, msg)
+                raise MachineUnavailableException(self.machine_name, msg)
             self.ssh_conn.sendline('stty -echo')
             self.ssh_conn.prompt()
         except (MachineUnavailableException, pexpect.TIMEOUT):
             msg = "SSH session failed on login."
             self.polling_log.error(msg)
-            self.server_log.error(msg, self.host_name)
+            self.server_log.error(msg, self.machine_name)
             self.status = BROKEN
             return FAIL
         self.status = CONNECTED
@@ -129,7 +133,7 @@ class MachineInterface:
             if self.status == CONNECTED:
                 msg = "Assuming our connection to %s is stale after "\
                       "%4.2f minutes. Reconnecting..."
-                msg = msg % (self.host_name, connection_age / 60.0)
+                msg = msg % (self.machine_name, connection_age / 60.0)
                 self.polling_log.warning(msg)
                 self.disconnect()
             if self.connect() != OK:
@@ -145,7 +149,7 @@ class MachineInterface:
         if dead:
             msg = "Our connection handle is dead. Reconnecting..."
             self.polling_log.warning(msg)
-            self.server_log.warning(msg, self.host_name)
+            self.server_log.warning(msg, self.machine_name)
             try:
                 self.disconnect()
             except:
@@ -160,7 +164,7 @@ class MachineInterface:
         select_index = scp_conn.expect(expect_list, timeout=50)
         if select_index == 0:
             msg = scp_conn.before+'|'+scp_conn.after
-            raise MachineUnavailableException(self.host_name, msg)
+            raise MachineUnavailableException(self.machine_name, msg)
         if select_index == 1:
             scp_conn.sendline('yes')
             scp_conn.expect('[pP]assword: ', timeout=30)
@@ -168,7 +172,7 @@ class MachineInterface:
                                            '[pP]assword: '], timeout=50)
             if select_index == 0:
                 msg = scp_conn.before+'|'+scp_conn.after
-                raise MachineUnavailableException(self.host_name, msg)
+                raise MachineUnavailableException(self.machine_name, msg)
             scp_conn.sendline(self.ssh_pass)
         if select_index == 2:
             scp_conn.sendline(self.ssh_pass)
@@ -190,16 +194,16 @@ class MachineInterface:
         if not os.path.isfile(source):
             msg = "Attempting to send nonexistant file: %s" % source
             self.server_log.error(msg)
-            self.polling_log.error(msg, self.host_name)
+            self.polling_log.error(msg, self.machine_name)
             raise SecureCopyException(source, dest, msg)
         if verbose:
-            msg = "Sending %s to %s:%s" % (source, self.host_name, dest)
+            msg = "Sending %s to %s:%s" % (source, self.machine_name, dest)
             self.polling_log.info(msg)
-            self.server_log.info(msg, self.host_name)
+            self.server_log.info(msg, self.machine_name)
         else:
             msg = "Sending %s..." % (source)
             self.polling_log.info(msg)
-            self.server_log.info(msg, self.host_name)
+            self.server_log.info(msg, self.machine_name)
         cmd = 'scp -v %s %s@%s:%s'
         cmd = cmd % (source, self.username, self.ip_address, dest)
         try:
@@ -245,7 +249,7 @@ class MachineInterface:
                 dest_dir = '.'
             else:
                 dest_dir = os.path.join(self.spkg_dir, 
-                                        self.host_name, file_type)
+                                        self.machine_name, file_type)
             for source_file in copy_dict[file_type]:
                 source_path = os.path.join(self.server_home, file_type,
                                            source_file)
@@ -276,14 +280,14 @@ class MachineInterface:
         if cmd_debug:
             msg = "* RUNNING: %s" % cmd
             self.polling_log.debug(msg)
-            self.server_log.debug(msg, self.host_name)
+            self.server_log.debug(msg, self.machine_name)
         try:
             self.ssh_conn.sendline( cmd )
             self.ssh_conn.prompt()
         except EOF:
             if raise_on_error:
                 msg = "Error running %s" % (cmd)
-                raise MachineUnavailableException(self.host_name, msg)
+                raise MachineUnavailableException(self.machine_name, msg)
             else:
                 return ""
         output = self.ssh_conn.before.strip()
@@ -295,8 +299,8 @@ class MachineInterface:
         "Run a remote shell command"
         self.report_info = ''
         if self.freshen() != OK:
-            msg = "Unable to connect to %s." % self.host_name
-            raise MachineUnavailableException(self.host_name, msg)
+            msg = "Unable to connect to %s." % self.machine_name
+            raise MachineUnavailableException(self.machine_name, msg)
         return_code = OK
         self.ssh_conn.sendline(command_string)
         command_complete = False
@@ -332,26 +336,26 @@ class MachineInterface:
         invalid_data_msg = "Invalid client configuration data"
         if data:
             self.polling_log.error(invalid_data_msg)
-            self.server_log.error(invalid_data_msg, self.host_name)
+            self.server_log.error(invalid_data_msg, self.machine_name)
             if len(data) == 2:
                 need_msg = "Need option '%s' in section '%s'." % \
                             (data[0], data[1])
             else:
                 need_msg = "Need options: %s" % data
             self.polling_log.info(need_msg)
-            self.server_log.error(need_msg, self.host_name)
+            self.server_log.error(need_msg, self.machine_name)
         no_section_re = re.compile("NoSectionError\: No section\: \'(\w+)\'")
         data = no_section_re.findall(t_string)
         if data:
             self.polling_log.error(invalid_data_msg)
-            self.server_log.error(invalid_data_msg, self.host_name)
+            self.server_log.error(invalid_data_msg, self.machine_name)
             need_msg = "Need section '%s'." % (data[0])
             self.polling_log.info(need_msg)
-            self.server_log.error(need_msg, self.host_name)
+            self.server_log.error(need_msg, self.machine_name)
         else:
             for line in stack_trace:
                 self.polling_log.error(line)
-                self.server_log.error(line, self.host_name)
+                self.server_log.error(line, self.machine_name)
 
     def check_result(self):
         self.ssh_conn.setecho(False)

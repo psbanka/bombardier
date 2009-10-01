@@ -14,6 +14,7 @@ from configs.models import DistModelFactory, StatusModelFactory
 from bombardier_core.static_data import OK, FAIL
 import os
 import MachineConfig
+import MachineStatus
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 
@@ -104,6 +105,37 @@ class IncludeEntry(ConfigEntry):
         "Call superclass read method with config type"
         return super(IncludeEntry, self).update(request,
                                                 "include", include_name)
+
+class StatusSummaryEntry(CnmResource):
+    "Config entry for dist type (used for python distutils packages)."
+
+def getNamesFromProgress(hostName, stripped=False):
+    progressData = getProgressData(hostName)
+    if progressData == None:
+         (installedPackageNames, brokenPackageNames) = ([],[])
+    else:
+
+        pkgInfo = getInstalledUninstalledTimes(progressData)
+        unstrippedInstPkgs    = [packageName[0] for packageName in pkgInfo["installed"]]
+        unstrippedBrokenPkgs  = [packageName[0] for packageName in pkgInfo["brokenInstalled"]]
+        unstrippedBrokenPkgs += [packageName[0] for packageName in pkgInfo["brokenUninstalled"]]
+
+        if stripped:
+            installedPackageNames = [ stripVersion(x) for x in unstrippedInstPkgs]
+            brokenPackageNames    = [ stripVersion(x) for x in unstrippedBrokenPkgs]
+        else:
+            installedPackageNames = unstrippedInstPkgs
+            brokenPackageNames    = unstrippedBrokenPkgs
+    return (set(installedPackageNames), set(brokenPackageNames))
+
+    @login_required
+    def read(self, request, machine_name):
+        "Digest useful information from the status of the server"
+        server_home = self.get_server_home()
+        mbs = MachineStatus(server_home, machine_name)
+        output = mbs.machine_install_status()
+        responder = JsonDictResponder(output)
+        return responder.element(request)
 
 class StatusEntry(ConfigEntry):
     "Status config entry"
@@ -314,5 +346,7 @@ urlpatterns = patterns('',
    url(r'^json/status/search/(?P<machine_name>.*)', StatusCollection()),
    url(r'^json/status/name/(?P<machine_name>.*)$',
        StatusEntry(permitted_methods=['GET'])),
+   url(r'^json/status-summary/(?P<machine_name>.*)$',
+       StatusSummaryEntry(permitted_methods=['GET'])),
    url(r'^server/config', config_setting_form),
 )

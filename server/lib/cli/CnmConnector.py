@@ -237,6 +237,17 @@ class CnmConnector:
             curl_obj.setopt(pycurl.POST, 1)
         return self.perform_request(curl_obj, full_path)
 
+    def sync_server_home(self, server_home_path):
+        url = '/json/server/config'
+        post_data={"server_home": server_home_path}
+        output = self.service_yaml_request(url, post_data=post_data)
+        new_path = output["server_home"]
+        if new_path != server_home_path:
+            raise UnexpectedDataException("server_home is set to %s" % new_path)
+        output = self.service_yaml_request("/json/dbsync", post_data={"a":"a"})
+        if not output["status"] == "OK":
+            raise UnexpectedDataException("Server could not sync")
+
     def service_yaml_request(self, path, args=None,
                              put_data=None, post_data=None, timeout=None):
         '''same as service_request, but assumes that return data from the server

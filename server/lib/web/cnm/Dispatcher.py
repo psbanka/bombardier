@@ -210,7 +210,7 @@ class Dispatcher(Pyro.core.ObjBase):
         if not copy_dict:
             copy_dict = {}
         try:
-            machine_name = machine_interface.host_name
+            machine_name = machine_interface.machine_name
             job_name = "%s@%s-%d" % (username, machine_name, self.next_job)
             job = Job(job_name, machine_interface, copy_dict, commands)
             self.jobs[job_name] = job
