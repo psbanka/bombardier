@@ -65,7 +65,8 @@ class Set(PinshCmd.PinshCmd):
                 configuration_key = tokens[2]
             url = "/json/dispatcher/set-password"
             post_data = {"password": configuration_key}
-            output = self.post( url, post_data )
+            syr = system_state.cnm_connector.service_yaml_request
+            output = syr(url, post_data=post_data)
             return output["command_status"], output["command_output"]
 
         elif tokens[1] == "server-home":
@@ -78,10 +79,4 @@ class Set(PinshCmd.PinshCmd):
             except UnexpectedDataException, ude:
                 return FAIL, [str(ude)] 
             return OK, ["Server home set to %s" % server_home]
-
-    def post(self, url, post_data):
-        connector = system_state.cnm_connector
-        output = connector.service_yaml_request(url, post_data=post_data)
-        return output
-
 

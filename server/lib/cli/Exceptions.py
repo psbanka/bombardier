@@ -29,6 +29,12 @@
 
 'Classes that hold command-line interface-specific exceptions'
 
+class ExceptionBase(Exception):
+    def __init__(self):
+        Exception.__init__(self)
+    def __str__(self):
+        return self.__repr__()
+
 class CommandError(Exception):
     '''If any command is improper, this can be thrown instead of a fail'''
     def __init__(self, error_string):
@@ -63,6 +69,13 @@ class ConfigFileException(Exception):
                % (self.fileName, self.message)
     def __str__(self):
         return self.__repr__()
+
+class ServerTracebackException(ExceptionBase):
+    def __init__(self, traceback_lines):
+        ExceptionBase.__init__(self)
+        self.traceback_lines = traceback_lines
+    def __repr__(self):
+        return self.traceback_lines
 
 class ServerException(Exception):
     '''It is necessary to communicate with the RESTful Bombardier web server

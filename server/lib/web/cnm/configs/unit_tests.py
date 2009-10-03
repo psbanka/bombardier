@@ -19,10 +19,8 @@ import os, sys, yaml
 from bombardier_core.static_data import SERVER_CONFIG_FILE, OK, FAIL
 import time
 
-# WEIRD SHIT: ============
 import unittest
 from django.test.client import Client
-# =========================
 
 
 TEST_PASSWORD = "testpass1234"
@@ -143,6 +141,27 @@ class BasicTest:
         response = self.client.post(path=url, data={})
         return join_output["command_status"], join_output["complete_log"]
 
+    def make_localhost_config(self, additional_config={}):
+        config = {"ip_address": "127.0.0.1",
+                  "default_user": os.getlogin(),
+                  "spkg_path": "/opt/spkg",
+                  "platform": sys.platform,
+                 }
+        self.make_localhost_yaml_file(config, additional_config, "machine")
+
+    def make_localhost_status(self, additional_config={}):
+        status_dict = { "clientVersion" : "0.70-595",
+                        "install-progress" : {},
+                        "local-packages" : [],
+                        "status" : { "newInstall" : 'True' }}
+        self.make_localhost_yaml_file(status_dict, additional_config, "status")
+
+    def make_localhost_yaml_file(self, data_dict, additional_data, yaml_subdir):
+        data_dict.update(additional_data)
+        data_path = os.path.join(self.test_server_home, yaml_subdir,
+                                   "localhost.yml")
+        open(data_path, 'w').write(yaml.dump(data_dict))
+
 class CnmTests(unittest.TestCase, BasicTest):
 
     def setUp(self):
@@ -260,6 +279,38 @@ class CnmTests(unittest.TestCase, BasicTest):
         assert content_dict["status"] == OK
         assert content_dict["message"] == "update"
 
+    def test_summary(self):
+        url = "/json/summary/name/localhost"
+        response = self.client.get(url)
+        content_dict = json.loads( response.content )
+        assert content_dict["status"] == OK, content_dict
+
+        test_dict = {"value":"test_value", "directory": "/tmp/foogazi"}
+        config_packages = ["TestPackageType4"]
+        package_config = {"test": test_dict,
+                          "packages": config_packages,  
+                        }
+        self.make_localhost_config(additional_config=package_config)
+
+        install_progress_yaml = """TestPackageType5:
+                                       DEPENDENCY_ERRORS: []
+                                       INSTALLED: Tue Jul 28 12:06:13 2009
+                                       UNINSTALLED: NA
+                                       VERIFIED: Mon Jul 13 13:46:28 2009"""
+        install_progress = yaml.load(install_progress_yaml)
+        status_config = { "install-progress": install_progress }
+
+        self.make_localhost_status(additional_config=status_config)
+        
+        response = self.client.get(url)
+        content_dict = json.loads( response.content )
+        assert content_dict["status"] == OK, content_dict
+        assert content_dict["not_installed"] == config_packages, content_dict
+        assert content_dict["installed"] == ["TestPackageType5"], content_dict
+
+        
+
+
 class DispatcherTests(unittest.TestCase, BasicTest):
 
     def setUp(self):
@@ -313,17 +364,6 @@ class PackageTests(unittest.TestCase, BasicTest):
         post_data={"machine": "localhost", "action": action}
         status, output = self.run_job(url, data=post_data, timeout=60)
         return status, output
-
-    def make_localhost_config(self, additional_config={}):
-        config = {"ip_address": "127.0.0.1",
-                  "default_user": os.getlogin(),
-                  "spkg_path": "/opt/spkg",
-                  "platform": sys.platform,
-                 }
-        config.update(additional_config)
-        config_path = os.path.join(self.test_server_home, "machine",
-                                   "localhost.yml")
-        open(config_path, 'w').write(yaml.dump(config))
 
     def reset_packages(self):
         status_dict = {"clientVersion": "0.70-595",
@@ -479,7 +519,7 @@ def initialize_tests(client):
     content_dict = json.loads( response.content )
     assert content_dict["command_status"] == OK
 
-def rip_out_test_intestines(client):
+def tear_down_dispatcher(client):
     url = '/json/dispatcher/stop'
     response = client.post(url, {})
     content_dict = json.loads( response.content )
@@ -489,7 +529,7 @@ if __name__ == '__main__':
     client = Client()
     initialize_tests(client)
 
-    full_suite = True
+    full_suite = 0
     suite = unittest.TestSuite()
     if full_suite:
         suite.addTest(unittest.makeSuite(CnmTests))
@@ -497,9 +537,9 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        suite.addTest(PackageTests("test_insufficient_config"))
-        suite.addTest(PackageTests("test_package_actions"))
+        suite.addTest(CnmTests("test_summary"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)
 
-    rip_out_test_intestines(client)
+    tear_down_dispatcher(client)
+

@@ -43,6 +43,7 @@ PACKAGE = 5
 USER = 6
 DIST = 7
 STATUS = 8
+SUMMARY = 9
 
 class ConfigField(PinshCmd.PinshCmd):
     '''The server keeps track of several types of configuration data.
@@ -79,6 +80,8 @@ class ConfigField(PinshCmd.PinshCmd):
             self.directory = "dist"
         elif data_type == STATUS:
             self.directory = "status"
+        elif data_type == SUMMARY:
+            self.directory = "summary"
 
     def get_object_list(self):
         'returns a list of all self.data_type things'

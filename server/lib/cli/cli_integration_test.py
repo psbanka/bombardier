@@ -130,6 +130,9 @@ if __name__ == "__main__":
     logger = Logger('bombardier_test', 'test.log')
     libUi.login("admin", logger, 'abc123')
 
+    output = system_state.cnm_connector.dispatcher_control("start")
+    print "OUTPUT FROM DISPATCHER START", output
+
     print "(clearing existing connections)"
     system_state.cnm_connector.cleanup_connections()
 

@@ -70,6 +70,13 @@ class Status(ShowType):
         self.config_field = ConfigField.ConfigField(data_type=ConfigField.STATUS)
         self.children = [self.config_field]
 
+class Summary(ShowType):
+    'Displays status of a machine'
+    def __init__(self):
+        ShowType.__init__(self, "summary", "summary\tshows installation status summary")
+        self.config_field = ConfigField.ConfigField(data_type=ConfigField.SUMMARY)
+        self.children = [self.config_field]
+
 class Dist(ShowType):
     'Displays basic machine configuration data from the server'
     def __init__(self):
@@ -211,6 +218,8 @@ class Show(PinshCmd.PinshCmd):
        [OK, ['default_user: root', 'ip_address: 127.0.0.1', 'packages:', '- TestPackageType4', 'platform: linux', 'test:', '  directory: /tmp/testthing', '  value: hello_kitty', '']]
        bomsh# show dist test
        [OK, ['description: Open Source Empty package', 'dist_name: EMPTY_TEST', 'name: test', "version: '1'", '']]
+       bomsh# show summary localhost
+       [OK, ['broken: []', 'installed: []', 'not_installed:', '- TestPackageType4', 'status: 0', '']]
     '''
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "show")
@@ -224,6 +233,7 @@ class Show(PinshCmd.PinshCmd):
         user    = User()
         dist    = Dist()
         bom = Bom()
-        self.children = [merged, machine, include, bom, history, package, user, dist, status]
+        summary = Summary()
+        self.children = [merged, machine, include, bom, history, package, user, dist, status, summary]
         self.cmd_owner = 1
 

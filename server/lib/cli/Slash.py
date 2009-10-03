@@ -35,7 +35,8 @@ import traceback, StringIO
 import exceptions, readline
 import sys
 import PinshCmd, libUi
-from Exceptions import AmbiguousCommand, UnknownCommand, CommandError
+from Exceptions import AmbiguousCommand, UnknownCommand
+from Exceptions import CommandError, ServerTracebackException
 from SystemStateSingleton import SystemState
 system_state = SystemState()
 from bombardier_core.static_data import FAIL, OK, DEBUG
@@ -78,6 +79,8 @@ class Slash(PinshCmd.PinshCmd):
             return FAIL, [str(amb_err)]
         except UnknownCommand, unk_err:
             return FAIL, [str(unk_err)]
+        except ServerTracebackException, trc:
+            return FAIL, ['Server traceback: ', [trc.traceback_lines]]
         if return_value == None or len(return_value) != 2:
             return OK, []
         else:

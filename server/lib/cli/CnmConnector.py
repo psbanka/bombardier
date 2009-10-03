@@ -37,7 +37,9 @@ import urllib2, urlparse, os
 import yaml, syck
 import pycurl
 import urllib
-from Exceptions import UnexpectedDataException, ServerException, MachineTraceback
+from bombardier_core.static_data import OK
+from Exceptions import UnexpectedDataException, ServerException
+from Exceptions import MachineTraceback, ServerTracebackException
 
 LOGIN_PATH = "/accounts/login/"
 
@@ -112,6 +114,8 @@ class Response:
                 raise UnexpectedDataException("Not a list or dictionary")
             if output == None:
                 raise UnexpectedDataException("Null value received")
+            if 'traceback' in output:
+                raise ServerTracebackException(output['traceback'])
             return output
         raise UnexpectedDataException("can't convert to yaml")
 
@@ -221,9 +225,9 @@ class CnmConnector:
         if self.debug:
             self.logger.debug("Performing service request to %s" % url)
         curl_obj = self.prepare_curl_object(url)
-        if timeout:
+        if timeout != None:
             curl_obj.setopt(pycurl.TIMEOUT, timeout)
-        if put_data:
+        if put_data != None:
             curl_obj.setopt(pycurl.UPLOAD, 1)
             curl_obj.setopt(pycurl.INFILESIZE, len(put_data))
             out_data = StringIO.StringIO(put_data)
@@ -251,10 +255,9 @@ class CnmConnector:
     def service_yaml_request(self, path, args=None,
                              put_data=None, post_data=None, timeout=None):
         '''same as service_request, but assumes that return data from the server
-        is YAML(JSON) and converts it to return a python dictionary instead of
-        text.'''
+        is YAML(JSON) and converts it to return a python dictionary instead of text.'''
         try:
-            if put_data:
+            if put_data != None:
                 if type(put_data) == type(["list"]) or \
                    type(put_data) == type({}):
                     put_data = yaml.dump(put_data)
@@ -282,3 +285,21 @@ class CnmConnector:
             raise MachineTraceback(url, out["traceback"])
         return output
 
+    def dispatcher_control(self, action):
+        dispatcher_url = "/json/dispatcher/%s" % action
+        if action == "status":
+            output = self.service_yaml_request(dispatcher_url)
+            return_list = [ "uptime: %7.2f" % float(output['uptime']),
+                            "active_jobs: %s" % output['active_jobs']]
+            return OK, return_list
+        else:
+            try:
+                output = self.service_yaml_request(dispatcher_url, 
+                                                   post_data = {}, timeout=5)
+            except ServerException:
+                if action == "start":
+                    output = {"command_status": OK,
+                              "command_output": ['Dispatcher started']}
+                else:
+                    raise
+        return output["command_status"], output["command_output"]
