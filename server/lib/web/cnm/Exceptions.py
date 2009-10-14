@@ -4,6 +4,13 @@ class ExceptionBase(Exception):
     def __str__(self):
         return self.__repr__()
 
+class MachineStatusException(ExceptionBase):
+    def __init__(self, msg):
+        ExceptionBase.__init__(self)
+        self.msg = msg
+    def __repr__(self):
+        return "Error in status data: %s" % self.msg
+
 class InvalidAction(Exception):
     def __init__(self, package_name, action_name):
         Exception.__init__(self)

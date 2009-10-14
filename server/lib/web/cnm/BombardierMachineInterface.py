@@ -8,6 +8,7 @@ import copy
 import traceback
 from MachineInterface import MachineInterface, MachineUnavailableException
 from Exceptions import MachineConfigurationException, BombardierMachineException
+from Exceptions import MachineStatusException
 from bombardier_core.mini_utility import strip_version
 from bombardier_core.static_data import OK, FAIL, PURGE, EXECUTE
 from bombardier_core.static_data import INIT, ACTION_DICT, RETURN_DICT
@@ -178,24 +179,43 @@ class BombardierMachineInterface(MachineInterface):
                     return True
         return False
 
-    def send_all_client_data(self, action):
-        "Stream package metadata to a remote client"
+    def scp_all_client_data(self, raw_data):
+        import random
+        from bombardier_core import libCipher
+
+        enc_key = self.data['config_key']
+        yaml_data_str = yaml.dump(raw_data)
+        enc_data = libCipher.encrypt(yaml_data_str, enc_key)
+        dest_path = os.path.join(self.spkg_dir, self.machine_name, "client.yml.enc")
+        temp_file = os.path.join("/tmp", ''.join(random.sample('abcdefghijklmnopqrstuvwxyz', 14)))
+        open(temp_file, 'w').write(enc_data)
+        self.scp(temp_file, dest_path, False)
+        self.stream_data("config_key: '%s'\n" % enc_key)
+
+    def get_all_client_data(self):
         send_data = {"configData": self.data, 
                      "package_data": {},
                      "packageData": {}, # FIXME
                     }
-        if action != PURGE:
-            package_names = self.machine_status.get_all_package_names(self.data.get("packages"))
-            for package_name in package_names:
-                this_package_data = self.machine_status.get_package_data(package_name)
-                if not this_package_data:
-                    message = "Could not find package data for %s."
-                    self.polling_log.error(message % package_name)
-                    raise MachineConfigurationException(self.machine_name)
-                send_data["package_data"][package_name] = this_package_data
-                # FIXME
-                send_data["packageData"][package_name] = this_package_data 
-        self.stream_data(yaml.dump(send_data))
+        package_names = self.machine_status.get_all_package_names(self.data.get("packages"))
+        for package_name in package_names:
+            this_package_data = self.machine_status.get_package_data(package_name)
+            if not this_package_data:
+                message = "Could not find package data for %s."
+                self.polling_log.error(message % package_name)
+                raise MachineConfigurationException(self.machine_name)
+            send_data["package_data"][package_name] = this_package_data
+            # FIXME
+            send_data["packageData"][package_name] = this_package_data 
+        return send_data
+
+    def send_all_client_data(self):
+        "Stream package metadata to a remote client"
+        send_data = self.get_all_client_data()
+        if 'config_key' in self.data:
+            self.scp_all_client_data(send_data)
+        else:
+            self.stream_data(yaml.dump(send_data))
 
     def get_bc_command(self):
         "Get shell command to run bc.py on the target system."
@@ -229,7 +249,7 @@ class BombardierMachineInterface(MachineInterface):
         cmd += " %s %s %s %s" % (ACTION_DICT[action],
                                 self.machine_name, package_name, script_name)
         self.ssh_conn.sendline(cmd)
-        self.send_all_client_data(action)
+        self.send_all_client_data()
         self.watch_bc()
 
         try:
@@ -267,8 +287,14 @@ class BombardierMachineInterface(MachineInterface):
     def upload_new_packages(self):
         "Send needed packages to a machine"
         dest_path = os.path.join(self.spkg_dir, self.machine_name, "packages")
-        package_names = self.machine_status.get_package_names_from_progress()
-        delivered_packages = package_names.get(LOCAL_PACKAGES, [])
+        try:
+            package_names = self.machine_status.get_package_names_from_progress()
+            delivered_packages = package_names.get(LOCAL_PACKAGES, [])
+        except MachineStatusException:
+            msg = "No/invalid status data. Assuming there are "\
+                  "no packages on remote system"
+            self.polling_log.warning(msg)
+            delivered_packages = []
         required_base_names = copy.deepcopy(self.data.get("packages"))
         newest_names = []
         for base_name in required_base_names:
@@ -299,8 +325,9 @@ class BombardierMachineInterface(MachineInterface):
         except MachineUnavailableException:
             message = ["Remote system refused connection."]
             self.exit_code = FAIL
-        except MachineConfigurationException:
+        except MachineConfigurationException, exc:
             self.exit_code = FAIL
+            message = ["Machine configuration error: %s" % exc]
         except EOF:
             self.exit_code = FAIL
             message = ["Machine unexpectedly disconnected."]
