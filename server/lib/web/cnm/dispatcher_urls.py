@@ -184,6 +184,8 @@ class MachineCleanupEntry(CnmResource):
         try:
             dispatcher = self.get_dispatcher()
             output = dispatcher.cleanup_connections(request.user)
+        except DispatcherOffline:
+            output = {}
         except Exception:
             output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
@@ -228,7 +230,7 @@ class DispatcherControlEntry(CnmResource):
         try:
             dispatcher = self.get_dispatcher()
             if action == "status":
-                output = dispatcher.check_status()
+                output.update( dispatcher.check_status() )
             else:
                 raise InvalidDispatcherAction(action)
         except DispatcherOffline:

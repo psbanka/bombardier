@@ -135,6 +135,19 @@ class ConfigField(PinshCmd.PinshCmd):
             return '' # EXPERIMENTAL CHANGE from []
         return data
 
+    def post_specific_data(self, tokens, index, new_data):
+        '''used with the edit command to upload data to server'''
+        tokens[index] = tokens[index].replace('"', '')
+        try:
+            first_token_names, data = self.get_top_level_data(tokens, index)
+        except TypeError:
+            return FAIL, "Unable to read data from server"
+        url = "json/%s/name/%s" % ( self.directory, first_token_names[0])
+        post_data = {"yaml": new_data}
+        output_dict = system_state.cnm_connector.service_yaml_request(url,
+                                                               post_data=post_data)
+        return output_dict["status"], output_dict["message"]
+
     def preferred_names(self, tokens, index):
         '''Provide a list of names that the system would prefer to use, other
         than that which was typed in by the user. For example, 'sho mach localh'

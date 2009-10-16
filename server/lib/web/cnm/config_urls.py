@@ -36,17 +36,17 @@ class ConfigEntry(CnmResource):
         return responder.element(request, config_name)
 
     @login_required
-    def update(self, request, config_type, config_name):
-        "Default PUT method for ConfigEntry"
-        yaml_string = request.PUT["yaml"]
+    def create(self, request, config_type, config_name):
+        "Default POST method for ConfigEntry"
+        yaml_string = request.POST["yaml"]
         server_home = self.get_server_home()
         file_path = os.path.join(server_home, config_type,
                                  "%s.yml" % config_name)
         output = {"status": OK}
         if os.path.isfile(file_path):
-            output["message"] = "update"
+            output["message"] = "updated %s" % file_path
         else:
-            output["message"] = "create" 
+            output["message"] = "created %d"  % file_path
         try:
             open(file_path, 'w').write(yaml_string)
         except IOError, ioe:
@@ -63,9 +63,9 @@ class MachineEntry(ConfigEntry):
         return super(MachineEntry, self).read(request, "machine", machine_name)
 
     @login_required
-    def update(self, request, machine_name):
+    def create(self, request, machine_name):
         "Call superclass read method with config type"
-        return super(MachineEntry, self).update(request,
+        return super(MachineEntry, self).create(request,
                                                 "machine", machine_name)
 
 class PackageEntry(ConfigEntry):
@@ -76,9 +76,9 @@ class PackageEntry(ConfigEntry):
         return super(PackageEntry, self).read(request, "package", package_name)
 
     @login_required
-    def update(self, request, package_name):
+    def create(self, request, package_name):
         "Call superclass read method with config type"
-        return super(PackageEntry, self).update(request,
+        return super(PackageEntry, self).create(request,
                                                 "package", package_name)
 
 class BomEntry(ConfigEntry):
@@ -89,9 +89,9 @@ class BomEntry(ConfigEntry):
         return super(BomEntry, self).read(request, "bom", bom_name)
 
     @login_required
-    def update(self, request, bom_name):
+    def create(self, request, bom_name):
         "Call superclass read method with config type"
-        return super(BomEntry, self).update(request, "bom", bom_name)
+        return super(BomEntry, self).create(request, "bom", bom_name)
 
 class IncludeEntry(ConfigEntry):
     "Include config entry"
@@ -101,9 +101,9 @@ class IncludeEntry(ConfigEntry):
         return super(IncludeEntry, self).read(request, "include", include_name)
 
     @login_required
-    def update(self, request, include_name):
+    def create(self, request, include_name):
         "Call superclass read method with config type"
-        return super(IncludeEntry, self).update(request,
+        return super(IncludeEntry, self).create(request,
                                                 "include", include_name)
 
 class SummaryEntry(CnmResource):
@@ -311,16 +311,16 @@ urlpatterns = patterns('',
    url(r'^json/machine/search/(?P<machine_name>.*)',
        MachineCollection()),
    url(r'^json/machine/name/(?P<machine_name>.*)$',
-       MachineEntry(permitted_methods=['GET', 'PUT'])),
+       MachineEntry(permitted_methods=['GET', 'POST'])),
    url(r'^json/include/search/(?P<include_name>.*)', IncludeCollection()),
    url(r'^json/include/name/(?P<include_name>.*)$',
-       IncludeEntry(permitted_methods=['GET', 'PUT'])),
+       IncludeEntry(permitted_methods=['GET', 'POST'])),
    url(r'^json/bom/search/(?P<bom_name>.*)', BomCollection()),
    url(r'^json/bom/name/(?P<bom_name>.*)$',
-       BomEntry(permitted_methods=['GET', 'PUT'])),
+       BomEntry(permitted_methods=['GET', 'POST'])),
    url(r'^json/package/search/(?P<package_name>.*)', PackageCollection()),
    url(r'^json/package/name/(?P<package_name>.*)$',
-       PackageEntry(permitted_methods=['GET', 'PUT'])),
+       PackageEntry(permitted_methods=['GET', 'POST'])),
    url(r'^json/dist/search/(?P<dist_name>.*)', DistCollection()),
    url(r'^json/dist/name/(?P<dist_name>.*)', DistEntry()),
    url(r'^json/status/search/(?P<machine_name>.*)', StatusCollection()),

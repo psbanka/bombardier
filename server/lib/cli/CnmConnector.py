@@ -37,7 +37,7 @@ import urllib2, urlparse, os
 import yaml, syck
 import pycurl
 import urllib
-from bombardier_core.static_data import OK
+from bombardier_core.static_data import OK, FAIL
 from Exceptions import UnexpectedDataException, ServerException
 from Exceptions import MachineTraceback, ServerTracebackException
 
@@ -153,6 +153,8 @@ class CnmConnector:
         curl_obj.setopt(pycurl.FOLLOWLOCATION, 1)
         curl_obj.setopt(pycurl.COOKIEFILE, self.cookie_file)
         curl_obj.setopt(pycurl.COOKIEJAR, self.cookie_file)
+        if self.debug:
+            print "CONNECTING TO: ",url
         if self.username and self.password:
             auth_string = "%s:%s" % (self.username, self.password)
             curl_obj.setopt(pycurl.USERPWD, auth_string)
@@ -175,6 +177,8 @@ class CnmConnector:
         curl_obj.setopt(pycurl.WRITEFUNCTION, output.store)
         curl_obj.setopt(pycurl.HEADERFUNCTION, header.store)
         response = Response(header, output)
+        if self.debug:
+            print "PERFORMING:", curl_obj
         try:
             curl_obj.perform()
             http_code = curl_obj.getinfo(pycurl.HTTP_CODE)
@@ -196,6 +200,8 @@ class CnmConnector:
             post_data.append((key, data[key]))
         encoded_post_data = urllib.urlencode(post_data)
         curl_obj.setopt(pycurl.POSTFIELDS, encoded_post_data)
+        if self.debug:
+            print "POSTING:", encoded_post_data
         return self.perform_request(curl_obj, full_path)
 
     def login(self, password):
@@ -223,15 +229,20 @@ class CnmConnector:
         query_string = make_query_string(args)
         url = urlparse.urljoin(full_path, query_string)
         if self.debug:
+            print "SERVICE REQUEST!!"
             self.logger.debug("Performing service request to %s" % url)
         curl_obj = self.prepare_curl_object(url)
         if timeout != None:
             curl_obj.setopt(pycurl.TIMEOUT, timeout)
+            if self.debug:
+                print "Setting timeout: ", timeout
         if put_data != None:
             curl_obj.setopt(pycurl.UPLOAD, 1)
             curl_obj.setopt(pycurl.INFILESIZE, len(put_data))
             out_data = StringIO.StringIO(put_data)
             curl_obj.setopt(pycurl.READFUNCTION, out_data.read)
+            if self.debug:
+                print "Setting PUT data"
         if post_data != None:
             post_list = []
             for key in post_data:
@@ -239,6 +250,8 @@ class CnmConnector:
             encoded_post_data = urllib.urlencode(post_list)
             curl_obj.setopt(pycurl.POSTFIELDS, encoded_post_data)
             curl_obj.setopt(pycurl.POST, 1)
+            if self.debug:
+                print "POSTING:", encoded_post_data
         return self.perform_request(curl_obj, full_path)
 
     def sync_server_home(self, server_home_path):
@@ -285,13 +298,24 @@ class CnmConnector:
             raise MachineTraceback(url, out["traceback"])
         return output
 
+    def set_password(self, password):
+        url = "/json/dispatcher/set-password"
+        post_data = {"password": password}
+        output = self.service_yaml_request(url, post_data=post_data)
+        return output["command_status"], output["command_output"]
+
     def dispatcher_control(self, action):
         dispatcher_url = "/json/dispatcher/%s" % action
         if action == "status":
             output = self.service_yaml_request(dispatcher_url)
-            return_list = [ "uptime: %7.2f" % float(output['uptime']),
-                            "active_jobs: %s" % output['active_jobs']]
-            return OK, return_list
+            if output.get('command_status') == OK:
+                return_list = [ "uptime: %7.2f" % float(output['uptime']),
+                                "active_jobs: %s" % output['active_jobs']]
+                return_status = OK
+            else:
+                return_list = ["Dispatcher is offline."]
+                return_status = FAIL
+            return return_status, return_list
         else:
             try:
                 output = self.service_yaml_request(dispatcher_url, 
