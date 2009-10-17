@@ -35,6 +35,7 @@ __author__ =  'Peter Banka, Shawn Sherwood'
 __version__ = '1.0'
 
 import PinshCmd
+import PackageActionField
 from ConfigField import ConfigField, MACHINE, DIST, PACKAGE
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState, ENABLE
@@ -75,11 +76,7 @@ class Package(PinshCmd.PinshCmd):
         self.package_field = ConfigField(data_type=PACKAGE)
         self.children = [self.package_field]
 
-        choices = ["install", "uninstall", "verify", "configure"]
-        help_text = ["install a package", "uninstall a package",
-                     "verify a package", "configure a package"]
-        package_actions = MultipleChoice.MultipleChoice(choices, help_text)
-
+        package_actions = PackageActionField.PackageActionField()
         self.package_field.children = [package_actions]
 
         self.machine_field = ConfigField(data_type=MACHINE)
