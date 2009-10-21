@@ -45,6 +45,9 @@ WARNING=3
 ERROR=4
 CRITICAL=5
 
+LOG_LEVEL_LOOKUP = {"DEBUG": DEBUG, "INFO": INFO, "WARNING": WARNING,
+                    "ERROR": ERROR, "CRITICAL": CRITICAL}
+
 
 # AUTHORIZATION
 USER = 0
@@ -64,7 +67,6 @@ DATA          = 2
 TEST_TITLE = "TEST"
 PACKAGE_DB = "packages.yml"
 
-DEBUG            = 0
 # PinshCmds
 NO_MATCH  = "NO_MATCH"
 PARTIAL  = "PARTIAL"
@@ -141,9 +143,11 @@ NO_COLOR  = 'none'
 DARK      = "dark"
 LIGHT     = "light"
 
+NORMAL_COLOR = {LIGHT: '[0;30m', DARK: '[1;37m'}
 GOOD_COLOR = {LIGHT: '[0;32m', DARK: '[1;32m'}
 WARNING_COLOR = {LIGHT: '[0;31m', DARK: '[1;31m'}
 STRONG_COLOR = {LIGHT: '[0;36m', DARK: '[1;33m'}
+WEAK_COLOR = {LIGHT: '[0;37m', DARK: '[0;37m'}
 
 # RESULT CODES
 OK      = 0
@@ -152,7 +156,7 @@ REBOOT  = 2
 PREBOOT = 6
 UNKNOWN = -1
 
-DEBUG   = False
+DEBUGGING  = False
 
 PACKAGES_FILE = os.path.join("packages", "packages.yml")
 GLOBAL_CONFIG_FILE = "/etc/bombardier.yml"

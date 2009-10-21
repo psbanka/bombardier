@@ -278,12 +278,21 @@ class Dispatcher(Pyro.core.ObjBase):
                            machine_name, package_revision=None):
         "Runs a bc command for a certain machine and package"
         output = {"status": OK}
+        script_name = ''
+        if action_string not in ACTION_LOOKUP:
+            script_name = action_string
+            action_string= "execute"
+        if package_name: # FIXME: this is pretty sucky.
+            if action_string == "status" or action_string == "reconcile":
+                script_name = action_string
+                action_string = "execute"
         try:
             machine_interface = self.get_machine_interface(username,
                                                            machine_name)
             bom_cmd = BombardierCommand(action_string,
                                         package_name=package_name, 
-                                        package_revision=package_revision)
+                                        package_revision=package_revision,
+                                        script_name=script_name)
             commands = [bom_cmd]
 
         except Exception:

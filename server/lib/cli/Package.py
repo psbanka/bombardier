@@ -56,15 +56,19 @@ timestamp: 1251918530.6349609"""
     open(status_file, "w").write(fresh_status_yaml)
 
 class Package(PinshCmd.PinshCmd):
-    '''bomsh# package Testpackagetype4 install localhost 
-       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7']]
-       bomsh# package Testpackagetype4 install localhost 
-       [OK, []]
-       bomsh# package Testpackagetype4 uninstall localhost 
-       [OK, ['uninstall OK: TestPackageType4-7']]
-       bomsh# package bogusPackage install localhost 
-       [FAIL, []]
+#    '''bomsh# package Testpackagetype4 install localhost 
+#       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7']]
     '''
+       bomsh# package Testpackagetype4 install localhost 
+       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7']]
+       bomsh# package TestPackagetype4 echo localhost 
+       [OK, {'test file exists': 'True', 'contents of test file': 'The Quick Brown Fox Jumped over the Lazy Dog.'}]
+    '''
+#       bomsh# package Testpackagetype4 uninstall localhost 
+#       [OK, ['uninstall OK: TestPackageType4-7']]
+#       bomsh# package bogusPackage install localhost 
+#       [FAIL, []]
+#    '''
 
     def __init__(self):
         """Top-level object has a 'test' child: test the machine

@@ -75,7 +75,7 @@ class BombardierMachineInterface(MachineInterface):
         "Refresh config data"
         self.machine_status.freshen()
         status = MachineInterface.freshen(self)
-        if not status:
+        if status == FAIL:
             msg = "Invalid status data. Ignoring."
             self.polling_log.warning(msg)
         return status
@@ -155,8 +155,6 @@ class BombardierMachineInterface(MachineInterface):
         encoded    = base64.encodestring(compressed)
         self.ssh_conn.setecho(False)
         handle = StringIO.StringIO(encoded)
-        msg = "==> Sending configuration information:"
-        self.polling_log.info(msg)
         while True:
             chunk = handle.read(BLK_SIZE)
             if chunk == '':
@@ -271,8 +269,8 @@ class BombardierMachineInterface(MachineInterface):
             if found_index == 0: # BC exited
                 if self.ssh_conn.before.strip():
                     msg = "Remaining output: %s" % self.ssh_conn.before.strip()
-                    self.polling_log.info(msg)
-                    self.server_log.info(msg, self.machine_name)
+                    self.polling_log.debug(msg)
+                    self.server_log.debug(msg, self.machine_name)
                 self.ssh_conn.setecho(False)
                 break
             elif found_index == 1: # Stack trace

@@ -30,13 +30,13 @@
 '''Provides the base class for all command-line token object fields
 or commands'''
 
-from bombardier_core.static_data import DEBUG, PARTIAL, COMPLETE, INCOMPLETE
+from bombardier_core.static_data import DEBUGGING, PARTIAL, COMPLETE, INCOMPLETE
 from bombardier_core.static_data import NO_MATCH
 from Exceptions import AmbiguousCommand, UnknownCommand
 from SystemStateSingleton import SystemState, ENABLE
 system_state = SystemState()
 
-#DEBUG = True
+#DEBUGGING = True
 
 # find the names of all the objects given to me
 def convert_tokens_to_string(tokens, delimeter=' '):
@@ -210,7 +210,7 @@ class PinshCmd:
     @classmethod
     def dbg(cls, msg):
         'Little debugger'
-        if DEBUG:
+        if DEBUGGING:
             print "******", msg
 
     def find_help(self, tokens, index):

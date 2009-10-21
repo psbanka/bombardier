@@ -105,8 +105,8 @@ class MachineInterface:
         self.ssh_conn = pxssh.pxssh()
         self.ssh_conn.timeout = 6000
         msg = "Connecting to %s..." % self.machine_name
-        self.polling_log.info(msg)
-        self.server_log.info(msg, self.machine_name)
+        self.polling_log.debug(msg)
+        self.server_log.debug(msg, self.machine_name)
         try:
             login_okay = self.ssh_conn.login(self.ip_address, self.username,
                                        self.ssh_pass, login_timeout=6000)
@@ -137,6 +137,7 @@ class MachineInterface:
                 self.polling_log.warning(msg)
                 self.disconnect()
             if self.connect() != OK:
+                self.polling_log.warning("A")
                 return FAIL
         dead = False
         try:
@@ -155,6 +156,7 @@ class MachineInterface:
             except:
                 pass
             if self.connect() != OK:
+                self.polling_log.warning("B")
                 return FAIL
         return OK
 
@@ -202,8 +204,8 @@ class MachineInterface:
             self.server_log.info(msg, self.machine_name)
         else:
             msg = "Sending %s..." % (source)
-            self.polling_log.info(msg)
-            self.server_log.info(msg, self.machine_name)
+            self.polling_log.debug(msg)
+            self.server_log.debug(msg, self.machine_name)
         cmd = 'scp -v %s %s@%s:%s'
         cmd = cmd % (source, self.username, self.ip_address, dest)
         try:

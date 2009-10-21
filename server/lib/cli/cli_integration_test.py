@@ -43,7 +43,8 @@ def get_tests(cls, module_name):
     command = ''
     for line in doc_str.split('\n'):
         if command:
-            result = re.compile("(\[(OK|FAIL), \[.*\]\])").findall(line)
+            #result = re.compile("(\[(OK|FAIL), \[.*\]\])").findall(line)
+            result = re.compile("(\[(OK|FAIL), .*\])").findall(line)
             if result:
                 yaml_str = result[0][0]
                 try:
@@ -101,12 +102,13 @@ def run_tests(cls, tests, debug):
             output[command] = "FAIL"
             print "LENGTH FAIL: len(%s) != len(%s)" % (cmd_output, expected_cmd_output)
             continue
-        for index in range(0,len(cmd_output)):
-            received_user_line = cmd_output[index].strip()
-            expected_user_line = expected_cmd_output[index].strip()
-            if not compare_expected(expected_user_line, received_user_line):
-                print "FAILED: (%s) != (%s)" % (expected_user_line, received_user_line)
-                output[command] = "FAIL"
+        if type(cmd_output) == type(['list']):
+            for index in range(0,len(cmd_output)):
+                received_user_line = cmd_output[index].strip()
+                expected_user_line = expected_cmd_output[index].strip()
+                if not compare_expected(expected_user_line, received_user_line):
+                    print "FAILED: (%s) != (%s)" % (expected_user_line, received_user_line)
+                    output[command] = "FAIL"
         output[command] = "PASSED"
     return output
 
@@ -123,7 +125,6 @@ if __name__ == "__main__":
     debug = False
     if options.debug:
         debug = True
-        
 
     system_state = SystemState()
     system_state.load_config()
@@ -131,9 +132,13 @@ if __name__ == "__main__":
     libUi.login("admin", logger, 'abc123')
 
     output = system_state.cnm_connector.dispatcher_control("start")
-    print "OUTPUT FROM DISPATCHER START", output
-
-    print "(clearing existing connections)"
+    if not debug:
+        print "(suppressing output)"
+        output_handle = StringIO.StringIO()
+        system_state.set_output(output_handle)
+    else:
+        print "OUTPUT FROM DISPATCHER START", output
+        print "(clearing existing connections)"
     system_state.cnm_connector.cleanup_connections()
 
     if options.server_home:
@@ -142,11 +147,6 @@ if __name__ == "__main__":
     file_names = glob.glob("*.py")
     module_names = [ x.split('.')[0] for x in file_names ]
     module_names = [ n for n in module_names if n not in IGNORE_MODULE_NAMES ]
-    if sys.argv[-1] != '-d':
-        debug = False
-        print "(suppressing output)"
-        output_handle = StringIO.StringIO()
-        system_state.set_output(output_handle)
 
     for module_name in module_names:
         cls, setup_test = get_cls(module_name, modules_to_test)

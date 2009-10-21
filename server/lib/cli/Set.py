@@ -33,16 +33,23 @@
 import sys, os, time, glob, md5, random
 import PinshCmd, libUi, Expression
 from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import LOG_LEVEL_LOOKUP
+from MultipleChoice import MultipleChoice
 #from bombardier_server.cli.SystemStateSingleton import SystemState
 from SystemStateSingleton import SystemState
 from Exceptions import CommandError
 system_state = SystemState()
 
 class Set(PinshCmd.PinshCmd):
-    '''bomsh# set configuration-key abc123
-       [OK, ['Configuration key set.']]
-       bomsh# set configuration-key foobar
-       [FAIL, ['Invalid configuration key.']]
+#    '''bomsh# set configuration-key abc123
+#       [OK, ['Configuration key set.']]
+#       bomsh# set configuration-key foobar
+#       [FAIL, ['Invalid configuration key.']]
+    '''
+       bomsh# set log-level debug
+       [OK, ['Logging output set to debug']]
+       bomsh# set log-level info
+       [OK, ['Logging output set to info']]
     '''
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "set", "set\tset a configuration value")
@@ -53,7 +60,14 @@ class Set(PinshCmd.PinshCmd):
         server_home = PinshCmd.PinshCmd("server-home", home_help)
         server_home.children = [Expression.Expression("path")]
         self.configuration_key.children = [Expression.Expression("password")]
-        self.children = [self.configuration_key, server_home]
+
+        log_level = PinshCmd.PinshCmd("log-level", "set degree of logging to display to terminal")
+        choices = ["debug", "info", "warning", "error", "critical"]
+        choice_help = ["Maximum debugging", "Normal amounts of logs", "Reduced logging",
+                       "Much reduced logging", "Minimum logging"]
+        choice_field = MultipleChoice(choices=choices, help_text=choice_help)
+        log_level.children = [choice_field]
+        self.children = [self.configuration_key, server_home, log_level]
         self.level = 0
         self.cmd_owner = 1
 
@@ -80,3 +94,7 @@ class Set(PinshCmd.PinshCmd):
                 return FAIL, [str(ude)] 
             return OK, ["Server home set to %s" % server_home]
 
+        elif tokens[1] == "log-level":
+            new_log_level = LOG_LEVEL_LOOKUP[tokens[2].upper()]
+            system_state.log_level = new_log_level
+            return [OK, ["Logging output set to %s" % tokens[2]]]

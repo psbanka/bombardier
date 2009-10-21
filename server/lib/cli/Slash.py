@@ -39,7 +39,7 @@ from Exceptions import AmbiguousCommand, UnknownCommand
 from Exceptions import CommandError, ServerTracebackException
 from SystemStateSingleton import SystemState
 system_state = SystemState()
-from bombardier_core.static_data import FAIL, OK, DEBUG
+from bombardier_core.static_data import FAIL, OK, DEBUGGING
 
 class Slash(PinshCmd.PinshCmd):
     '''Root-level PinshCmd object, has no name.'''
@@ -158,7 +158,7 @@ class Slash(PinshCmd.PinshCmd):
         """
         names = []
         for obj in objects:
-            if DEBUG:
+            if DEBUGGING:
                 print "(GET NAMES) obj.my_name:", obj.my_name
             new_name = obj.preferred_names(tokens, index)
             if type(new_name) == type("string"):

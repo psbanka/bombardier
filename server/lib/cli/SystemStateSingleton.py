@@ -34,7 +34,8 @@ is a design compomise because readline() requires it, really.'''
 
 import readline, socket, sys, os
 import yaml, syck
-from bombardier_core.static_data import OK, FAIL, USER, ADMIN
+from bombardier_core.static_data import OK, FAIL, USER, ADMIN, INFO, LOG_LEVEL_LOOKUP
+from bombardier_core.static_data import LOG_LEVEL_LOOKUP
 
 PERSONAL_CONFIG_FILE = "%s/.bomsh_config" % os.environ.get("HOME")
 
@@ -84,11 +85,12 @@ class SystemState:
             self.child_processes = []
             self.termwidth = 80
             self.termlen   = 23
-            self.termcolor = NO_COLOR
+            self.termcolor = LIGHT
             self.cnm_url = "http://127.0.0.1:8000"
             self.cnm_connector = None
             self.fp_out = sys.stdout #FIXME: Push into system_state
             self.fp_err = sys.stderr
+            self.log_level = INFO
 
 
     __instance = None
@@ -138,6 +140,11 @@ class SystemState:
                     SystemState.__instance.termcolor = DARK
                 elif termcolor.upper().startswith("L"):
                     SystemState.__instance.termcolor = LIGHT
+                else:
+                    SystemState.__instance.termcolor = NO_COLOR
+            log_level = config.get("log_level", 'info').upper()
+            if log_level in LOG_LEVEL_LOOKUP:
+                SystemState.__instance.log_level = LOG_LEVEL_LOOKUP[log_level]
             cnm_url = config.get("cnm_url")
             if type(cnm_url) == type(''):
                 SystemState.__instance.cnm_url = cnm_url

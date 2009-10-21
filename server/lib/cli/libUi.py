@@ -34,8 +34,12 @@ import sys, termios, tty
 from CnmConnector import CnmConnector, UnexpectedDataException, ServerException
 from SystemStateSingleton import SystemState
 system_state = SystemState()
-from bombardier_core.static_data import FAIL, WARNING, ERROR
-from bombardier_core.static_data import USER, ADMIN
+from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import WARNING, ERROR, CRITICAL, DEBUG, INFO
+from bombardier_core.static_data import USER, ADMIN, LOG_LEVEL_LOOKUP
+from bombardier_core.static_data import GOOD_COLOR, WARNING_COLOR, STRONG_COLOR
+from bombardier_core.static_data import WEAK_COLOR, NO_COLOR, NORMAL_COLOR
+
 import re
 
 
@@ -55,6 +59,8 @@ def login(username, logger, password=None):
         system_state.username = username
     if not system_state.username:
         system_state.username = get_default("username", "root")
+    else:
+        print "Logging in as %s" % system_state.username
     system_state.cnm_connector = CnmConnector(system_state.cnm_url,
                                  system_state.username, system_state.logger)
     tries = 0
@@ -218,16 +224,18 @@ def pwd_input(prompt):
         passwd = ''
         while 1 == 1:
             char = sys.stdin.read(1)
-            if char == chr(13):
+            if char == chr(3): # ^C was pressed
+                raise KeyboardInterrupt
+            if char == chr(13): # Enter was pressed
                 break
-            if char == chr(8) or char == chr(127):
+            if char == chr(8) or char == chr(127): # backspace
                 if len(passwd) > 0:
                     sys.stdout.write("\b")
                     sys.stdout.write(" ")
                     sys.stdout.write("\b")
                     passwd = passwd[:-1]
                 continue
-            if ord(char) > 31 and ord(char) < 128:
+            if ord(char) > 31 and ord(char) < 128: # Valid character
                 sys.stdout.write("*")
                 sys.stdout.flush()
                 passwd += char
@@ -375,7 +383,37 @@ def error(msg):
 def process_cnm(server_output_lines):
     'Handles output from the CNM and pretty-prints to the screen'
     for line in server_output_lines:
-        system_state.fp_out.write("  %s\n" % line )
+        if not line.strip():
+            continue
+        components = line.split('|')
+        if len(components) >= 4:
+            log_level_string = components[1]
+            log_level = LOG_LEVEL_LOOKUP.get(log_level_string, CRITICAL)
+            if log_level >= system_state.log_level:
+                date = components[0]
+                job_name = components[2]
+                if system_state.termcolor != NO_COLOR:
+                    if log_level == DEBUG:
+                        color_code = WEAK_COLOR[system_state.termcolor]
+                    elif log_level == INFO:
+                        color_code = NORMAL_COLOR[system_state.termcolor]
+                    elif log_level == WARNING:
+                        color_code = STRONG_COLOR[system_state.termcolor]
+                    elif log_level > WARNING:
+                        color_code = WARNING_COLOR[system_state.termcolor]
+                    else:
+                        print "=== UNKNOWN log level: ", log_level
+                        color_code = WARNING_COLOR[system_state.termcolor]
+                    #message = "  | \033%s%s\033[m\n" % (color_code, '|'.join(components[3:]))
+                    prefix = "  | \033%s%s\033[m | " % (WEAK_COLOR[system_state.termcolor], job_name)
+                    message = "%s\033%s%s\033[m\n" % (prefix, color_code, '|'.join(components[3:]))
+                else:
+                    #message = "  | %s\n" % ('|'.join(components[3:]))
+                    message = "  | %s | %s\n" % (job_name, '|'.join(components[3:]))
+                system_state.fp_out.write(message)
+        else:
+            system_state.fp_out.write("-- %s\n" % line )
+
 
 def user_output(output, status, prepend = '', test = False):
     "Generic function for printing return values from a command"
