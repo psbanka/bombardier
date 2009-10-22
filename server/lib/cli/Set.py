@@ -37,7 +37,7 @@ from bombardier_core.static_data import LOG_LEVEL_LOOKUP
 from MultipleChoice import MultipleChoice
 #from bombardier_server.cli.SystemStateSingleton import SystemState
 from SystemStateSingleton import SystemState
-from Exceptions import CommandError
+from Exceptions import CommandError, UnexpectedDataException
 system_state = SystemState()
 
 class Set(PinshCmd.PinshCmd):

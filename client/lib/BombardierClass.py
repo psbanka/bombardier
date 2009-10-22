@@ -21,12 +21,16 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-from old_static_data import *
+#from old_static_data import *
 import sets, os, time, copy
 import Package, Exceptions
 from bombardier_core.Logger import Logger
-from bombardier_core.miniUtility import getInstalled, getPackagePath
-from bombardier_core.miniUtility import diffDicts, stripVersion
+from bombardier_core.mini_utility import getInstalled, getPackagePath
+from bombardier_core.mini_utility import diffDicts, strip_version
+from bombardier_core.static_data import OK, FAIL, MAX_CHAIN_DEPTH, HASH_FILE
+from bombardier_core.static_data import UNINSTALL, RECONCILE, DRY_RUN, VERIFY
+from bombardier_core.static_data import VERIFY_INTERVAL, INSTALL, CONFIGURE, ACTION_DICT
+from bombardier_core.static_data import EXECUTE, ACTION_DICT
 
 def swap(listObj, index1, index2):
     newList = copy.deepcopy(listObj)
@@ -136,7 +140,7 @@ def findDifferences(packageConfig, configDiff, differences=[], chain=[]):
         if type(packageConfig[key]) == type({}):
             if key not in configDiff:
                 continue
-            newdif = findDifferences(packageConfig[key], configDiff[key],
+            _newdif = findDifferences(packageConfig[key], configDiff[key],
                                      output, chain + [key])
             continue
         if key in configDiff.keys():
@@ -485,7 +489,7 @@ class Bombardier:
 
         for fullPackageName in installedPackageNames:
             try:
-                shortPackageName = stripVersion(fullPackageName)
+                shortPackageName = strip_version(fullPackageName)
                 package = Package.Package(shortPackageName, self.repository, self.config,
                                           self.filesystem, self.operatingSystem,
                                           self.instanceName)
@@ -618,7 +622,7 @@ class Bombardier:
                 status = package.verify()
             if action == CONFIGURE:
                 if self.checkConfiguration(package) == FAIL:
-                    raise Exceptions.BadPackage(newPackage.name, "Bad Config")
+                    raise Exceptions.BadPackage(package.name, "Bad Config")
                     #return FAIL
                 else:
                     status = package.configure()

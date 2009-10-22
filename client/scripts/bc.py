@@ -1,6 +1,6 @@
-#!c:\Python25\python.exe
+#!/usr/bin/env python
 
-# bc2.py: This module is essentially a hacked version of 
+# bc.py: This module is essentially a hacked version of 
 # ReconcileThread.py, and is meant to be run on a linux machine.
 # It could use some refinement, but seems to work now.
 # Copyright (C) 2005 Peter Banka
@@ -22,15 +22,19 @@
 
 import sys, optparse, StringIO, traceback, yaml, time, re
 
-from bombardier.staticData import *
-from bombardier.Logger import logger, addStdErrLogging
-from bombardier.Filesystem import Filesystem
+from bombardier_core.Logger import Logger
+from bombardier_core.Filesystem import Filesystem
 from bombardier.Repository import Repository
 from bombardier.Config import Config
 import bombardier.Exceptions
 import bombardier.Package
 import bombardier.BombardierClass
-from bombardier.miniUtility import getProgressPath, getSpkgPath
+from bombardier_core.mini_utility import getProgressPath, getSpkgPath
+from bombardier_core.static_data import FIX, STATUS, CONFIGURE, RECONCILE
+from bombardier_core.static_data import VERIFY, INSTALL, UNINSTALL, PURGE
+from bombardier_core.static_data import DRY_RUN, INIT, EXECUTE
+from bombardier_core.static_data import OK, FAIL
+import os
 import base64
 import zlib
 
@@ -51,14 +55,14 @@ def findLikelyPackageName(instanceName, packageName):
         if packageName.lower() in name.lower():
             packageNames.append(name)
     if len(packageNames) > 1:
-        logger.error( 'Ambiguous package name: %s could be any of %s' %(packageName, str(packageNames)))
+        Logger.error( 'Ambiguous package name: %s could be any of %s' %(packageName, str(packageNames)))
         sys.exit(FAIL)
     if len(packageNames) == 0:
-        logger.error( 'Package not found: %s' %packageName )
+        Logger.error( 'Package not found: %s' %packageName )
         sys.exit(FAIL)
     else:
         packageName = '-'.join(packageNames[0].split('-')[:-1])
-        logger.info( 'Using %s' %packageName)
+        Logger.info( 'Using %s' %packageName)
         return packageName
 
 def fixSpkg(instanceName, packageName, action, packageFactory):
@@ -66,7 +70,7 @@ def fixSpkg(instanceName, packageName, action, packageFactory):
     status = yaml.load(statusData)
     if status.get("install-progress") == None:
         status["install-progress"] = {}
-        logger.warning( "Status file is empty." )
+        Logger.warning( "Status file is empty." )
     now = time.asctime()
     if action == FIX:
         fixName = []
@@ -79,25 +83,25 @@ def fixSpkg(instanceName, packageName, action, packageFactory):
             if baseName in possiblePackageName:
                 fixName.append(possiblePackageName)
         if len(fixName) > 1:
-            logger.error("Package name %s is ambigious. (possible %s)" % (packageName, ' '.join(fixName)))
+            Logger.error("Package name %s is ambigious. (possible %s)" % (packageName, ' '.join(fixName)))
             return FAIL
         elif len(fixName) == 1:
             packageName = fixName[0]
         elif len(fixName) == 0:
             newPackage = packageFactory.getMeOne(packageName)
             packageName = newPackage.fullName
-            logger.info("Selecting previously UNINSTALLED package: %s" % packageName)
+            Logger.info("Selecting previously UNINSTALLED package: %s" % packageName)
         status["install-progress"]["%s" % packageName] = {"INSTALLED": now, "UNINSTALLED": "NA", "VERIFIED": now}
-        logger.info("%s has been set to INSTALLED." % packageName )
+        Logger.info("%s has been set to INSTALLED." % packageName )
     elif action == PURGE:
         if status["install-progress"].get(packageName):
             del status["install-progress"][packageName]
-            logger.info("%s has been removed from status.yml" % packageName)
+            Logger.info("%s has been removed from status.yml" % packageName)
         else:
-            logger.warning("%s is not in the status.yml file" % packageName)
+            Logger.warning("%s is not in the status.yml file" % packageName)
             packageNames = status["install-progress"]
             possibleNames = [x for x in packageNames if packageName in x]
-            logger.info("Maybe you want one of these: %s" % str(possibleNames))
+            Logger.info("Maybe you want one of these: %s" % str(possibleNames))
             return FAIL
     open(getProgressPath(instanceName), 'w').write(yaml.dump(status))
     return OK
@@ -126,7 +130,7 @@ class BombardierEnvironment:
             b64Data.append(chunk)
         yamlData = ''
         yamlData = zlib.decompress(base64.decodestring(''.join(b64Data)))
-        logger.debug("Received %s lines of yaml" % len(yamlData.split('\n')))
+        Logger.debug("Received %s lines of yaml" % len(yamlData.split('\n')))
 
         try:
             inputData = yaml.load(yamlData)
@@ -134,13 +138,13 @@ class BombardierEnvironment:
             ermsg = "Received bad YAML: %s" % (repr(yamlData))
             raise bombardier.Exceptions.ServerUnavailable, ("inputData", ermsg)
         if type(inputData) == type("string"):
-            logger.error("Invalid Yaml on server: %s" % inputData)
+            Logger.error("Invalid Yaml on server: %s" % inputData)
             raise bombardier.Exceptions.ServerUnavailable, ("inputData", "invalid yaml")
         if type(inputData) != type({}) and type(inputData) != type([]): # backwards comptible yaml
             inputData = inputData.next()
         configData  = inputData.get("configData")
         if not configData:
-            logger.error("No configuration data received")
+            Logger.error("No configuration data received")
             raise bombardier.Exceptions.ServerUnavailable, ("configData", "invalid yaml")
         packageData = inputData.get("packageData", {})
         self.config = Config(self.filesystem, instanceName, configData)
@@ -172,7 +176,7 @@ def instanceSetup(instanceName):
         try:
             statusDct = yaml.load(open(progressPath).read())
         except:
-            logger.warning("Unable to load existing yaml from %s" %progressPath)
+            Logger.warning("Unable to load existing yaml from %s" %progressPath)
     if type(statusDct) != type({}):
         statusDct = {"status": {"newInstall": "True"}}
     statusDct["clientVersion"] = VERSION
@@ -199,9 +203,9 @@ def processAction(action, instanceName, packageName, scriptName, packageFactory,
             statusDict = bc.checkSystem()
             if type(statusDict) == type({}):
                 if statusDict["broken"]:
-                    logger.info("BROKEN PACKAGES:")
+                    Logger.info("BROKEN PACKAGES:")
                     for packageName in statusDict["broken"]:
-                        logger.info("- %s" % packageName)
+                        Logger.info("- %s" % packageName)
                 status = OK
             else:
                 status = FAIL
@@ -221,13 +225,13 @@ def processAction(action, instanceName, packageName, scriptName, packageFactory,
         ermsg = ''
         for line in data.split('\n'):
             ermsg += "\n||>>>%s" % line
-        logger.error(ermsg)
+        Logger.error(ermsg)
         return FAIL
     return status
 
 if __name__ == "__main__":
     import optparse
-    addStdErrLogging()
+    Logger.add_std_err_logging()
 
     usage  = ["usage: %prog { -s | -r | -n } INSTANCE | "]
     usage += ["       %prog { -c | -v | -i | -u } INSTANCE PACKAGE-NAME [ PACKAGE-NAME2 ... ] | "]

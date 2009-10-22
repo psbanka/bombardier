@@ -24,14 +24,16 @@
 
 import os, time, datetime, glob, random
 import sys, StringIO, traceback
-from old_static_data import *
+#from old_static_data import *
 
 import Spkg
 import MetaData
-from bombardier_core.miniUtility import evalBoolean, getPackagePath, getSpkgPath
+from bombardier_core.mini_utility import evalBoolean, getPackagePath, getSpkgPath
 from Exceptions import BadPackage, FeatureRemovedException, RebootRequiredException
 from threading import Thread
 from bombardier_core.Logger import Logger
+from bombardier_core.static_data import OK, FAIL, AVERAGE, REBOOT
+from bombardier_core.static_data import INSTALL, UNINSTALL, CONFIGURE, VERIFY
 
 class JobThread(Thread):
     def __init__(self, importString, cmd, config):
@@ -71,15 +73,21 @@ class Job:
         if self.jt:
             if self.jt.isAlive():
                 return True
-            Logger.debug("-- status: %s" % (self.jt.cmdStatus))
-            self.jobStatus = self.jt.cmdStatus
+            if type(self.jt.cmdStatus) == type(0) \
+               or type(self.jt.cmdStatus) == type('str'):
+                Logger.debug("-- status: %s" % (self.jt.cmdStatus))
+                self.jobStatus = self.jt.cmdStatus
+            else:
+                msg = "Invalid return status (type: %s)" % (type(self.jt.cmdStatus))
+                Logger.error(msg)
+                self.jobStatus = FAIL
         return False
 
     def execute(self):
         self.startTime = time.time()
         status = FAIL
         if self.isRunning():
-            Logger.error("Refusing to run %s; it is already running" % self.name)
+            Logger.error("Refusing to run %s; it is already running" % self.cmd)
             return FAIL
         self.jt = JobThread(self.importString, self.cmd, self.config)
         self.jt.start()
@@ -304,7 +312,7 @@ class Package:
         if self.name in files:
             files = [self.name]
         else:
-            vpkg_name = self.metaData['virtualpackage']
+            vpkg_name = self.metaData.data.get('virtualpackage')
             if vpkg_name in files:
                 files = [vpkg_name]
         status = FAIL
@@ -313,7 +321,7 @@ class Package:
             if fileName.split('.')[0] in ["installer", "verify", "uninstaller", "configure"]:
                 continue
             try:
-                obj = Spkg.SpkgV4(self.config, Logger.logger)
+                obj = Spkg.SpkgV4(self.config, Logger)
                 self.filesystem.chdir(self.workingDir)
                 letters = [ chr( x ) for x in range(65, 91) ]
                 random.shuffle(letters)
@@ -324,12 +332,12 @@ class Package:
                     exec("obj = %s.%s(self.config)" % (randString, fileName))
                 elif self.packageVersion == 3:
                     self.config["__INSTANCE__"] = self.instanceName
-                    cmdString = "obj = %s.%s(self.config, packageList, Logger.logger)"
+                    cmdString = "obj = %s.%s(self.config, packageList, Logger)"
                     exec(cmdString % (randString, fileName))
                 elif self.packageVersion == 4:
                     self.config["__FUTURE_PACKAGES__"] = packageList
                     self.config["__INSTANCE__"] = self.instanceName
-                    cmdString = "obj = %s.%s(self.config, Logger.logger)"
+                    cmdString = "obj = %s.%s(self.config, Logger)"
                     exec(cmdString % (randString, fileName))
                 else:
                     raise BadPackage( self.name, "Unknown package version %s" % self.packageVersion )
@@ -451,10 +459,10 @@ class Package:
         sys.path.append(self.maintDir )
         importString = 'import %s'%scriptName
         status = FAIL # For PyChecker
-        cmd = 'status = %s.execute(self.config, Logger.logger)'%scriptName
+        cmd = 'status = %s.execute(self.config, Logger)'%scriptName
         job = Job(importString, cmd, self.config)
         status = job.execute()
-        #exec('status = %s.execute(self.config, Logger.logger)'%scriptName)
+        #exec('status = %s.execute(self.config, Logger)'%scriptName)
         sys.path.remove(self.maintDir)
         os.chdir(startDir)
         if status == None:

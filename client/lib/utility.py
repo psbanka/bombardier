@@ -21,7 +21,8 @@
 # 02110-1301, USA.
 
 import os, sys, re, ConfigParser, shutil, string, md5
-from old_static_data import *
+#from old_static_data import *
+from bombardier_core.static_data import OK, FAIL
 
 if sys.platform == "win32":
     import _winreg as winreg

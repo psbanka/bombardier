@@ -1,9 +1,10 @@
 import re, os, yaml
-from bombardier_core.miniUtility import getSpkgPath
+from bombardier_core.mini_utility import getSpkgPath
 import sys
 import Config
 from bombardier_core.Filesystem import Filesystem
 from bombardier_core.static_data import OK, FAIL, LAST_REPORT
+from bombardier_core.Logger import Logger
 import Repository
 
 def doubleEscape(oldString):
@@ -40,14 +41,12 @@ def getConfig():
     return config
 
 def mainBody(pkgVersion, cls):
-    from bombardier_core.Logger import logger, addStdErrLogging
     config = getConfig()
     ha = None
     if pkgVersion < 4:
-        ha = cls(config, logger=logger)
+        ha = cls(config, logger=Logger)
     else:
-        ha = cls(config, logger)
-    addStdErrLogging()
+        ha = cls(config, Logger)
     action = sys.argv[-1].lower()
     status = OK
     if action == "install":
@@ -95,9 +94,7 @@ class SpkgV4:
         self.port       = None
         if logger == None:
             import Logger
-            self.logger = Logger.logger
         else:
-            self.logger = logger
             self.stderr = False
         self.lastReport = {}
 
@@ -128,6 +125,9 @@ class SpkgV4:
         self.info("Writing report...")
         open(LAST_REPORT, 'w').write(yaml.dump(self.report))
 
+    def setFuturePackages(self, packageList):
+        self.futurePackages = packageList
+
     def checkStatus(self, status, errMsg="FAILED"):
         if status != OK:
             raise SpkgException(errMsg)
@@ -137,15 +137,15 @@ class SpkgV4:
         self.checkStatus( os.system( command ), errMsg )
 
     def debug(self, string):
-        self.logger.debug("[%s]|%s" % (self.thisPackagesName, string))
+        Logger.debug("[%s]|%s" % (self.thisPackagesName, string))
     def info(self, string):
-        self.logger.info("[%s]|%s" % (self.thisPackagesName, string))
+        Logger.info("[%s]|%s" % (self.thisPackagesName, string))
     def warning(self, string):
-        self.logger.warning("[%s]|%s" % (self.thisPackagesName, string))
+        Logger.warning("[%s]|%s" % (self.thisPackagesName, string))
     def error(self, string):
-        self.logger.error("[%s]|%s" % (self.thisPackagesName, string))
+        Logger.error("[%s]|%s" % (self.thisPackagesName, string))
     def critical(self, string):
-        self.logger.critical("[%s]|%s" % (self.thisPackagesName, string))
+        Logger.critical("[%s]|%s" % (self.thisPackagesName, string))
 
     def _getname(self):
         cwd = os.getcwd()

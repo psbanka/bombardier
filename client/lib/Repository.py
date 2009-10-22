@@ -20,11 +20,12 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-from old_static_data import *
-import os, tarfile, shutil
+#from old_static_data import *
+from bombardier_core.static_data import OK, FAIL, BLOCK_SIZE
+import os, tarfile, shutil, sys
 import MetaData
-from bombardier_core.miniUtility import getPackagePath, rpartition
-from bombardier_core.miniUtility import cygpath, getProgressPath
+from bombardier_core.mini_utility import getPackagePath, rpartition
+from bombardier_core.mini_utility import cygpath, getProgressPath
 import md5, yaml, base64
 import Exceptions
 from bombardier_core.Logger import Logger

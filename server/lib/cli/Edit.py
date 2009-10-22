@@ -27,7 +27,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-'''A [PinshCmd] command which allows a user to display data'''
+'''A [PinshCmd] command which allows a user to edit data on the server'''
 
 
 import yaml, tempfile, os, libUi
