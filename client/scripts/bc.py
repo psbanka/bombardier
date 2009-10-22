@@ -22,6 +22,7 @@
 
 import sys, optparse, StringIO, traceback, yaml, time, re
 
+from bombardier_core.libCipher import decryptString
 from bombardier_core.Logger import Logger
 from bombardier_core.Filesystem import Filesystem
 from bombardier_client.Repository import Repository
@@ -155,7 +156,6 @@ class BombardierEnvironment:
             encYamlFile = os.path.join(getSpkgPath(), instanceName, 'client.yml.enc')
             if not os.path.isfile(encYamlFile):
                 raise ServerUnavailable, ("inputData", "no %s" % encYamlFile)
-            from bombardier.libCipher import decryptString
             encData = open(encYamlFile).read()
             plainYamlStr = decryptString(encData, configKey)
             try:
