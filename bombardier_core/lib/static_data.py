@@ -115,6 +115,7 @@ ACTION_LOOKUP = { 'uninstall':UNINSTALL, 'configure':CONFIGURE,
                 'execute':EXECUTE, 'fix':FIX, 'purge':PURGE,
                 'dry_run': DRY_RUN, "init": INIT } 
 
+PASSWORD_LENGTH        = 10
 BLOCK_SIZE    = 10000
 
 INSTALL_KEY = r"HKLM\Software\GE-IT\Bombardier\InstallPath"

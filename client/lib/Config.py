@@ -24,9 +24,10 @@
 
 import yaml
 from bombardier_core.mini_utility import hashDictionary, diffDicts, getSpkgPath
-import random, copy
+import random, copy, os
 from Exceptions import InvalidConfigData
 from bombardier_core.Logger import Logger
+from bombardier_core.static_data import OK, FAIL, CONFIG_FILE, PASSWORD_LENGTH
 
 def generatePassword():
     random.seed()
@@ -151,11 +152,9 @@ class Config(dict):
 
     ### TESTED
     def get(self, section, option, default='', optional=True):
-        pyChucker(optional)
         return str(self.get_raw(section, option, default))
 
     def get_dict(self, section, option, default={}, optional=True):
-        pyChucker(optional)
         result = self.get_raw(section, option, default)
         if result.__class__ == {}.__class__:
             return result
@@ -163,7 +162,6 @@ class Config(dict):
             raise TypeError
 
     def get_raw(self, section, option, default=None, optional=True):
-        pyChucker(optional)
         if self.data.has_key(section):
             if self.data[section].has_key(option):
                 return self.data[section][option]
