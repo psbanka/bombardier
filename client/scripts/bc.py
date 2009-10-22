@@ -28,13 +28,15 @@ from bombardier_core.Filesystem import Filesystem
 from bombardier_client.Repository import Repository
 from bombardier_client.Config import Config
 from bombardier_client.Exceptions import ServerUnavailable
-import bombardier_client.Package
-import bombardier_client.BombardierClass
+from bombardier_client.Package import Package
+from bombardier_client.BombardierClass import Bombardier
 from bombardier_core.mini_utility import getProgressPath, getSpkgPath
 from bombardier_core.static_data import FIX, STATUS, CONFIGURE, RECONCILE
 from bombardier_core.static_data import VERIFY, INSTALL, UNINSTALL, PURGE
 from bombardier_core.static_data import DRY_RUN, INIT, EXECUTE
 from bombardier_core.static_data import OK, FAIL
+from bombardier_core import CORE_VERSION
+from bombardier_client import CLIENT_VERSION
 import os
 import base64
 import zlib
@@ -180,14 +182,14 @@ class PackageFactory:
         self.env = env
 
     def getMeOne(self, packageName):
-        newPackage = bombardier.Package.Package(packageName, self.env.repository, self.env.config,
-                                     self.env.filesystem, self.env.operatingSystem, self.env.instanceName)
+        newPackage = Package(packageName, self.env.repository, self.env.config,
+                             self.env.filesystem, self.env.operatingSystem, self.env.instanceName)
         newPackage.initialize()
         return newPackage
 
 def getBc(instanceName, env):
     env.clearLock()
-    bc = bombardier.BombardierClass.Bombardier(env.repository, env.config, env.filesystem,
+    bc = Bombardier(env.repository, env.config, env.filesystem,
                                                env.operatingSystem, instanceName)
     return bc
 
@@ -201,7 +203,10 @@ def instanceSetup(instanceName):
             Logger.warning("Unable to load existing yaml from %s" %progressPath)
     if type(statusDct) != type({}):
         statusDct = {"status": {"newInstall": "True"}}
-    statusDct["clientVersion"] = VERSION
+    statusDct["client_version"] = CLIENT_VERSION
+    statusDct["core_version"] = CORE_VERSION
+    statusDct["clientVersion"] = CLIENT_VERSION
+    statusDct["coreVersion"] = CORE_VERSION
     pkgDir = os.path.join(getSpkgPath(), instanceName, "packages")
     if not os.path.isdir(pkgDir):
         os.makedirs(pkgDir)
