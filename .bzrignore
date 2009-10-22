@@ -4,3 +4,7 @@ server/bombardier_server/_version.py
 client/MANIFEST
 client/dist
 server/build
+MANIFEST
+lib/_version.py
+lib/_version.py
+lib/_version.py
