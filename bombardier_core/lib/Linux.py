@@ -20,10 +20,10 @@
 # 02110-1301, USA.
 
 import OperatingSystem, os
-import Logger
-from staticData import *
+from Logger import Logger
 import re
 from commands import getstatusoutput
+from static_data import OK, FAIL, ADMIN_USER, SSH_USER, DEV_USER, CENSORED
 
 def md5crypt(password, salt='', magic='$1$'):
     import md5, random
@@ -108,7 +108,6 @@ class Linux(OperatingSystem.OperatingSystem):
         OperatingSystem.OperatingSystem.__init__(self)
 
     def run(self, fullCmd, abortIfTold, workingDirectory, console = False):
-        pyChucker(console)
         status = OK
         abortIfTold()
         if fullCmd.split(' ')[0].endswith(".py"):
@@ -171,7 +170,6 @@ class Linux(OperatingSystem.OperatingSystem):
         return status
 
     def createUser(self, username, password, userType, comment=''):
-        pyChucker(comment)
         md5Pass = md5crypt(password)
         info, warnings, errors = [], [], []
         if userType not in [SSH_USER, ADMIN_USER, DEV_USER]:

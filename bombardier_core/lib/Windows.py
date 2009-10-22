@@ -28,14 +28,32 @@ import win32pipe, win32com.client, pythoncom
 import win32net
 import win32netcon
 
-import threading, os, time, traceback
+import threading, os, time, traceback, sys
 
-import mini_utility, Logger, RegistryDict, Exceptions, OperatingSystem
+import mini_utility, RegistryDict, Exceptions, OperatingSystem
+from Logger import Logger
 from win32process import CreateProcess, NORMAL_PRIORITY_CLASS, STARTUPINFO
 
-from staticData import *
+from static_data import OK, FAIL
+from static_data import CONSOLE_MONITOR, REBOOT
+from static_data import SSH_USER, ADMIN_USER, DEV_USER, RDP_USER, CENSORED
 
+
+LOG_INTERVAL  = 10
+RUNNING       = 1
+NOT_RUNNING   = 2
+PENDING       = 3
+STOPPED       = 4
+PROFESSIONAL  = 200
+SERVER        = 100
+UNKNOWN       = 999
+WIN2000       = 44
+WIN2003       = 55
+WINXP         = 66
+
+TEST_TITLE = "TEST"
 LOGIN_KEY_NAME = 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon'
+RUN_KEY_NAME  = 'Software\\Microsoft\\Windows\\CurrentVersion\\Run'
 
 keyMapping = {"HKLM": winreg.HKEY_LOCAL_MACHINE,
               "HKEY_LOCAL_MACHINE": winreg.HKEY_LOCAL_MACHINE,
@@ -751,13 +769,6 @@ class Windows(OperatingSystem.OperatingSystem):
                                   RUN_KEY_NAME, 0, winreg.KEY_SET_VALUE)
         except WindowsError:
             return winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, RUN_KEY_NAME)
-
-
-    def restartOnLogon(self):
-        runKey = self.getRunKey()
-        pythonExec = os.path.join(sys.prefix, "pythonw.exe")
-        cmd = "%s %s -a" % (pythonExec, mini_utility.getBombardierPath())
-        winreg.SetValueEx(runKey, "BombardierRun", 0, winreg.REG_SZ, cmd)
 
     def noRestartOnLogon(self):
         try:

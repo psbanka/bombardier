@@ -21,8 +21,9 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, Logger
-from staticData import *
+import os, sys
+from Logger import Logger
+from static_data import OK, FAIL
 
 class OperatingSystem:
 

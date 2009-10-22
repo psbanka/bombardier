@@ -21,7 +21,8 @@
 
 import os, re, time, random, yaml, md5
 import sys
-from static_data import *
+from static_data import OK, FAIL
+from static_data import CONSOLE_MONITOR, PACKAGES, STATUS_FILE, CONFIG_FILE
 
 BROKEN_INSTALL   = 0
 INSTALLED        = 1
@@ -279,8 +280,7 @@ def strip_version_info(pkgInfo):
 
 
 def getInstalled(progress_data):
-    #installed, uninstalled, broken_installed, broken_uninstalled = getInstalledUninstalledTimes(progress_data)
-    pkgInfo = getInstalledUninstalledTimes(progress_data)
+    pkgInfo = get_installed_uninstalled_times(progress_data)
     pkgInfo = strip_version_info(pkgInfo)
     installedPackageNames = [packageName[0] for packageName in pkgInfo["installed"]]
     brokenPackageNames    = [packageName[0] for packageName in pkgInfo["broken_installed"]]
@@ -374,7 +374,6 @@ def netLongFromBitmask(bits):
     if bits == 0: return 0L
     netLong = 0L
     for i in range(0,31):
-        pyChucker(i)
         if bits:
             netLong += 1
             bits -= 1
@@ -424,7 +423,7 @@ def ipConfig():
         return addressSet
     for i in range(0, len(addresses)):
         bits = findBitMaskFromNetString(snms[i])
-        addressSet.union_update(["%s/%d" % (addresses[i], bits)])
+        addressSet.update(["%s/%d" % (addresses[i], bits)])
     return addressSet
 
 def getMatchStringList( patternStr, fileName ):
@@ -438,7 +437,7 @@ def getMatchStringList( patternStr, fileName ):
     for line in lines:
         m = re.match( pat, line )
         if m:
-            retSet.union_update( m.groups() )
+            retSet.update( m.groups() )
     return( retSet ) 
 
 # TESTED

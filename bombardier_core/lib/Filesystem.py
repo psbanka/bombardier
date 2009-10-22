@@ -22,8 +22,9 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import shutil, os, sys, tarfile, gzip, yaml, re, time, glob
-import Exceptions, mini_utility, Logger
-from staticData import *
+import Exceptions, mini_utility
+from Logger import Logger
+from static_data import OK, FAIL, REBOOT, INSTALL_LOCK, BLOCK_SIZE
 
 class CopyException(Exception):
     def __init__(self, message=""):
@@ -98,9 +99,9 @@ def rmScheduledFile(fileName):
         return OK
     except:
         if sys.platform == "win32":
+            import pywintypes
+            import win32api, win32file
             try:
-                import pywintypes
-                import win32api, win32file
                 win32api.MoveFileEx(fileName, None,
                                     win32file.MOVEFILE_DELAY_UNTIL_REBOOT)
                 return REBOOT
@@ -353,7 +354,7 @@ class Filesystem:
         if retVal.has_key("install-progress"):
             progressData = retVal["install-progress"]
             if stripVersionFromName:
-                return mini_utility.stripVersionFromKeys(progressData)
+                return mini_utility.strip_version_from_keys(progressData)
             return progressData
         return {}
 
