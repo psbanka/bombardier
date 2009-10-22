@@ -17,6 +17,7 @@ import MachineConfig
 from MachineStatus import MachineStatus
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
+import yaml
 
 MAPPER = {"merged": Machine, "machine": Machine, "include": Include,
           "bom": Bom, "package": Package, "status": Status }
@@ -48,7 +49,9 @@ class ConfigEntry(CnmResource):
         else:
             output["message"] = "created %d"  % file_path
         try:
-            open(file_path, 'w').write(yaml_string)
+            data = yaml.load(yaml_string)
+            nice_yaml_string = yaml.dump(data, default_flow_style=False)
+            open(file_path, 'w').write(nice_yaml_string)
         except IOError, ioe:
             output["status"] = FAIL
             output["message"] = "IO Error: %s" % str(ioe)
