@@ -23,7 +23,6 @@
 # 02110-1301, USA.
 
 import yaml
-from old_static_data import *
 from bombardier_core.mini_utility import hashDictionary, diffDicts, getSpkgPath
 import random, copy
 from Exceptions import InvalidConfigData

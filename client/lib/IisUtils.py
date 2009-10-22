@@ -21,7 +21,6 @@
 # 02110-1301, USA.
 
 import os, sys, shutil
-from old_static_data import *
 
 if sys.platform == "win32":
     import pywintypes, win32netcon, win32net

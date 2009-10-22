@@ -24,7 +24,6 @@
 
 import os, time, datetime, glob, random
 import sys, StringIO, traceback
-#from old_static_data import *
 
 import Spkg
 import MetaData

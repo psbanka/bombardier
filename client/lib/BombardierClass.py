@@ -21,7 +21,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-#from old_static_data import *
 import sets, os, time, copy
 import Package, Exceptions
 from bombardier_core.Logger import Logger

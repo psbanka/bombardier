@@ -24,11 +24,11 @@ import sys, optparse, StringIO, traceback, yaml, time, re
 
 from bombardier_core.Logger import Logger
 from bombardier_core.Filesystem import Filesystem
-from bombardier.Repository import Repository
-from bombardier.Config import Config
-import bombardier.Exceptions
-import bombardier.Package
-import bombardier.BombardierClass
+from bombardier_client.Repository import Repository
+from bombardier_client.Config import Config
+from bombardier_client.Exceptions import ServerUnavailable
+import bombardier_client.Package
+import bombardier_client.BombardierClass
 from bombardier_core.mini_utility import getProgressPath, getSpkgPath
 from bombardier_core.static_data import FIX, STATUS, CONFIGURE, RECONCILE
 from bombardier_core.static_data import VERIFY, INSTALL, UNINSTALL, PURGE
@@ -122,11 +122,11 @@ class BombardierEnvironment:
         self.operatingSystem = None
         self.instanceName    = instanceName
         if sys.platform == "linux2":
-            import bombardier.Linux
-            self.operatingSystem = bombardier.Linux.Linux()
+            import bombardier_core.Linux
+            self.operatingSystem = bombardier_core.Linux.Linux()
         else:
-            import bombardier.Windows
-            self.operatingSystem = bombardier.Windows.Windows()
+            import bombardier_core.Windows
+            self.operatingSystem = bombardier_core.Windows.Windows()
 
     def dataRequest(self):
         STREAM_BLOCK_SIZE= 77
@@ -144,17 +144,17 @@ class BombardierEnvironment:
             inputData = yaml.load(yamlData)
         except:
             ermsg = "Received bad YAML: %s" % (repr(yamlData))
-            raise bombardier.Exceptions.ServerUnavailable, ("inputData", ermsg)
+            raise ServerUnavailable, ("inputData", ermsg)
         if type(inputData) == type("string"):
             Logger.error("Invalid Yaml on server: %s" % inputData)
-            raise bombardier.Exceptions.ServerUnavailable, ("inputData", "invalid yaml")
+            raise ServerUnavailable, ("inputData", "invalid yaml")
         if type(inputData) != type({}) and type(inputData) != type([]): # backwards comptible yaml
             inputData = inputData.next()
         configKey = inputData.get("config_key", None)
         if configKey:
             encYamlFile = os.path.join(getSpkgPath(), instanceName, 'client.yml.enc')
             if not os.path.isfile(encYamlFile):
-                raise bombardier.Exceptions.ServerUnavailable, ("inputData", "no %s" % encYamlFile)
+                raise ServerUnavailable, ("inputData", "no %s" % encYamlFile)
             from bombardier.libCipher import decryptString
             encData = open(encYamlFile).read()
             plainYamlStr = decryptString(encData, configKey)
@@ -162,12 +162,12 @@ class BombardierEnvironment:
                 inputData = yaml.load(plainYamlStr)
             except:
                 ermsg = "Received bad YAML file: %s" % encYamlFile
-                raise bombardier.Exceptions.ServerUnavailable, ("inputData", ermsg)
+                raise ServerUnavailable, ("inputData", ermsg)
                 
         configData  = inputData.get("configData")
         if not configData:
             Logger.error("No configuration data received")
-            raise bombardier.Exceptions.ServerUnavailable, ("configData", "invalid yaml")
+            raise ServerUnavailable, ("configData", "invalid yaml")
         packageData = inputData.get("packageData", {})
         self.config = Config(self.filesystem, instanceName, configData)
         self.repository = Repository(self.filesystem, instanceName, packageData)
