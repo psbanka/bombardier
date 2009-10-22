@@ -45,6 +45,13 @@ class NoInstanceError(Exception):
     def __repr__(self):
         return "Attempting operation on a non-existant instance: %s" % self.instanceName
 
+def exitWithReturnCode(value):
+    if type(value) != type(0):
+        Logger.error("Invalid exit code, not an integer: %s" % value)
+        value = FAIL
+    Logger.warning("==EXIT-CODE==:%s" % value)
+    sys.exit(value)
+
 def findLikelyPackageName(instanceName, packageName):
     statusYml = yaml.load(open(getProgressPath(instanceName)).read())
     packageNames = []
@@ -56,10 +63,10 @@ def findLikelyPackageName(instanceName, packageName):
             packageNames.append(name)
     if len(packageNames) > 1:
         Logger.error( 'Ambiguous package name: %s could be any of %s' %(packageName, str(packageNames)))
-        sys.exit(FAIL)
+        exitWithReturnCode(FAIL)
     if len(packageNames) == 0:
         Logger.error( 'Package not found: %s' %packageName )
-        sys.exit(FAIL)
+        exitWithReturnCode(FAIL)
     else:
         packageName = '-'.join(packageNames[0].split('-')[:-1])
         Logger.info( 'Using %s' %packageName)
@@ -92,16 +99,17 @@ def fixSpkg(instanceName, packageName, action, packageFactory):
             packageName = newPackage.fullName
             Logger.info("Selecting previously UNINSTALLED package: %s" % packageName)
         status["install-progress"]["%s" % packageName] = {"INSTALLED": now, "UNINSTALLED": "NA", "VERIFIED": now}
-        Logger.info("%s has been set to INSTALLED." % packageName )
+        Logger.info("==OUTPUT==:%s has been set to INSTALLED." % packageName )
     elif action == PURGE:
         if status["install-progress"].get(packageName):
             del status["install-progress"][packageName]
-            Logger.info("%s has been removed from status.yml" % packageName)
+            msg = "==OUTPUT==:%s has been removed from %s status" % (packageName, instanceName)
+            Logger.info(msg)
         else:
-            Logger.warning("%s is not in the status.yml file" % packageName)
+            Logger.info("==OUTPUT==:%s is not in the status file" % packageName)
             packageNames = status["install-progress"]
             possibleNames = [x for x in packageNames if packageName in x]
-            Logger.info("Maybe you want one of these: %s" % str(possibleNames))
+            Logger.info("==OUTPUT==:Maybe you want one of these: %s" % str(possibleNames))
             return FAIL
     open(getProgressPath(instanceName), 'w').write(yaml.dump(status))
     return OK
@@ -142,6 +150,20 @@ class BombardierEnvironment:
             raise bombardier.Exceptions.ServerUnavailable, ("inputData", "invalid yaml")
         if type(inputData) != type({}) and type(inputData) != type([]): # backwards comptible yaml
             inputData = inputData.next()
+        configKey = inputData.get("config_key", None)
+        if configKey:
+            encYamlFile = os.path.join(getSpkgPath(), instanceName, 'client.yml.enc')
+            if not os.path.isfile(encYamlFile):
+                raise bombardier.Exceptions.ServerUnavailable, ("inputData", "no %s" % encYamlFile)
+            from bombardier.libCipher import decryptString
+            encData = open(encYamlFile).read()
+            plainYamlStr = decryptString(encData, configKey)
+            try:
+                inputData = yaml.load(plainYamlStr)
+            except:
+                ermsg = "Received bad YAML file: %s" % encYamlFile
+                raise bombardier.Exceptions.ServerUnavailable, ("inputData", ermsg)
+                
         configData  = inputData.get("configData")
         if not configData:
             Logger.error("No configuration data received")
@@ -283,7 +305,7 @@ if __name__ == "__main__":
         print "CMD: %s" % ' '.join(sys.argv)
         print "This command requires an instance name."
         parser.print_help()
-        sys.exit(1)
+        exitWithReturnCode(1)
     instanceName = args[0]
 
     env = BombardierEnvironment(instanceName)
@@ -299,19 +321,19 @@ if __name__ == "__main__":
             print "CMD: %s" % ' '.join(sys.argv)
             print "This command requires a package name as an argument."
             parser.print_help()
-            sys.exit( 1 )
+            exitWithReturnCode( 1 )
         packageNames = args[1:]
         if options.action == EXECUTE:
             if len(args) != 3:
                 print "CMD: %s" % ' '.join(sys.argv)
                 print "This command requires a package name and a script name."
                 parser.print_help()
-                sys.exit( 1 )
+                exitWithReturnCode( 1 )
             packageNames = [args[1]]
             scriptName = args[2]
 
         for packageName in packageNames:
             status = processAction(options.action, instanceName, packageName, scriptName, packageFactory, env)
             if status != OK:
-                 sys.exit(status)
-    sys.exit(status)
+                exitWithReturnCode(status)
+    exitWithReturnCode(status)

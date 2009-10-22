@@ -5,11 +5,12 @@
 
 import logging, sys, os, shutil
 import logging.handlers
-from static_data import OK, FAIL, LOG_MAX_SIZE, LOGS_TO_KEEP
+from mini_utility import getSpkgPath
+from static_data import OK, FAIL, LOG_MAX_SIZE, LOGS_TO_KEEP, LOG_FILE
 
 FORMAT_STRING = '%(asctime)s|%(levelname)s|%(message)s|'
 
-class Logger:
+class LoggerClass:
 
     """This class implements a simple interface that other logging
     type classes also implement. This is the most complete
@@ -60,11 +61,13 @@ class Logger:
     def make_logger(self):
         self.python_logger = logging.getLogger(self.name)
         try:
+            #print "Logging to %s" % self.log_path
             self.file_handler = logging.FileHandler(self.log_path)
         except IOError:
             try:
                 self.file_handler = logging.FileHandler(self.log_path)
             except IOError:
+                print "Unable to log to %s" % self.log_path
                 self.file_handler = logging.StreamHandler(sys.stderr)
         self.formatter = logging.Formatter(FORMAT_STRING)
         self.file_handler.setFormatter(self.formatter)
@@ -108,3 +111,5 @@ class Logger:
             msg = "Being told to remove nonexistent stderr handler."
             self.python_logger.warning(msg)
 
+log_path = os.path.join(getSpkgPath(), LOG_FILE)
+Logger = LoggerClass("bombardier", log_path)

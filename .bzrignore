@@ -8,3 +8,6 @@ MANIFEST
 lib/_version.py
 lib/_version.py
 lib/_version.py
+bombardier_core/dist
+lib/_version.py
+_version.py
