@@ -35,18 +35,18 @@ from bombardier_core.static_data import OK, FAIL, AVERAGE, REBOOT
 from bombardier_core.static_data import INSTALL, UNINSTALL, CONFIGURE, VERIFY
 
 class JobThread(Thread):
-    def __init__(self, importString, cmd, config):
+    def __init__(self, import_string, cmd, config):
         Thread.__init__(self)
-        self.importString = importString
+        self.import_string = import_string
         self.cmd = cmd
         self.config = config
-        self.cmdStatus = None
+        self.cmd_status = None
 
     def run(self):
         Logger.debug("Running %s..." % self.cmd)
         try:
-            exec(self.importString)
-            exec("self.cmdStatus = %s" % self.cmd)
+            exec(self.import_string)
+            exec("self.cmd_status = %s" % self.cmd)
         except StandardError, e:
             Logger.error( "Failed to run %s" % self.cmd )
             e = StringIO.StringIO()
@@ -57,52 +57,54 @@ class JobThread(Thread):
             for line in data.split('\n'):
                 ermsg += "\n||>>>%s" % line
             Logger.error(ermsg)
-            self.cmdStatus = FAIL
+            self.cmd_status = FAIL
 
 class Job:
-    def __init__(self, importString, cmd, config):
-        self.importString = importString
+    def __init__(self, import_string, cmd, config):
+        self.import_string = import_string
         self.cmd = cmd
         self.config = config
-        self.startTime = None
+        self.start_time = None
         self.jt = None
-        self.jobStatus = None
+        self.job_status = None
 
-    def isRunning(self):
+    def is_running(self):
         if self.jt:
             if self.jt.isAlive():
                 return True
-            if type(self.jt.cmdStatus) == type(0) \
-               or type(self.jt.cmdStatus) == type('str'):
-                Logger.debug("-- status: %s" % (self.jt.cmdStatus))
-                self.jobStatus = self.jt.cmdStatus
+            if type(self.jt.cmd_status) == type(0) \
+               or type(self.jt.cmd_status) == type('str'):
+                Logger.debug("-- status: %s" % (self.jt.cmd_status))
+                self.job_status = self.jt.cmd_status
             else:
-                msg = "Invalid return status (type: %s)" % (type(self.jt.cmdStatus))
-                Logger.error(msg)
-                self.jobStatus = FAIL
+                msg = "Invalid return status (type: %s)"
+                Logger.error(msg % (type(self.jt.cmd_status)))
+                self.job_status = FAIL
         return False
 
     def execute(self):
-        self.startTime = time.time()
+        self.start_time = time.time()
         status = FAIL
-        if self.isRunning():
-            Logger.error("Refusing to run %s; it is already running" % self.cmd)
+        if self.is_running():
+            msg = "Refusing to run %s; it is already running" % self.cmd
+            Logger.error(msg)
             return FAIL
-        self.jt = JobThread(self.importString, self.cmd, self.config)
+        self.jt = JobThread(self.import_string, self.cmd, self.config)
         self.jt.start()
         Logger.info("Started job...")
         counter = 1
-        while self.isRunning():
+        while self.is_running():
             time.sleep(1)
             counter += 1
             if not counter % 100:
-                Logger.info("Waiting for completion (%s)..." % time.strftime(time.ctime()))
+                msg = "Waiting for completion (%s)..."
+                Logger.info(msg % time.strftime(time.ctime()))
                 counter = 1
-        status = self.jt.cmdStatus
+        status = self.jt.cmd_status
         return status
 
-    def killThread(self, timeout=5):
-        if not self.isRunning():
+    def kill_thread(self, timeout=5):
+        if not self.is_running():
             return OK
         self.jt.join(timeout)
         return OK
@@ -113,43 +115,151 @@ class Package:
     installable, verifiable, and uninstallable thing. Each
     package is held in the repository"""
 
-    ### TESTED
-    def __init__(self, name, repository, config, filesystem, operatingSystem, instanceName):
+    def __init__(self, name, repository, config, filesystem,
+                 operating_system, instance_name):
         self.name         = name
         self.repository   = repository
         self.filesystem   = filesystem
-        self.operatingSystem      = operatingSystem
-        self.instanceName = instanceName
+        self.operating_system = operating_system
+        self.instance_name = instance_name
         self.action       = INSTALL
         self.installed    = False
         self.dependencies = []
-        self.dependsOnMe  = []
+        self.depends_on_me = []
         self.console      = False
-        self.fullName     = ''
+        self.full_name    = ''
         self.reboot       = False
-        self.packageVersion = 0
+        self.package_version = 0
         self.checksum     = ''
         self.config       = config
         self.status       = OK
         self.priority     = AVERAGE
-        self.metaData     = MetaData.MetaData({})
-        self.workingDir   = ''
-        self.scriptsDir   = ''
-        self.maintDir     = ''
+        self.meta_data    = MetaData.MetaData({})
+        self.working_dir  = ''
+        self.scripts_dir  = ''
+        self.maint_dir    = ''
         self.downloaded   = False
-        self.dependencyErrors = []
+        self.dependency_errors = []
 
-    def invalidate(self, exceptionObject):
+    ############################################ PUBLIC METHODS
+
+    def initialize(self):
+        try:
+            self.meta_data = self.repository.get_meta_data(self.name)
+        except BadPackage, bp:
+            self._invalidate(bp)
+            return
+        self._check_meta_data()
+        self.checksum = self.meta_data.data['install'].get('md5sum')
+        if not self.checksum:
+            ermsg = "Package %s does not have a checksum field"\
+                    " (not checking)" % (self.name)
+            Logger.warning(ermsg)
+        if self.meta_data.data['install'].get('md5list'):
+            self.checksum = self.meta_data.data['install']['md5list']
+        chk = self.meta_data.data["install"].get('console')
+        self.console = evalBoolean(chk)
+        chk = self.meta_data.data["install"].get('reboot')
+        self.reboot = evalBoolean(chk)
+        chk = self.meta_data.data.get("package-version")
+        if type(chk) == type(1):
+            self.package_version = chk
+        self._eval_priority()
+        self._gather_dependencies()
+
+    def get_configuration(self):
+        return self.meta_data.data.get("configuration")
+
+    def add_dependency_error(self, dependencyName):
+        errmsg = "BOM file is incomplete: should contain %s" % dependencyName
+        Logger.warning(errmsg)
+        self.dependency_errors.append(dependencyName)
+
+    def install_and_verify(self, package_list=[], dry_run=False):
+        if self._download() != OK:
+            return FAIL
+        if self.action == INSTALL:
+            status = self._install(package_list, dry_run=dry_run)
+            if not dry_run:
+                if status == OK:
+                    status = self.verify()
+                self._write_progress()
+            return status
+        raise FeatureRemovedException(self.action)
+
+    def configure(self):
+        if self._download() != OK:
+            return FAIL
+        return self._find_cmd(CONFIGURE)
+
+    def verify(self): 
+        if self._download() != OK:
+            return FAIL
+        message = "Verifying package %s" % self.full_name
+        Logger.info(message)
+        self.status = self._find_cmd(VERIFY)
+        if self.action != INSTALL:
+            self._write_progress()
+        Logger.info("Verify result for %s : %s" % (self.full_name, self.status))
+        return self.status
+
+    def uninstall(self, dry_run=False):
+        self.action = UNINSTALL
+        if self._download() != OK:
+            return FAIL
+        if self.status != OK:
+            return self.status
+        dry_run_string = ""
+        if dry_run:
+            dry_run_string = " --DRY_RUN-- "
+        Logger.info("Uninstalling package %s%s" % (self.name, dry_run_string))
+        self.status = self._find_cmd(UNINSTALL, dry_run=dry_run)
+        if not dry_run:
+            self._write_progress()
+        msg = "Uninstall result for %s%s : %s"
+        Logger.info(msg % (self.full_name, dry_run_string, self.status))
+        return self.status
+
+    def execute_maint_script(self, script_name):
+        if self._download() != OK:
+            return FAIL
+        # remove old history
+        output_path = os.path.join(getSpkgPath(), self.instance_name,
+                                  "output", "%s-output.yml" % script_name)
+        self.filesystem.rmScheduledFile(output_path)
+        message = "Executing (%s) inside package (%s)"
+        Logger.info(message % (script_name, self.full_name))
+        script_path = "%s/%s.py" %(self.maint_dir, script_name)
+        start_dir = os.getcwd()
+        os.chdir(self.maint_dir)
+        if not os.path.isfile(script_path):
+            msg = "%s does not exist" %script_path
+            raise BadPackage, (self.name, msg)
+        sys.path.append(self.maint_dir )
+        import_string = 'import %s' % script_name
+        cmd = 'status = %s.execute(self.config, Logger)' % script_name
+        job = Job(import_string, cmd, self.config)
+        status = job.execute()
+        sys.path.remove(self.maint_dir)
+        os.chdir(start_dir)
+        if status == None:
+            status = OK
+        if type(status) != type(1):
+            msg = "Invalid status type (%s: '%s')"
+            Logger.warning(msg % (type(status), status))
+            status = FAIL
+        return status
+
+    ############################################ PRIVATE METHODS
+
+    def _invalidate(self, exception_object):
         erstr = "INVALID PACKAGE: %s" % self.name
         Logger.error(erstr)
-        Logger.error(str(exceptionObject))
+        Logger.error(str(exception_object))
         self.status = FAIL
         
-    def getConfiguration(self):
-        return self.metaData.data.get("configuration")
-
-    def gatherDependencies(self):
-        self.dependencies = self.metaData.data.get("dependencies")
+    def _gather_dependencies(self):
+        self.dependencies = self.meta_data.data.get("dependencies")
         if type(self.dependencies) == type(None):
             self.dependencies = []
         elif type(self.dependencies) == type('string'):
@@ -162,13 +272,8 @@ class Package:
             Logger.warning(errmsg)
             self.dependencies = []
     
-    def addDependencyError(self, dependencyName):
-        errmsg = "BOM file is incomplete: should contain %s" % dependencyName
-        Logger.warning(errmsg)
-        self.dependencyErrors.append(dependencyName)
-
-    def evalPriority(self):
-        self.priority = self.metaData.data["install"].get('priority')
+    def _eval_priority(self):
+        self.priority = self.meta_data.data["install"].get('priority')
         if not self.priority:
             ermsg = "Package %s does not have a priority "\
                     "(assuming %s)" % (self.name, AVERAGE)
@@ -183,14 +288,14 @@ class Package:
                 Logger.warning(ermsg)
                 self.priority = AVERAGE
 
-    def checkMetaData(self):
+    def _check_meta_data(self):
         self.status = FAIL
-        if self.metaData.data:
-            if type(self.metaData.data) == type(dict()):
-                if self.metaData.data.get("install"):
-                    if type(self.metaData.data["install"]) == type({}):
-                        self.fullName = self.metaData.data['install'].get('fullName')
-                        if self.fullName:
+        if self.meta_data.data:
+            if type(self.meta_data.data) == type(dict()):
+                if self.meta_data.data.get("install"):
+                    if type(self.meta_data.data["install"]) == type({}):
+                        self.full_name = self.meta_data.data['install'].get('full_name')
+                        if self.full_name:
                             self.status = OK
                             return
                         else:
@@ -209,89 +314,35 @@ class Package:
             msg = "No metadata found for this package"
             raise BadPackage, (self.name, msg)
 
-    def initialize(self):
-        try:
-            self.metaData = self.repository.getMetaData(self.name)
-        except BadPackage, bp:
-            self.invalidate(bp)
-            return
-        self.checkMetaData()
-        self.checksum = self.metaData.data['install'].get('md5sum')
-        if not self.checksum:
-            ermsg = "Package %s does not have a checksum field"\
-                    " (not checking)" % (self.name)
-            Logger.warning(ermsg)
-        if self.metaData.data['install'].get('md5list'):
-            self.checksum = self.metaData.data['install']['md5list']
-        chk = self.metaData.data["install"].get('console')
-        self.console = evalBoolean(chk)
-        chk = self.metaData.data["install"].get('reboot')
-        self.reboot = evalBoolean(chk)
-        chk = self.metaData.data.get("package-version")
-        if type(chk) == type(1):
-            self.packageVersion = chk
-        self.evalPriority()
-        self.gatherDependencies()
 
-
-    def initializeFromFilesystem(self):
+    def _initialize_from_filesystem(self):
         """ Expects a standard package to be extracted in the packages
         directory """
-        packagePath = getPackagePath(self.instanceName)
-        if not self.fullName:
+        package_path = getPackagePath(self.instance_name)
+        if not self.full_name:
             raise BadPackage(self.name, "Could not find full name.")
-        newDir = os.path.join(packagePath, self.fullName)
-        self.scriptsDir = os.path.join(newDir, "scripts")
-        if self.packageVersion > 3:
-            self.maintDir = os.path.join(newDir, "maint")
+        new_dir = os.path.join(package_path, self.full_name)
+        self.scripts_dir = os.path.join(new_dir, "scripts")
+        if self.package_version > 3:
+            self.maint_dir = os.path.join(new_dir, "maint")
         else:
-            self.maintDir = os.path.join(self.scriptsDir, "maint")
-        if not self.filesystem.isdir(self.scriptsDir):
+            self.maint_dir = os.path.join(self.scripts_dir, "maint")
+        if not self.filesystem.isdir(self.scripts_dir):
             errmsg = "Scripts directory does not exist"
             raise BadPackage(self.name, errmsg)
-        injectorDir = os.path.join(newDir, "injector")
-        if self.filesystem.isdir(injectorDir):
-            self.workingDir = injectorDir
+        injector_dir = os.path.join(new_dir, "injector")
+        if self.filesystem.isdir(injector_dir):
+            self.working_dir = injector_dir
         else:
-            errmsg = "The injector directory does not exist for [%s]" % self.fullName
+            errmsg = "The injector directory does not exist for [%s]" % self.full_name
             raise BadPackage(self.name, errmsg)
 
-    def configure(self):
-        if self.download() != OK:
-            return FAIL
-        return self.findCmd(CONFIGURE)
+    def _find_cmd(self, action, package_list=[], dry_run=False):
+        if self.package_version == 4:
+            return self._find_cmd_type_4(action, package_list, dry_run=dry_run)
 
-    def findCmd(self, action, packageList=[], dryRun=False):
-        if self.packageVersion > 1:
-            return self.findCmd2(action, packageList, dryRun=dryRun)
-        else:
-            return self.findCmd1(action, packageList)
-
-    def findCmd1(self, action, packageList=[]):
-        fullCmd = ''
-        extensions = [".py", ".bat", ".pl", ".sh"]
-        cmds = {INSTALL: "installer", UNINSTALL: "uninstaller",
-                VERIFY: "verify", CONFIGURE: "configure" }
-        cmd = cmds.get(action)
-        if not cmd:
-            raise FeatureRemovedException(action)
-        for extension in extensions:
-            testCmd = os.path.join(self.scriptsDir, cmd+extension)
-            #Logger.debug( testCmd )
-            if self.filesystem.isfile(testCmd):
-                fullCmd = testCmd
-                break
-        if not fullCmd:
-            errMsg = "Could not find an appropriate script in %s." % self.scriptsDir
-            raise BadPackage( self.name, errMsg )
-        if packageList:
-            fullCmd += " %s" % ','.join(packageList)
-
-        status = self.operatingSystem.run(fullCmd, self.workingDir, self.console)
-        return status
-
-    def dumpError(self, e, fileName):
-        Logger.error("Error detected in %s (%s)." % (fileName, e))
+    def _dump_error(self, e, file_name):
+        Logger.error("Error detected in %s (%s)." % (file_name, e))
         e = StringIO.StringIO()
         traceback.print_exc(file=e)
         e.seek(0)
@@ -300,48 +351,48 @@ class Package:
         for line in data.split('\n'):
             ermsg += "\n||>>>%s" % line
         Logger.error(ermsg)
-        Logger.error("Error ocurred in %s" % fileName)
+        Logger.error("Error ocurred in %s" % file_name)
 
-    def findCmd2(self, action, packageList=[], dryRun=False):
+    def _find_cmd_type_4(self, action, package_list=[], dry_run=False):
         cwd = self.filesystem.getcwd()
-        sys.path.insert(0, self.scriptsDir)
-        self.filesystem.chdir(self.scriptsDir)
+        sys.path.insert(0, self.scripts_dir)
+        self.filesystem.chdir(self.scripts_dir)
         files = glob.glob("*.py")
         files = [x.split('.py')[0] for x in files]
         if self.name in files:
             files = [self.name]
         else:
-            vpkg_name = self.metaData.data.get('virtualpackage')
+            vpkg_name = self.meta_data.data.get('virtualpackage')
             if vpkg_name in files:
                 files = [vpkg_name]
         status = FAIL
-        fileFound = False
-        for fileName in files:  # FIXME this is stupid
-            if fileName.split('.')[0] in ["installer", "verify", "uninstaller", "configure"]:
+        file_found = False
+        for file_name in files:  # FIXME this is stupid
+            if file_name.split('.')[0] in ["installer", "verify", "uninstaller", "configure"]:
                 continue
             try:
                 obj = Spkg.SpkgV4(self.config, Logger)
-                self.filesystem.chdir(self.workingDir)
+                self.filesystem.chdir(self.working_dir)
                 letters = [ chr( x ) for x in range(65, 91) ]
                 random.shuffle(letters)
-                randString = ''.join(letters)
-                exec("import %s as %s" % (fileName, randString)) # FIXME
-                Logger.debug("This is package version %s" % self.packageVersion)
-                if self.packageVersion == 2:
-                    exec("obj = %s.%s(self.config)" % (randString, fileName))
-                elif self.packageVersion == 3:
-                    self.config["__INSTANCE__"] = self.instanceName
-                    cmdString = "obj = %s.%s(self.config, packageList, Logger)"
-                    exec(cmdString % (randString, fileName))
-                elif self.packageVersion == 4:
-                    self.config["__FUTURE_PACKAGES__"] = packageList
-                    self.config["__INSTANCE__"] = self.instanceName
+                rand_string = ''.join(letters)
+                exec("import %s as %s" % (file_name, rand_string)) # FIXME
+                Logger.debug("This is package version %s" % self.package_version)
+                if self.package_version == 2:
+                    exec("obj = %s.%s(self.config)" % (rand_string, file_name))
+                elif self.package_version == 3:
+                    self.config["__INSTANCE__"] = self.instance_name
+                    cmdString = "obj = %s.%s(self.config, package_list, Logger)"
+                    exec(cmdString % (rand_string, file_name))
+                elif self.package_version == 4:
+                    self.config["__FUTURE_PACKAGES__"] = package_list
+                    self.config["__INSTANCE__"] = self.instance_name
                     cmdString = "obj = %s.%s(self.config, Logger)"
-                    exec(cmdString % (randString, fileName))
+                    exec(cmdString % (rand_string, file_name))
                 else:
-                    raise BadPackage( self.name, "Unknown package version %s" % self.packageVersion )
-                fileFound = True
-                if not dryRun:
+                    raise BadPackage( self.name, "Unknown package version %s" % self.package_version )
+                file_found = True
+                if not dry_run:
                     if action == INSTALL:
                         status = obj.installer()
                     elif action == VERIFY:
@@ -354,195 +405,113 @@ class Package:
                         raise FeatureRemovedException(action)
                 else:
                     status = OK
-                del randString
-                if fileName in sys.modules:
-                    sys.modules.pop(fileName)
-                while self.scriptsDir in sys.path:
-                    sys.path.remove(self.scriptsDir)
+                del rand_string
+                if file_name in sys.modules:
+                    sys.modules.pop(file_name)
+                while self.scripts_dir in sys.path:
+                    sys.path.remove(self.scripts_dir)
                 break
             except ImportError:
-                Logger.debug("File %s is not runnable. Looking for others" % fileName)
+                Logger.debug("File %s is not runnable. Looking for others" % file_name)
                 continue
             except SystemExit, e:
                 if e.code:
                     status = e.code
                 else:
                     status = 0
-                fileFound = True
-                del randString
+                file_found = True
+                del rand_string
                 break
             except KeyboardInterrupt:
                 Logger.error("Keyboard interrupt detected. Exiting...")
                 sys.exit(10)
             except SyntaxError, e:
-                self.dumpError(e, fileName)
-                fileFound = False
-                del randString
+                self._dump_error(e, file_name)
+                file_found = False
+                del rand_string
                 break
             except StandardError, e:
-                self.dumpError(e, fileName)
-                fileFound = True
+                self._dump_error(e, file_name)
+                file_found = True
                 status = FAIL
-                del randString
+                del rand_string
                 break
         self.filesystem.chdir(cwd)
-        if not fileFound:
+        if not file_found:
             raise BadPackage(self.name, "Unable to find a suitable script to install.")
         if status == None:
             status = OK
         if status == REBOOT:
             raise RebootRequiredException(self.name)
         if status != OK:
-            erstr = "%s: failed with status %s" % (self.fullName, status)
+            erstr = "%s: failed with status %s" % (self.full_name, status)
             Logger.error(erstr)
             return FAIL
         return OK
 
-    def download(self):
+    def _download(self):
         if not self.downloaded:
             try:
-                self.repository.getPackage(self.name, checksum=self.checksum)
-                self.initializeFromFilesystem()
+                self.repository.get_package(self.name, checksum=self.checksum)
+                self._initialize_from_filesystem()
                 self.downloaded = True
             except BadPackage, bp:
-                self.invalidate(bp)
+                self._invalidate(bp)
                 return FAIL
         return OK
 
-    def installAndVerify(self, packageList=[], dryRun=False):
-        if self.download() != OK:
+    def _install(self, package_list, dry_run=False):
+        dry_run_string = ""
+        if dry_run:
+            dry_run_string = " --DRY_RUN-- "
+        if self._download() != OK:
             return FAIL
+        message = "Beginning installation of (%s)%s"
+        Logger.info(message % (self.full_name, dry_run_string))
+        self.status = self._find_cmd(INSTALL, package_list, dry_run=dry_run)
+        msg = "Install result for %s%s : %s"
+        Logger.info(msg % (self.full_name, dry_run_string, self.status))
+        return self.status
+
+    def _write_progress(self):
+        time_string = time.ctime()
+        progress_data = self.filesystem.getProgressData(self.instance_name)
+        if not progress_data.has_key(self.full_name):
+            progress_data[self.full_name] = {"INSTALLED": "NA",
+                                             "UNINSTALLED": "NA",
+                                             "VERIFIED": "NA",
+                                             "DEPENDENCY_ERRORS": []}
         if self.action == INSTALL:
-            status = self.install(packageList, dryRun=dryRun)
-            if not dryRun:
-                if status == OK:
-                    status = self.verify()
-                self.writeProgress()
-            return status
-        raise FeatureRemovedException(self.action)
-
-    def packageStuff(self):
-        if not self.fullName:
-            Logger.error("Package %s is invalid")
-            return FAIL
-        return OK
-
-    # TESTED
-    def install(self, packageList, dryRun=False):
-        dryRunString = ""
-        if dryRun:
-            dryRunString = " --DRY_RUN-- "
-        if self.download() != OK:
-            return FAIL
-        message = "Beginning installation of (%s)%s" % (self.fullName, dryRunString)
-        Logger.info(message)
-        self.status = self.findCmd(INSTALL, packageList, dryRun=dryRun)
-        Logger.info("Install result for %s%s : %s" % (self.fullName, dryRunString, self.status))
-        return self.status
-
-    def executeMaintScript(self, scriptName):
-        if self.download() != OK:
-            return FAIL
-        # remove old history
-        outputPath = os.path.join(getSpkgPath(), self.instanceName,
-                                  "output", "%s-output.yml" % scriptName)
-        self.filesystem.rmScheduledFile(outputPath)
-        message = "Executing (%s) inside package (%s)" %(scriptName, self.fullName)
-        Logger.info(message)
-        scriptPath = "%s/%s.py" %(self.maintDir, scriptName)
-        startDir = os.getcwd()
-        os.chdir(self.maintDir)
-        if not os.path.isfile(scriptPath):
-            msg = "%s does not exist" %scriptPath
-            raise BadPackage, (self.name, msg)
-        sys.path.append(self.maintDir )
-        importString = 'import %s'%scriptName
-        status = FAIL # For PyChecker
-        cmd = 'status = %s.execute(self.config, Logger)'%scriptName
-        job = Job(importString, cmd, self.config)
-        status = job.execute()
-        #exec('status = %s.execute(self.config, Logger)'%scriptName)
-        sys.path.remove(self.maintDir)
-        os.chdir(startDir)
-        if status == None:
-            status = OK
-        if type(status) != type(1):
-            Logger.warning("Invalid status type (%s: '%s')" % (type(status), status))
-            status = FAIL
-        return status
-
-    # TESTED
-    def verify(self): 
-        if self.download() != OK:
-            return FAIL
-        message = "Verifying package %s" % self.fullName
-        Logger.info(message)
-        self.status = self.findCmd(VERIFY)
-        if self.action != INSTALL:
-            self.writeProgress()
-        Logger.info("Verify result for %s : %s" % (self.fullName, self.status))
-        return self.status
-
-    # TESTED
-    def uninstall(self, dryRun=False):
-        self.action = UNINSTALL
-        if self.download() != OK:
-            return FAIL
-        if self.status != OK:
-            return self.status
-        dryRunString = ""
-        if dryRun:
-            dryRunString = " --DRY_RUN-- "
-        Logger.info("Uninstalling package %s%s" % (self.name, dryRunString))
-        self.status = self.findCmd(UNINSTALL, dryRun=dryRun)
-        if not dryRun:
-            self.writeProgress()
-        Logger.info("Uninstall result for %s%s : %s" % (self.fullName, dryRunString, self.status))
-        return self.status
-
-    # TESTED
-    def getDateString(self):
-        d = datetime.datetime.today()
-        dateString = "%d-%d-%d-%d-%d-%d" %(d.year, d.month, d.day, d.hour, d.minute, d.second ) 
-        return( dateString )
-
-    ### TESTED
-    def writeProgress(self):
-        timeString = time.ctime()
-        progressData = self.filesystem.getProgressData(self.instanceName)
-        if not progressData.has_key(self.fullName):
-            progressData[self.fullName] = {"INSTALLED": "NA", "UNINSTALLED": "NA", "VERIFIED": "NA", "DEPENDENCY_ERRORS": []}
-        if self.action == INSTALL:
-            if progressData.get(self.fullName) == None:
-                Logger.warning("UNREACHABLE CODE REACHED!")
-                progressData[self.fullName] = {}
-            if self.fullName:
+            if progress_data.get(self.full_name) == None:
+                progress_data[self.full_name] = {}
+            if self.full_name:
                 if self.status == OK:
-                    progressData[self.fullName]['INSTALLED']   = timeString
+                    progress_data[self.full_name]['INSTALLED']   = time_string
                     # FIXME: shouldn't this next line be 'NA'? -- pbanka
-                    progressData[self.fullName]['VERIFIED']    = timeString 
-                    progressData[self.fullName]['UNINSTALLED'] = 'NA'
+                    progress_data[self.full_name]['VERIFIED']    = time_string 
+                    progress_data[self.full_name]['UNINSTALLED'] = 'NA'
 
                 else:
-                    progressData[self.fullName]['INSTALLED']   = "BROKEN"
-                    progressData[self.fullName]['VERIFIED']    = 'NA'
-                    progressData[self.fullName]['UNINSTALLED'] = 'NA'
+                    progress_data[self.full_name]['INSTALLED']   = "BROKEN"
+                    progress_data[self.full_name]['VERIFIED']    = 'NA'
+                    progress_data[self.full_name]['UNINSTALLED'] = 'NA'
             else:
                 Logger.error("Unnamed package installed: (%s)" % (self.name))
                 return FAIL
     
         elif self.action == UNINSTALL:
-            likePackages = [ p for p in progressData if p.startswith(self.name) and p != self.fullName ]
-            for p in likePackages:
-                del progressData[p]
+            like_packages = [ p for p in progress_data if p.startswith(self.name) and p != self.full_name ]
+            for p in like_packages:
+                del progress_data[p]
             if self.status == OK:
-                progressData[self.fullName]['UNINSTALLED'] = timeString
-                progressData[self.fullName]['INSTALLED']   = 'NA'
+                progress_data[self.full_name]['UNINSTALLED'] = time_string
+                progress_data[self.full_name]['INSTALLED']   = 'NA'
             else:
-                progressData[self.fullName]['UNINSTALLED'] = "BROKEN"
+                progress_data[self.full_name]['UNINSTALLED'] = "BROKEN"
 
         elif self.action == VERIFY:
-            progressData[self.fullName]['VERIFIED'] = timeString
-        progressData[self.fullName]['DEPENDENCY_ERRORS'] = self.dependencyErrors
-        self.filesystem.updateProgress({"install-progress":progressData}, self.instanceName, overwrite=True)
+            progress_data[self.full_name]['VERIFIED'] = time_string
+        progress_data[self.full_name]['DEPENDENCY_ERRORS'] = self.dependency_errors
+        self.filesystem.updateProgress({"install-progress":progress_data},
+                                       self.instance_name, overwrite=True)
         return OK

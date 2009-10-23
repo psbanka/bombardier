@@ -151,8 +151,6 @@ def main_loop(system_state, slash):
             clean = True
 
 if __name__ == "__main__":
-    logger = Logger('bombardier_cli', LOG_PATH)
-
     system_state = SystemState()
     system_state.load_config()
 
@@ -167,7 +165,7 @@ if __name__ == "__main__":
         username = options.user
 
     if not options.no_login:
-        libUi.login(username, logger)
+        libUi.login(username)
     else:
         system_state.username = username
         system_state.prompt = ['$']

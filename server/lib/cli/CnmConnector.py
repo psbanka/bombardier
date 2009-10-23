@@ -126,14 +126,12 @@ class CnmConnector:
     '''Object to make it easier to communicate with the Bombardier RESTFul
     web server'''
 
-    def __init__(self, address, username, logger):
+    def __init__(self, address, username):
         '''
         address -- URL of the Bombardier web server
-        username -- username for connecting to the server
-        logger -- an object to log activity'''
+        username -- username for connecting to the server'''
         self.address = address
         self.username = username
-        self.logger = logger
         self.password = None
         self.proxy_address = None
         self.proxy_port = None
@@ -229,8 +227,7 @@ class CnmConnector:
         query_string = make_query_string(args)
         url = urlparse.urljoin(full_path, query_string)
         if self.debug:
-            print "SERVICE REQUEST!!"
-            self.logger.debug("Performing service request to %s" % url)
+            print "Performing service request to %s" % url
         curl_obj = self.prepare_curl_object(url)
         if timeout != None:
             curl_obj.setopt(pycurl.TIMEOUT, timeout)
@@ -277,7 +274,7 @@ class CnmConnector:
             response = self.service_request(path, args, put_data, post_data, timeout)
             return response.convert_from_yaml()
         except urllib2.HTTPError:
-            self.logger.error("Unable to connect to the service %s" % path)
+            print "Unable to connect to the service %s" % path
             return {}
 
     def cleanup_connections(self):

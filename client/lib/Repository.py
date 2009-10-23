@@ -101,7 +101,7 @@ class Repository:
         self.filesystem.dumpYaml(fileName, statusData)
 
     # TESTED
-    def getMetaData(self, name):
+    def get_meta_data(self, name):
         if not name in self.packageData:
             raise Exceptions.BadPackage(name,"Package not found in Definitive Software Library." )
         pkgData = self.packageData.get(name)
@@ -165,7 +165,7 @@ class Repository:
         return OK
 
     # TESTED
-    def getPackage(self, packageName, tries=3, checksum=''):
+    def get_package(self, packageName, tries=3, checksum=''):
         # FIXME: for uninstall, this should find the directory in packages
         packagePath = getPackagePath(self.instanceName)
         try:

@@ -51,10 +51,9 @@ NEUTRAL = 5
 YES = 1
 NO = 0
 
-def login(username, logger, password=None):
+def login(username, password=None):
     'Prompt for a password and initialize connection to the server'
     system_state.get_term_info()
-    system_state.logger = logger
     if username:
         system_state.username = username
     if not system_state.username:
@@ -62,7 +61,7 @@ def login(username, logger, password=None):
     else:
         print "Logging in as %s" % system_state.username
     system_state.cnm_connector = CnmConnector(system_state.cnm_url,
-                                 system_state.username, system_state.logger)
+                                 system_state.username)
     tries = 0
     while tries < 3:
         if not password:

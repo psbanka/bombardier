@@ -35,20 +35,20 @@ class MetaData:
     def has_key(self, key):
         return self.data.has_key(key)
 
-    def get(self, sectionName, optionName, default=None):
-        if not self.data.has_key(sectionName):
+    def get(self, section_name, option_name, default=None):
+        if not self.data.has_key(section_name):
           if default != None:
             return default
-          raise ConfigParser.NoSectionError(sectionName)
-        section = self.data[sectionName]
-        if not section.has_key(optionName):
+          raise ConfigParser.NoSectionError(section_name)
+        section = self.data[section_name]
+        if not section.has_key(option_name):
           if default != None:
             return default
-          raise ConfigParser.NoOptionError(sectionName, optionName)
-        return section[optionName]
+          raise ConfigParser.NoOptionError(section_name, option_name)
+        return section[option_name]
 
-    def has_section(self, sectionName):
-        if sectionName in self.data.keys():
+    def has_section(self, section_name):
+        if section_name in self.data.keys():
             return True
         return False
 

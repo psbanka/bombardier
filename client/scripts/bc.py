@@ -42,96 +42,96 @@ import base64
 import zlib
 
 class NoInstanceError(Exception):
-    def __init__(self, instanceName):
+    def __init__(self, instance_name):
         Exception.__init__(self)
-        self.instanceName = instanceName
+        self.instance_name = instance_name
     def __repr__(self):
-        return "Attempting operation on a non-existant instance: %s" % self.instanceName
+        return "Attempting operation on a non-existant instance: %s" % self.instance_name
 
-def exitWithReturnCode(value):
+def exit_with_return_code(value):
     if type(value) != type(0):
         Logger.error("Invalid exit code, not an integer: %s" % value)
         value = FAIL
     Logger.warning("==EXIT-CODE==:%s" % value)
     sys.exit(value)
 
-def findLikelyPackageName(instanceName, packageName):
-    statusYml = yaml.load(open(getProgressPath(instanceName)).read())
-    packageNames = []
-    statusPackages = statusYml['install-progress']
-    for name in statusPackages:
-        if statusPackages[name]['INSTALLED'] in [ 'NA', 'BROKEN' ]:
+def find_likely_package_name(instance_name, package_name):
+    status_yml = yaml.load(open(getProgressPath(instance_name)).read())
+    package_names = []
+    status_packages = status_yml['install-progress']
+    for name in status_packages:
+        if status_packages[name]['INSTALLED'] in [ 'NA', 'BROKEN' ]:
             continue
-        if packageName.lower() in name.lower():
-            packageNames.append(name)
-    if len(packageNames) > 1:
-        Logger.error( 'Ambiguous package name: %s could be any of %s' %(packageName, str(packageNames)))
-        exitWithReturnCode(FAIL)
-    if len(packageNames) == 0:
-        Logger.error( 'Package not found: %s' %packageName )
-        exitWithReturnCode(FAIL)
+        if package_name.lower() in name.lower():
+            package_names.append(name)
+    if len(package_names) > 1:
+        Logger.error( 'Ambiguous package name: %s could be any of %s' %(package_name, str(package_names)))
+        exit_with_return_code(FAIL)
+    if len(package_names) == 0:
+        Logger.error( 'Package not found: %s' %package_name )
+        exit_with_return_code(FAIL)
     else:
-        packageName = '-'.join(packageNames[0].split('-')[:-1])
-        Logger.info( 'Using %s' %packageName)
-        return packageName
+        package_name = '-'.join(package_names[0].split('-')[:-1])
+        Logger.info( 'Using %s' %package_name)
+        return package_name
 
-def fixSpkg(instanceName, packageName, action, packageFactory):
-    statusData = open(getProgressPath(instanceName), 'r').read()
-    status = yaml.load(statusData)
+def fix_spkg(instance_name, package_name, action, package_factory):
+    status_data = open(getProgressPath(instance_name), 'r').read()
+    status = yaml.load(status_data)
     if status.get("install-progress") == None:
         status["install-progress"] = {}
         Logger.warning( "Status file is empty." )
     now = time.asctime()
     if action == FIX:
-        fixName = []
-        baseNames = re.compile("(\s+)\-\d+").findall(packageName)
-        if baseNames:
-            baseName = baseNames[0]
+        fix_name = []
+        base_names = re.compile("(\s+)\-\d+").findall(package_name)
+        if base_names:
+            base_name = base_names[0]
         else:
-            baseName = packageName
-        for possiblePackageName in status["install-progress"]:
-            if baseName in possiblePackageName:
-                fixName.append(possiblePackageName)
-        if len(fixName) > 1:
-            Logger.error("Package name %s is ambigious. (possible %s)" % (packageName, ' '.join(fixName)))
+            base_name = package_name
+        for possible_package_name in status["install-progress"]:
+            if base_name in possible_package_name:
+                fix_name.append(possible_package_name)
+        if len(fix_name) > 1:
+            Logger.error("Package name %s is ambigious. (possible %s)" % (package_name, ' '.join(fix_name)))
             return FAIL
-        elif len(fixName) == 1:
-            packageName = fixName[0]
-        elif len(fixName) == 0:
-            newPackage = packageFactory.getMeOne(packageName)
-            packageName = newPackage.fullName
-            Logger.info("Selecting previously UNINSTALLED package: %s" % packageName)
-        status["install-progress"]["%s" % packageName] = {"INSTALLED": now, "UNINSTALLED": "NA", "VERIFIED": now}
-        Logger.info("==OUTPUT==:%s has been set to INSTALLED." % packageName )
+        elif len(fix_name) == 1:
+            package_name = fix_name[0]
+        elif len(fix_name) == 0:
+            new_package = package_factory.get_me_one(package_name)
+            package_name = new_package.full_name
+            Logger.info("Selecting previously UNINSTALLED package: %s" % package_name)
+        status["install-progress"]["%s" % package_name] = {"INSTALLED": now, "UNINSTALLED": "NA", "VERIFIED": now}
+        Logger.info("==OUTPUT==:%s has been set to INSTALLED." % package_name )
     elif action == PURGE:
-        if status["install-progress"].get(packageName):
-            del status["install-progress"][packageName]
-            msg = "==OUTPUT==:%s has been removed from %s status" % (packageName, instanceName)
+        if status["install-progress"].get(package_name):
+            del status["install-progress"][package_name]
+            msg = "==OUTPUT==:%s has been removed from %s status" % (package_name, instance_name)
             Logger.info(msg)
         else:
-            Logger.info("==OUTPUT==:%s is not in the status file" % packageName)
-            packageNames = status["install-progress"]
-            possibleNames = [x for x in packageNames if packageName in x]
-            Logger.info("==OUTPUT==:Maybe you want one of these: %s" % str(possibleNames))
+            Logger.info("==OUTPUT==:%s is not in the status file" % package_name)
+            package_names = status["install-progress"]
+            possible_names = [x for x in package_names if package_name in x]
+            Logger.info("==OUTPUT==:Maybe you want one of these: %s" % str(possible_names))
             return FAIL
-    open(getProgressPath(instanceName), 'w').write(yaml.dump(status))
+    open(getProgressPath(instance_name), 'w').write(yaml.dump(status))
     return OK
 
 class BombardierEnvironment:
-    def __init__(self, instanceName):
+    def __init__(self, instance_name):
         self.filesystem      = Filesystem()
         self.repository      = None
         self.config          = None
-        self.operatingSystem = None
-        self.instanceName    = instanceName
+        self.operating_system = None
+        self.instance_name    = instance_name
         if sys.platform == "linux2":
             import bombardier_core.Linux
-            self.operatingSystem = bombardier_core.Linux.Linux()
+            self.operating_system = bombardier_core.Linux.Linux()
         else:
             import bombardier_core.Windows
-            self.operatingSystem = bombardier_core.Windows.Windows()
+            self.operating_system = bombardier_core.Windows.Windows()
 
-    def dataRequest(self):
+    def data_request(self):
         STREAM_BLOCK_SIZE= 77
         b64Data = []
         while True:
@@ -139,109 +139,111 @@ class BombardierEnvironment:
             if not chunk or chunk[0] == ' ':
                 break
             b64Data.append(chunk)
-        yamlData = ''
-        yamlData = zlib.decompress(base64.decodestring(''.join(b64Data)))
-        Logger.debug("Received %s lines of yaml" % len(yamlData.split('\n')))
+        yaml_data = ''
+        yaml_data = zlib.decompress(base64.decodestring(''.join(b64Data)))
+        Logger.debug("Received %s lines of yaml" % len(yaml_data.split('\n')))
 
         try:
-            inputData = yaml.load(yamlData)
+            input_data = yaml.load(yaml_data)
         except:
-            ermsg = "Received bad YAML: %s" % (repr(yamlData))
-            raise ServerUnavailable, ("inputData", ermsg)
-        if type(inputData) == type("string"):
-            Logger.error("Invalid Yaml on server: %s" % inputData)
-            raise ServerUnavailable, ("inputData", "invalid yaml")
-        if type(inputData) != type({}) and type(inputData) != type([]): # backwards comptible yaml
-            inputData = inputData.next()
-        configKey = inputData.get("config_key", None)
-        if configKey:
-            encYamlFile = os.path.join(getSpkgPath(), instanceName, 'client.yml.enc')
-            if not os.path.isfile(encYamlFile):
-                raise ServerUnavailable, ("inputData", "no %s" % encYamlFile)
-            encData = open(encYamlFile).read()
-            plainYamlStr = decryptString(encData, configKey)
+            ermsg = "Received bad YAML: %s" % (repr(yaml_data))
+            raise ServerUnavailable, ("input_data", ermsg)
+        if type(input_data) == type("string"):
+            Logger.error("Invalid Yaml on server: %s" % input_data)
+            raise ServerUnavailable, ("input_data", "invalid yaml")
+        if type(input_data) != type({}) and type(input_data) != type([]): # backwards comptible yaml
+            input_data = input_data.next()
+        config_key = input_data.get("config_key", None)
+        if config_key:
+            enc_yaml_file = os.path.join(getSpkgPath(), instance_name, 'client.yml.enc')
+            if not os.path.isfile(enc_yaml_file):
+                raise ServerUnavailable, ("input_data", "no %s" % enc_yaml_file)
+            enc_data = open(enc_yaml_file).read()
+            plain_yaml_str = decryptString(enc_data, config_key)
             try:
-                inputData = yaml.load(plainYamlStr)
+                input_data = yaml.load(plain_yaml_str)
             except:
-                ermsg = "Received bad YAML file: %s" % encYamlFile
-                raise ServerUnavailable, ("inputData", ermsg)
+                ermsg = "Received bad YAML file: %s" % enc_yaml_file
+                raise ServerUnavailable, ("input_data", ermsg)
                 
-        configData  = inputData.get("configData")
-        if not configData:
+        config_data  = input_data.get("configData")
+        if not config_data:
             Logger.error("No configuration data received")
-            raise ServerUnavailable, ("configData", "invalid yaml")
-        packageData = inputData.get("packageData", {})
-        self.config = Config(self.filesystem, instanceName, configData)
-        self.repository = Repository(self.filesystem, instanceName, packageData)
+            raise ServerUnavailable, ("config_data", "invalid yaml")
+        package_data = input_data.get("packageData", {})
+        self.config = Config(self.filesystem, instance_name, config_data)
+        self.repository = Repository(self.filesystem, instance_name, package_data)
 
-    def clearLock(self):
+    def clear_lock(self):
         self.filesystem.clearLock()
 
 class PackageFactory:
     def __init__(self, env):
         self.env = env
 
-    def getMeOne(self, packageName):
-        newPackage = Package(packageName, self.env.repository, self.env.config,
-                             self.env.filesystem, self.env.operatingSystem, self.env.instanceName)
-        newPackage.initialize()
-        return newPackage
+    def get_me_one(self, package_name):
+        new_package = Package(package_name, self.env.repository, self.env.config,
+                             self.env.filesystem, self.env.operating_system,
+                             self.env.instance_name)
+        new_package.initialize()
+        return new_package
 
-def getBc(instanceName, env):
-    env.clearLock()
+def get_bc(instance_name, env):
+    env.clear_lock()
     bc = Bombardier(env.repository, env.config, env.filesystem,
-                                               env.operatingSystem, instanceName)
+                    env.operating_system, instance_name)
     return bc
 
-def instanceSetup(instanceName):
-    progressPath = getProgressPath(instanceName)
-    statusDct = None
-    if os.path.isfile(progressPath):
+def instance_setup(instance_name):
+    progress_path = getProgressPath(instance_name)
+    status_dict = None
+    if os.path.isfile(progress_path):
         try:
-            statusDct = yaml.load(open(progressPath).read())
+            status_dict = yaml.load(open(progress_path).read())
         except:
-            Logger.warning("Unable to load existing yaml from %s" %progressPath)
-    if type(statusDct) != type({}):
-        statusDct = {"status": {"newInstall": "True"}}
-    statusDct["client_version"] = CLIENT_VERSION
-    statusDct["core_version"] = CORE_VERSION
-    statusDct["clientVersion"] = CLIENT_VERSION
-    statusDct["coreVersion"] = CORE_VERSION
-    pkgDir = os.path.join(getSpkgPath(), instanceName, "packages")
-    if not os.path.isdir(pkgDir):
-        os.makedirs(pkgDir)
-    open(progressPath, 'w').write(yaml.dump(statusDct))
+            Logger.warning("Unable to load existing yaml from %s" % progress_path)
+    if type(status_dict) != type({}):
+        status_dict = {"status": {"newInstall": "True"}}
+    status_dict["client_version"] = CLIENT_VERSION
+    status_dict["core_version"] = CORE_VERSION
+    status_dict["clientVersion"] = CLIENT_VERSION
+    status_dict["coreVersion"] = CORE_VERSION
+    pkg_dir = os.path.join(getSpkgPath(), instance_name, "packages")
+    if not os.path.isdir(pkg_dir):
+        os.makedirs(pkg_dir)
+    open(progress_path, 'w').write(yaml.dump(status_dict))
 
-def processAction(action, instanceName, packageName, scriptName, packageFactory, env):
+def process_action(action, instance_name, package_name, script_name,
+                   package_factory, env):
     if action == INIT:
-        instanceSetup(instanceName)
+        instance_setup(instance_name)
         return OK
 
     if action in [ UNINSTALL, VERIFY, CONFIGURE, EXECUTE ]:
-        packageName = findLikelyPackageName(instanceName, packageName)
+        package_name = find_likely_package_name(instance_name, package_name)
 
     status = FAIL
     try:
         if action in [ FIX, PURGE ]:
-            status = fixSpkg(instanceName, packageName, action, packageFactory)
+            status = fix_spkg(instance_name, package_name, action, package_factory)
             return status
-        bc = getBc(instanceName, env)
+        bc = get_bc(instance_name, env)
         if action == STATUS:
-            statusDict = bc.checkSystem()
-            if type(statusDict) == type({}):
-                if statusDict["broken"]:
+            status_dict = bc.check_system()
+            if type(status_dict) == type({}):
+                if status_dict["broken"]:
                     Logger.info("BROKEN PACKAGES:")
-                    for packageName in statusDict["broken"]:
-                        Logger.info("- %s" % packageName)
+                    for package_name in status_dict["broken"]:
+                        Logger.info("- %s" % package_name)
                 status = OK
             else:
                 status = FAIL
         elif action in [ RECONCILE, DRY_RUN ]:
-            bc.recordErrors = True
-            status = bc.reconcileSystem(action=action)
+            bc.record_errors = True
+            status = bc.reconcile_system(action=action)
         else:
-            bc.recordErrors = False
-            status = bc.usePackage(packageName, action, scriptName)
+            bc.record_errors = False
+            status = bc.use_package(package_name, action, script_name)
 
         bc.filesystem.clearLock()
     except:
@@ -310,35 +312,37 @@ if __name__ == "__main__":
         print "CMD: %s" % ' '.join(sys.argv)
         print "This command requires an instance name."
         parser.print_help()
-        exitWithReturnCode(1)
-    instanceName = args[0]
+        exit_with_return_code(1)
+    instance_name = args[0]
 
-    env = BombardierEnvironment(instanceName)
-    env.dataRequest()
-    packageFactory = PackageFactory(env)
+    env = BombardierEnvironment(instance_name)
+    env.data_request()
+    package_factory = PackageFactory(env)
 
     if options.action in [ RECONCILE, STATUS, DRY_RUN, INIT ]:
-        status = processAction(options.action, instanceName,
-                               '', '', packageFactory, env)
+        status = process_action(options.action, instance_name,
+                               '', '', package_factory, env)
     else:
-        scriptName   = ""
+        script_name   = ""
         if len(args) < 2:
             print "CMD: %s" % ' '.join(sys.argv)
             print "This command requires a package name as an argument."
             parser.print_help()
-            exitWithReturnCode( 1 )
-        packageNames = args[1:]
+            exit_with_return_code( 1 )
+        package_names = args[1:]
         if options.action == EXECUTE:
             if len(args) != 3:
                 print "CMD: %s" % ' '.join(sys.argv)
                 print "This command requires a package name and a script name."
                 parser.print_help()
-                exitWithReturnCode( 1 )
-            packageNames = [args[1]]
-            scriptName = args[2]
+                exit_with_return_code( 1 )
+            package_names = [args[1]]
+            script_name = args[2]
 
-        for packageName in packageNames:
-            status = processAction(options.action, instanceName, packageName, scriptName, packageFactory, env)
+        for package_name in package_names:
+            status = process_action(options.action, instance_name,
+                                    package_name, script_name,
+                                    package_factory, env)
             if status != OK:
-                exitWithReturnCode(status)
-    exitWithReturnCode(status)
+                exit_with_return_code(status)
+    exit_with_return_code(status)
