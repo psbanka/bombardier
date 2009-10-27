@@ -73,7 +73,7 @@ class BombardierCommand(AbstractCommand):
     """Bombardier command is a command running bc.py for 
        package or status actions"""
     def __init__(self, action_string, package_name=None,
-                 script_name = '', package_revision=None, debug=False):
+                 script_name = '', debug=False):
         action_const = ACTION_LOOKUP.get(action_string.lower().strip())
         if action_const == None:
             raise InvalidAction(package_name, action_string)
@@ -82,14 +82,12 @@ class BombardierCommand(AbstractCommand):
         self.action = action_const
         self.package_name = package_name
         self.script_name = script_name
-        self.package_revision = package_revision
         self.debug = debug
 
     def execute(self, machine_interface):
         "Run bc command"
         return machine_interface.take_action(self.action, self.package_name,
-                                             self.script_name,
-                                             self.package_revision, self.debug)
+                                             self.script_name, self.debug)
                                          
 
 class Job(Thread):
@@ -133,6 +131,7 @@ class Job(Thread):
             msg = "Processing command: %s" % command.name, self.name
             self.server_log.info(msg)
             status, output = command.execute(self.machine_interface)
+            self.server_log.info("Help")
             self.command_status = status
             self.command_output = output
         except Exception:
@@ -275,7 +274,7 @@ class Dispatcher(Pyro.core.ObjBase):
         return self.bom_job(username, machine_name, "reconcile")
 
     def package_action_job(self, username, package_name, action_string, 
-                           machine_name, package_revision=None):
+                           machine_name):
         "Runs a bc command for a certain machine and package"
         output = {"status": OK}
         script_name = ''
@@ -291,7 +290,6 @@ class Dispatcher(Pyro.core.ObjBase):
                                                            machine_name)
             bom_cmd = BombardierCommand(action_string,
                                         package_name=package_name, 
-                                        package_revision=package_revision,
                                         script_name=script_name)
             commands = [bom_cmd]
 

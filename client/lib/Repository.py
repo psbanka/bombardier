@@ -25,6 +25,7 @@ from bombardier_core.static_data import OK, FAIL, BLOCK_SIZE
 import os, tarfile, shutil, sys
 import MetaData
 from bombardier_core.mini_utility import getPackagePath, rpartition
+from bombardier_core.mini_utility import getSpkgPath, rpartition
 from bombardier_core.mini_utility import cygpath, getProgressPath
 import md5, yaml, base64
 import Exceptions
@@ -37,10 +38,10 @@ FULL_NAME    = "fullName"
 
 class Repository:
 
-    def __init__(self, filesystem, instanceName, packageData = {}):
+    def __init__(self, filesystem, instance_name, package_data = {}):
         self.filesystem   = filesystem
-        self.instanceName = instanceName
-        self.packageData  = packageData
+        self.instance_name = instance_name
+        self.package_data  = package_data
 
     @classmethod
     def computeMd5(cls, filename, checksum):
@@ -62,8 +63,8 @@ class Repository:
         return OK, computedMd5
 
     @classmethod
-    def packageRequest(cls, filename, instanceName, checksum):
-        dosPath = getPackagePath(instanceName)
+    def packageRequest(cls, filename, instance_name, checksum):
+        dosPath = getPackagePath(instance_name)
         cygPath = cygpath(dosPath)
         Logger.info("==REQUEST-PACKAGE==:%s:%s" % (filename, cygPath))
         response = sys.stdin.read(3)
@@ -81,7 +82,7 @@ class Repository:
 
     def checkLocalPackages(self):
         localPackages = []
-        packagesPath = getPackagePath(self.instanceName)
+        packagesPath = getPackagePath(self.instance_name)
         inodes = self.filesystem.glob("%s/*" % packagesPath)
         for inode in inodes: 
             shortName = rpartition(inode, packagesPath+os.path.sep)[-1]
@@ -95,67 +96,66 @@ class Repository:
             else:
                 Logger.warning("Unknown inode in local repository: %s" % shortName)
 
-        fileName = getProgressPath(self.instanceName)
+        fileName = getProgressPath(self.instance_name)
         statusData = self.filesystem.loadYaml(fileName)
         statusData["local-packages"] = localPackages
         self.filesystem.dumpYaml(fileName, statusData)
 
     # TESTED
     def get_meta_data(self, name):
-        if not name in self.packageData:
+        if not name in self.package_data:
             raise Exceptions.BadPackage(name,"Package not found in Definitive Software Library." )
-        pkgData = self.packageData.get(name)
+        pkgData = self.package_data.get(name)
         return MetaData.MetaData(pkgData)
 
-    # TESTED
-    def unpack(self, fullPackageName, checksum, removeSpkg = True):
-        packagePath = getPackagePath(self.instanceName)
-        pkgPath = os.path.join(packagePath, fullPackageName)
-        if not self.filesystem.isfile(pkgPath+".spkg"):
-            erstr = "No package file in %s." % (pkgPath+".spkg")
+    def unpack_type5(self, file_path, checksum):
+        archive_path = "%s.tar.gz" % file_path
+        archive_dir = file_path.rpartition(os.path.sep)[0]
+        if not self.filesystem.isfile(archive_path):
+            erstr = "No package file: %s." % (archive_path)
             Logger.error(erstr)
             return FAIL
         if sys.platform != 'win32':
-            cmd = "cd %s && tar -xzf %s.spkg" % (packagePath, fullPackageName)
-            Logger.info("Untarring with filesystem command: %s" %cmd)
+            cmd = "cd %s && tar -xzf %s" % (archive_dir, archive_path)
+            Logger.debug("Untarring with filesystem command: %s" %cmd)
             if not self.filesystem.system(cmd) == OK:
                 return FAIL
             return OK
-        if self.unzip(pkgPath, fullPackageName, removeSpkg) == FAIL:
+        if self.unzip_t5(pkgPath, full_package_name, removeSpkg) == FAIL:
             return FAIL
         tar = self.filesystem.tarOpen(pkgPath+".tar", "r")
         tar.errorlevel = 2
         cwd = self.filesystem.getcwd()
-        self.filesystem.chdir(packagePath)
+        self.filesystem.chdir(package_path)
         for tarinfo in tar:
             try:
                 tar.extract(tarinfo)
             except tarfile.ExtractError, e:
                 Logger.warning("Error with package %s,%s: "\
-                                    "%s" % (fullPackageName, tarinfo.name, e))
+                                    "%s" % (full_package_name, tarinfo.name, e))
         tar.close()
-        if not self.filesystem.isdir(os.path.join(packagePath, fullPackageName)):
-            Logger.error("Package %s is malformed." % (fullPackageName))
+        if not self.filesystem.isdir(os.path.join(package_path, full_package_name)):
+            Logger.error("Package %s is malformed." % (full_package_name))
             self.filesystem.chdir(cwd)
             return FAIL
         self.filesystem.chdir(cwd)
         self.filesystem.unlink(pkgPath+".tar")
         return OK
 
-    # TESTED
-    def unzip(self, pkgPath, fullPackageName, removeSpkg = True):
-        Logger.info("Unzipping %s" % fullPackageName)
-        gzipFile = self.filesystem.gzipOpen(pkgPath+".spkg")
+    def unzip_t5(self, archive_path):
+        Logger.info("Unzipping %s" % archive_path)
+        gzipFile = self.filesystem.gzipOpen(archive_path)
+        output_filename = archive.path.rpartition('tar.gz')[0]
         outputFile = self.filesystem.open(pkgPath+".tar", 'wb')
         data = '1'
         while data:
             try:
                 data = gzipFile.read(BLOCK_SIZE)
             except IOError, e:
-                Logger.error("Error Reading %s: %s" % (fullPackageName, e.__str__()))
+                Logger.error("Error Reading %s: %s" % (full_package_name, e.__str__()))
                 return FAIL
             except Exception, e:
-                Logger.error("Corrupt package: %s (%s)" % (fullPackageName, e.__str__()))
+                Logger.error("Corrupt package: %s (%s)" % (full_package_name, e.__str__()))
                 return FAIL
             outputFile.write(data)
         outputFile.close()
@@ -164,22 +164,92 @@ class Repository:
             self.filesystem.unlink(pkgPath+".spkg")
         return OK
 
+
     # TESTED
-    def get_package(self, packageName, tries=3, checksum=''):
-        # FIXME: for uninstall, this should find the directory in packages
-        packagePath = getPackagePath(self.instanceName)
-        try:
-            fullPackageName = self.packageData[packageName]['install'][FULL_NAME]
-        except KeyError:
-            errmsg = "Package not found in Definitive Software Library."
-            Logger.info("packages: (%s)" % " ".join(self.packageData.keys()))
-            raise Exceptions.BadPackage(packageName, errmsg)
-        if self.filesystem.isdir(os.path.join(packagePath, fullPackageName)):
+    def unpack(self, full_package_name, checksum, removeSpkg = True):
+        package_path = getPackagePath(self.instance_name)
+        pkgPath = os.path.join(package_path, full_package_name)
+        if not self.filesystem.isfile(pkgPath+".spkg"):
+            erstr = "No package file in %s." % (pkgPath+".spkg")
+            Logger.error(erstr)
+            return FAIL
+        if sys.platform != 'win32':
+            cmd = "cd %s && tar -xzf %s.spkg" % (package_path, full_package_name)
+            Logger.info("Untarring with filesystem command: %s" %cmd)
+            if not self.filesystem.system(cmd) == OK:
+                return FAIL
             return OK
-        while tries:
-            status = self.unpack(fullPackageName, checksum)
+        if self.unzip(pkgPath, full_package_name, removeSpkg) == FAIL:
+            return FAIL
+        tar = self.filesystem.tarOpen(pkgPath+".tar", "r")
+        tar.errorlevel = 2
+        cwd = self.filesystem.getcwd()
+        self.filesystem.chdir(package_path)
+        for tarinfo in tar:
+            try:
+                tar.extract(tarinfo)
+            except tarfile.ExtractError, e:
+                Logger.warning("Error with package %s,%s: "\
+                                    "%s" % (full_package_name, tarinfo.name, e))
+        tar.close()
+        if not self.filesystem.isdir(os.path.join(package_path, full_package_name)):
+            Logger.error("Package %s is malformed." % (full_package_name))
+            self.filesystem.chdir(cwd)
+            return FAIL
+        self.filesystem.chdir(cwd)
+        self.filesystem.unlink(pkgPath+".tar")
+        return OK
+
+    # TESTED
+    def unzip(self, pkgPath, full_package_name, removeSpkg = True):
+        Logger.info("Unzipping %s" % full_package_name)
+        gzipFile = self.filesystem.gzipOpen(pkgPath+".spkg")
+        outputFile = self.filesystem.open(pkgPath+".tar", 'wb')
+        data = '1'
+        while data:
+            try:
+                data = gzipFile.read(BLOCK_SIZE)
+            except IOError, e:
+                Logger.error("Error Reading %s: %s" % (full_package_name, e.__str__()))
+                return FAIL
+            except Exception, e:
+                Logger.error("Corrupt package: %s (%s)" % (full_package_name, e.__str__()))
+                return FAIL
+            outputFile.write(data)
+        outputFile.close()
+        gzipFile.close()
+        if removeSpkg:
+            self.filesystem.unlink(pkgPath+".spkg")
+        return OK
+
+    def get_type5_package(self, package_name, injector, scripts, checksum=''):
+        base_path = os.path.join(getSpkgPath(), self.instance_name)
+        injector_path = os.path.join(base_path, "injector", injector)
+        scripts_path = os.path.join(base_path, "scripts", scripts)
+        for test_path in [injector_path, scripts_path]:
+            if self.filesystem.isdir(test_path):
+                continue
+            status = self.unpack(test_path)
             if status == OK:
                 return OK
             tries -= 1
-        raise Exceptions.BadPackage(packageName, "Could not get and unpack.")
+        raise Exceptions.BadPackage(package_name, "Could not get and unpack.")
+
+    def get_type4_package(self, package_name, tries=3, checksum=''):
+        # FIXME: for uninstall, this should find the directory in packages
+        package_path = getPackagePath(self.instance_name)
+        try:
+            full_package_name = self.package_data[package_name]['install'][FULL_NAME]
+        except KeyError:
+            errmsg = "Package not found in Definitive Software Library."
+            Logger.info("packages: (%s)" % " ".join(self.package_data.keys()))
+            raise Exceptions.BadPackage(package_name, errmsg)
+        if self.filesystem.isdir(os.path.join(package_path, full_package_name)):
+            return OK
+        while tries:
+            status = self.unpack(full_package_name, checksum)
+            if status == OK:
+                return OK
+            tries -= 1
+        raise Exceptions.BadPackage(package_name, "Could not get and unpack.")
 

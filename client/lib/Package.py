@@ -316,8 +316,8 @@ class Package:
 
 
     def _initialize_from_filesystem(self):
-        """ Expects a standard package to be extracted in the packages
-        directory """
+        """ Expects a type-4 package to be extracted in
+        the packages directory """
         package_path = getPackagePath(self.instance_name)
         if not self.full_name:
             raise BadPackage(self.name, "Could not find full name.")
@@ -452,9 +452,17 @@ class Package:
     def _download(self):
         if not self.downloaded:
             try:
-                self.repository.get_package(self.name, checksum=self.checksum)
-                self._initialize_from_filesystem()
-                self.downloaded = True
+                if self.package_version == 4:
+                    Logger.info("Type 4 package")
+                    self.repository.get_type4_package(self.name, checksum=self.checksum)
+                    self._initialize_from_filesystem()
+                    self.downloaded = True
+                else:
+                    #^^ LEFT OFF HERE
+                    Logger.info("Type 5 package")
+                    injector = self.meta_data.data.get("injector")
+                    script = self.meta_data.data.get("script")
+                    self.repository.get_type5_package(self.name, injector, script)
             except BadPackage, bp:
                 self._invalidate(bp)
                 return FAIL

@@ -38,6 +38,7 @@ import PinshCmd
 from ConfigField import ConfigField, MACHINE, DIST, PACKAGE
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState, ENABLE
+from StatusMaintField import StatusMaintField, FIX, PURGE
 from Exceptions import MachineTraceback, CommandError
 import Integer
 system_state = SystemState()
@@ -115,12 +116,12 @@ class Machine(PinshCmd.PinshCmd):
 
         status.children = [fix, purge]
 
-        fix.children = [ConfigField(data_type=PACKAGE)]
-        purge_package = ConfigField(data_type=PACKAGE)
-        purge.children = [purge_package]
-
-        purge_package.children = [Integer.Integer()]
-        
+        fix.children = [StatusMaintField(action_type=FIX,
+                                         machine_name_index=1,
+                                         package_name_index=4)]
+        purge.children = [StatusMaintField(action_type=PURGE,
+                                         machine_name_index=1,
+                                         package_name_index=4)]
         self.auth = ENABLE
 
     def analyze_output(self, machine_name, tokens, output, post_data):
@@ -190,11 +191,6 @@ class Machine(PinshCmd.PinshCmd):
                 post_data["action"] = sub_command
                 post_data["machine"] = machine_name
                 url = "/json/package_action/%s" % tokens[4]
-                if sub_command == "purge":
-                    if len(tokens) < 6:
-                        msg = "Incomplete command - must include revision to remove"
-                        raise CommandError(msg)
-                    post_data["revision"] = tokens[5]
         return url, post_data
 
     def cmd(self, tokens, no_flag):

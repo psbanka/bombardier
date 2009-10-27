@@ -234,14 +234,10 @@ class BombardierMachineInterface(MachineInterface):
         return cmd
 
     def run_bc(self, action,
-               package_name, script_name, package_revision, debug):
+               package_name, script_name, debug):
         "Run bc.py on a remote machine, and watch the logs"
         self.report_info = ''
         self.chdir(self.spkg_dir)
-        #self.server_log.info("PACKAGE_REVISION: %s" % package_revision)
-        if package_revision:
-            package_name += '-%s' % package_revision
-            #self.server_log.info("PACKAGE_NAME: %s" % package_name)
 
         cmd = self.get_bc_command()
         cmd += " %s %s %s %s" % (ACTION_DICT[action],
@@ -303,8 +299,7 @@ class BombardierMachineInterface(MachineInterface):
                 self.server_log.info(msg, self.machine_name)
                 self.send_package(newest_name+".spkg", dest_path)
 
-    def take_action(self, action, package_name, script_name, 
-                    package_revision, debug):
+    def take_action(self, action, package_name, script_name, debug):
         "Run a maintenance script on a machine"
         message = []
         try:
@@ -318,8 +313,7 @@ class BombardierMachineInterface(MachineInterface):
                 return FAIL, [msg % self.machine_name]
             if action != INIT:
                 self.upload_new_packages()
-            message = self.run_bc(action, package_name, script_name,
-                                  package_revision, debug)
+            message = self.run_bc(action, package_name, script_name, debug)
         except MachineUnavailableException:
             message = ["Remote system refused connection."]
             self.exit_code = FAIL

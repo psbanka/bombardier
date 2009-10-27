@@ -35,13 +35,11 @@ class PackageActionEntry(CnmResource):
         try:
             action = safe_get(request, "action")
             machine_name = safe_get(request, "machine")
-            revision = safe_get(request, "revision")
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
             output = dispatcher.package_action_job(request.user, package_name,
-                                                   action, machine_name, 
-                                                   package_revision=revision)
+                                                   action, machine_name) 
         except Exception:
             output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
