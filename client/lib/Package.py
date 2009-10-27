@@ -454,7 +454,8 @@ class Package:
     def _download(self):
         if not self.downloaded:
             try:
-                self.repository.get_package(self.name, checksum=self.checksum)
+                self.repository.get_type4_package(self.name,
+                                                  checksum=self.checksum)
                 self._initialize_from_filesystem()
                 self.downloaded = True
             except BadPackage, bp:

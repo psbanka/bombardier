@@ -51,7 +51,7 @@ class PackageChain:
         self.repository  = repository
         self.config      = config
         self.record_errors = record_errors
-        self.vPackages   = VirtualPackages(repository.packageData)
+        self.vPackages   = VirtualPackages(repository.package_data)
         self.installedPackageNames = self.vPackages.resolveVPkgList( installedPackageNames )
         self.brokenPackageNames = brokenPackageNames
         self.packageChain(startPackageName)
@@ -110,9 +110,9 @@ class VirtualPackages:
 
     def initVPkgDictionaries( self ):
         for packageName in self.packageDict:
-            packageData = self.packageDict[packageName]
-            if packageData.get( 'virtualpackage' ):
-                virtualPackageName = packageData['virtualpackage'] 
+            package_data = self.packageDict[packageName]
+            if package_data.get( 'virtualpackage' ):
+                virtualPackageName = package_data['virtualpackage'] 
                 self.virtualNameLookupDict.setdefault( packageName, virtualPackageName )
                 self.virtualPackagesDict.setdefault( virtualPackageName,[] ).append( packageName )
 
@@ -157,6 +157,8 @@ class Bombardier:
         self.instance_name    = instance_name
         self.record_errors = True
         self.repository.checkLocalPackages()
+        self.operation_status = OK
+        self.operation_output = []
 
     ### TESTED
     def getDependencyErrors(self, bomPackageNames, progressData):
@@ -221,8 +223,8 @@ class Bombardier:
     # TESTED
     def createPackageChains(self, packageDict):
         chains = []
-        packageData = self.filesystem.getProgressData(self.instance_name, stripVersionFromName = False)
-        installedPackageNames, brokenPackageNames = getInstalled(packageData)
+        package_data = self.filesystem.getProgressData(self.instance_name, stripVersionFromName = False)
+        installedPackageNames, brokenPackageNames = getInstalled(package_data)
         for packageName in packageDict.keys():
             if packageName in brokenPackageNames:
                 Logger.warning("Skipping broken package %s" % packageName)
@@ -314,22 +316,24 @@ class Bombardier:
         return OK
 
     ### WON'T BE TESTED
-    def cleanup(self, status, logmessage=''):
+    def cleanup(self):
         self.operatingSystem.noRestartOnLogon()
         self.operatingSystem.noAutoLogin()
         self.filesystem.clearLock()
-        if status == FAIL:
-            if logmessage:
-                Logger.error(logmessage)
-            return status
-        Logger.info(logmessage)
-        return status
+        if self.operation_status == FAIL:
+            log_function = Logger.error
+        else:
+            log_function = Logger.info
+        for message in self.operation_output:
+            log_function("==OUTPUT==:%s" % message)
+        return self.operation_status
 
     def checkConfiguration(self, package):
         if package.meta_data.has_key("configuration"):
             requiredConfigs = package.meta_data["configuration"]
             diff = diffDicts(requiredConfigs, self.config.data)
             if diff != {}:
+                self.operation_status = FAIL
                 errmsg = "This machine does not have sufficient "\
                          "configuration data to install %s " % package.name
                 diffTxt = ''
@@ -337,8 +341,7 @@ class Bombardier:
                     diffTxt += "key: %s; value: %s" % (key, diff[key])
                 Logger.warning(errmsg)
                 Logger.warning(diffTxt)
-                return FAIL
-        return OK
+                raise Exceptions.BadPackage(package.name, "Bad Config")
 
     ### TESTED
     def getPackagesToAddDict(self, addPackageNames):
@@ -349,11 +352,11 @@ class Bombardier:
                 newPackage = Package.Package(packageName, self.repository, self.config, self.filesystem,
                                              self.operatingSystem, self.instance_name)
                 newPackage.initialize()
-                if self.checkConfiguration(newPackage) == FAIL:
-                    raise Exceptions.BadPackage(newPackage.name, "Bad Config")
+                self.checkConfiguration(newPackage)
                 packages[packageName] = newPackage
             except Exceptions.BadPackage, e:
                 errmsg = "Skipping bad package %s: %s" % (e.packageName, e.errmsg)
+                self.operation_output.append(errmsg)
                 Logger.warning(errmsg)
         return packages
 
@@ -416,7 +419,7 @@ class Bombardier:
         # add any packages that are installed already
         # which are dependent upon those to the list as well
         Logger.info("Checking dependencies of packages to be uninstalled %s..." % delPackageNames)
-        vPackages = VirtualPackages(self.repository.packageData)
+        vPackages = VirtualPackages(self.repository.package_data)
         uninstallOrder = copy.deepcopy(delPackageNames)
         while delPackageNames:
             newDependencyNames = []
@@ -534,13 +537,16 @@ class Bombardier:
             return FAIL
         status = self._uninstall_packages(delPackageDict, uninstallOrder, dryRun)
         if status == FAIL:
-            errmsg = "Uninstallation failed. Aborting reconcile."
-            Logger.error(errmsg)
-            return self.cleanup(FAIL, logmessage="Finished installing (ERRORS ENCOUNTERED).")
+            self.operation_output.append("Uninstallation failed. Aborting reconcile.")
+            self.operation_status = FAIL
+            return self.cleanup()
 
         addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus(packageNames)
         status = self.installPackages(addPackageDict, dryRun)
-        return self.cleanup(status, logmessage="Finished installing.")
+        if status != OK:
+            self.operation_status = FAIL
+        self.operation_output.append("Finished installing")
+        return self.cleanup()
 
     def checkConfigurationHash(self, packageName):
         newPackage = Package.Package(packageName, self.repository, self.config,
@@ -620,18 +626,18 @@ class Bombardier:
             if action == VERIFY:
                 status = package.verify()
             if action == CONFIGURE:
-                if self.checkConfiguration(package) == FAIL:
-                    raise Exceptions.BadPackage(package.name, "Bad Config")
-                    #return FAIL
-                else:
-                    status = package.configure()
-                    hashPath = os.path.join(getPackagePath(self.instance_name), 
-                                            package.full_name, HASH_FILE)
-                    Logger.info("writing configuration fingerprint to %s" % hashPath)
-                    self.config.saveHash(hashPath)
+                self.checkConfiguration(package)
+                status = package.configure()
+                hashPath = os.path.join(getPackagePath(self.instance_name), 
+                                        package.full_name, HASH_FILE)
+                Logger.info("writing configuration fingerprint to %s" % hashPath)
+                self.config.saveHash(hashPath)
             if action == EXECUTE:
                 status = package.execute_maint_script(scriptName)
-            return self.cleanup(status, logmessage="Finished %s for %s." %(ACTION_DICT[action], packageName))
+                if status == FAIL:
+                    self.operation_status = FAIL
+            self.operation_output.append("Finished %s for %s." %(ACTION_DICT[action], packageName))
+            return self.cleanup()
         except Exceptions.BadPackage, e:
             errmsg = "Cannot perform action %s on package %s: %s" % (ACTION_DICT[action], e.packageName, e.errmsg)
             Logger.warning(errmsg)

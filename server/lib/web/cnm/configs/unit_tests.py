@@ -25,6 +25,9 @@ from django.test.client import Client
 
 TEST_PASSWORD = "testpass1234"
 CONFIG_PASSWORD = "abc123"
+OLD_CLIENT_VERSION = "0.70-597"
+CLIENT_VERSION = "1.00-623"
+CORE_VERSION = "1.00-623"
 
 class BasicTest:
     def setUp(self):
@@ -150,7 +153,8 @@ class BasicTest:
         self.make_localhost_yaml_file(config, additional_config, "machine")
 
     def make_localhost_status(self, additional_config={}):
-        status_dict = { "clientVersion" : "0.70-595",
+        status_dict = { "clientVersion" : CLIENT_VERSION,
+                        "coreVersion" : CORE_VERSION,
                         "install-progress" : {},
                         "local-packages" : [],
                         "status" : { "newInstall" : 'True' }}
@@ -168,6 +172,9 @@ class CnmTests(unittest.TestCase, BasicTest):
         BasicTest.setUp(self)
 
     def test_search(self):
+        client_tarball = "bombardier_client-%s.tar.gz" % CLIENT_VERSION
+        old_client_tarball = "bombardier-%s.tar.gz" % OLD_CLIENT_VERSION
+        core_tarball = "bombardier_core-%s.tar.gz" % CORE_VERSION
         test_dict  = { "machine":  { "tes": ["tester", "tester1", "tester2"],
                                       "":  ["tester", "tester1", "tester2", "other1", "localhost"],
                                     "foo": [] },
@@ -176,7 +183,7 @@ class CnmTests(unittest.TestCase, BasicTest):
                        "bom":     { ""    : ["foo", "bomp"],
                                     "fo"  : ["foo"],
                                     "swe" : [] },
-                       "dist": { "": ["test", "bombardier-0.70-595"]  }, 
+                       "dist": { "": ["test", old_client_tarball, client_tarball, core_tarball]  }, 
                        "package": { "": ["TestPackageType5", "TestPackageType4"]  } }
         for section in test_dict:
             for search_term in test_dict[section]:
@@ -329,8 +336,15 @@ class DispatcherTests(unittest.TestCase, BasicTest):
 
     def test_client_update(self):
         url = '/json/machine/dist/localhost'
-        status, output = self.run_job(url, data={"dist": "bombardier-0.70-595"}, timeout=60, verbose=False)
-        assert "bombardier-0.70_595.egg-info" in output, output
+        old_client_dist = "bombardier-%s" % OLD_CLIENT_VERSION
+        client_dist = "bombardier_client-%s" % CLIENT_VERSION
+        core_dist = "bombardier_core-%s" % CORE_VERSION
+        status, output = self.run_job(url, data={"dist": old_client_dist}, timeout=60, verbose=False)
+        assert old_client_dist in output, output
+        status, output = self.run_job(url, data={"dist": core_dist}, timeout=60, verbose=False)
+        assert core_dist in output, output
+        status, output = self.run_job(url, data={"dist": client_dist}, timeout=60, verbose=False)
+        assert client_dist in output, output
 
         url = '/json/machine/init/localhost'
         status,output = self.run_job(url, data={}, timeout=60)
@@ -366,7 +380,8 @@ class PackageTests(unittest.TestCase, BasicTest):
         return status, output
 
     def reset_packages(self):
-        status_dict = {"clientVersion": "0.70-595",
+        status_dict = {"clientVersion": CLIENT_VERSION,
+                       "coreVersion": CORE_VERSION,
                        "install-progress": {},
                         "local-packages": [],
                         "status": {"newInstall": 'True'},
@@ -443,8 +458,8 @@ class PackageTests(unittest.TestCase, BasicTest):
         self.reset_packages()
         url = '/json/machine/reconcile/localhost'
         status, output = self.run_job(url, data={}, timeout=60)
-        print "OUTPUT:",output
-        print "STATUS",status
+        #print "OUTPUT:",output
+        #print "STATUS",status
         assert status == FAIL
 
     def test_encrypted_ci(self):
@@ -539,7 +554,7 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        suite.addTest(PackageTests("test_insufficient_config"))
+        suite.addTest(PackageTests("test_package_actions"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)
 

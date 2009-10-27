@@ -89,8 +89,8 @@ class Config(dict):
 
     def saveHash(self, path):
         f = self.filesystem.open(path, 'w')
-        hashDictionary = hashDictionary(self.data)
-        hashYaml = yaml.dump(hashDictionary)
+        hash_dict = hashDictionary(self.data)
+        hashYaml = yaml.dump(hash_dict)
         f.write(hashYaml)
         f.close()
         return OK
