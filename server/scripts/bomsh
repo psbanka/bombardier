@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # BSD License
 # Copyright (c) 2009, Peter Banka et al
@@ -133,7 +133,6 @@ def initialize(system_state, slash):
 
 def main_loop(system_state, slash):
     clean = False
-    initialize(system_state, slash)
     while True:
         try:
             system_state.set_prompt()
@@ -164,12 +163,13 @@ if __name__ == "__main__":
     if options.user:
         username = options.user
 
-    if not options.no_login:
-        libUi.login(username)
-    else:
+    if options.no_login:
         system_state.username = username
         system_state.prompt = ['$']
         system_state.set_prompt()
+    else:
+        libUi.login(username)
+        initialize(system_state, slash)
 
     command_classes = []
     for command in COMMANDS:
