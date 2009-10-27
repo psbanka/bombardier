@@ -26,7 +26,7 @@ from django.test.client import Client
 TEST_PASSWORD = "testpass1234"
 CONFIG_PASSWORD = "abc123"
 OLD_CLIENT_VERSION = "0.70-597"
-CLIENT_VERSION = "1.00-623"
+CLIENT_VERSION = "1.00-624"
 CORE_VERSION = "1.00-623"
 
 class BasicTest:
@@ -172,9 +172,9 @@ class CnmTests(unittest.TestCase, BasicTest):
         BasicTest.setUp(self)
 
     def test_search(self):
-        client_tarball = "bombardier_client-%s.tar.gz" % CLIENT_VERSION
-        old_client_tarball = "bombardier-%s.tar.gz" % OLD_CLIENT_VERSION
-        core_tarball = "bombardier_core-%s.tar.gz" % CORE_VERSION
+        client_dist = "bombardier_client-%s" % CLIENT_VERSION
+        old_client_dist = "bombardier-%s" % OLD_CLIENT_VERSION
+        core_dist = "bombardier_core-%s" % CORE_VERSION
         test_dict  = { "machine":  { "tes": ["tester", "tester1", "tester2"],
                                       "":  ["tester", "tester1", "tester2", "other1", "localhost"],
                                     "foo": [] },
@@ -183,7 +183,7 @@ class CnmTests(unittest.TestCase, BasicTest):
                        "bom":     { ""    : ["foo", "bomp"],
                                     "fo"  : ["foo"],
                                     "swe" : [] },
-                       "dist": { "": ["test", old_client_tarball, client_tarball, core_tarball]  }, 
+                       "dist": { "": ["test", client_dist, core_dist, old_client_dist]  }, 
                        "package": { "": ["TestPackageType5", "TestPackageType4"]  } }
         for section in test_dict:
             for search_term in test_dict[section]:
@@ -546,7 +546,7 @@ if __name__ == '__main__':
     client = Client()
     initialize_tests(client)
 
-    full_suite = 0
+    full_suite = 1
     suite = unittest.TestSuite()
     if full_suite:
         suite.addTest(unittest.makeSuite(CnmTests))
@@ -554,7 +554,7 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        suite.addTest(PackageTests("test_package_actions"))
+        suite.addTest(CnmTests("test_search"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)
 
