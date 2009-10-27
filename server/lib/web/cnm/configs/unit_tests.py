@@ -274,10 +274,10 @@ class CnmTests(unittest.TestCase, BasicTest):
                        "platform": "linux",
                       }
         yaml_string = yaml.dump(config_data)
-        response = self.client.put(path=url, data={"yaml": yaml_string})
+        response = self.client.post(path=url, data={"yaml": yaml_string})
         content_dict = json.loads( response.content )
         assert content_dict["status"] == OK
-        assert content_dict["message"] == "update"
+        assert content_dict["message"].startswith("updated")
 
     def test_summary(self):
         url = "/json/summary/name/localhost"
@@ -443,6 +443,8 @@ class PackageTests(unittest.TestCase, BasicTest):
         self.reset_packages()
         url = '/json/machine/reconcile/localhost'
         status, output = self.run_job(url, data={}, timeout=60)
+        print "OUTPUT:",output
+        print "STATUS",status
         assert status == FAIL
 
     def test_encrypted_ci(self):
@@ -537,7 +539,7 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        suite.addTest(CnmTests("test_summary"))
+        suite.addTest(PackageTests("test_insufficient_config"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)
 
