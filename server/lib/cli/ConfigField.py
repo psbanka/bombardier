@@ -58,7 +58,7 @@ class ConfigField(PinshCmd.PinshCmd):
                   'local' will match 'localhost' or can be strict such that
                   'local' will not match 'localhost'
         '''
-        PinshCmd.PinshCmd.__init__(self, name, token_delimeter = '')
+        PinshCmd.PinshCmd.__init__(self, name)
         self.help_text = "<configurationField>\t"\
                          "a dot-delimeted configuration value"
         self.data_type = data_type

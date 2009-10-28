@@ -97,16 +97,16 @@ class Slash(PinshCmd.PinshCmd):
         'When somebody hits return in the shell, this method handles it.'
         try:
             no_flag, help_flag, tokens, comment = libUi.process_input(command)
-            if help_flag: # Process the [?] key first
-                self.find_help(tokens, 0)
-                return None
             if len(tokens) == 0:
                 # somebody just pressed return for no reason
                 return OK, []
-            else:
-                status, output = self.run(tokens, no_flag)
-                #if comment:
-                    #makeComment(comment) # MISSING
+            tokens = system_state.get_state_tokens(tokens)
+            if help_flag: # Process the [?] key first
+                self.find_help(tokens, 0)
+                return None
+            status, output = self.run(tokens, no_flag)
+            #if comment:
+                #makeComment(comment) # MISSING
             libUi.user_output(output, status)
             return status, output
         except exceptions.SystemExit:
@@ -192,6 +192,7 @@ class Slash(PinshCmd.PinshCmd):
             else:
                 _no_flag, _help_flag, tokens, _comment = \
                     libUi.process_input(readline.get_line_buffer())
+                tokens = system_state.get_state_tokens(tokens)
                 # this is where we would process help if
                 # we could bind the '?' key properly
                 names, token_delimeter = self.get_names_and_token_delimeter(tokens)

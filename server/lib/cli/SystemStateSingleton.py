@@ -64,11 +64,9 @@ class SystemState:
         def __init__(self):
             self.logger = None
             self.batch = False
-            self.state = [USER]
-            self.exit_methods = []
+            self.state = []
+            self.sub_prompt = None
             self.prompt = []
-            self.command_buffer = {F0:[], F1:[], F2:[]}
-            self.variables = {F0:[], F1:[], F2:[]}
             self.globals = {}
             self.new_classes = []
             self.auth = USER
@@ -174,18 +172,23 @@ class SystemState:
             SystemState.__instance.termlen = 23
             SystemState.__instance.termwidth = 80
 
-    def clean_mode(cls, state):
-        '''Used to exit out of a sub-mode'''
-        SystemState.__instance.command_buffer[state] = []
-        SystemState.__instance.variables[state] = []
-        SystemState.__instance.exit_methods = SystemState.__instance.exit_methods[:-1]
-
     def set_prompt(cls):
         'used to set the current prompt'
-        if cls.current_state() != FREE_TEXT:
-            SystemState.__instance.full_prompt = "%s (%s)%s " % (socket.gethostname(),SystemState.__instance.username, SystemState.__instance.prompt[-1])
-        else:
-            SystemState.__instance.full_prompt = ''
+        new_prompt = ''
+        for state in SystemState.__instance.state:
+            new_prompt += ('( %s )' % ' '.join(state))
+        if not new_prompt:
+            new_prompt =  "%s " % socket.gethostname()
+            new_prompt += "(%s)" % (SystemState.__instance.username)
+        new_prompt += "%s " % SystemState.__instance.prompt[-1]
+        SystemState.__instance.full_prompt = new_prompt
+
+    def push_prompt(cls, new_tokens):
+        '''Used to enter a new sub-mode
+        new_tokens -- completed tokens to be added to the prompt
+        '''
+        SystemState.__instance.state.append(new_tokens)
+        cls.set_prompt()
 
     def get_prompt(cls):
         'used to find what the current prompt should look like'
@@ -194,34 +197,23 @@ class SystemState:
             comment_string = "(*)"
         return comment_string+SystemState.__instance.full_prompt
 
-    def push_prompt(cls, slash, new_prompt, new_state, new_classes = 0):
-        'Used to enter a new sub-mode'
-        # First, pop out of any equal or higher levels
-        while SystemState.__instance.state[-1]+1 > new_state:
-            if len(SystemState.__instance.state) > 1:
-                extra_classes = SystemState.__instance.new_classes[-1]
-                while extra_classes > 0:
-                    slash.children.pop()
-                    extra_classes -= 1
-            else:
-                SystemState.__instance.state = [ENABLE]
-                break
-            cls.pop_prompt()
-        SystemState.__instance.state.append(new_state)
-        SystemState.__instance.prompt.append(new_prompt)
-        SystemState.__instance.new_classes.append(new_classes)
-        cls.set_prompt()
-
     def pop_prompt(cls):
         'used to exit a sub-mode'
-        if len(SystemState.__instance.state) > 1:
-            SystemState.__instance.prompt.pop()
+        if len(SystemState.__instance.state) > 0:
             SystemState.__instance.state.pop()
-            SystemState.__instance.new_classes.pop()
             cls.set_prompt()
             return OK
         else:
             return FAIL
+
+    def get_state_tokens(cls, tokens):
+        'this will return a modified list of tokens based on the current state'
+        new_tokens = []
+        for token_list in SystemState.__instance.state:
+            new_tokens.extend(token_list)
+        if new_tokens and tokens == []:
+            tokens = ['']
+        return new_tokens + tokens
 
     def reprompt(cls):
         'This is used under some weird conditions that I forget'

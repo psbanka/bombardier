@@ -37,23 +37,31 @@ system_state = SystemState()
 
 FIX=1
 PURGE=2
+UNKNOWN=3
 
-class StatusMaintField(PinshCmd.PinshCmd):
+def clean_version_numbers(installed_set):
+    output = set()
+    for package_name in installed_set:
+        fields = package_name.split('-')
+        basic_package_name = '-'.join(fields[:-1])
+        output.update([basic_package_name])
+    return output
+
+class PackageField(PinshCmd.PinshCmd):
     '''Some times you want to maintain package status data on a machine.'''
-    def __init__(self, action_type, machine_name_index, package_name_index):
+    def __init__(self, action_type):
         '''
         action_type -- FIXABLE or PURGABLE
         machine_name_index -- which token in the set of arguments passed
                               to preferred_names is the machine name
         package_name_index -- which token is the package_name to be completed
         '''
-        PinshCmd.PinshCmd.__init__(self, "StatusMaintField")
-        self.help_text = "<StatusMaintField>\t"\
+        PinshCmd.PinshCmd.__init__(self, "PackageField")
+        self.help_text = "<PackageField>\t"\
                          "A package name that comes from machine status"
         self.action_type = action_type
         self.cmd_owner = 0
-        self.machine_name_index = machine_name_index
-        self.package_name_index = package_name_index
+        self.machine_name_index = 1
 
     def possible_names(self, machine_name):
         'returns a list of all self.data_type things'
@@ -61,11 +69,14 @@ class StatusMaintField(PinshCmd.PinshCmd):
         data = system_state.cnm_connector.service_yaml_request(url)
         broken = set(data.get("broken", []))
         not_installed = set(data.get("not_installed", []))
-        installed = set(data.get("installed", []))
+        full_installed = set(data.get("installed", []))
+        installed = clean_version_numbers(full_installed)
         if self.action_type == FIX:
             return list(broken.union(not_installed))
         if self.action_type == PURGE:
-            return list(broken.union(installed))
+            return list(broken.union(full_installed))
+        if self.action_type == UNKNOWN:
+            return list(not_installed.union(installed))
 
     def get_package_names(self, complete_machine_name,
                            incomplete_package_name):
@@ -75,10 +86,10 @@ class StatusMaintField(PinshCmd.PinshCmd):
         possible_names = self.possible_names(complete_machine_name)
         #print "OBJECT NAMES:",possible_names
         package_names = []
-        for ftn in possible_names:
-            if ftn.lower().startswith(incomplete_package_name.lower()):
-                #print "%s starts with the same as incomplete_package_name: %s" % (ftn, incomplete_package_name)
-                package_names.append(ftn)
+        for possible_name in possible_names:
+            if possible_name.lower().startswith(incomplete_package_name.lower()):
+                #print "%s starts with the same as incomplete_package_name: %s" % (possible_name, incomplete_package_name)
+                package_names.append(possible_name)
         if len(package_names) == 0:
             return []
         if incomplete_package_name in package_names:
@@ -95,7 +106,7 @@ class StatusMaintField(PinshCmd.PinshCmd):
         otherwise, it will return 'localh'.'''
         #print "PN: Tokens being passed (%s)" % tokens
         complete_machine_name = tokens[self.machine_name_index]
-        incomplete_package_name = tokens[self.package_name_index]
+        incomplete_package_name = tokens[index]
         package_names = self.get_package_names(complete_machine_name,
                                                incomplete_package_name)
         return package_names

@@ -38,7 +38,8 @@ import PinshCmd
 from ConfigField import ConfigField, MACHINE, DIST, PACKAGE
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState, ENABLE
-from StatusMaintField import StatusMaintField, FIX, PURGE
+from PackageField import PackageField, FIX, PURGE, UNKNOWN
+import PackageActionField
 from Exceptions import MachineTraceback, CommandError
 import Integer
 system_state = SystemState()
@@ -63,6 +64,65 @@ timestamp: 1251918530.6349609"""
 
     status_file = "/opt/spkg/localhost/status.yml"
     open(status_file, "w").write(fresh_status_yaml)
+
+class Package(PinshCmd.PinshCmd):
+#    '''bomsh# package Testpackagetype4 install localhost 
+##       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7']]
+#    '''
+#       bomsh# package Testpackagetype4 install localhost 
+#       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7', 'Finished install for TestPackageType4.']]
+#       bomsh# package TestPackagetype4 echo localhost 
+#       [OK, {'test file exists': 'True', 'contents of test file': 'The Quick Brown Fox Jumped over the Lazy Dog.'}]
+#    '''
+#       bomsh# package Testpackagetype4 uninstall localhost 
+#       [OK, ['uninstall OK: TestPackageType4-7']]
+#       bomsh# package bogusPackage install localhost 
+#       [FAIL, []]
+#    '''
+
+    def __init__(self):
+        """Top-level object has a 'test' child: test the machine
+        """
+        PinshCmd.PinshCmd.__init__(self, "package")
+        self.help_text = "package\tcommands that operate on a single package"
+        self.cmd_owner = 0
+
+        self.package_field = PackageField(UNKNOWN)
+        self.children = [self.package_field]
+
+        package_actions = PackageActionField.PackageActionField()
+        self.package_field.children = [package_actions]
+
+        self.auth = ENABLE
+
+    def watch_job(self, job_name):
+        libUi.info("Job name: %s" % job_name)
+        output = {"alive": 1}
+        while output.get("alive", 0):
+            time.sleep(0.25)
+            url = "json/job/poll/%s" % job_name
+            output = system_state.cnm_connector.service_yaml_request(url)
+            if "traceback" in output:
+                raise MachineTraceback(url, output["traceback"])
+            new_output = output["new_output"]
+            if new_output:
+                libUi.process_cnm(new_output)
+        libUi.info("Joining...")
+        output = system_state.cnm_connector.join_job(job_name)
+        return output
+
+    def check_field_name(self, tokens, no_flag, field_object, token_index):
+        possible_field_names = field_object.preferred_names(tokens, token_index)
+        field_name = possible_field_names[0]
+        if no_flag:
+            raise CommandError("NO cannot be used here")
+        if len(tokens) < 3:
+            raise CommandError("Incomplete command.")
+        if len(possible_field_names) == 0:
+            raise CommandError("Unknown %s name: %s" % (field_object.directory, tokens[tokens_index]))
+        if len(possible_field_names) > 1:
+            raise CommandError("Ambiguous %s name: %s" % (field_object.directory, tokens[tokens_index]))
+        return field_name
 
 class Machine(PinshCmd.PinshCmd):
     '''
@@ -108,7 +168,8 @@ class Machine(PinshCmd.PinshCmd):
         status = PinshCmd.PinshCmd("status", "status\tstatus reporting or manipulation")
 
         self.machine_field.children = [test, dist, init, enable,
-                                       disable, status, reconcile]
+                                       disable, status, reconcile,
+                                       Package()]
 
         self.dist_field = ConfigField(data_type=DIST)
         dist.children = [self.dist_field]
@@ -118,12 +179,8 @@ class Machine(PinshCmd.PinshCmd):
 
         status.children = [fix, purge]
 
-        fix.children = [StatusMaintField(action_type=FIX,
-                                         machine_name_index=1,
-                                         package_name_index=4)]
-        purge.children = [StatusMaintField(action_type=PURGE,
-                                         machine_name_index=1,
-                                         package_name_index=4)]
+        fix.children = [PackageField(action_type=FIX)]
+        purge.children = [PackageField(action_type=PURGE)]
         self.auth = ENABLE
 
     def analyze_output(self, machine_name, tokens, output, post_data):
@@ -161,8 +218,6 @@ class Machine(PinshCmd.PinshCmd):
         machine_name = possible_machine_names[0]
         if no_flag:
             raise CommandError("NO cannot be used here")
-        if len(tokens) < 3:
-            raise CommandError("Incomplete command.")
         if len(possible_machine_names) == 0:
             raise CommandError("Unknown machine name: %s" % tokens[2])
         if len(possible_machine_names) > 1:
@@ -200,10 +255,25 @@ class Machine(PinshCmd.PinshCmd):
         tokens -- all of the keywords passed in the command string, parsed
         no_flag -- whether the 'no' keyword was used in the command string
         """
-
+        if len(tokens) < 2:
+            raise CommandError("Incomplete command.")
         machine_name = self.check_machine_name(tokens, no_flag)
+        if len(tokens) == 2:
+            system_state.push_prompt(["machine", machine_name])
+            return OK,[]
+
         command = tokens[2].lower()
-        url, post_data = self.get_url_and_post(machine_name, tokens)
+
+        if command == "package":
+            package_name = tokens[3]
+            action = tokens[4].lower()
+            machine_name = tokens[1]
+
+            url = "/json/package_action/%s" % package_name
+            post_data = {"machine": machine_name,
+                         "action": action}
+        else:
+            url, post_data = self.get_url_and_post(machine_name, tokens)
 
         try:
             job_name = system_state.cnm_connector.get_job(url, post_data)
@@ -211,3 +281,5 @@ class Machine(PinshCmd.PinshCmd):
             return self.analyze_output(machine_name, tokens, output, post_data)
         except MachineTraceback, m_err:
             libUi.process_traceback(m_err)
+            return FAIL,[]
+

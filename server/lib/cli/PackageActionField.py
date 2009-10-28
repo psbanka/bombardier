@@ -67,15 +67,7 @@ class PackageActionField(PinshCmd.PinshCmd):
         otherwise, it will return 'localh'.
 
         '''
-        package_name = ''
-        possible_package_names = self.get_package_name(tokens[index-1])
-        if len(possible_package_names) == 1:
-            package_name = possible_package_names[0]
-        elif tokens[index-1] in possible_package_names:
-            package_name = tokens[index-1]
-        else:
-            return []
-
+        package_name = tokens[index-1]
         actions = ["install", "uninstall", "verify", "configure"]
         package_data = self.get_package_data(package_name)
         actions += package_data.get("executables")
@@ -83,6 +75,7 @@ class PackageActionField(PinshCmd.PinshCmd):
         for action in actions:
             if action.lower().startswith(tokens[index].lower()):
                 possible_actions.append(action)
+        #print "possible actions:",possible_actions
         return possible_actions
 
     def match(self, tokens, index):

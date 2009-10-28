@@ -40,7 +40,7 @@ from bombardier_core.Logger import Logger
 HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
 LOG_PATH = "%s/.bomsh_log" % os.environ['HOME']
 COMMANDS = ["Show", "Terminal", "Machine", "CliTest",
-            "Exit", "Package", "Set", "Dispatcher", "Edit", "Ssh"]
+            "Exit", "Set", "Dispatcher", "Edit", "Ssh"]
 
 
 ##########################################################################
@@ -107,18 +107,13 @@ def cleanup(system_state, slash):
         libUi.info("cleaning up")
         url = "json/machine/cleanup_connections"
         data = system_state.cnm_connector.service_yaml_request(url, post_data={})
-    if len(system_state.exit_methods) > 0:
-        status, output = system_state.exit_methods[-1](slash)
-        libUi.user_output(output, status)
-    else:
-        print
-        while system_state.child_processes:
-            os.kill(system_state.child_processes.pop(), signal.SIGTERM)
-        readline.write_history_file(HISTORY_FILE)
-        if system_state.comment_commands:
-            makeComment() # MISSING
-        sys.exit(0)
-    system_state.clean_mode(system_state.state[-1])
+    print
+    while system_state.child_processes:
+        os.kill(system_state.child_processes.pop(), signal.SIGTERM)
+    readline.write_history_file(HISTORY_FILE)
+    if system_state.comment_commands:
+        makeComment() # MISSING
+    sys.exit(0)
     print
 
 def initialize(system_state, slash):
@@ -144,7 +139,10 @@ def main_loop(system_state, slash):
                 command = raw_input(system_state.get_prompt() + readline.get_line_buffer())
             slash.process_command(command)
         except EOFError, eof:
-            cleanup(system_state, slash)
+            if system_state.pop_prompt() == FAIL:
+                cleanup(system_state, slash)
+            else:
+                print
         except exceptions.KeyboardInterrupt, key:
             print
             clean = True
