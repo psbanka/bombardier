@@ -28,8 +28,8 @@ from bombardier_core.mini_utility import getInstalled, getPackagePath
 from bombardier_core.mini_utility import diffDicts, strip_version
 from bombardier_core.static_data import OK, FAIL, MAX_CHAIN_DEPTH, HASH_FILE
 from bombardier_core.static_data import UNINSTALL, RECONCILE, DRY_RUN, VERIFY
-from bombardier_core.static_data import VERIFY_INTERVAL, INSTALL, CONFIGURE, ACTION_DICT
-from bombardier_core.static_data import EXECUTE, ACTION_DICT
+from bombardier_core.static_data import VERIFY_INTERVAL, INSTALL, CONFIGURE
+from bombardier_core.static_data import EXECUTE, ACTION_REVERSE_LOOKUP
 
 def swap(listObj, index1, index2):
     newList = copy.deepcopy(listObj)
@@ -636,10 +636,10 @@ class Bombardier:
                 status = package.execute_maint_script(scriptName)
                 if status == FAIL:
                     self.operation_status = FAIL
-            self.operation_output.append("Finished %s for %s." %(ACTION_DICT[action], packageName))
+            self.operation_output.append("Finished %s for %s." %(ACTION_REVERSE_LOOKUP[action], packageName))
             return self.cleanup()
         except Exceptions.BadPackage, e:
-            errmsg = "Cannot perform action %s on package %s: %s" % (ACTION_DICT[action], e.packageName, e.errmsg)
+            errmsg = "Cannot perform action %s on package %s: %s" % (ACTION_REVERSE_LOOKUP[action], e.packageName, e.errmsg)
             Logger.warning(errmsg)
             return FAIL
 

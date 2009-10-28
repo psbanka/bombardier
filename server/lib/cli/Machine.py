@@ -75,12 +75,14 @@ class Machine(PinshCmd.PinshCmd):
        bomsh# machine localhost init
        [OK, []]
        bomsh# machine localhost reconcile
-       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7']]
+       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7', 'Finished installing']]
        bomsh# machine localhost status
        [OK, []]
+       bomsh# machine localhost status purge TestPackageType4-7
+       [OK, ['TestPackageType4-7 has been removed from localhost status']]
        bomsh# machine localhost status fix TestPackageType4
        [OK, ['TestPackageType4-7 has been set to INSTALLED.']]
-       bomsh# machine localhost status purge TestPackageType4 7
+       bomsh# machine localhost status purge TestPackageType4-7
        [OK, ['TestPackageType4-7 has been removed from localhost status']]
        bomsh# machine localhost disable
        [OK, []]

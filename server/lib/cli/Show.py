@@ -219,7 +219,7 @@ class Show(PinshCmd.PinshCmd):
        bomsh# show dist test
        [OK, ['description: Open Source Empty package', 'dist_name: EMPTY_TEST', 'name: test', "version: '1'", '']]
        bomsh# show summary localhost
-       [OK, ['broken: []', 'installed: []', 'not_installed:', '- TestPackageType4', 'status: 0', '']]
+       [OK, ['broken: []', 'installed:', '- TestPackageType4-7', 'not_installed: []', 'status: 0', '']]
     '''
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "show")

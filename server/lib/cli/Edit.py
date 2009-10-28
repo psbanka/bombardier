@@ -90,9 +90,7 @@ class Bom(EditType):
         self.children = [self.config_field]
 
 class Edit(PinshCmd.PinshCmd):
-    '''bomsh# edit bom qa
-       [OK, ['Modified bom/qa']]
-    '''
+    '''Edit a file'''
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "edit")
         self.help_text = "edit\tmodify components of the system"

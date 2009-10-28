@@ -115,6 +115,10 @@ ACTION_LOOKUP = { 'uninstall':UNINSTALL, 'configure':CONFIGURE,
                 'execute':EXECUTE, 'fix':FIX, 'purge':PURGE,
                 'dry_run': DRY_RUN, "init": INIT } 
 
+ACTION_REVERSE_LOOKUP = {}
+for action in ACTION_LOOKUP:
+    ACTION_REVERSE_LOOKUP[ACTION_LOOKUP[action]] = action
+
 PASSWORD_LENGTH        = 10
 BLOCK_SIZE    = 10000
 

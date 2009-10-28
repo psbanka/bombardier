@@ -163,14 +163,6 @@ if __name__ == "__main__":
     if options.user:
         username = options.user
 
-    if options.no_login:
-        system_state.username = username
-        system_state.prompt = ['$']
-        system_state.set_prompt()
-    else:
-        libUi.login(username)
-        initialize(system_state, slash)
-
     command_classes = []
     for command in COMMANDS:
         module = __import__('bombardier_server.cli.%s' % command, globals(), locals(), [command])
@@ -181,6 +173,14 @@ if __name__ == "__main__":
         command_classes.append(cls())
 
     slash = Slash.Slash(command_classes)
+
+    if options.no_login:
+        system_state.username = username
+        system_state.prompt = ['$']
+        system_state.set_prompt()
+    else:
+        libUi.login(username)
+        initialize(system_state, slash)
 
     if scripts:
         status = run_scripts(scripts)

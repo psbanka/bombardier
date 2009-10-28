@@ -60,7 +60,7 @@ class Package(PinshCmd.PinshCmd):
 #       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7']]
     '''
        bomsh# package Testpackagetype4 install localhost 
-       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7']]
+       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7', 'Finished install for TestPackageType4.']]
        bomsh# package TestPackagetype4 echo localhost 
        [OK, {'test file exists': 'True', 'contents of test file': 'The Quick Brown Fox Jumped over the Lazy Dog.'}]
     '''
