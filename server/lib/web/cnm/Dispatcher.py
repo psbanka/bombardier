@@ -131,7 +131,6 @@ class Job(Thread):
             msg = "Processing command: %s" % command.name, self.name
             self.server_log.info(msg)
             status, output = command.execute(self.machine_interface)
-            self.server_log.info("Help")
             self.command_status = status
             self.command_output = output
         except Exception:

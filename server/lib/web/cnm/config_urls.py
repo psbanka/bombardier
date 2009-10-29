@@ -12,7 +12,7 @@ from configs.models import Dist, MachineModelFactory, IncludeModelFactory
 from configs.models import BomModelFactory, PackageModelFactory
 from configs.models import DistModelFactory, StatusModelFactory
 from bombardier_core.static_data import OK, FAIL
-import os
+import os, glob
 import MachineConfig
 from MachineStatus import MachineStatus
 from django.contrib.auth.decorators import login_required
@@ -21,10 +21,10 @@ import yaml
 
 MAPPER = {"merged": Machine, "machine": Machine, "include": Include,
           "bom": Bom, "package": Package, "status": Status }
-MAPPER["dist"] = Dist
+#MAPPER["dist"] = Dist
 
 FACTORIES = [MachineModelFactory, IncludeModelFactory, BomModelFactory,
-             PackageModelFactory, DistModelFactory, StatusModelFactory]
+             PackageModelFactory, StatusModelFactory]
 
 class ConfigEntry(CnmResource):
     "ConfigEntry base class"
@@ -110,7 +110,7 @@ class IncludeEntry(ConfigEntry):
                                                 "include", include_name)
 
 class SummaryEntry(CnmResource):
-    "Config entry for dist type (used for python distutils packages)."
+    "Config entry for digested summary information"
     @login_required
     def read(self, request, machine_name):
         "Digest useful information from the status of the server"
@@ -132,12 +132,12 @@ class DistEntry(ConfigEntry):
     @login_required
     def read(self, request, dist_name):
         "Create dictionary from Dist object and return as json"
-        dist_object = Dist.objects.get(name__startswith=dist_name)
-        output = {"name": dist_object.name,
-                  "version": dist_object.version,
-                  "description": dist_object.desc,
-                  "dist_name": dist_object.dist_name
-                 }
+        server_home = self.get_server_home()
+        dist_path = os.path.join(server_home, "dist")
+        files = glob.glob(os.path.join(dist_path, "%s*.tar.gz" % dist_name))
+        full_dist_name = files[0].rpartition('.tar.gz')[0]
+        full_dist_name = full_dist_name.rpartition(os.path.sep)[-1]
+        output = {"fields": {"name": full_dist_name}}
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -220,10 +220,17 @@ class DistCollection(ConfigCollection):
     @login_required
     def read(self, request, dist_name):
         "Expose custom fields for Dist type collection and return as json"
-        objects = Dist.objects.filter(name__startswith=dist_name)
-        responder = JSONResponder()
-        responder.expose_fields = ["name", "version", "desc", "dist_name"]
-        return responder.list(request, objects)
+        server_home = self.get_server_home()
+        dist_path = os.path.join(server_home, "dist")
+        files = glob.glob(os.path.join(dist_path, "%s*.tar.gz" % dist_name))
+        output = []
+        for file in files:
+            full_dist_name = file.rpartition('.tar.gz')[0]
+            full_dist_name = full_dist_name.rpartition(os.path.sep)[-1]
+            output.append({"fields": {"name": full_dist_name}})
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+        #return responder.list(request, objects)
 
 #==================================
 

@@ -19,7 +19,6 @@ class MachineStatus:
         self.status_data = ''
         status_file = os.path.join(self.server_home, "status",
                                    "%s.yml" % self.machine_name)
-        print ">>>looking for %s" % status_file
         if os.path.isfile(status_file):
             try:
                 self.status_data = syck.load(open(status_file).read())

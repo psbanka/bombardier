@@ -385,7 +385,10 @@ def error(msg):
 def process_cnm(server_output_lines):
     'Handles output from the CNM and pretty-prints to the screen'
     for line in server_output_lines:
-        if not line.strip():
+        line = line.strip()
+        if line.endswith('|'):
+            line = line[:-1]
+        if not line:
             continue
         components = line.split('|')
         if len(components) >= 4:
@@ -407,7 +410,7 @@ def process_cnm(server_output_lines):
                         print "=== UNKNOWN log level: ", log_level
                         color_code = WARNING_COLOR[system_state.termcolor]
                     #message = "  | \033%s%s\033[m\n" % (color_code, '|'.join(components[3:]))
-                    prefix = "  | \033%s%s\033[m | " % (WEAK_COLOR[system_state.termcolor], job_name)
+                    prefix = "  | \033%s%20s\033[m | " % (WEAK_COLOR[system_state.termcolor], job_name)
                     message = "%s\033%s%s\033[m\n" % (prefix, color_code, '|'.join(components[3:]))
                 else:
                     #message = "  | %s\n" % ('|'.join(components[3:]))
