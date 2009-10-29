@@ -102,7 +102,7 @@ def run_scripts(scripts):
 def cleanup(system_state, slash):
     print
     question = "Disconnect all clients"
-    cleanup = libUi.ask_yes_no(question, libUi.YES)
+    cleanup = libUi.ask_yes_no(question, libUi.NO)
     if cleanup:
         libUi.info("cleaning up")
         url = "json/machine/cleanup_connections"

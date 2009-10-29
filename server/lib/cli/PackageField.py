@@ -37,7 +37,8 @@ system_state = SystemState()
 
 FIX=1
 PURGE=2
-UNKNOWN=3
+INSTALLED=3
+NOT_INSTALLED=3
 
 def clean_version_numbers(installed_set):
     output = set()
@@ -75,8 +76,10 @@ class PackageField(PinshCmd.PinshCmd):
             return list(broken.union(not_installed))
         if self.action_type == PURGE:
             return list(broken.union(full_installed))
-        if self.action_type == UNKNOWN:
-            return list(not_installed.union(installed))
+        if self.action_type == INSTALLED:
+            return list(installed)
+        if self.action_type == NOT_INSTALLED:
+            return list(not_installed)
 
     def get_package_names(self, complete_machine_name,
                            incomplete_package_name):

@@ -270,7 +270,10 @@ def ask_yes_no(prompt, default = NEUTRAL):
     result = NEUTRAL
     while result == NEUTRAL:
         result = default
-        instr = raw_input(prompt)
+        try:
+            instr = raw_input(prompt)
+        except EOFError:
+            continue
         if len(instr) == 0:
             continue
         if instr.lower()[0] == 'y':

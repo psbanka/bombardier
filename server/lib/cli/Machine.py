@@ -38,7 +38,7 @@ import PinshCmd
 from ConfigField import ConfigField, MACHINE, DIST, PACKAGE
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState, ENABLE
-from PackageField import PackageField, FIX, PURGE, UNKNOWN
+from PackageField import PackageField, FIX, PURGE, NOT_INSTALLED, INSTALLED
 import PackageActionField
 from Exceptions import MachineTraceback, CommandError
 import Integer
@@ -65,7 +65,7 @@ timestamp: 1251918530.6349609"""
     status_file = "/opt/spkg/localhost/status.yml"
     open(status_file, "w").write(fresh_status_yaml)
 
-class Package(PinshCmd.PinshCmd):
+class Machine(PinshCmd.PinshCmd):
 #    '''bomsh# package Testpackagetype4 install localhost 
 ##       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7']]
 #    '''
@@ -79,52 +79,6 @@ class Package(PinshCmd.PinshCmd):
 #       bomsh# package bogusPackage install localhost 
 #       [FAIL, []]
 #    '''
-
-    def __init__(self):
-        """Top-level object has a 'test' child: test the machine
-        """
-        PinshCmd.PinshCmd.__init__(self, "package")
-        self.help_text = "package\tcommands that operate on a single package"
-        self.cmd_owner = 0
-
-        self.package_field = PackageField(UNKNOWN)
-        self.children = [self.package_field]
-
-        package_actions = PackageActionField.PackageActionField()
-        self.package_field.children = [package_actions]
-
-        self.auth = ENABLE
-
-    def watch_job(self, job_name):
-        libUi.info("Job name: %s" % job_name)
-        output = {"alive": 1}
-        while output.get("alive", 0):
-            time.sleep(0.25)
-            url = "json/job/poll/%s" % job_name
-            output = system_state.cnm_connector.service_yaml_request(url)
-            if "traceback" in output:
-                raise MachineTraceback(url, output["traceback"])
-            new_output = output["new_output"]
-            if new_output:
-                libUi.process_cnm(new_output)
-        libUi.info("Joining...")
-        output = system_state.cnm_connector.join_job(job_name)
-        return output
-
-    def check_field_name(self, tokens, no_flag, field_object, token_index):
-        possible_field_names = field_object.preferred_names(tokens, token_index)
-        field_name = possible_field_names[0]
-        if no_flag:
-            raise CommandError("NO cannot be used here")
-        if len(tokens) < 3:
-            raise CommandError("Incomplete command.")
-        if len(possible_field_names) == 0:
-            raise CommandError("Unknown %s name: %s" % (field_object.directory, tokens[tokens_index]))
-        if len(possible_field_names) > 1:
-            raise CommandError("Ambiguous %s name: %s" % (field_object.directory, tokens[tokens_index]))
-        return field_name
-
-class Machine(PinshCmd.PinshCmd):
     '''
        bomsh# machine localhost enable
        [OK, []]
@@ -155,10 +109,17 @@ class Machine(PinshCmd.PinshCmd):
         PinshCmd.PinshCmd.__init__(self, "machine")
         self.help_text = "machine\tcommands that operate on a given machine"
         self.cmd_owner = 1
+        self.machine_field = None
+        self.children = []
+        self.build_children()
+        self.auth = ENABLE
 
+    def build_children(self):
+        # Top-level commands
         self.machine_field = ConfigField(data_type=MACHINE)
         self.children = [self.machine_field]
 
+        # Second-level commands
         test = PinshCmd.PinshCmd("test", "test\ttest a machine connection")
         dist = PinshCmd.PinshCmd("dist", "dist\tdeploy a library to a machine")
         enable = PinshCmd.PinshCmd("enable", "enable\tshare ssh keys with a machine")
@@ -166,22 +127,36 @@ class Machine(PinshCmd.PinshCmd):
         init = PinshCmd.PinshCmd("init", "init\tintialize bombardier on a machine")
         reconcile = PinshCmd.PinshCmd("reconcile", "reconcile\treconcile machine state to bill of materials")
         status = PinshCmd.PinshCmd("status", "status\tstatus reporting or manipulation")
+        install = PinshCmd.PinshCmd("install", "install\tinstall a package")
+        uninstall = PinshCmd.PinshCmd("uninstall", "uninstall\tremove a package")
+        configure = PinshCmd.PinshCmd("configure", "configure\tconfigure a package")
+        verify = PinshCmd.PinshCmd("verify", "verify\tverify a package")
+        execute = PinshCmd.PinshCmd("execute", "execute\trun an action on a package")
+        maintenance = PinshCmd.PinshCmd("maintenance", "maintenance\tset a server to be in maintenance mode")
+        self.machine_field.children = [test, dist, init, enable, maintenance,
+                                       disable, status, reconcile, execute,
+                                       install, uninstall, configure, verify]
 
-        self.machine_field.children = [test, dist, init, enable,
-                                       disable, status, reconcile,
-                                       Package()]
-
-        self.dist_field = ConfigField(data_type=DIST)
-        dist.children = [self.dist_field]
-
+        # Third-level commands
+        dist_field = ConfigField(data_type=DIST)
+        dist.children = [dist_field]
         fix = PinshCmd.PinshCmd("fix", "fix\tsets the state of a package to INSTALLED")
         purge = PinshCmd.PinshCmd("purge", "purge\tremoves a package from the status of a machine")
-
         status.children = [fix, purge]
+        installed_package_field = PackageField(INSTALLED)
+        not_installed_package_field = PackageField(NOT_INSTALLED)
+        executable_package_field = PackageField(INSTALLED)
+        install.children=[not_installed_package_field]
+        uninstall.children=[installed_package_field]
+        verify.children=[installed_package_field]
+        configure.children=[installed_package_field]
+        execute.children=[executable_package_field]
 
+        # Fourth-level commands
         fix.children = [PackageField(action_type=FIX)]
         purge.children = [PackageField(action_type=PURGE)]
-        self.auth = ENABLE
+        package_actions = PackageActionField.PackageActionField()
+        executable_package_field.children = [package_actions]
 
     def analyze_output(self, machine_name, tokens, output, post_data):
         command = tokens[2].lower()
@@ -264,14 +239,18 @@ class Machine(PinshCmd.PinshCmd):
 
         command = tokens[2].lower()
 
-        if command == "package":
+        if command in ["install", "uninstall", "verify",
+                       "configure", "execute"]:
+            if command == "execute":
+                if len(tokens) != 5:
+                    raise CommandError("Incomplete Command")
+                command = tokens[4]
             package_name = tokens[3]
-            action = tokens[4].lower()
             machine_name = tokens[1]
 
             url = "/json/package_action/%s" % package_name
             post_data = {"machine": machine_name,
-                         "action": action}
+                         "action": command}
         else:
             url, post_data = self.get_url_and_post(machine_name, tokens)
 

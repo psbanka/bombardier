@@ -37,9 +37,8 @@ from SystemStateSingleton import SystemState
 system_state = SystemState()
 
 class PackageActionField(PinshCmd.PinshCmd):
-    '''This class can provide command-line completion for actions such as
-    install, uninstll, configure, and verify. In addition, if the package
-    exposes methods, it can complete on those as well'''
+    '''This class can provide command-line completion for actions if it
+    exposes methods'''
     def __init__(self, name = "packageActionField"):
         'Just sets up the basics'
         PinshCmd.PinshCmd.__init__(self, name, token_delimeter = '')
@@ -68,9 +67,8 @@ class PackageActionField(PinshCmd.PinshCmd):
 
         '''
         package_name = tokens[index-1]
-        actions = ["install", "uninstall", "verify", "configure"]
         package_data = self.get_package_data(package_name)
-        actions += package_data.get("executables")
+        actions = package_data.get("executables")
         possible_actions = []
         for action in actions:
             if action.lower().startswith(tokens[index].lower()):

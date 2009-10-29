@@ -73,11 +73,12 @@ class BombardierMachineInterface(MachineInterface):
 
     def freshen(self):
         "Refresh config data"
-        self.machine_status.freshen()
         status = MachineInterface.freshen(self)
-        if status == FAIL:
-            msg = "Invalid status data. Ignoring."
+        if self.machine_status.freshen() == FAIL:
+            msg = "Can't find status. Fetching from machine."
             self.polling_log.warning(msg)
+            self.get_status_yml()
+            self.machine_status.freshen()
         return status
 
     def get_action_result(self, data):
