@@ -554,7 +554,7 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        suite.addTest(CnmTests("test_search"))
+        suite.addTest(PackageTests("test_package_actions"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)
 

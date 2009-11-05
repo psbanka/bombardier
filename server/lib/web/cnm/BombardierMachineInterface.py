@@ -8,13 +8,14 @@ import copy
 import traceback
 from MachineInterface import MachineInterface, MachineUnavailableException
 from Exceptions import MachineConfigurationException, BombardierMachineException
-from Exceptions import MachineStatusException
+from Exceptions import MachineStatusException, PackageNotFound
 from bombardier_core.mini_utility import strip_version
 from bombardier_core.static_data import OK, FAIL, PURGE, EXECUTE
 from bombardier_core.static_data import INIT, ACTION_DICT, RETURN_DICT
 from MachineStatus import MachineStatus, LOCAL_PACKAGES
 
 from pexpect import EOF
+import tempfile
 import syck
 
 
@@ -186,7 +187,7 @@ class BombardierMachineInterface(MachineInterface):
         yaml_data_str = yaml.dump(raw_data)
         enc_data = libCipher.encrypt(yaml_data_str, enc_key)
         dest_path = os.path.join(self.spkg_dir, self.machine_name, "client.yml.enc")
-        temp_file = os.path.join("/tmp", ''.join(random.sample('abcdefghijklmnopqrstuvwxyz', 14)))
+        temp_file = tempfile.mkstemp()[1]
         open(temp_file, 'w').write(enc_data)
         self.scp(temp_file, dest_path, False)
         self.stream_data("config_key: '%s'\n" % enc_key)
@@ -300,6 +301,85 @@ class BombardierMachineInterface(MachineInterface):
                 self.server_log.info(msg, self.machine_name)
                 self.send_package(newest_name+".spkg", dest_path)
 
+    def check_file(self, package_name, file_path):
+        if file_path:
+            if not os.path.isfile(file_path):
+                msg = "%s not found." % file_path
+                self.server_log.error(msg, self.machine_name)
+                raise PackageNotFound(package_name)
+
+    def get_type_5_files(self, package_name, package_data):
+        package_sync = {"scripts": [],
+                        "injectors": [],
+                        "libs": [],
+                       }
+
+        for dir in [ "script", "injector" ]:
+            sync_file = newest_data.get(dir,  {}).get("path")
+            self.check_file( package_name, sync_file )
+            package_sync[dir].append(sync_file)
+            
+        libs = newest_data.get("libs", [])
+        for lib in libs:
+            sync_file = lib.get("path")
+            self.check_file( package_name, sync_file )
+            package_sync["libs"].append(sync_file)
+
+    def create_sync_directory(self, files_to_send):
+        tmp_path = tempfile.mkdtemp()
+        for directory_name in files_to_send:
+            subdir = os.path.join(tmp_path, directory_name)
+            cmd = "mkdir -p %s" % subdir
+            os.system(cmd)
+            file_list = files_to_send[directory_name]
+            for file_name in file_list:
+                cmd = "ln -s %s %s" % (file_name, subdir)
+                os.system(cmd)
+        return tmp_path
+
+    def rsync_repository(self, tmp_path, dest):
+        import glob
+        cmd = "rsync -La %s %s@%s:%s" 
+        cmd = cmd % (tmp_path, self.username, self.ip_address, dest)
+        files = glob.glob("%s/*" % tmp_path)
+        self.polling_log.warning(cmd)
+        return os.system(cmd)
+
+    def new_upload_new_packages(self):
+        "Send needed packages to a machine using symlinks and rsync"
+        dest_path = os.path.join(self.spkg_dir, "repos")
+        try:
+            package_names = self.machine_status.get_package_names_from_progress()
+            delivered_packages = package_names.get(LOCAL_PACKAGES, [])
+        except MachineStatusException:
+            msg = "No/invalid status data. Assuming there are "\
+                  "no packages on remote system"
+            self.polling_log.warning(msg)
+            delivered_packages = []
+        required_base_names = copy.deepcopy(self.data.get("packages"))
+        newest_names = []
+        files_to_send = {"type4": []}
+        for base_name in required_base_names:
+            newest_data = self.machine_status.get_package_data(base_name)
+            version = newest_data.get("package-version")
+            if version == 4:
+                newest_name = newest_data.get("install", {}).get("fullName")
+                path_to_file = os.path.join(self.server_home, "repos",
+                                            "type4", "%s.spkg" % newest_name)
+                self.check_file(base_name, path_to_file)
+                if newest_name not in delivered_packages:
+                    files_to_send["type4"].append(path_to_file)
+            elif version == 5:
+                package_sync = self.get_type_5_files(base_name, newest_data)
+                files_to_send.update(package_sync)
+        tmp_path = self.create_sync_directory(files_to_send)
+        dest = os.path.join(self.spkg_dir, "repos")
+        self.rsync_repository(tmp_path + os.path.sep, dest)
+        dest = os.path.join(self.spkg_dir, self.machine_name, "packages")
+        cmd = "ln -fs %s/repos/type4/*.spkg %s/" % (self.spkg_dir, dest)
+        self.gso(cmd)
+        os.system("rm -rf %s" % tmp_path)
+
     def take_action(self, action, package_name, script_name, debug):
         "Run a maintenance script on a machine"
         message = []
@@ -313,7 +393,8 @@ class BombardierMachineInterface(MachineInterface):
                 self.server_log.error(msg, self.machine_name)
                 return FAIL, [msg % self.machine_name]
             if action != INIT:
-                self.upload_new_packages()
+                #self.upload_new_packages()
+                self.new_upload_new_packages()
             message = self.run_bc(action, package_name, script_name, debug)
         except MachineUnavailableException:
             message = ["Remote system refused connection."]
