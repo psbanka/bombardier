@@ -94,6 +94,12 @@ class MachineStatus:
             raise MachineConfigurationException(self.machine_name, msg)
         else:
             package_data = syck.load(open(yml_path).read())
+        if type(package_data) != type({}):
+            msg = "Invalid package data in %s: Not a dictionary." % yml_path
+            raise MachineConfigurationException(self.machine_name, msg)
+        if "package-version" not in package_data.keys():
+            msg = "Invalid package data in %s: package version not specified" % yml_path
+            raise MachineConfigurationException(self.machine_name, msg)
         return package_data
 
     def get_package_names_from_bom(self):

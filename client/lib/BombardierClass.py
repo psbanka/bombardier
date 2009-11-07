@@ -22,7 +22,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import sets, os, time, copy
-import Package, Exceptions
+import PackageV4, PackageV5
+import Exceptions
 from bombardier_core.Logger import Logger
 from bombardier_core.mini_utility import getInstalled, getPackagePath
 from bombardier_core.mini_utility import diffDicts, strip_version
@@ -30,6 +31,7 @@ from bombardier_core.static_data import OK, FAIL, MAX_CHAIN_DEPTH, HASH_FILE
 from bombardier_core.static_data import UNINSTALL, RECONCILE, DRY_RUN, VERIFY
 from bombardier_core.static_data import VERIFY_INTERVAL, INSTALL, CONFIGURE
 from bombardier_core.static_data import EXECUTE, ACTION_REVERSE_LOOKUP
+from bombardier_core.static_data import VALID_PACKAGE_VERSIONS
 
 def swap(listObj, index1, index2):
     newList = copy.deepcopy(listObj)
@@ -59,24 +61,24 @@ class PackageChain:
 
     def filterBadPackages(self):
         for pkgIndex in range(0, len(self.chain)):
-            packageName = self.chain[pkgIndex]
-            if packageName in self.brokenPackageNames:
+            package_name = self.chain[pkgIndex]
+            if package_name in self.brokenPackageNames:
                 pkgIndex -= 1
                 Logger.warning("Omitting packages %s due to bad package" % (self.chain[pkgIndex:]))
                 break
         self.chain = self.chain[:pkgIndex+1]
 
     # TESTED
-    def packageChain(self, pkgName):
+    def packageChain(self, package_name):
         self.depth += 1
         if self.depth > MAX_CHAIN_DEPTH:
             raise Exceptions.DependencyLoopException(self.chain)
-        for depName in self.packages[ self.getActualPkgName( pkgName ) ].dependencies:
+        for depName in self.packages[ self.getActualPkgName( package_name ) ].dependencies:
             if depName not in self.installedPackageNames: 
                 self.chain.insert( 0, self.getActualPkgName( depName ) )
             else:
                 continue
-            self.syncDependencies( depName, pkgName )
+            self.syncDependencies( depName, package_name )
             dependency = self.packages.get(self.getActualPkgName( depName ))
             if depName in self.brokenPackageNames:
                 self.priority = 0
@@ -85,21 +87,27 @@ class PackageChain:
             self.packageChain( depName )
         self.depth -= 1
 
-    def syncDependencies( self, depName, pkgName ):
+    def syncDependencies( self, depName, package_name ):
         if depName not in ( self.vPackages.resolveVPkgList( self.installedPackageNames ) + \
                             self.vPackages.resolveVPkgList( self.packages.keys() ) ):
-            self.packages[depName] = self.getNewPackage( depName )
+            self.packages[depName] = self.get_new_package( depName )
             if self.record_errors:
-                self.packages[pkgName].add_dependency_error( depName )
+                self.packages[package_name].add_dependency_error( depName )
 
-    def getActualPkgName( self, pkgName ):
-        return( self.vPackages.getActualPkgName( pkgName, self.packages.keys() ) )
+    def getActualPkgName( self, package_name ):
+        return( self.vPackages.getActualPkgName( package_name, self.packages.keys() ) )
 
-    def getNewPackage( self, pkgName ):
-        newPackage = Package.Package(pkgName, self.repository, self.config, self.filesystem, 
-                                     self.operatingSystem, self.instance_name) 
-        newPackage.initialize()
-        return newPackage
+    def get_new_package( self, package_name ):
+        version = self.determine_package_version(package_name)
+        package = None
+        if version == 4:
+            package = PackageV4.PackageV4(package_name, self.repository, self.config, self.filesystem,
+                                          self.operatingSystem, self.instance_name)
+        else:
+            package = PackageV5.PackageV5(package_name, self.repository, self.config, self.filesystem,
+                                          self.operatingSystem, self.instance_name)
+        new_package.initialize()
+        return package
 
 class VirtualPackages:
     def __init__( self, packageDict ):
@@ -109,25 +117,25 @@ class VirtualPackages:
         self.initVPkgDictionaries()
 
     def initVPkgDictionaries( self ):
-        for packageName in self.packageDict:
-            package_data = self.packageDict[packageName]
+        for package_name in self.packageDict:
+            package_data = self.packageDict[package_name]
             if package_data.get( 'virtualpackage' ):
                 virtualPackageName = package_data['virtualpackage'] 
-                self.virtualNameLookupDict.setdefault( packageName, virtualPackageName )
-                self.virtualPackagesDict.setdefault( virtualPackageName,[] ).append( packageName )
+                self.virtualNameLookupDict.setdefault( package_name, virtualPackageName )
+                self.virtualPackagesDict.setdefault( virtualPackageName,[] ).append( package_name )
 
     def getPkgNameListFromVPkgName( self, virtualPackageName ):
         return( self.virtualPackagesDict.get( virtualPackageName, [] ) )
 
-    def getVPkgNameFromPkgName( self, packageName ):
-        return( self.virtualNameLookupDict.get( packageName, packageName ) )
+    def getVPkgNameFromPkgName( self, package_name ):
+        return( self.virtualNameLookupDict.get( package_name, package_name ) )
     
     def resolveVPkgList( self, packageList ):
-        return( [self.getVPkgNameFromPkgName( packageName ) for packageName in packageList] )
+        return( [self.getVPkgNameFromPkgName( package_name ) for package_name in packageList] )
 
-    def getActualPkgName( self, packageName, packageNames ):
-        resolvedPackageNames = self.getPkgNameListFromVPkgName( packageName )
-        pName = [actualName for actualName in resolvedPackageNames if actualName in packageNames] + [packageName]
+    def getActualPkgName( self, package_name, packageNames ):
+        resolvedPackageNames = self.getPkgNameListFromVPkgName( package_name )
+        pName = [actualName for actualName in resolvedPackageNames if actualName in packageNames] + [package_name]
         return( pName[0] ) 
 
 def nop():
@@ -164,8 +172,8 @@ class Bombardier:
     def getDependencyErrors(self, bomPackageNames, progressData):
         dependencyNames = set([])
         installProgress = progressData.get('install-progress', {})
-        for packageName in installProgress:
-            packageDict = installProgress[ packageName ]
+        for package_name in installProgress:
+            packageDict = installProgress[ package_name ]
             depErrors = set(packageDict.get('DEPENDENCY_ERRORS',[]))
             dependencyNames = dependencyNames.union(depErrors)
         dependencyNames = list(dependencyNames - set(bomPackageNames))
@@ -225,22 +233,22 @@ class Bombardier:
         chains = []
         package_data = self.filesystem.getProgressData(self.instance_name, stripVersionFromName = False)
         installedPackageNames, brokenPackageNames = getInstalled(package_data)
-        for packageName in packageDict.keys():
-            if packageName in brokenPackageNames:
-                Logger.warning("Skipping broken package %s" % packageName)
+        for package_name in packageDict.keys():
+            if package_name in brokenPackageNames:
+                Logger.warning("Skipping broken package %s" % package_name)
                 continue
-            if packageName not in installedPackageNames:
-                chainPriority = packageDict[packageName].priority
+            if package_name not in installedPackageNames:
+                chainPriority = packageDict[package_name].priority
             else:
                 chainPriority = 0
             try:
-                newChain = PackageChain(chainPriority, packageName, packageDict,
+                newChain = PackageChain(chainPriority, package_name, packageDict,
                                         installedPackageNames, brokenPackageNames,
                                         self.repository, self.config, self.filesystem,
                                         self.operatingSystem, self.instance_name, self.record_errors)
             except Exceptions.BadPackage, e:
                 errmsg = "Package %s will not be installed because it is "\
-                         "dependent upon one or more broken packages" % packageName
+                         "dependent upon one or more broken packages" % package_name
                 Logger.warning(errmsg)
                 Logger.warning(`e`)
                 continue
@@ -277,10 +285,10 @@ class Bombardier:
             topPriority = self.getTopPriority(chains)
             for priority, chain in chains:
                 if priority == topPriority:
-                    for packageName in chain:
-                        if packageName not in installedPackageNames:
-                            if packageName not in installOrder:
-                                installOrder.append(packageName)
+                    for package_name in chain:
+                        if package_name not in installedPackageNames:
+                            if package_name not in installOrder:
+                                installOrder.append(package_name)
                     chains.remove([priority, chain])
         return installOrder # returns a list of packageNames in the correct installation order
 
@@ -293,17 +301,17 @@ class Bombardier:
             installOrder = self.installOrder(addPackageDict)
             packageNamesLeft = []
             map(packageNamesLeft.append, installOrder) # Need a deep copy
-            for packageName in installOrder:
+            for package_name in installOrder:
                 Logger.info("Packages remaining to install (in order): %s" % packageNamesLeft)
-                packageNamesLeft.remove(packageName)
-                package = addPackageDict[packageName]
+                packageNamesLeft.remove(package_name)
+                package = addPackageDict[package_name]
                 erstr = "Currently installing package "\
-                        "priority %s [%s]" % (package.priority, packageName)
+                        "priority %s [%s]" % (package.get_priority(), package_name)
                 Logger.info(erstr)
                 status = package.install_and_verify(packageNamesLeft)
                 if not dryRun:
-                    hashPath = os.path.join(getPackagePath(self.instance_name), package.full_name, HASH_FILE)
-                    self.config.saveHash(hashPath)
+                    hash_path = os.path.join(package.get_path(), HASH_FILE)
+                    self.config.saveHash(hash_path)
                 if status == FAIL:
                     erstr = "Package installation failure -- re-calculating package installation order"
                     Logger.error(erstr)
@@ -329,9 +337,9 @@ class Bombardier:
         return self.operation_status
 
     def checkConfiguration(self, package):
-        if package.meta_data.has_key("configuration"):
-            requiredConfigs = package.meta_data["configuration"]
-            diff = diffDicts(requiredConfigs, self.config.data)
+        if package.get_configuration():
+            required_configs = package.get_configuration()
+            diff = diffDicts(required_configs, self.config.data)
             if diff != {}:
                 self.operation_status = FAIL
                 errmsg = "This machine does not have sufficient "\
@@ -343,37 +351,46 @@ class Bombardier:
                 Logger.warning(diffTxt)
                 raise Exceptions.BadPackage(package.name, "Bad Config")
 
+    def get_new_package(self, package_name):
+        version = self.determine_package_version(package_name)
+        package = None
+        if version == 4:
+            new_package = PackageV4.PackageV4(package_name, self.repository, self.config, self.filesystem,
+                                              self.operatingSystem, self.instance_name)
+        else:
+            new_package = PackageV5.PackageV5(package_name, self.repository, self.config, self.filesystem,
+                                              self.operatingSystem, self.instance_name)
+        new_package.initialize()
+        return new_package
+
     ### TESTED
     def getPackagesToAddDict(self, addPackageNames):
         packages = {}
-        for packageName in addPackageNames:
+        for package_name in addPackageNames:
             try:
-                Logger.warning("Preparing to ADD package: %s" % packageName)
-                newPackage = Package.Package(packageName, self.repository, self.config, self.filesystem,
-                                             self.operatingSystem, self.instance_name)
-                newPackage.initialize()
-                self.checkConfiguration(newPackage)
-                packages[packageName] = newPackage
+                Logger.warning("Preparing to ADD package: %s" % package_name)
+
+                package = self.get_new_package(package_name)
+                self.checkConfiguration(package)
+                packages[package_name] = package
             except Exceptions.BadPackage, e:
-                errmsg = "Skipping bad package %s: %s" % (e.packageName, e.errmsg)
+                errmsg = "Skipping bad package %s: %s" % (e.package_name, e.errmsg)
                 self.operation_output.append(errmsg)
                 Logger.warning(errmsg)
         return packages
 
     def createPackageDict(self, packageList, action):
         packageDict = {}
-        for packageName in packageList:
+        for package_name in packageList:
             if action == UNINSTALL:
-                Logger.warning("Preparing to REMOVE package: %s" % packageName)
+                Logger.warning("Preparing to REMOVE package: %s" % package_name)
             try:
-                newPackage = Package.Package(packageName, self.repository, self.config, self.filesystem,
-                                             self.operatingSystem, self.instance_name)
-                newPackage.initialize()
+                package = self.get_new_package(package_name)
             except Exceptions.BadPackage, e:
                 errmsg = "Skipping Bad package: %s" % `e`
                 Logger.warning(errmsg)
-            newPackage.action = action
-            packageDict[packageName] = newPackage
+            package.action = action
+            packageDict[package_name] = package
         return packageDict
 
     def sortUninstalledPackages(self, uninstallOrder):
@@ -381,16 +398,14 @@ class Bombardier:
         dependencyDict = {}
         if len(uninstallOrder) > 1:
             Logger.info("Determining uninstallation order...")
-            for packageName in uninstallOrder:
-                dependencyDict[packageName] = []
+            for package_name in uninstallOrder:
+                dependencyDict[package_name] = []
 
-            for packageName in uninstallOrder:
-                package = Package.Package(packageName, self.repository, self.config, self.filesystem, 
-                                          self.operatingSystem, self.instance_name)
-                package.initialize()
+            for package_name in uninstallOrder:
+                package = self.get_new_package(package_name)
                 for otherPackageName in uninstallOrder:
                     if otherPackageName in package.dependencies:
-                        dependencyDict[otherPackageName].append(packageName)
+                        dependencyDict[otherPackageName].append(package_name)
         else:
             return uninstallOrder
 
@@ -400,11 +415,11 @@ class Bombardier:
         while swapped:
             properOrder = copy.deepcopy(newProperOrder)
             swapped = False
-            for packageName in properOrder:
-                dependencyList = dependencyDict[packageName]
+            for package_name in properOrder:
+                dependencyList = dependencyDict[package_name]
                 for dependency in dependencyList:
                     index1 = properOrder.index(dependency)
-                    index2 = properOrder.index(packageName)
+                    index2 = properOrder.index(package_name)
                     if index1 > index2:
                         newProperOrder = swap(properOrder, index1, index2)
                         swapped = True
@@ -424,25 +439,23 @@ class Bombardier:
         while delPackageNames:
             newDependencyNames = []
             delPackageNames = []
-            for packageName in installedPackageNames:
-                if packageName in packageDict.keys():
+            for package_name in installedPackageNames:
+                if package_name in packageDict.keys():
                     Logger.debug("Package %s will already be deleted -- "\
-                                 "ignoring" % packageName)
+                                 "ignoring" % package_name)
                     continue
-                package = Package.Package(packageName, self.repository, self.config, self.filesystem, 
-                                          self.operatingSystem, self.instance_name)
-                package.initialize()
+                package = self.get_new_package(package_name)
                 package.action = UNINSTALL
                 for tombstonedPackageName in packageDict.keys():
                     if vPackages.getVPkgNameFromPkgName( tombstonedPackageName ) in package.dependencies:
                         erstr = "Adding to package removal list: %s (depends on %s)"
-                        uninstallOrder.insert(0, packageName)
-                        Logger.info(erstr % (packageName, tombstonedPackageName))
-                        packageDict[tombstonedPackageName].depends_on_me.append(packageName)
-                        if packageName not in packageDict.keys():
-                            if packageName not in newDependencyNames:
-                                packageDict[packageName] = package
-                                newDependencyNames.append(packageName)
+                        uninstallOrder.insert(0, package_name)
+                        Logger.info(erstr % (package_name, tombstonedPackageName))
+                        packageDict[tombstonedPackageName].depends_on_me.append(package_name)
+                        if package_name not in packageDict.keys():
+                            if package_name not in newDependencyNames:
+                                packageDict[package_name] = package
+                                newDependencyNames.append(package_name)
                 delPackageNames = newDependencyNames
 
         properOrder = self.sortUninstalledPackages(uninstallOrder)
@@ -476,12 +489,12 @@ class Bombardier:
                      "dependencies %s" % dependency_errors
             Logger.debug(errmsg)
         bomPackageNames += dependency_errors
-        for packageName in installedPackageNames:
-            if packageName not in bomPackageNames:
-                shouldntBeInstalled.append(packageName)
-        for packageName in bomPackageNames:
-            if packageName not in installedPackageNames:
-                shouldBeInstalled.append(packageName)
+        for package_name in installedPackageNames:
+            if package_name not in bomPackageNames:
+                shouldntBeInstalled.append(package_name)
+        for package_name in bomPackageNames:
+            if package_name not in installedPackageNames:
+                shouldBeInstalled.append(package_name)
         return shouldBeInstalled, shouldntBeInstalled
 
     def verifySystem(self):
@@ -491,11 +504,8 @@ class Bombardier:
 
         for fullPackageName in installedPackageNames:
             try:
-                shortPackageName = strip_version(fullPackageName)
-                package = Package.Package(shortPackageName, self.repository, self.config,
-                                          self.filesystem, self.operatingSystem,
-                                          self.instance_name)
-                package.initialize()
+                short_package_name = strip_version(fullPackageName)
+                package = self.get_new_package(short_package_name)
             except Exceptions.BadPackage, e:
                 errmsg = "Not testing %s (%s)" % (fullPackageName, e)
                 Logger.warning(errmsg)
@@ -512,7 +522,7 @@ class Bombardier:
             if timer + interval <= time.time():
                 package.action = VERIFY
                 package.verify()
-                testResults[shortPackageName] = package.status
+                testResults[short_package_name] = package.status
 
         return testResults
 
@@ -548,14 +558,10 @@ class Bombardier:
         self.operation_output.append("Finished installing")
         return self.cleanup()
 
-    def checkConfigurationHash(self, packageName):
-        newPackage = Package.Package(packageName, self.repository, self.config,
-                                     self.filesystem, self.operatingSystem,
-                                     self.instance_name)
-        newPackage.initialize()
-        packageConfig = newPackage.get_configuration()
-        configHashPath = os.path.join(getPackagePath(self.instance_name),
-                                      newPackage.full_name, HASH_FILE)
+    def checkConfigurationHash(self, package_name):
+        package = self.get_new_package(package_name)
+        packageConfig = package.get_configuration()
+        configHashPath = os.path.join(package.get_path(), HASH_FILE)
         configDiff = self.config.checkHash(configHashPath)
         differences = findDifferences(packageConfig, configDiff, [])
         return differences
@@ -574,14 +580,14 @@ class Bombardier:
                        "not-installed": shouldBeInstalled,
                        "remove": shouldntBeInstalled,
                        "broken": brokenPackageNames}
-        for packageName in shouldntBeInstalled:
-            packageInfo["ok"].remove(packageName)
-        for packageName in installedPackageNames:
-            differences = self.checkConfigurationHash(packageName)
+        for package_name in shouldntBeInstalled:
+            packageInfo["ok"].remove(package_name)
+        for package_name in installedPackageNames:
+            differences = self.checkConfigurationHash(package_name)
             if differences:
-                if packageName in packageInfo["ok"]:
-                    packageInfo["reconfigure"][packageName] = differences
-                    packageInfo["ok"].remove(packageName)
+                if package_name in packageInfo["ok"]:
+                    packageInfo["reconfigure"][package_name] = differences
+                    packageInfo["ok"].remove(package_name)
         return packageInfo
 
     def _uninstall_packages(self, delPackageDict, uninstallOrder, dryRun=False):
@@ -595,31 +601,43 @@ class Bombardier:
                 nameStr = name
             removeFullPackageNames.append(nameStr)
         Logger.info("Packages to remove: %s" % removeFullPackageNames)
-        for packageName in uninstallOrder:
-            uninstallStatus = delPackageDict[packageName].uninstall(dryRun)
+        for package_name in uninstallOrder:
+            uninstallStatus = delPackageDict[package_name].uninstall(dryRun)
             if uninstallStatus == FAIL:
                 return FAIL
         return status
 
-    def use_package(self, packageName, action, scriptName=''):
+    def determine_package_version(self, package_name):
+        meta_data = self.repository.get_meta_data(package_name)
+        version = meta_data.data.get("package-version")
+        if type(version) == type(1):
+            if version in VALID_PACKAGE_VERSIONS:
+                return version
+        msg = "Unknown package version"
+        raise Exceptions.BadPackage, (package_name, msg)
+
+    def use_package(self, package_name, action, scriptName=''):
         try:
-            package = Package.Package(packageName, self.repository, self.config, self.filesystem,
-                                      self.operatingSystem, self.instance_name)
-            package.initialize()
+            version = self.determine_package_version(package_name)
+            package = self.get_new_package(package_name)
+            if package.status == FAIL:
+                self.operation_status = FAIL
+                return self.cleanup()
             if action == INSTALL:
                 progressData = self.filesystem.getProgressData(self.instance_name, stripVersionFromName = False)
                 installedPackageNames, brokenPackageNames = getInstalled(progressData)
-                if packageName in [installedPackageNames + brokenPackageNames]:
-                    Logger.error("Package %s cannot be installed." % packageName)
+                if package_name in [installedPackageNames + brokenPackageNames]:
+                    Logger.error("Package %s cannot be installed." % package_name)
+                    self.operation_status = FAIL
                     return FAIL
-                addPackageDict = {packageName:package}
+                addPackageDict = {package_name:package}
                 status = self.installPackages(addPackageDict)
             if action == UNINSTALL:
                 progressData = self.filesystem.getProgressData(self.instance_name, stripVersionFromName = False)
                 installedPackageNames, brokenPackageNames = getInstalled(progressData)
                 bomPackageNames = installedPackageNames
-                if packageName in bomPackageNames:
-                    bomPackageNames.remove(packageName)
+                if package_name in bomPackageNames:
+                    bomPackageNames.remove(package_name)
                 self.config.setBomPackages(bomPackageNames)
                 addPackageDict, delPackageDict, uninstallOrder = self.checkInstallationStatus()
                 status = self._uninstall_packages(delPackageDict, uninstallOrder)
@@ -628,19 +646,20 @@ class Bombardier:
             if action == CONFIGURE:
                 self.checkConfiguration(package)
                 status = package.configure()
-                hashPath = os.path.join(getPackagePath(self.instance_name), 
-                                        package.full_name, HASH_FILE)
-                Logger.info("writing configuration fingerprint to %s" % hashPath)
-                self.config.saveHash(hashPath)
+                hash_path = os.path.join(package.get_path(), HASH_FILE)
+                Logger.info("writing configuration fingerprint to %s" % hash_path)
+                self.config.saveHash(hash_path)
             if action == EXECUTE:
                 status = package.execute_maint_script(scriptName)
                 if status == FAIL:
                     self.operation_status = FAIL
-            self.operation_output.append("Finished %s for %s." %(ACTION_REVERSE_LOOKUP[action], packageName))
+            self.operation_output.append("Finished %s for %s." %(ACTION_REVERSE_LOOKUP[action], package_name))
+            status = self.cleanup()
             return self.cleanup()
         except Exceptions.BadPackage, e:
-            errmsg = "Cannot perform action %s on package %s: %s" % (ACTION_REVERSE_LOOKUP[action], e.packageName, e.errmsg)
+            errmsg = "Cannot perform action %s on package %s: %s" % (ACTION_REVERSE_LOOKUP[action], e.package_name, e.errmsg)
             Logger.warning(errmsg)
+            Logger.info("RETURN FAIL 1")
             return FAIL
 
 if __name__ == "__main__":

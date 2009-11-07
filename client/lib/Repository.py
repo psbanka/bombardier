@@ -103,6 +103,7 @@ class Repository:
 
     # TESTED
     def get_meta_data(self, name):
+        Logger.info("PACKAGE DATA: %s" % self.package_data)
         if not name in self.package_data:
             raise Exceptions.BadPackage(name,"Package not found in Definitive Software Library." )
         pkgData = self.package_data.get(name)
@@ -222,6 +223,26 @@ class Repository:
             self.filesystem.unlink(pkgPath+".spkg")
         return OK
 
+    def hunt_and_explode(self):
+        base_path = os.path.join(getSpkgPath(), "repos")
+        _status, output = gso('find /opt/spkg/ -name "*.tar.gz"')
+        overall_status = OK
+        for full_tar_file_name in output:
+            tmp_list = tar_file_name.split(os.path.sep)
+            tar_file_name = tmp_list[-1]
+            base_name = tar_file_name.split('.tar.gz')[0]
+            tar_file_dir = os.path.join(tmp_list[:-1] + base_name)
+            if not os.path.isdir(tar_file_dir):
+                Logger.info("Exploding %s..." % base_name)
+                cmd = "mkdir -p %s" % tar_file_dir
+                status = os.system(cmd)
+                if status == OK:
+                    cmd = "cd %s && tar -xzf %s;cd -" % (tar_file_dir, tar_file_name)
+                    status = os.system(cmd)
+                if status != OK:
+                    overall_status = FAIL
+        return overall_status
+
     def get_type5_package(self, package_name, injector, scripts, checksum=''):
         base_path = os.path.join(getSpkgPath(), self.instance_name)
         injector_path = os.path.join(base_path, "injector", injector)
@@ -230,24 +251,6 @@ class Repository:
             if self.filesystem.isdir(test_path):
                 continue
             status = self.unpack(test_path)
-            if status == OK:
-                return OK
-            tries -= 1
-        raise Exceptions.BadPackage(package_name, "Could not get and unpack.")
-
-    def get_type4_package(self, package_name, tries=3, checksum=''):
-        # FIXME: for uninstall, this should find the directory in packages
-        package_path = getPackagePath(self.instance_name)
-        try:
-            full_package_name = self.package_data[package_name]['install'][FULL_NAME]
-        except KeyError:
-            errmsg = "Package not found in Definitive Software Library."
-            Logger.info("packages: (%s)" % " ".join(self.package_data.keys()))
-            raise Exceptions.BadPackage(package_name, errmsg)
-        if self.filesystem.isdir(os.path.join(package_path, full_package_name)):
-            return OK
-        while tries:
-            status = self.unpack(full_package_name, checksum)
             if status == OK:
                 return OK
             tries -= 1

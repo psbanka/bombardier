@@ -1,18 +1,12 @@
 configuration:
-  test:
-    directory: '/tmp'
-    value: hello
+  test: {directory: /tmp, value: hello}
 dependencies: []
-executables: ["echo"]
-package_version: 23
-injector: TestPackage-injector-7
-script: TestPackage-script-7
-template: ""
-libs: []
-install:
-  autoreboot: 'False'
-  console: 'False'
-  priority: '100'
-  reboot: 'False'
+executables: [echo]
+injectors:
+  TestInjector: {path: TestPackage-injector-7.tar.gz}
+libs:
+  TestLib: {path: TestLib-0.7.tar.gz}
 package-version: 5
-virtualpackage: ''
+release: 23
+priority: 100
+script: {class_name: TestPackage, path: TestPackage-script-7.tar.gz}

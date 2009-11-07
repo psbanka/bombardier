@@ -141,8 +141,8 @@ class BombardierMachineInterface(MachineInterface):
     def get_exit_code(self, exit_code):
         "Parse action code from string data, this needs to be more defensive."
         message = "Output received: %s" % exit_code
-        self.polling_log.info(message)
-        self.server_log.info(message, self.machine_name)
+        self.polling_log.debug(message)
+        self.server_log.debug(message, self.machine_name)
         self.exit_code = int(exit_code)
 
     def stream_file(self, file_name):
@@ -306,7 +306,7 @@ class BombardierMachineInterface(MachineInterface):
             if not os.path.isfile(file_path):
                 msg = "%s not found." % file_path
                 self.server_log.error(msg, self.machine_name)
-                raise PackageNotFound(package_name)
+                raise PackageNotFound(package_name, file_path)
 
     def get_type_5_files(self, package_name, package_data):
         package_sync = {"scripts": [],
@@ -314,16 +314,25 @@ class BombardierMachineInterface(MachineInterface):
                         "libs": [],
                        }
 
-        for dir in [ "script", "injector" ]:
-            sync_file = newest_data.get(dir,  {}).get("path")
-            self.check_file( package_name, sync_file )
-            package_sync[dir].append(sync_file)
+        sync_file = package_data.get("script",  {}).get("path")
+        if not sync_file.startswith(os.path.sep):
+            sync_file = os.path.join(self.server_home, "scripts", sync_file)
+        self.check_file( package_name, sync_file )
+        package_sync["scripts"].append(sync_file)
             
-        libs = newest_data.get("libs", [])
-        for lib in libs:
-            sync_file = lib.get("path")
-            self.check_file( package_name, sync_file )
-            package_sync["libs"].append(sync_file)
+        for dir in [ "libs", "injectors" ]:
+            sync_section = package_data.get(dir, [])
+            self.server_log.info("SYNC SECTION: %s" % sync_section)
+            for sync_item in sync_section:
+                sync_data = sync_section[sync_item]
+                self.server_log.info("SYNC ITEM: %s" % sync_item)
+                sync_file = sync_data.get("path")
+                self.server_log.info("SYNC FILE: %s" % sync_file)
+                if not sync_file.startswith(os.path.sep):
+                    sync_file = os.path.join(self.server_home, dir, sync_file)
+                self.check_file( package_name, sync_file )
+                package_sync[dir].append(sync_file)
+        return package_sync
 
     def create_sync_directory(self, files_to_send):
         tmp_path = tempfile.mkdtemp()
@@ -341,12 +350,14 @@ class BombardierMachineInterface(MachineInterface):
         import glob
         cmd = "rsync -La %s %s@%s:%s" 
         cmd = cmd % (tmp_path, self.username, self.ip_address, dest)
+        self.server_log.info("Running: %s" % cmd)
         files = glob.glob("%s/*" % tmp_path)
         self.polling_log.warning(cmd)
         return os.system(cmd)
 
     def new_upload_new_packages(self):
         "Send needed packages to a machine using symlinks and rsync"
+        self.server_log.info("NEW UPLOAD NEW PACKAGES")
         dest_path = os.path.join(self.spkg_dir, "repos")
         try:
             package_names = self.machine_status.get_package_names_from_progress()
@@ -361,6 +372,7 @@ class BombardierMachineInterface(MachineInterface):
         files_to_send = {"type4": []}
         for base_name in required_base_names:
             newest_data = self.machine_status.get_package_data(base_name)
+            self.server_log.info("package data: %s" % newest_data)
             version = newest_data.get("package-version")
             if version == 4:
                 newest_name = newest_data.get("install", {}).get("fullName")
@@ -372,17 +384,19 @@ class BombardierMachineInterface(MachineInterface):
             elif version == 5:
                 package_sync = self.get_type_5_files(base_name, newest_data)
                 files_to_send.update(package_sync)
+        self.server_log.info("FILES TO SEND: %s" % files_to_send)
         tmp_path = self.create_sync_directory(files_to_send)
         dest = os.path.join(self.spkg_dir, "repos")
         self.rsync_repository(tmp_path + os.path.sep, dest)
         dest = os.path.join(self.spkg_dir, self.machine_name, "packages")
         cmd = "ln -fs %s/repos/type4/*.spkg %s/" % (self.spkg_dir, dest)
         self.gso(cmd)
-        os.system("rm -rf %s" % tmp_path)
+        #os.system("rm -rf %s" % tmp_path)
 
     def take_action(self, action, package_name, script_name, debug):
         "Run a maintenance script on a machine"
         message = []
+        self.server_log.info("TAKE ACTION")
         try:
             self.action_result = []
             self.pull_report = True
@@ -427,7 +441,7 @@ class BombardierMachineInterface(MachineInterface):
             message = ["Exception in client-handling code."]
         self.get_status_yml()
         msg = "take_action is returning: %s / %s" % (self.exit_code, message)
-        self.server_log.info(msg)
+        self.server_log.debug(msg)
         return self.exit_code, message
 
     def clear_script_output(self, script_name):

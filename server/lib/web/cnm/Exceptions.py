@@ -151,11 +151,12 @@ class MachineConfigurationException(Exception):
         return self.__repr__()
 
 class PackageNotFound(Exception):
-    def __init__(self, package_name):
+    def __init__(self, package_name, path=''):
         Exception.__init__(self)
         self.package_name = package_name
+        self.path = path
     def __repr__(self):
-        return "Package not found: %s" % self.package_name
+        return "Package not found: %s (%s)" % (self.package_name, self.path)
     def __str__(self):
         return self.__repr__()
 

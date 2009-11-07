@@ -372,7 +372,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         url = '/json/package_action/%s' % package_name
         package_config = {"test": {"value":"nowisthetimeforalldooment",
                                    "directory": "/tmp/foogazi"},
-                          "packages": ["TestPackageType4"],  
+                          "packages": [package_name],  
                          }
         self.make_localhost_config(additional_config=package_config)
         post_data={"machine": "localhost", "action": action}
@@ -399,6 +399,16 @@ class PackageTests(unittest.TestCase, BasicTest):
         assert status == FAIL
         status, output = self.package_action("uninstall", package_name)
         assert status == FAIL
+
+    def test_type5_package_actions(self):
+        self.reset_packages()
+        package_name = "TestPackageType5"
+        status, output = self.package_action("install", package_name)
+        assert status == OK
+        url = '/json/status/name/localhost'
+        status_data = self.get_content_dict(url)
+        progress_data = status_data["install-progress"]["TestPackageType5-23"]
+        assert "INSTALLED" in progress_data
 
     def test_package_actions(self):
         self.reset_packages()
@@ -546,7 +556,7 @@ if __name__ == '__main__':
     client = Client()
     initialize_tests(client)
 
-    full_suite = 1
+    full_suite = 0
     suite = unittest.TestSuite()
     if full_suite:
         suite.addTest(unittest.makeSuite(CnmTests))
@@ -554,6 +564,7 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
+        #suite.addTest(PackageTests("test_type5_package_actions"))
         suite.addTest(PackageTests("test_package_actions"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)

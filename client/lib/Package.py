@@ -127,7 +127,6 @@ class Package:
         self.dependencies = []
         self.depends_on_me = []
         self.console      = False
-        self.full_name    = ''
         self.reboot       = False
         self.package_version = 0
         self.checksum     = ''
@@ -147,33 +146,25 @@ class Package:
         try:
             self.meta_data = self.repository.get_meta_data(self.name)
         except BadPackage, bp:
+            Logger.error("initialize INVALIDATING")
             self._invalidate(bp)
             return
-        self._check_meta_data()
-        self.checksum = self.meta_data.data['install'].get('md5sum')
-        if not self.checksum:
-            ermsg = "Package %s does not have a checksum field"\
-                    " (not checking)" % (self.name)
-            Logger.warning(ermsg)
-        if self.meta_data.data['install'].get('md5list'):
-            self.checksum = self.meta_data.data['install']['md5list']
-        chk = self.meta_data.data["install"].get('console')
-        self.console = evalBoolean(chk)
-        chk = self.meta_data.data["install"].get('reboot')
-        self.reboot = evalBoolean(chk)
-        chk = self.meta_data.data.get("package-version")
-        if type(chk) == type(1):
-            self.package_version = chk
-        self._eval_priority()
         self._gather_dependencies()
+        self._eval_priority()
+
+    def get_configuration(self):
+        return self.meta_data.has_key("configuration", {})
+
+    def get_priority(self):
+        return self.priority
 
     def get_configuration(self):
         return self.meta_data.data.get("configuration")
 
-    def add_dependency_error(self, dependencyName):
-        errmsg = "BOM file is incomplete: should contain %s" % dependencyName
+    def add_dependency_error(self, dependency_name):
+        errmsg = "BOM file is incomplete: should contain %s" % dependency_name
         Logger.warning(errmsg)
-        self.dependency_errors.append(dependencyName)
+        self.dependency_errors.append(dependency_name)
 
     def install_and_verify(self, package_list=[], dry_run=False):
         if self._download() != OK:
@@ -257,6 +248,21 @@ class Package:
         Logger.error(erstr)
         Logger.error(str(exception_object))
         self.status = FAIL
+
+    def _eval_priority(self):
+        if not self.priority:
+            ermsg = "Package %s does not have a priority "\
+                    "(assuming %s)" % (self.name, AVERAGE)
+            Logger.warning(ermsg)
+            self.priority = AVERAGE
+        else:
+            try:
+                self.priority = int(self.priority)
+            except ValueError:
+                ermsg = "Package %s has an invalid priority value"\
+                        "(assuming %s)" % (self.name, AVERAGE)
+                Logger.warning(ermsg)
+                self.priority = AVERAGE
         
     def _gather_dependencies(self):
         self.dependencies = self.meta_data.data.get("dependencies")
@@ -272,23 +278,7 @@ class Package:
             Logger.warning(errmsg)
             self.dependencies = []
     
-    def _eval_priority(self):
-        self.priority = self.meta_data.data["install"].get('priority')
-        if not self.priority:
-            ermsg = "Package %s does not have a priority "\
-                    "(assuming %s)" % (self.name, AVERAGE)
-            Logger.warning(ermsg)
-            self.priority = AVERAGE
-        else:
-            try:
-                self.priority = int(self.priority)
-            except ValueError:
-                ermsg = "Package %s has an invalid priority value"\
-                        "(assuming %s)" % (self.name, AVERAGE)
-                Logger.warning(ermsg)
-                self.priority = AVERAGE
-
-    def _check_meta_data(self):
+    def _check_meta_data_v4(self):
         self.status = FAIL
         if self.meta_data.data:
             if type(self.meta_data.data) == type(dict()):
@@ -459,6 +449,7 @@ class Package:
                 self._initialize_from_filesystem()
                 self.downloaded = True
             except BadPackage, bp:
+                Logger.error("download INVLIDATION")
                 self._invalidate(bp)
                 return FAIL
         return OK
