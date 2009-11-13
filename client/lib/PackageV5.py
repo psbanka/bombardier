@@ -49,13 +49,14 @@ class PackageV5(Package):
         self.release = None
         self.injectors_info = {}
         self.libs_info = {}
-        self.script_info = {}
+        self.class_name = None
         self.full_name = None
 
     ############################################ PUBLIC METHODS
 
     def initialize(self):
         Package.initialize(self)
+        self._check_meta_data()
         self.full_name = "%s-%d" % (self.name, self.release)
 
     def get_path(self):
@@ -73,15 +74,15 @@ class PackageV5(Package):
             release = self.meta_data.data.get('release')
             if type(release) == type(1):
                 self.release = release
-                script_info = self.meta_data.data.get('script')
-                if type(release) == type({}):
-                    self.script_info = script_info
+                class_name = self.meta_data.data.get('class_name')
+                if type(class_name) == type('string'):
                     self.status = OK
+                    self.class_name = class_name
                     injectors_info = self.meta_data.data.get('injectors')
-                    if type(release) == type({}):
+                    if type(injectors_info) == type({}):
                         self.injectors_info = injectors_info
                     libs_info = self.meta_data.data.get('libs')
-                    if type(release) == type({}):
+                    if type(libs_info) == type({}):
                         self.libs_info = libs_info
                 else:
                     msg = "No script infomation for this package"
@@ -102,15 +103,7 @@ class PackageV5(Package):
         if not self.full_name:
             raise BadPackage(self.name, "Could not find full name.")
         new_dir = os.path.join(package_path, self.full_name)
-        self.scripts_dir = os.path.join(new_dir, "scripts")
-        if self.package_version > 3:
-            self.maint_dir = os.path.join(new_dir, "maint")
-        else:
-            self.maint_dir = os.path.join(self.scripts_dir, "maint")
-        if not self.filesystem.isdir(self.scripts_dir):
-            errmsg = "Scripts directory does not exist"
-            raise BadPackage(self.name, errmsg)
-        injector_dir = os.path.join(new_dir, "injector")
+        injector_dir = os.path.join(new_dir, "injectors")
         if self.filesystem.isdir(injector_dir):
             self.working_dir = injector_dir
         else:
@@ -118,91 +111,64 @@ class PackageV5(Package):
             raise BadPackage(self.name, errmsg)
 
     def _find_cmd(self, action, package_list=[], dry_run=False):
-        cwd = self.filesystem.getcwd()
-        sys.path.insert(0, self.scripts_dir)
-        self.filesystem.chdir(self.scripts_dir)
-        files = glob.glob("*.py")
-        files = [x.split('.py')[0] for x in files]
-        if self.name in files:
-            files = [self.name]
-        else:
-            vpkg_name = self.meta_data.data.get('virtualpackage')
-            if vpkg_name in files:
-                files = [vpkg_name]
-        status = FAIL
-        file_found = False
-        for file_name in files:  # FIXME this is stupid
-            if file_name.split('.')[0] in ["installer", "verify", "uninstaller", "configure"]:
-                continue
-            try:
-                obj = Spkg.SpkgV4(self.config, Logger)
-                self.filesystem.chdir(self.working_dir)
-                letters = [ chr( x ) for x in range(65, 91) ]
-                random.shuffle(letters)
-                rand_string = ''.join(letters)
-                exec("import %s as %s" % (file_name, rand_string)) # FIXME
-                Logger.debug("This is package version %s" % self.package_version)
-                if self.package_version == 2:
-                    exec("obj = %s.%s(self.config)" % (rand_string, file_name))
-                elif self.package_version == 3:
-                    self.config["__INSTANCE__"] = self.instance_name
-                    cmd_str = "obj = %s.%s(self.config, package_list, Logger)"
-                    exec(cmd_str % (rand_string, file_name))
-                elif self.package_version == 4:
-                    self.config["__FUTURE_PACKAGES__"] = package_list
-                    self.config["__INSTANCE__"] = self.instance_name
-                    cmd_str = "obj = %s.%s(self.config, Logger)"
-                    exec(cmd_str % (rand_string, file_name))
+        package_path = os.path.join(getSpkgPath(), self.instance_name, "packages", self.full_name)
+        injector_path = os.path.join(package_path, "injectors")
+        lib_path = os.path.join(package_path, "libs")
+        sys.path.insert(0, lib_path)
+
+        try:
+            module_name = self.class_name.split('.')[0]
+            class_name = '.'.join(self.class_name.split('.')[1:])
+            obj = Spkg.SpkgV4(self.config, Logger)
+            cwd = os.getcwd()
+            self.filesystem.chdir(self.working_dir)
+            letters = [ chr( x ) for x in range(65, 91) ]
+            random.shuffle(letters)
+            rand_string = ''.join(letters)
+            exec("import %s as %s" % (self.class_name, rand_string))
+            self.config["__FUTURE_PACKAGES__"] = package_list
+            self.config["__INSTANCE__"] = self.instance_name
+            cmd_str = "obj = %s.%s(self.config, Logger)"
+            exec(cmd_str % (rand_string, class_name))
+            if not dry_run:
+                if action == INSTALL:
+                    status = obj.installer()
+                elif action == VERIFY:
+                    status = obj.verify()
+                elif action == UNINSTALL:
+                    status = obj.uninstaller()
+                elif action == CONFIGURE:
+                    status = obj.configure()
                 else:
-                    raise BadPackage( self.name, "Unknown package version %s" % self.package_version )
-                file_found = True
-                if not dry_run:
-                    if action == INSTALL:
-                        status = obj.installer()
-                    elif action == VERIFY:
-                        status = obj.verify()
-                    elif action == UNINSTALL:
-                        status = obj.uninstaller()
-                    elif action == CONFIGURE:
-                        status = obj.configure()
-                    else:
-                        raise FeatureRemovedException(action)
-                else:
-                    status = OK
-                del rand_string
-                if file_name in sys.modules:
-                    sys.modules.pop(file_name)
-                while self.scripts_dir in sys.path:
-                    sys.path.remove(self.scripts_dir)
-                break
-            except ImportError:
-                Logger.debug("File %s is not runnable. Looking for others" % file_name)
-                continue
-            except SystemExit, err:
-                if err.code:
-                    status = err.code
-                else:
-                    status = 0
-                file_found = True
-                del rand_string
-                break
-            except KeyboardInterrupt:
-                Logger.error("Keyboard interrupt detected. Exiting...")
-                sys.exit(10)
-            except SyntaxError, err:
-                self._dump_error(err, file_name)
-                file_found = False
-                del rand_string
-                break
-            except StandardError, err:
-                self._dump_error(err, file_name)
-                file_found = True
-                status = FAIL
-                del rand_string
-                break
+                    raise FeatureRemovedException(action)
+            else:
+                status = OK
+            del rand_string
+            if self.class_name in sys.modules:
+                sys.modules.pop(self.class_name)
+            sys.path.remove(lib_path)
+        except ImportError:
+            msg = "Class %s is not runnable." % self.class_name
+            raise BadPackage(self.name, msg)
+        except SystemExit, err:
+            if err.code:
+                status = err.code
+            else:
+                status = OK
+            del rand_string
+        except KeyboardInterrupt:
+            Logger.error("Keyboard interrupt detected. Exiting...")
+            status = FAIL
+            sys.exit(10) # FIXME: Literal
+        except SyntaxError, err:
+            self._dump_error(err, self.class_name)
+            status = FAIL
+            del rand_string
+        except StandardError, err:
+            self._dump_error(err, self.class_name)
+            status = FAIL
+            del rand_string
         self.filesystem.chdir(cwd)
-        if not file_found:
-            raise BadPackage(self.name, "Unable to find a suitable script to install.")
         if status == None:
             status = OK
         if status == REBOOT:
@@ -213,20 +179,40 @@ class PackageV5(Package):
             return FAIL
         return OK
 
-    # ^^^ STOPPED HERE
+    def prepare_dict(self, package_path, package_dict):
+        base_path = os.path.join(getSpkgPath(), "repos")
+        for component_type in package_dict:
+            info_dict = package_dict[component_type]
+            for component_name in info_dict:
+                full_path = info_dict[component_name]["path"]
+                full_name = full_path.split(os.path.sep)[0]
+                full_name = full_name.split('.tar.gz')[0]
+                src = os.path.join(base_path, component_type, full_name)
+                dst = os.path.join(package_path, component_type, component_name)
+                cmd = "ln -s %s %s" % (src, dst)
+                if os.system(cmd) != OK:
+                    msg = "Could not create symlink (%s)" % cmd
+                    raise BadPackage(self.name, msg)
+
     def get_package(self):
         base_path = os.path.join(getSpkgPath(), "repos")
         # See if we have to unpack anything
         self.repository.hunt_and_explode()
         # Create directory under /opt/spkg/<instance>/packages/<pkg>-<ver> with symlinks
         package_path = os.path.join(getSpkgPath(), self.instance_name, "packages", self.full_name)
+        injector_path = os.path.join(package_path, "injectors")
+        lib_path = os.path.join(package_path, "libs")
         if not os.path.isdir(package_path):
             Logger.info("Making directory %s" % package_path)
-            cmd = "mkdir -p %s" % package_path
-            status = os.system(cmd)
-            
-        raise BadPackage(self.name, "Could not get and unpack.")
-
+            for path in [package_path, injector_path, lib_path]:
+                cmd = "mkdir -p %s" % path
+                if os.system(cmd) != OK:
+                    msg = "Could not create directory structure (%s)" % path
+                    raise BadPackage(self.name, msg)
+        info_dict = {"injectors": self.injectors_info,
+                     "libs": self.libs_info}
+        self.prepare_dict(package_path, info_dict)
+        return OK
 
     def _download(self):
         if not self.downloaded:

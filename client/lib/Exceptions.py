@@ -88,15 +88,15 @@ class DependencyLoopException(Exception):
         return output[:-1]
 
 class BadPackage(Exception):
-    def __init__(self, packageName, errmsg):
+    def __init__(self, package_name, errmsg):
         e = Exception()
         Exception.__init__(e)
         self.errmsg      = errmsg
-        self.packageName = packageName
+        self.package_name = package_name
     def __repr__(self):
-        return "%s: %s" % (self.packageName, self.errmsg)
+        return "%s: %s" % (self.package_name, self.errmsg)
     def __str__(self):
-        return "%s: %s" % (self.packageName, self.errmsg)
+        return "%s: %s" % (self.package_name, self.errmsg)
 
 class BadBillOfMaterials(Exception):
     def __init__(self, errmsg):

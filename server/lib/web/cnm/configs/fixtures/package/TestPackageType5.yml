@@ -6,7 +6,8 @@ injectors:
   TestInjector: {path: TestPackage-injector-7.tar.gz}
 libs:
   TestLib: {path: TestLib-0.7.tar.gz}
+  TestPackage: {path: TestPackage-script-7.tar.gz}
+class_name: TestPackage.TestPackage
 package-version: 5
 release: 23
 priority: 100
-script: {class_name: TestPackage, path: TestPackage-script-7.tar.gz}

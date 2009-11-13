@@ -106,7 +106,7 @@ class MachineInterface:
         self.ssh_conn.timeout = 6000
         msg = "Connecting to %s..." % self.machine_name
         self.polling_log.debug(msg)
-        self.server_log.debug(msg, self.machine_name)
+        #self.server_log.debug(msg, self.machine_name)
         try:
             login_okay = self.ssh_conn.login(self.ip_address, self.username,
                                        self.ssh_pass, login_timeout=6000)
@@ -128,8 +128,8 @@ class MachineInterface:
     def freshen(self):
         connection_age = time.time() - self.connect_time
         if self.status == DISCONNECTED or \
-           connection_age > CONNECTION_TIMEOUT or \
-           self.status == BROKEN:
+            connection_age > CONNECTION_TIMEOUT or \
+            self.status == BROKEN:
             if self.status == CONNECTED:
                 msg = "Assuming our connection to %s is stale after "\
                       "%4.2f minutes. Reconnecting..."
@@ -137,8 +137,8 @@ class MachineInterface:
                 self.polling_log.warning(msg)
                 self.disconnect()
             if self.connect() != OK:
-                self.polling_log.warning("A")
                 return FAIL
+
         dead = False
         try:
             self.ssh_conn.sendline('echo hello')
@@ -156,7 +156,6 @@ class MachineInterface:
             except:
                 pass
             if self.connect() != OK:
-                self.polling_log.warning("B")
                 return FAIL
         return OK
 

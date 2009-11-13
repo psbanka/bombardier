@@ -22,14 +22,15 @@
 
 #from old_static_data import *
 from bombardier_core.static_data import OK, FAIL, BLOCK_SIZE
-import os, tarfile, shutil, sys
+import os, tarfile, sys
 import MetaData
 from bombardier_core.mini_utility import getPackagePath, rpartition
 from bombardier_core.mini_utility import getSpkgPath, rpartition
 from bombardier_core.mini_utility import cygpath, getProgressPath
-import md5, yaml, base64
+import md5
 import Exceptions
 from bombardier_core.Logger import Logger
+from commands import getstatusoutput as gso
 
 # PACKAGE FIELDS
 FULL_NAME    = "fullName"
@@ -103,71 +104,13 @@ class Repository:
 
     # TESTED
     def get_meta_data(self, name):
-        Logger.info("PACKAGE DATA: %s" % self.package_data)
         if not name in self.package_data:
             raise Exceptions.BadPackage(name,"Package not found in Definitive Software Library." )
         pkgData = self.package_data.get(name)
         return MetaData.MetaData(pkgData)
 
-    def unpack_type5(self, file_path, checksum):
-        archive_path = "%s.tar.gz" % file_path
-        archive_dir = file_path.rpartition(os.path.sep)[0]
-        if not self.filesystem.isfile(archive_path):
-            erstr = "No package file: %s." % (archive_path)
-            Logger.error(erstr)
-            return FAIL
-        if sys.platform != 'win32':
-            cmd = "cd %s && tar -xzf %s" % (archive_dir, archive_path)
-            Logger.debug("Untarring with filesystem command: %s" %cmd)
-            if not self.filesystem.system(cmd) == OK:
-                return FAIL
-            return OK
-        if self.unzip_t5(pkgPath, full_package_name, removeSpkg) == FAIL:
-            return FAIL
-        tar = self.filesystem.tarOpen(pkgPath+".tar", "r")
-        tar.errorlevel = 2
-        cwd = self.filesystem.getcwd()
-        self.filesystem.chdir(package_path)
-        for tarinfo in tar:
-            try:
-                tar.extract(tarinfo)
-            except tarfile.ExtractError, e:
-                Logger.warning("Error with package %s,%s: "\
-                                    "%s" % (full_package_name, tarinfo.name, e))
-        tar.close()
-        if not self.filesystem.isdir(os.path.join(package_path, full_package_name)):
-            Logger.error("Package %s is malformed." % (full_package_name))
-            self.filesystem.chdir(cwd)
-            return FAIL
-        self.filesystem.chdir(cwd)
-        self.filesystem.unlink(pkgPath+".tar")
-        return OK
-
-    def unzip_t5(self, archive_path):
-        Logger.info("Unzipping %s" % archive_path)
-        gzipFile = self.filesystem.gzipOpen(archive_path)
-        output_filename = archive.path.rpartition('tar.gz')[0]
-        outputFile = self.filesystem.open(pkgPath+".tar", 'wb')
-        data = '1'
-        while data:
-            try:
-                data = gzipFile.read(BLOCK_SIZE)
-            except IOError, e:
-                Logger.error("Error Reading %s: %s" % (full_package_name, e.__str__()))
-                return FAIL
-            except Exception, e:
-                Logger.error("Corrupt package: %s (%s)" % (full_package_name, e.__str__()))
-                return FAIL
-            outputFile.write(data)
-        outputFile.close()
-        gzipFile.close()
-        if removeSpkg:
-            self.filesystem.unlink(pkgPath+".spkg")
-        return OK
-
-
     # TESTED
-    def unpack(self, full_package_name, checksum, removeSpkg = True):
+    def unpack(self, full_package_name, removeSpkg = True):
         package_path = getPackagePath(self.instance_name)
         pkgPath = os.path.join(package_path, full_package_name)
         if not self.filesystem.isfile(pkgPath+".spkg"):
@@ -227,20 +170,21 @@ class Repository:
         base_path = os.path.join(getSpkgPath(), "repos")
         _status, output = gso('find /opt/spkg/ -name "*.tar.gz"')
         overall_status = OK
-        for full_tar_file_name in output:
-            tmp_list = tar_file_name.split(os.path.sep)
+        start_dir = os.getcwd()
+        for full_tar_file_name in output.split('\n'):
+            tmp_list = full_tar_file_name.split(os.path.sep)
             tar_file_name = tmp_list[-1]
             base_name = tar_file_name.split('.tar.gz')[0]
-            tar_file_dir = os.path.join(tmp_list[:-1] + base_name)
+            tar_file_dir = os.path.sep.join(tmp_list[:-1] + [base_name])
             if not os.path.isdir(tar_file_dir):
                 Logger.info("Exploding %s..." % base_name)
                 cmd = "mkdir -p %s" % tar_file_dir
                 status = os.system(cmd)
                 if status == OK:
-                    cmd = "cd %s && tar -xzf %s;cd -" % (tar_file_dir, tar_file_name)
-                    status = os.system(cmd)
-                if status != OK:
-                    overall_status = FAIL
+                    cmd = "cd %s && tar -xzf ../%s" % (tar_file_dir, tar_file_name)
+                    if os.system(cmd) != OK:
+                        overall_status = FAIL
+        os.chdir(start_dir)
         return overall_status
 
     def get_type5_package(self, package_name, injector, scripts, checksum=''):
@@ -253,6 +197,5 @@ class Repository:
             status = self.unpack(test_path)
             if status == OK:
                 return OK
-            tries -= 1
         raise Exceptions.BadPackage(package_name, "Could not get and unpack.")
 

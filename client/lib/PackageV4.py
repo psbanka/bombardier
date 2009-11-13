@@ -233,7 +233,7 @@ class PackageV4(Package):
         if self.filesystem.isdir(os.path.join(package_path, self.full_name)):
             return OK
         while tries:
-            status = self.repository.unpack(self.full_name, self.checksum)
+            status = self.repository.unpack(self.full_name)
             if status == OK:
                 return OK
             tries -= 1
