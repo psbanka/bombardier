@@ -1,167 +1,184 @@
 #!/cygdrive/c/Python24/python.exe
 
-# Config.py: This class provides the functionality of providing
-# heirarchichal configuration data through either a dictionary
-# information to be stored either on the server or locally in the
-# config.yml file in the bombardier home directory.
+# BSD License
+# Copyright (c) 2009, Peter Banka et al
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the GE Security nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
-# Copyright (C) 2005 Peter Banka
+# Copyright (C) 2005-2010 Peter Banka et al
 
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+'''Config.py: This class provides the functionality of providing
+heirarchichal configuration data through either a dictionary
+information to be stored either on the server or locally in the
+config.yml file in the bombardier home directory.'''
 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-# 02110-1301, USA.
 
 import yaml
 from bombardier_core.mini_utility import hashDictionary, diffDicts, getSpkgPath
-import random, copy, os
+import copy, os
 from Exceptions import InvalidConfigData
 from bombardier_core.Logger import Logger
-from bombardier_core.static_data import OK, FAIL, CONFIG_FILE, PASSWORD_LENGTH
-
-def generatePassword():
-    random.seed()
-    characters = [ chr(x) for x in range(33,122) ]
-    password = ''.join([ random.choice(characters) for x in range(0,PASSWORD_LENGTH)])
-    return password
-
-def getKey(data, index):
-    obj = data
-    for key in index:
-        obj = obj.get(key)
-        if obj == None:
-            return
-    return obj
-
-def findIncludeList(data):
-    includeList = []
-    for key in data.keys():
-        if key.upper() == "INCLUDE":
-            includeList += data[key]
-    return includeList
+from bombardier_core.static_data import OK, FAIL, CONFIG_FILE
 
 class Config(dict):
+    """This object retains the complete configuration for a system.
+    It tries to impersonate a dictionary as well as provide a nice
+    string interface to the data it holds"""
 
-    """This object retains the complete configuration for a system."""
-
-    ### TESTED
-    def __init__(self, filesystem, instanceName, configData = {}):
+    def __init__(self, filesystem, instance_name, config_data = {}):
+        '''
+        filesystem -- object that performs filesystem operations
+        instance -- the name of this machine
+        config_data -- configuration information for this machine
+        '''
         self.filesystem = filesystem
-        self.instanceName = instanceName
+        self.instance_name = instance_name
         self.includes   = []
         self.automated  = False
         self.username   = None
         self.password   = None
         self.domain     = None
-        self.data       = configData
+        self.data       = config_data
+        self._read_local_config()
 
-        self.readLocalConfig()
+    def _read_local_config(self):
+        '''If there is a cleartext configuration file on the system,
+        we will read that and ignore the configuration sent to us from
+        the server.'''
+        config_path = os.path.join(getSpkgPath(), self.instance_name,
+                                  CONFIG_FILE)
+        if not os.path.isfile(config_path):
+            return FAIL
+        msg = "DETECTED A CLEARTEXT LOCAL CONFIGURATION FILE:"\
+              " IGNORING MANAGEMENT SERVER CONFIGURATION"
+        Logger.warning(msg)
+        file_handle = open(config_path, 'r')
+        try:
+            config_data = file_handle.read()
+            self.data = yaml.load(config_data)
+        except:
+            return FAIL
+        return OK
 
     def __getitem__(self, key):
+        'for dictionary impersonation'
         return self.data[key]
 
     def __setitem__(self, key, value):
+        'for dictionary impersonation'
         self.data[key] = value
 
     def keys(self):
+        'for dictionary impersonation'
         return self.data.keys()
 
-    def getInstance(self):
-        return self.instanceName
+    def get_instance(self):
+        'getter'
+        return self.instance_name
 
-    def setBomPackages(self, pDict):
-        self.data["packages"] = copy.deepcopy(pDict)
+    def set_bom_pkgs(self, bom_pkns):
+        'setter'
+        self.data["packages"] = copy.deepcopy(bom_pkns)
 
-    def getBomPackages(self):
+    def get_bom_pkns(self):
+        'getter'
         if self.data.has_key("packages"):
             return copy.deepcopy(self.data["packages"])
         return []
 
-    def saveHash(self, path):
-        f = self.filesystem.open(path, 'w')
+    def save_hash(self, path):
+        '''
+        Save off a hash of our config data for future reference
+        path -- the place to find the configuration hash that was used the
+                last time this package was configured or installed
+        '''
+        file_handle = self.filesystem.open(path, 'w')
         hash_dict = hashDictionary(self.data)
-        hashYaml = yaml.dump(hash_dict)
-        f.write(hashYaml)
-        f.close()
+        hash_yaml = yaml.dump(hash_dict)
+        file_handle.write(hash_yaml)
+        file_handle.close()
         return OK
 
-    def checkHash(self, path):
-        oldConfig = {}
+    def check_hash(self, path):
+        '''
+        We saved off a hash of our configuration data the last time we did some
+        package maintenance. Now we're going to load that saved value and
+        compare it with our current config. That will tell us what values have
+        changed.
+        path -- the place to find the configuration hash that was used the
+                last time this package was configured or installed
+        '''
+        old_config = {}
         try:
-            yamlString = self.filesystem.open(path, 'r').read()
-            oldConfig = yaml.load(yamlString)
+            yaml_string = self.filesystem.open(path, 'r').read()
+            old_config = yaml.load(yaml_string)
         except IOError:
-            #Logger.warning("Could not load saved configuration data in %s" % path)
+            msg = "Could not load saved configuration data in %s" % path
+            Logger.warning(msg)
             pass
         except:
             Logger.warning("Bad yaml in file %s" % path)
-        newConfig = hashDictionary(self.data)
-        difference =  diffDicts(oldConfig, newConfig, checkValues=True)
+        new_config = hashDictionary(self.data)
+        difference =  diffDicts(old_config, new_config, checkValues=True)
         return difference
 
-    def readLocalConfig(self):
-        configPath = os.path.join(getSpkgPath(), self.instanceName, CONFIG_FILE)
-        if not os.path.isfile(configPath):
-            return FAIL
-        msg = "DETECTED A CLEARTEXT LOCAL CONFIGURATION FILE: IGNORING MANAGEMENT SERVER CONFIGURATION"
-        Logger.warning(msg)
-        fh = open(configPath, 'r')
-        try:
-            configData = fh.read()
-            self.data = yaml.load(configData)
-        except:
-            return FAIL
-        return OK
-
-    ### TESTED
     def set(self, section, option, value):
+        'dictionary impersonation'
         if type(self.data.get(section)) != type(dict()):
-            if self.data.get(section) != None:
-                ermsg = "Clobbering data in configuration due to yaml/ini incompatibilities"
-                Logger.warning(ermsg)
             self.data[section] = {}
         self.data[section][option] = value
         return OK
 
-    def has_section(self, sectionQuery):
+    def has_section(self, section_query):
+        'ConfigParser impersonation'
         for section in self.data.keys():
-            if section.lower() == sectionQuery.lower():
+            if section.lower() == section_query.lower():
                 if type(self.data[section]) == type({}):
                     return True
         return False
 
-    def has_option(self, sectionQuery, optionQuery):
+    def has_option(self, section_query, option_query):
+        'ConfigParser impersonation'
         for section in self.data.keys():
-            if section.lower() == sectionQuery.lower():
-                sectData = self.data[section]
-                if type(sectData) == type({}):
-                    for option in sectData.keys():
-                        if option.lower() == optionQuery.lower():
+            if section.lower() == section_query.lower():
+                section_data = self.data[section]
+                if type(section_data) == type({}):
+                    for option in section_data.keys():
+                        if option.lower() == option_query.lower():
                             return True
         return False
 
-    ### TESTED
-    def get(self, section, option, default='', optional=True):
-        return str(self.get_raw(section, option, default))
-
-    def get_dict(self, section, option, default={}, optional=True):
-        result = self.get_raw(section, option, default)
-        if result.__class__ == {}.__class__:
-            return result
-        else:
-            raise TypeError
-
     def get_raw(self, section, option, default=None, optional=True):
+        '''Get any object from the configuration
+        section -- this is a top-level value
+        option -- a key under the top-level
+        default -- a default value, if not set
+        optional -- whether the system should require the value to
+                    be set for a machine that implements a package
+        '''
         if self.data.has_key(section):
             if self.data[section].has_key(option):
                 return self.data[section][option]
@@ -178,42 +195,80 @@ class Config(dict):
             return default
         else:
             if self.data.has_key(section):
-                raise InvalidConfigData("Option %s not found for section %s" % (option, section), None, None)
+                msg = "Option %s not found for section %s" % (option, section)
+                raise InvalidConfigData(msg, None, None)
             else:
-                raise InvalidConfigData("Section %s not found" % section, None, None)
+                msg = "Section %s not found" % section
+                raise InvalidConfigData(msg, None, None)
 
-    def parseSection(self, sectionString, default, optional):
-        sections = sectionString.split('.')
-        d = self.data
+    def get(self, section, option, default='', optional=True):
+        'dictionary impersonation'
+        return str(self.get_raw(section, option, default))
+
+    def get_dict(self, section, option, default={}, optional=True):
+        '''Get a dictionary object from the configuration
+        section -- this is a top-level value
+        option -- a key under the top-level
+        default -- a default value, if not set
+        optional -- whether the system should require the value to
+                    be set for a machine that implements a package
+        '''
+        result = self.get_raw(section, option, default)
+        if result.__class__ == {}.__class__:
+            return result
+        else:
+            raise TypeError
+
+    def _parse_section(self, section_string, default, optional):
+        '''Provides 'dotted-value' access to configuration data
+        section_string -- a string to get configuration 
+                          (e.g. 'svn.server.home_directory')
+        default -- default value
+        optional -- whether it should be required by machine config
+        '''
+        sections = section_string.split('.')
+        dat = self.data
         for section in sections:
             try:
-                d = d[section]
-            except:
-                d = None
+                dat = dat[section]
+            except KeyError:
+                dat = None
                 break
-        if d == None:
+        if dat == None:
             if not optional:
-                raise InvalidConfigData("Option %s not found" % sectionString, None, None)
-            d = default
-        return d
+                msg = "Option %s not found" % section_string
+                raise InvalidConfigData(msg, None, None)
+            dat = default
+        return dat
 
-    def getobj(self, sectionString, default, expType, optional):
-        value = self.parseSection(sectionString, default, optional)        
-        if type(expType) == type("string"):
+    def _getobj(self, section_string, default, expected_type, optional):
+        '''dotted-value access to a generic object
+        section_string -- configuration section
+        default -- default value
+        expected_type -- type we should return
+        optional -- whether it must be implemented
+        '''
+        value = self._parse_section(section_string, default, optional)        
+        if type(expected_type) == type("string"):
             if type(value) == type(1234) or type(value) == type(123.32):
                 value = str(value)
-        if type(value) == type(expType):
+        if type(value) == type(expected_type):
             return value
-        raise InvalidConfigData(sectionString, type(value), type(expType))
+        raise InvalidConfigData(section_string, type(value),
+                                type(expected_type))
 
-    def listobj(self, sectionString, default=[], optional=True):
-        return self.getobj(sectionString, default, [], optional)
+    def listobj(self, section_string, default=[], optional=True):
+        'Get a list object from the config'
+        return self._getobj(section_string, default, [], optional)
 
-    def string(self, sectionString, default='', optional=True):
-        return self.getobj(sectionString, default, "string", optional)
+    def string(self, section_string, default='', optional=True):
+        'Get a string object from the config'
+        return self._getobj(section_string, default, "string", optional)
 
-    def integer(self, sectionString, default=1, optional=True):
-        return self.getobj(sectionString, default, 1, optional)
+    def integer(self, section_string, default=1, optional=True):
+        'Get a integer object from the config'
+        return self._getobj(section_string, default, 1, optional)
 
-    def dictionary(self, sectionString, default={}, optional=True):
-        return self.getobj(sectionString, default, {}, optional)
+    def dictionary(self, section_string, default={}, optional=True):
+        'Get a dictionary object from the config'
+        return self._getobj(section_string, default, {}, optional)

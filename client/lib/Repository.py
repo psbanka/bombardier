@@ -1,173 +1,140 @@
-#!/cygdrive/c/Python24/python.exe
+#!/usr/bin/python
 
-# Repository.py: This module is responsible for keeping track of
-# packages on the repository, downloading them, extracting them, etc.
+"Responsible for preparing filesystem for a package's use"
 
-# Copyright (C) 2005 Peter Banka
+# BSD License
+# Copyright (c) 2009, Peter Banka et al
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the GE Security nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-# 02110-1301, USA.
-
-#from old_static_data import *
 from bombardier_core.static_data import OK, FAIL, BLOCK_SIZE
 import os, tarfile, sys
 import MetaData
-from bombardier_core.mini_utility import getPackagePath, rpartition
-from bombardier_core.mini_utility import getSpkgPath, rpartition
-from bombardier_core.mini_utility import cygpath, getProgressPath
-import md5
+from bombardier_core.mini_utility import getPackagePath
+from bombardier_core.mini_utility import getSpkgPath
 import Exceptions
 from bombardier_core.Logger import Logger
 from commands import getstatusoutput as gso
 
-# PACKAGE FIELDS
-FULL_NAME    = "fullName"
-
-
-
 class Repository:
+    '''Provides support functions for package, dealing with proper
+    package file layout, unpacking, and verification'''
 
-    def __init__(self, filesystem, instance_name, package_data = {}):
+    def __init__(self, filesystem, instance_name, pkg_data = {}):
+        '''
+        filesystem -- object that deals with the fileysstem
+        instance_name -- name of this machine
+        pkg_data -- data regarding all packages on this machine
+        '''
         self.filesystem   = filesystem
         self.instance_name = instance_name
-        self.package_data  = package_data
+        self.pkg_data  = pkg_data
 
-    @classmethod
-    def computeMd5(cls, filename, checksum):
-        if not checksum:
-            Logger.warning("No checksum provided for %s. Skipping check." % filename)
-            return OK, ''
-        mchk = md5.new()
-        fileHandle = open(filename, 'rb')
-        data = fileHandle.read(BLOCK_SIZE)
-        while data:
-            mchk.update(data)
-            data = fileHandle.read(BLOCK_SIZE)
-        fileHandle.flush()
-        fileHandle.close()
-        del fileHandle # necessary because the file may need to be moved before gc. -pbanka
-        computedMd5 = mchk.hexdigest()
-        if computedMd5 != checksum:
-            return FAIL, computedMd5
-        return OK, computedMd5
-
-    @classmethod
-    def packageRequest(cls, filename, instance_name, checksum):
-        dosPath = getPackagePath(instance_name)
-        cygPath = cygpath(dosPath)
-        Logger.info("==REQUEST-PACKAGE==:%s:%s" % (filename, cygPath))
-        response = sys.stdin.read(3)
-        if response.strip() != "OK":
-            Logger.error("Received an invalid response from the server")
-            raise Exceptions.FileNotFound(filename, "server told us that it didn't have our file.")
-        filePath = dosPath +'/'+filename
-        if os.path.isfile(filePath):
-            status, actualChecksum = cls.computeMd5(filePath, checksum)
-            if status != OK:
-                errmsg = "MD5Sum did not verify. Expected: (%s), got: (%s)" % (checksum, actualChecksum)
-                raise Exceptions.BadPackage(filename, errmsg)
-            return filePath
-        raise Exceptions.FileNotFound(filePath, "did not receive from the server")
-
-    def checkLocalPackages(self):
-        localPackages = []
-        packagesPath = getPackagePath(self.instance_name)
-        inodes = self.filesystem.glob("%s/*" % packagesPath)
-        for inode in inodes: 
-            shortName = rpartition(inode, packagesPath+os.path.sep)[-1]
-            if self.filesystem.isfile(inode):
-                if inode.endswith('.spkg'):
-                    localPackages.append(shortName.split(".spkg")[0])
-                else:
-                    Logger.warning("Unknown file in local repository: %s" % inode)
-            elif self.filesystem.isdir(inode):
-                localPackages.append(shortName)
-            else:
-                Logger.warning("Unknown inode in local repository: %s" % shortName)
-
-        fileName = getProgressPath(self.instance_name)
-        statusData = self.filesystem.loadYaml(fileName)
-        statusData["local-packages"] = localPackages
-        self.filesystem.dumpYaml(fileName, statusData)
-
-    # TESTED
     def get_meta_data(self, name):
-        if not name in self.package_data:
-            raise Exceptions.BadPackage(name,"Package not found in Definitive Software Library." )
-        pkgData = self.package_data.get(name)
-        return MetaData.MetaData(pkgData)
+        '''
+        Query DSL database for this machine and return metadata
+        for a given package name
+        name -- name of the package
+        '''
+        if not name in self.pkg_data:
+            msg = "Package not found in Definitive Software Library."
+            raise Exceptions.BadPackage(name, msg)
+        data = self.pkg_data.get(name)
+        return MetaData.MetaData(data)
 
-    # TESTED
-    def unpack(self, full_package_name, removeSpkg = True):
-        package_path = getPackagePath(self.instance_name)
-        pkgPath = os.path.join(package_path, full_package_name)
-        if not self.filesystem.isfile(pkgPath+".spkg"):
-            erstr = "No package file in %s." % (pkgPath+".spkg")
-            Logger.error(erstr)
-            return FAIL
-        if sys.platform != 'win32':
-            cmd = "cd %s && tar -xzf %s.spkg" % (package_path, full_package_name)
-            Logger.info("Untarring with filesystem command: %s" %cmd)
-            if not self.filesystem.system(cmd) == OK:
-                return FAIL
-            return OK
-        if self.unzip(pkgPath, full_package_name, removeSpkg) == FAIL:
-            return FAIL
-        tar = self.filesystem.tarOpen(pkgPath+".tar", "r")
-        tar.errorlevel = 2
-        cwd = self.filesystem.getcwd()
-        self.filesystem.chdir(package_path)
-        for tarinfo in tar:
-            try:
-                tar.extract(tarinfo)
-            except tarfile.ExtractError, e:
-                Logger.warning("Error with package %s,%s: "\
-                                    "%s" % (full_package_name, tarinfo.name, e))
-        tar.close()
-        if not self.filesystem.isdir(os.path.join(package_path, full_package_name)):
-            Logger.error("Package %s is malformed." % (full_package_name))
-            self.filesystem.chdir(cwd)
-            return FAIL
-        self.filesystem.chdir(cwd)
-        self.filesystem.unlink(pkgPath+".tar")
-        return OK
-
-    # TESTED
-    def unzip(self, pkgPath, full_package_name, removeSpkg = True):
-        Logger.info("Unzipping %s" % full_package_name)
-        gzipFile = self.filesystem.gzipOpen(pkgPath+".spkg")
-        outputFile = self.filesystem.open(pkgPath+".tar", 'wb')
+    def unzip_type_4(self, pkg_path, full_name):
+        '''
+        Perform untar/ungzip operations. (NOTE: NOT RELIABLE IN PYTHON)
+        pkg_path -- full path to package file, minus extension
+        full_name -- name of the package, including version
+        '''
+        Logger.info("Unzipping %s" % full_name)
+        gzip_file = self.filesystem.gzipOpen(pkg_path + ".spkg")
+        output_file = self.filesystem.open(pkg_path + ".tar", 'wb')
         data = '1'
         while data:
             try:
-                data = gzipFile.read(BLOCK_SIZE)
-            except IOError, e:
-                Logger.error("Error Reading %s: %s" % (full_package_name, e.__str__()))
+                data = gzip_file.read(BLOCK_SIZE)
+            except IOError, err:
+                msg = "Error Reading %s: %s" % (full_name, err.__str__())
+                Logger.error(msg)
                 return FAIL
-            except Exception, e:
-                Logger.error("Corrupt package: %s (%s)" % (full_package_name, e.__str__()))
+            except Exception, err:
+                msg = "Corrupt package: %s (%s)" % (full_name, err.__str__())
+                Logger.error(msg)
                 return FAIL
-            outputFile.write(data)
-        outputFile.close()
-        gzipFile.close()
-        if removeSpkg:
-            self.filesystem.unlink(pkgPath+".spkg")
+            output_file.write(data)
+        output_file.close()
+        gzip_file.close()
+        return OK
+
+    def get_type_4(self, full_name):
+        '''
+        Get a type-4 package from the filesystem, and process it
+        full_name -- name of package (with version)
+        '''
+        pkg_dir = getPackagePath(self.instance_name)
+        pkg_path = os.path.join(pkg_dir, full_name)
+        if not self.filesystem.isfile(pkg_path + ".spkg"):
+            erstr = "No package file in %s." % (pkg_path + ".spkg")
+            Logger.error(erstr)
+            raise Exceptions.BadPackage(full_name, erstr)
+        if sys.platform != 'win32':
+            cmd = "cd %s && tar -xzf %s.spkg" % (pkg_dir, full_name)
+            Logger.info("Untarring with filesystem command: %s" %cmd)
+            if not self.filesystem.system(cmd) == OK:
+                raise Exceptions.BadPackage(full_name, "Could not unpack")
+            return OK
+        if self.unzip_type_4(pkg_path, full_name) == FAIL:
+            raise Exceptions.BadPackage(full_name, "could not unzip")
+        tar = self.filesystem.tarOpen(pkg_path + ".tar", "r")
+        tar.errorlevel = 2
+        cwd = self.filesystem.getcwd()
+        self.filesystem.chdir(pkg_dir)
+        for tarinfo in tar:
+            try:
+                tar.extract(tarinfo)
+            except tarfile.ExtractError, err:
+                Logger.warning("Error with package %s,%s: "\
+                               "%s" % (full_name, tarinfo.name, err))
+        tar.close()
+        if not self.filesystem.isdir(os.path.join(pkg_path, full_name)):
+            erstr = "Package %s is malformed." % (full_name)
+            self.filesystem.chdir(cwd)
+            raise Exceptions.BadPackage(full_name, erstr)
+        self.filesystem.chdir(cwd)
+        self.filesystem.unlink(pkg_path + ".tar")
         return OK
 
     def hunt_and_explode(self):
-        base_path = os.path.join(getSpkgPath(), "repos")
+        '''
+        Used to find all type-5 package data in the repository and
+        untar the files properly.
+        '''
         _status, output = gso('find /opt/spkg/ -name "*.tar.gz"')
         overall_status = OK
         start_dir = os.getcwd()
@@ -181,21 +148,58 @@ class Repository:
                 cmd = "mkdir -p %s" % tar_file_dir
                 status = os.system(cmd)
                 if status == OK:
-                    cmd = "cd %s && tar -xzf ../%s" % (tar_file_dir, tar_file_name)
+                    cmd = "cd %s && tar -xzf ../%s"
+                    cmd = cmd % (tar_file_dir, tar_file_name)
                     if os.system(cmd) != OK:
                         overall_status = FAIL
         os.chdir(start_dir)
         return overall_status
 
-    def get_type5_package(self, package_name, injector, scripts, checksum=''):
-        base_path = os.path.join(getSpkgPath(), self.instance_name)
-        injector_path = os.path.join(base_path, "injector", injector)
-        scripts_path = os.path.join(base_path, "scripts", scripts)
-        for test_path in [injector_path, scripts_path]:
-            if self.filesystem.isdir(test_path):
-                continue
-            status = self.unpack(test_path)
-            if status == OK:
-                return OK
-        raise Exceptions.BadPackage(package_name, "Could not get and unpack.")
+    def make_symlinks(self, pkg_path, info_dict, full_name):
+        '''
+        Create symlinks from the repository into where the package
+        expects to run
+        pkg_path -- directory where the versioned package will reside
+        info_dict -- information regarding injectors and libraries
+        full_name -- name of the package, including version info
+        '''
+        base_path = os.path.join(getSpkgPath(), "repos")
+        for component_type in info_dict:
+            Logger.info("Component: %s" % component_type)
+            Logger.info("info_dict: %s" % info_dict)
+            component_dict = info_dict[component_type]
+            for component_name in component_dict:
+                full_path = component_dict[component_name]["path"]
+                full_name = full_path.split(os.path.sep)[0]
+                full_name = full_name.split('.tar.gz')[0]
+                src = os.path.join(base_path, component_type, full_name)
+                dst = os.path.join(pkg_path, component_type, component_name)
+                cmd = "ln -s %s %s" % (src, dst)
+                if os.system(cmd) != OK:
+                    msg = "Could not create symlink (%s)" % cmd
+                    raise Exceptions.BadPackage(full_name, msg)
+
+    def get_type_5(self, full_name, injectors_info, libs_info):
+        '''
+        Get type-5 package components from the filesystem, and process them
+        full_name -- name of the package, including version info
+        injectors_info -- dictionary describing injector libraries
+        libs_info -- dictionary describing python code libraries
+        '''
+        self.hunt_and_explode()
+        pkg_path = os.path.join(getSpkgPath(), self.instance_name,
+                                "packages", full_name)
+        injector_path = os.path.join(pkg_path, "injectors")
+        lib_path = os.path.join(pkg_path, "libs")
+        if not os.path.isdir(pkg_path):
+            Logger.info("Making directory %s" % pkg_path)
+            for path in [pkg_path, injector_path, lib_path]:
+                cmd = "mkdir -p %s" % path
+                if os.system(cmd) != OK:
+                    msg = "Could not create directory structure (%s)" % path
+                    raise Exceptions.BadPackage(full_name, msg)
+        info_dict = {"injectors": injectors_info,
+                     "libs": libs_info}
+        self.make_symlinks(pkg_path, info_dict, full_name)
+        return OK
 

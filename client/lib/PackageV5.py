@@ -1,34 +1,42 @@
-#!/cygdrive/c/Python24/python.exe
+#!/usr/bin/python
 
-# Package.py: This guy is responsible for most of the actual work that
-# gets done in Bombardier. It's responsible for getting, extracting,
-# installing, verifying, etc. packages from the repository onto the
-# local system.
+"Implements a multi-file package, subclassing the Package class"
 
-# Copyright (C) 2005 Peter Banka
+# BSD License
+# Copyright (c) 2009, Peter Banka et al
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the GE Security nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-# 02110-1301, USA.
-
-import os, glob, random
-import sys
+import os, sys, random
 
 import Spkg
-from bombardier_core.mini_utility import getSpkgPath, rpartition
-from bombardier_core.mini_utility import evalBoolean, getPackagePath
-from Exceptions import BadPackage, FeatureRemovedException, RebootRequiredException
+from bombardier_core.mini_utility import getSpkgPath
+from bombardier_core.mini_utility import getPackagePath
+from Exceptions import BadPackage
+from Exceptions import FeatureRemovedException, RebootRequiredException
 from bombardier_core.Logger import Logger
 from bombardier_core.static_data import OK, FAIL, REBOOT
 from bombardier_core.static_data import INSTALL, UNINSTALL, CONFIGURE, VERIFY
@@ -41,10 +49,9 @@ class PackageV5(Package):
     package is held in the repository"""
 
     def __init__(self, name, repository, config, filesystem,
-                 operating_system, instance_name):
+                 instance_name):
         Package.__init__(self, name, repository, config,
-                         filesystem, operating_system,
-                         instance_name)
+                         filesystem, instance_name)
         self.package_version = 5
         self.release = None
         self.injectors_info = {}
@@ -55,69 +62,81 @@ class PackageV5(Package):
     ############################################ PUBLIC METHODS
 
     def initialize(self):
+        '''Evaluate the package meta-data for consistency
+        and initialize parameters. Verify that data on the disk for
+        this package is consistent.
+        '''
         Package.initialize(self)
-        self._check_meta_data()
-        self.full_name = "%s-%d" % (self.name, self.release)
-
-    def get_path(self):
-        return "/tmp"
-
-    ############################################ PRIVATE METHODS
-
-    def _eval_priority(self):
-        self.priority = self.meta_data.data.get('priority')
-        Package._eval_priority(self)
-
-    def _check_meta_data(self):
         self.status = FAIL
-        if self.meta_data.data:
-            release = self.meta_data.data.get('release')
+        dat = self.meta_data.data
+        if dat:
+            release = dat.get('release')
             if type(release) == type(1):
                 self.release = release
-                class_name = self.meta_data.data.get('class_name')
+                class_name = dat.get('class_name')
                 if type(class_name) == type('string'):
                     self.status = OK
                     self.class_name = class_name
-                    injectors_info = self.meta_data.data.get('injectors')
+                    injectors_info = dat.get('injectors')
                     if type(injectors_info) == type({}):
                         self.injectors_info = injectors_info
-                    libs_info = self.meta_data.data.get('libs')
+                    libs_info = dat.get('libs')
                     if type(libs_info) == type({}):
                         self.libs_info = libs_info
                 else:
                     msg = "No script infomation for this package"
                     raise BadPackage, (self.name, msg)
-                    return
             else:
                 msg = "No release infomation for this package"
                 raise BadPackage, (self.name, msg)
-                return
         else:
             msg = "No metadata found for this package"
             raise BadPackage, (self.name, msg)
+        self.full_name = "%s-%d" % (self.name, self.release)
 
-    def _initialize_from_filesystem(self):
-        """ Expects a standard package to be extracted in the packages
-        directory """
-        package_path = getPackagePath(self.instance_name)
-        if not self.full_name:
-            raise BadPackage(self.name, "Could not find full name.")
-        new_dir = os.path.join(package_path, self.full_name)
-        injector_dir = os.path.join(new_dir, "injectors")
-        if self.filesystem.isdir(injector_dir):
-            self.working_dir = injector_dir
-        else:
-            errmsg = "The injector directory does not exist for [%s]" % self.full_name
-            raise BadPackage(self.name, errmsg)
+    ############################################ PRIVATE METHODS
 
-    def _find_cmd(self, action, package_list=[], dry_run=False):
-        package_path = os.path.join(getSpkgPath(), self.instance_name, "packages", self.full_name)
-        injector_path = os.path.join(package_path, "injectors")
+    def _eval_priority(self):
+        'determine priority of this package'
+        self.priority = self.meta_data.data.get('priority')
+        Package._eval_priority(self)
+
+    def _download(self):
+        '''
+        Run right before a package action takes place.
+        We see if we have a package directory and if not, tell the
+        repository to unpack it from the filesystem. Then verify all
+        the pieces and parts are there for a good type-4 package
+        '''
+        if not self.downloaded:
+            self.repository.get_type_5(self.full_name, self.injectors_info,
+                                       self.libs_info)
+            pkg_dir = os.path.join(getPackagePath(self.instance_name),
+                                                  self.full_name)
+            injector_dir = os.path.join(pkg_dir, "injectors")
+            if self.filesystem.isdir(injector_dir):
+                self.working_dir = injector_dir
+            else:
+                self.status = FAIL
+                errmsg = "The injector directory does not exist for [%s]"
+                raise BadPackage(self.name, errmsg % self.full_name)
+        self.downloaded = True
+
+    def _find_cmd(self, action, future_pkns=[], dry_run=False):
+        '''
+        Perform the action on the system, importing modules from the package
+        and running the appropriate method on the class within.
+        action -- INSTALL, UNINSTALL, CONFIGURE, VERIFY
+        future_pkns -- future package names. Some packages want to know
+                       about the packages that will come after them
+        dry_run -- boolean flag to see if we're really going to do this
+        '''
+        package_path = os.path.join(getSpkgPath(), self.instance_name,
+                                    "packages", self.full_name)
         lib_path = os.path.join(package_path, "libs")
         sys.path.insert(0, lib_path)
 
         try:
-            module_name = self.class_name.split('.')[0]
             class_name = '.'.join(self.class_name.split('.')[1:])
             obj = Spkg.SpkgV4(self.config, Logger)
             cwd = os.getcwd()
@@ -126,7 +145,7 @@ class PackageV5(Package):
             random.shuffle(letters)
             rand_string = ''.join(letters)
             exec("import %s as %s" % (self.class_name, rand_string))
-            self.config["__FUTURE_PACKAGES__"] = package_list
+            self.config["__FUTURE_PACKAGES__"] = future_pkns
             self.config["__INSTANCE__"] = self.instance_name
             cmd_str = "obj = %s.%s(self.config, Logger)"
             exec(cmd_str % (rand_string, class_name))
@@ -177,52 +196,5 @@ class PackageV5(Package):
             erstr = "%s: failed with status %s" % (self.full_name, status)
             Logger.error(erstr)
             return FAIL
-        return OK
-
-    def prepare_dict(self, package_path, package_dict):
-        base_path = os.path.join(getSpkgPath(), "repos")
-        for component_type in package_dict:
-            info_dict = package_dict[component_type]
-            for component_name in info_dict:
-                full_path = info_dict[component_name]["path"]
-                full_name = full_path.split(os.path.sep)[0]
-                full_name = full_name.split('.tar.gz')[0]
-                src = os.path.join(base_path, component_type, full_name)
-                dst = os.path.join(package_path, component_type, component_name)
-                cmd = "ln -s %s %s" % (src, dst)
-                if os.system(cmd) != OK:
-                    msg = "Could not create symlink (%s)" % cmd
-                    raise BadPackage(self.name, msg)
-
-    def get_package(self):
-        base_path = os.path.join(getSpkgPath(), "repos")
-        # See if we have to unpack anything
-        self.repository.hunt_and_explode()
-        # Create directory under /opt/spkg/<instance>/packages/<pkg>-<ver> with symlinks
-        package_path = os.path.join(getSpkgPath(), self.instance_name, "packages", self.full_name)
-        injector_path = os.path.join(package_path, "injectors")
-        lib_path = os.path.join(package_path, "libs")
-        if not os.path.isdir(package_path):
-            Logger.info("Making directory %s" % package_path)
-            for path in [package_path, injector_path, lib_path]:
-                cmd = "mkdir -p %s" % path
-                if os.system(cmd) != OK:
-                    msg = "Could not create directory structure (%s)" % path
-                    raise BadPackage(self.name, msg)
-        info_dict = {"injectors": self.injectors_info,
-                     "libs": self.libs_info}
-        self.prepare_dict(package_path, info_dict)
-        return OK
-
-    def _download(self):
-        if not self.downloaded:
-            try:
-                self.get_package()
-                self._initialize_from_filesystem()
-                self.downloaded = True
-            except BadPackage, bp:
-                Logger.error("download INVLIDATION")
-                self._invalidate(bp)
-                return FAIL
         return OK
 

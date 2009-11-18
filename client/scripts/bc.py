@@ -122,14 +122,7 @@ class BombardierEnvironment:
         self.filesystem      = Filesystem()
         self.repository      = None
         self.config          = None
-        self.operating_system = None
         self.instance_name    = instance_name
-        if sys.platform == "linux2":
-            import bombardier_core.Linux
-            self.operating_system = bombardier_core.Linux.Linux()
-        else:
-            import bombardier_core.Windows
-            self.operating_system = bombardier_core.Windows.Windows()
 
     def data_request(self):
         STREAM_BLOCK_SIZE= 77
@@ -183,15 +176,14 @@ class PackageFactory:
 
     def get_me_one(self, package_name):
         new_package = Package(package_name, self.env.repository, self.env.config,
-                             self.env.filesystem, self.env.operating_system,
-                             self.env.instance_name)
+                             self.env.filesystem, self.env.instance_name)
         new_package.initialize()
         return new_package
 
 def get_bc(instance_name, env):
     env.clear_lock()
     bc = Bombardier(env.repository, env.config, env.filesystem,
-                    env.operating_system, instance_name)
+                    instance_name)
     return bc
 
 def instance_setup(instance_name):
@@ -240,10 +232,10 @@ def process_action(action, instance_name, package_name, script_name,
                 status = FAIL
         elif action in [ RECONCILE, DRY_RUN ]:
             bc.record_errors = True
-            status = bc.reconcile_system(action=action)
+            status = bc.reconcile_system(action)
         else:
             bc.record_errors = False
-            status = bc.use_package(package_name, action, script_name)
+            status = bc.use_pkg(package_name, action, script_name)
 
         bc.filesystem.clearLock()
     except:

@@ -1,36 +1,46 @@
-#!/cygdrive/c/Python24/python.exe
+#!/usr/bin/python
 
-# Package.py: This guy is responsible for most of the actual work that
-# gets done in Bombardier. It's responsible for getting, extracting,
-# installing, verifying, etc. packages from the repository onto the
-# local system.
+"Implements a single-file package, subclassing the Package class"
 
-# Copyright (C) 2005 Peter Banka
-
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-# 02110-1301, USA.
+# BSD License
+# Copyright (c) 2009, Peter Banka et al
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the GE Security nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
 import os, glob, random
 import sys
 
 import Spkg
 from bombardier_core.mini_utility import evalBoolean, getPackagePath
-from Exceptions import BadPackage, FeatureRemovedException, RebootRequiredException
+from Exceptions import BadPackage, FeatureRemovedException
+from Exceptions import RebootRequiredException
 from bombardier_core.Logger import Logger
 from bombardier_core.static_data import OK, FAIL, REBOOT
-from bombardier_core.static_data import INSTALL, UNINSTALL, CONFIGURE, VERIFY
+from bombardier_core.static_data import INSTALL, UNINSTALL
+from bombardier_core.static_data import CONFIGURE, VERIFY
 
 from Package import Package
 
@@ -41,55 +51,41 @@ class PackageV4(Package):
     package is held in the repository"""
 
     def __init__(self, name, repository, config, filesystem,
-                 operating_system, instance_name):
+                 instance_name):
+        '''
+        name -- the name of this package
+        repository -- object that keeps track of package data
+        config -- configuration for this machine
+        filesystem -- object that performs filesystem actions
+        instance_name -- name of this machine
+        '''
         Package.__init__(self, name, repository, config,
-                         filesystem, operating_system,
-                         instance_name)
+                         filesystem, instance_name)
         self.full_name    = ''
         self.package_version = 4
 
     ############################################ PUBLIC METHODS
 
     def initialize(self):
+        '''Evaluate the package meta-data for consistency
+        and initialize parameters. Verify that data on the disk for
+        this package is consistent.
+        '''
         Package.initialize(self)
-        self._check_meta_data()
-        self.checksum = self.meta_data.data['install'].get('md5sum')
-        if not self.checksum:
-            ermsg = "Package %s does not have a checksum field"\
-                    " (not checking)" % (self.name)
-            Logger.warning(ermsg)
-        if self.meta_data.data['install'].get('md5list'):
-            self.checksum = self.meta_data.data['install']['md5list']
-        chk = self.meta_data.data["install"].get('console')
-        self.console = evalBoolean(chk)
-        chk = self.meta_data.data["install"].get('reboot')
-        self.reboot = evalBoolean(chk)
-        chk = self.meta_data.data.get("package-version")
-        if type(chk) == type(1):
-            self.package_version = chk
-
-
-    def get_path(self):
-        path = os.path.join(getPackagePath(self.instance_name), 
-                            self.full_name)
-        return path
-
-
-    ############################################ PRIVATE METHODS
-
-    def _eval_priority(self):
-        self.priority = self.meta_data.data["install"].get('priority')
-        Package._eval_priority(self)
-
-    def _check_meta_data(self):
         self.status = FAIL
         if self.meta_data.data:
             if type(self.meta_data.data) == type(dict()):
-                if self.meta_data.data.get("install"):
-                    if type(self.meta_data.data["install"]) == type({}):
-                        self.full_name = self.meta_data.data['install'].get('fullName')
+                install_data = self.meta_data.data.get("install")
+                chk = install_data.get('console')
+                self.console = evalBoolean(chk)
+                chk = install_data.get('reboot')
+                self.reboot = evalBoolean(chk)
+                self.checksum = install_data.get('md5sum')
+                if install_data:
+                    if type(install_data) == type({}):
+                        self.full_name = install_data.get('fullName')
                         if not self.full_name:
-                            self.full_name = self.meta_data.data['install'].get('full_name')
+                            self.full_name = install_data.get('full_name')
                         if self.full_name:
                             self.status = OK
                             return
@@ -109,33 +105,40 @@ class PackageV4(Package):
             msg = "No metadata found for this package"
             raise BadPackage, (self.name, msg)
 
+    ############################################ PRIVATE METHODS
 
-    def _initialize_from_filesystem(self):
-        """ Expects a standard package to be extracted in the packages
-        directory """
-        package_path = getPackagePath(self.instance_name)
-        if not self.full_name:
-            raise BadPackage(self.name, "Could not find full name.")
-        new_dir = os.path.join(package_path, self.full_name)
-        self.scripts_dir = os.path.join(new_dir, "scripts")
-        if self.package_version > 3:
-            self.maint_dir = os.path.join(new_dir, "maint")
-        else:
-            self.maint_dir = os.path.join(self.scripts_dir, "maint")
-        if not self.filesystem.isdir(self.scripts_dir):
-            errmsg = "Scripts directory does not exist"
-            raise BadPackage(self.name, errmsg)
-        injector_dir = os.path.join(new_dir, "injector")
-        if self.filesystem.isdir(injector_dir):
+    def _eval_priority(self):
+        'determine priority of this package'
+        self.priority = self.meta_data.data["install"].get('priority')
+        Package._eval_priority(self)
+
+    def _download(self):
+        '''
+        Run right before a package action takes place.
+        We see if we have a package directory and if not, tell the
+        repository to unpack it from the filesystem. Then verify all
+        the pieces and parts are there for a good type-4 package
+        '''
+        if not self.downloaded:
+            pkg_dir = os.path.join(getPackagePath(self.instance_name),
+                                                  self.full_name)
+            if not self.filesystem.isdir(pkg_dir):
+                self.repository.get_type_4(self.full_name)
+            self.scripts_dir = os.path.join(pkg_dir, "scripts")
+            self.maint_dir = os.path.join(pkg_dir, "maint")
+            injector_dir = os.path.join(pkg_dir, "injector")
+            for required_dir in [self.scripts_dir, injector_dir]:
+                if not self.filesystem.isdir(required_dir):
+                    errmsg = "Required directory %s does not exist"
+                    errmsg = errmsg % required_dir
+                    self.status = FAIL
+                    raise BadPackage(self.name, errmsg)
             self.working_dir = injector_dir
-        else:
-            errmsg = "The injector directory does not exist for [%s]" % self.full_name
-            raise BadPackage(self.name, errmsg)
+            self.downloaded = True
 
-    def _find_cmd(self, action, package_list=[], dry_run=False):
-        cwd = self.filesystem.getcwd()
-        sys.path.insert(0, self.scripts_dir)
-        self.filesystem.chdir(self.scripts_dir)
+    def _get_possible_module_files(self):
+        '''In type-4 packages, we play a guessing game which python script
+        to use as the one to run the installation'''
         files = glob.glob("*.py")
         files = [x.split('.py')[0] for x in files]
         if self.name in files:
@@ -144,32 +147,35 @@ class PackageV4(Package):
             vpkg_name = self.meta_data.data.get('virtualpackage')
             if vpkg_name in files:
                 files = [vpkg_name]
+        return files
+
+    def _find_cmd(self, action, future_pkns, dry_run=False):
+        '''
+        Perform the action on the system, importing modules from the package
+        and running the appropriate method on the class within.
+        action -- INSTALL, UNINSTALL, CONFIGURE, VERIFY
+        future_pkns -- future package names. Some packages want to know
+                       about the packages that will come after them
+        dry_run -- boolean flag to see if we're really going to do this
+        '''
+        cwd = self.filesystem.getcwd()
+        sys.path.insert(0, self.scripts_dir)
+        self.filesystem.chdir(self.scripts_dir)
+        files = self._get_possible_module_files()
         status = FAIL
         file_found = False
-        for file_name in files:  # FIXME this is stupid
-            if file_name.split('.')[0] in ["installer", "verify", "uninstaller", "configure"]:
-                continue
+        for file_name in files:
             try:
                 obj = Spkg.SpkgV4(self.config, Logger)
                 self.filesystem.chdir(self.working_dir)
                 letters = [ chr( x ) for x in range(65, 91) ]
                 random.shuffle(letters)
                 rand_string = ''.join(letters)
-                exec("import %s as %s" % (file_name, rand_string)) # FIXME
-                Logger.debug("This is package version %s" % self.package_version)
-                if self.package_version == 2:
-                    exec("obj = %s.%s(self.config)" % (rand_string, file_name))
-                elif self.package_version == 3:
-                    self.config["__INSTANCE__"] = self.instance_name
-                    cmd_str = "obj = %s.%s(self.config, package_list, Logger)"
-                    exec(cmd_str % (rand_string, file_name))
-                elif self.package_version == 4:
-                    self.config["__FUTURE_PACKAGES__"] = package_list
-                    self.config["__INSTANCE__"] = self.instance_name
-                    cmd_str = "obj = %s.%s(self.config, Logger)"
-                    exec(cmd_str % (rand_string, file_name))
-                else:
-                    raise BadPackage( self.name, "Unknown package version %s" % self.package_version )
+                exec("import %s as %s" % (file_name, rand_string))
+                self.config["__FUTURE_PACKAGES__"] = future_pkns
+                self.config["__INSTANCE__"] = self.instance_name
+                cmd_str = "obj = %s.%s(self.config, Logger)"
+                exec(cmd_str % (rand_string, file_name))
                 file_found = True
                 if not dry_run:
                     if action == INSTALL:
@@ -191,7 +197,8 @@ class PackageV4(Package):
                     sys.path.remove(self.scripts_dir)
                 break
             except ImportError:
-                Logger.debug("File %s is not runnable. Looking for others" % file_name)
+                msg = "File %s is not runnable. Looking for others" % file_name
+                Logger.debug(msg)
                 continue
             except SystemExit, err:
                 if err.code:
@@ -217,7 +224,8 @@ class PackageV4(Package):
                 break
         self.filesystem.chdir(cwd)
         if not file_found:
-            raise BadPackage(self.name, "Unable to find a suitable script to install.")
+            msg = "Unable to find a suitable script to install."
+            raise BadPackage(self.name, msg)
         if status == None:
             status = OK
         if status == REBOOT:
@@ -226,28 +234,5 @@ class PackageV4(Package):
             erstr = "%s: failed with status %s" % (self.full_name, status)
             Logger.error(erstr)
             return FAIL
-        return OK
-
-    def _get_package(self, tries=3):
-        package_path = getPackagePath(self.instance_name)
-        if self.filesystem.isdir(os.path.join(package_path, self.full_name)):
-            return OK
-        while tries:
-            status = self.repository.unpack(self.full_name)
-            if status == OK:
-                return OK
-            tries -= 1
-        raise BadPackage(self.name, "Could not get and unpack.")
-
-    def _download(self):
-        if not self.downloaded:
-            try:
-                self._get_package()
-                self._initialize_from_filesystem()
-                self.downloaded = True
-            except BadPackage, bpe:
-                Logger.error("download INVLIDATION")
-                self._invalidate(bpe)
-                return FAIL
         return OK
 
