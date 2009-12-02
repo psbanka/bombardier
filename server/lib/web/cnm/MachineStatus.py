@@ -19,25 +19,26 @@ class MachineStatus:
         self.status_data = ''
         status_file = os.path.join(self.server_home, "status",
                                    "%s.yml" % self.machine_name)
-        if os.path.isfile(status_file):
-            try:
-                self.status_data = syck.load(open(status_file).read())
-            except Exception, exc:
-                if exc[0] == "syntax error":
-                    self.status_data = ''
-                    msg = "Syntax error in status information for %s"
-                    raise MachineStatusException(msg)
-            return self.check_status_data()
-        return FAIL
+        if not os.path.isfile(status_file):
+            msg = "Status file missing (%s)" % status_file
+            raise MachineStatusException(msg)
+        try:
+            self.status_data = syck.load(open(status_file).read())
+        except Exception, exc:
+            if exc[0] == "syntax error":
+                self.status_data = ''
+                msg = "Syntax error in status information for %s"
+                raise MachineStatusException(msg % self.machine_name)
+        self.check_status_data()
 
     def check_status_data(self):
         "Check for proper elements being present in status data"
+        pass # FIXME: on a new-install, 'install-pgoress' does not exist
         valid = type(self.status_data) == type({}) and \
-                PROGRESS in self.status_data and \
-                LOCAL_PACKAGES in self.status_data
-        if valid:
-            return OK
-        return FAIL
+                PROGRESS in self.status_data
+        if not valid:
+            msg = "Status information is incomplete for %s."
+            raise MachineStatusException(msg % self.machine_name)
 
     def get_progress_data(self):
         self.freshen()
@@ -46,7 +47,7 @@ class MachineStatus:
     def get_names_from_progress(self, stripped=False):
         progress_data = self.get_progress_data()
         if progress_data == None:
-             (installed_package_names, broken_package_names) = ([],[])
+            (installed_package_names, broken_package_names) = ([],[])
         else:
             pkg_info = get_installed_uninstalled_times(progress_data)
             unstripped_inst_pkgs    = [package_name[0] for package_name in pkg_info["installed"]]
@@ -90,7 +91,8 @@ class MachineStatus:
                                 "%s.yml" % package_name)
         package_data = {}
         if not os.path.isfile(yml_path):
-            msg = "Requested invalid package: %s" % package_name
+            msg = "Requested invalid package: %s (%s doesn't exist)"
+            msg = msg % ( package_name, yml_path )
             raise MachineConfigurationException(self.machine_name, msg)
         else:
             package_data = syck.load(open(yml_path).read())
@@ -117,7 +119,8 @@ class MachineStatus:
         except IOError:
             output["error_message"] = "Cannot read status file"
             return output
-
+        except MachineStatusException:
+            raise
         try:
             total_packages = self.get_package_names_from_bom()
         except IOError:

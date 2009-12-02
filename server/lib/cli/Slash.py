@@ -35,8 +35,9 @@ import traceback, StringIO
 import exceptions, readline
 import sys
 import PinshCmd, libUi
-from Exceptions import AmbiguousCommand, UnknownCommand
+from Exceptions import AmbiguousCommand, UnknownCommand, ServerException
 from Exceptions import CommandError, ServerTracebackException
+from Exceptions import MachineStatusException
 from SystemStateSingleton import SystemState
 system_state = SystemState()
 from bombardier_core.static_data import FAIL, OK, DEBUGGING
@@ -109,6 +110,14 @@ class Slash(PinshCmd.PinshCmd):
                 #makeComment(comment) # MISSING
             libUi.user_output(output, status)
             return status, output
+        except ServerException, err:
+            output = ["ERROR: Cannot communicate with CNM Server"]
+            output.append(str(err))
+            libUi.user_output(output, FAIL)
+        except MachineStatusException, err:
+            output = ["ERROR: Machine status is incomplete"]
+            output.append(str(err))
+            libUi.user_output(output, FAIL)
         except exceptions.SystemExit:
             #if system_state.comment_commands:
                 #makeComment()

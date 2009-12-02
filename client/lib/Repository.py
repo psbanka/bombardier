@@ -32,6 +32,7 @@
 
 
 from bombardier_core.static_data import OK, FAIL, BLOCK_SIZE
+from bombardier_core.static_data import VALID_PACKAGE_VERSIONS
 import os, tarfile, sys
 import MetaData
 from bombardier_core.mini_utility import getPackagePath
@@ -202,4 +203,14 @@ class Repository:
                      "libs": libs_info}
         self.make_symlinks(pkg_path, info_dict, full_name)
         return OK
+
+    def determine_pkg_version(self, pkn):
+        'We need to know what version a package is'
+        meta_data = self.get_meta_data(pkn)
+        version = meta_data.data.get("package-version")
+        if type(version) == type(1):
+            if version in VALID_PACKAGE_VERSIONS:
+                return version
+        msg = "Unknown package version"
+        raise Exceptions.BadPackage, (pkn, msg)
 

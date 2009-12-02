@@ -56,10 +56,9 @@ URL_LOOKUP = {'test': "json/machine/start_test/%s",
 
 def setup_test():
     fresh_status_yaml = """ 
-clientVersion: 0.70-596
+client_version: 1.00-634
+core_version: 1.00-629
 install-progress: {}
-local-packages: []
-status: {newInstall: 'True'}
 timestamp: 1251918530.6349609"""
 
     status_file = "/opt/spkg/localhost/status.yml"
@@ -79,15 +78,15 @@ class Machine(PinshCmd.PinshCmd):
 #       bomsh# package bogusPackage install localhost 
 #       [FAIL, []]
 #    '''
+#       bomsh# machine localhost enable
+#       [OK, []]
+#       bomsh# machine localhost test
+#       [OK, ['Machine localhost is ready to take commands.']]
+#       bomsh# machine localhost dist test
+#       [OK, ['localhost updated with test']]
+#       bomsh# machine localhost init
+#       [OK, []]
     '''
-       bomsh# machine localhost enable
-       [OK, []]
-       bomsh# machine localhost test
-       [OK, ['Machine localhost is ready to take commands.']]
-       bomsh# machine localhost dist test
-       [OK, ['localhost updated with test']]
-       bomsh# machine localhost init
-       [OK, []]
        bomsh# machine localhost reconcile
        [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7', 'Finished installing']]
        bomsh# machine localhost status
@@ -98,11 +97,11 @@ class Machine(PinshCmd.PinshCmd):
        [OK, ['TestPackageType4-7 has been set to INSTALLED.']]
        bomsh# machine localhost status purge TestPackageType4-7
        [OK, ['TestPackageType4-7 has been removed from localhost status']]
-       bomsh# machine localhost disable
-       [OK, []]
-       bomsh# machine localhost enable
-       [OK, []]
     '''
+#       bomsh# machine localhost disable
+#       [OK, []]
+#       bomsh# machine localhost enable
+#       [OK, []]
     def __init__(self):
         """Top-level object has a 'test' child: test the machine
         """
@@ -146,11 +145,11 @@ class Machine(PinshCmd.PinshCmd):
         installed_package_field = PackageField(INSTALLED)
         not_installed_package_field = PackageField(NOT_INSTALLED)
         executable_package_field = PackageField(INSTALLED)
-        install.children=[not_installed_package_field]
-        uninstall.children=[installed_package_field]
-        verify.children=[installed_package_field]
-        configure.children=[installed_package_field]
-        execute.children=[executable_package_field]
+        install.children = [not_installed_package_field]
+        uninstall.children = [installed_package_field]
+        verify.children = [installed_package_field]
+        configure.children = [installed_package_field]
+        execute.children = [executable_package_field]
 
         # Fourth-level commands
         fix.children = [PackageField(action_type=FIX)]
@@ -245,6 +244,8 @@ class Machine(PinshCmd.PinshCmd):
                 if len(tokens) != 5:
                     raise CommandError("Incomplete Command")
                 command = tokens[4]
+            if len(tokens) < 3:
+                raise CommandError("Incomplete command.")
             package_name = tokens[3]
             machine_name = tokens[1]
 

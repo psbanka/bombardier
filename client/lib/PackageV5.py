@@ -57,7 +57,6 @@ class PackageV5(Package):
         self.injectors_info = {}
         self.libs_info = {}
         self.class_name = None
-        self.full_name = None
 
     ############################################ PUBLIC METHODS
 
@@ -167,7 +166,7 @@ class PackageV5(Package):
                 sys.modules.pop(self.class_name)
             sys.path.remove(lib_path)
         except ImportError:
-            msg = "Class %s is not runnable." % self.class_name
+            msg = "Class %s is not importable." % self.class_name
             raise BadPackage(self.name, msg)
         except SystemExit, err:
             if err.code:

@@ -28,7 +28,8 @@ from bombardier_core.Filesystem import Filesystem
 from bombardier_client.Repository import Repository
 from bombardier_client.Config import Config
 from bombardier_client.Exceptions import ServerUnavailable
-from bombardier_client.Package import Package
+from bombardier_client.PackageV4 import PackageV4
+from bombardier_client.PackageV5 import PackageV5
 from bombardier_client.BombardierClass import Bombardier
 from bombardier_core.mini_utility import getProgressPath, getSpkgPath
 from bombardier_core.static_data import FIX, STATUS, CONFIGURE, RECONCILE
@@ -55,27 +56,27 @@ def exit_with_return_code(value):
     Logger.warning("==EXIT-CODE==:%s" % value)
     sys.exit(value)
 
-def find_likely_package_name(instance_name, package_name):
+def find_likely_pkn(instance_name, pkn):
     status_yml = yaml.load(open(getProgressPath(instance_name)).read())
-    package_names = []
+    pkns = []
     status_packages = status_yml['install-progress']
     for name in status_packages:
         if status_packages[name]['INSTALLED'] in [ 'NA', 'BROKEN' ]:
             continue
-        if package_name.lower() in name.lower():
-            package_names.append(name)
-    if len(package_names) > 1:
-        Logger.error( 'Ambiguous package name: %s could be any of %s' %(package_name, str(package_names)))
+        if pkn.lower() in name.lower():
+            pkns.append(name)
+    if len(pkns) > 1:
+        Logger.error( 'Ambiguous package name: %s could be any of %s' %(pkn, str(pkns)))
         exit_with_return_code(FAIL)
-    if len(package_names) == 0:
-        Logger.error( 'Package not found: %s' %package_name )
+    if len(pkns) == 0:
+        Logger.error( 'Package not found: %s' %pkn )
         exit_with_return_code(FAIL)
     else:
-        package_name = '-'.join(package_names[0].split('-')[:-1])
-        Logger.info( 'Using %s' %package_name)
-        return package_name
+        pkn = '-'.join(pkns[0].split('-')[:-1])
+        Logger.info( 'Using %s' %pkn)
+        return pkn
 
-def fix_spkg(instance_name, package_name, action, package_factory):
+def fix_spkg(instance_name, pkn, action, package_factory):
     status_data = open(getProgressPath(instance_name), 'r').read()
     status = yaml.load(status_data)
     if status.get("install-progress") == None:
@@ -84,34 +85,34 @@ def fix_spkg(instance_name, package_name, action, package_factory):
     now = time.asctime()
     if action == FIX:
         fix_name = []
-        base_names = re.compile("(\s+)\-\d+").findall(package_name)
+        base_names = re.compile("(\s+)\-\d+").findall(pkn)
         if base_names:
             base_name = base_names[0]
         else:
-            base_name = package_name
-        for possible_package_name in status["install-progress"]:
-            if base_name in possible_package_name:
-                fix_name.append(possible_package_name)
+            base_name = pkn
+        for possible_pkn in status["install-progress"]:
+            if base_name in possible_pkn:
+                fix_name.append(possible_pkn)
         if len(fix_name) > 1:
-            Logger.error("Package name %s is ambigious. (possible %s)" % (package_name, ' '.join(fix_name)))
+            Logger.error("Package name %s is ambigious. (possible %s)" % (pkn, ' '.join(fix_name)))
             return FAIL
         elif len(fix_name) == 1:
-            package_name = fix_name[0]
+            pkn = fix_name[0]
         elif len(fix_name) == 0:
-            new_package = package_factory.get_me_one(package_name)
-            package_name = new_package.full_name
-            Logger.info("Selecting previously UNINSTALLED package: %s" % package_name)
-        status["install-progress"]["%s" % package_name] = {"INSTALLED": now, "UNINSTALLED": "NA", "VERIFIED": now}
-        Logger.info("==OUTPUT==:%s has been set to INSTALLED." % package_name )
+            new_package = package_factory.get_me_one(pkn)
+            pkn = new_package.full_name
+            Logger.info("Selecting previously UNINSTALLED package: %s" % pkn)
+        status["install-progress"]["%s" % pkn] = {"INSTALLED": now, "UNINSTALLED": "NA", "VERIFIED": now}
+        Logger.info("==OUTPUT==:%s has been set to INSTALLED." % pkn )
     elif action == PURGE:
-        if status["install-progress"].get(package_name):
-            del status["install-progress"][package_name]
-            msg = "==OUTPUT==:%s has been removed from %s status" % (package_name, instance_name)
+        if status["install-progress"].get(pkn):
+            del status["install-progress"][pkn]
+            msg = "==OUTPUT==:%s has been removed from %s status" % (pkn, instance_name)
             Logger.info(msg)
         else:
-            Logger.info("==OUTPUT==:%s is not in the status file" % package_name)
-            package_names = status["install-progress"]
-            possible_names = [x for x in package_names if package_name in x]
+            Logger.info("==OUTPUT==:%s is not in the status file" % pkn)
+            pkns = status["install-progress"]
+            possible_names = [x for x in pkns if pkn in x]
             Logger.info("==OUTPUT==:Maybe you want one of these: %s" % str(possible_names))
             return FAIL
     open(getProgressPath(instance_name), 'w').write(yaml.dump(status))
@@ -174,9 +175,23 @@ class PackageFactory:
     def __init__(self, env):
         self.env = env
 
-    def get_me_one(self, package_name):
-        new_package = Package(package_name, self.env.repository, self.env.config,
-                             self.env.filesystem, self.env.instance_name)
+    def get_me_one(self, pkn):
+        '''
+        create a package object based on pkn
+        pkn -- the name of the package to create
+        '''
+        version = self.env.repository.determine_pkg_version(pkn)
+        pkg = None
+        if version == 4:
+            new_package = PackageV4(pkn, self.env.repository,
+                                    self.env.config,
+                                    self.env.filesystem,
+                                    self.env.instance_name)
+        else:
+            new_package = PackageV5(pkn, self.env.repository,
+                                    self.env.config,
+                                    self.env.filesystem,
+                                    self.env.instance_name)
         new_package.initialize()
         return new_package
 
@@ -195,7 +210,7 @@ def instance_setup(instance_name):
         except:
             Logger.warning("Unable to load existing yaml from %s" % progress_path)
     if type(status_dict) != type({}):
-        status_dict = {"status": {"newInstall": "True"}}
+        status_dict = {"install-progress": {}}
     status_dict["client_version"] = CLIENT_VERSION
     status_dict["core_version"] = CORE_VERSION
     status_dict["clientVersion"] = CLIENT_VERSION
@@ -205,19 +220,19 @@ def instance_setup(instance_name):
         os.makedirs(pkg_dir)
     open(progress_path, 'w').write(yaml.dump(status_dict))
 
-def process_action(action, instance_name, package_name, script_name,
+def process_action(action, instance_name, pkn, script_name,
                    package_factory, env):
     if action == INIT:
         instance_setup(instance_name)
         return OK
 
     if action in [ UNINSTALL, VERIFY, CONFIGURE, EXECUTE ]:
-        package_name = find_likely_package_name(instance_name, package_name)
+        pkn = find_likely_pkn(instance_name, pkn)
 
     status = FAIL
     try:
         if action in [ FIX, PURGE ]:
-            status = fix_spkg(instance_name, package_name, action, package_factory)
+            status = fix_spkg(instance_name, pkn, action, package_factory)
             return status
         bc = get_bc(instance_name, env)
         if action == STATUS:
@@ -225,8 +240,8 @@ def process_action(action, instance_name, package_name, script_name,
             if type(status_dict) == type({}):
                 if status_dict["broken"]:
                     Logger.info("BROKEN PACKAGES:")
-                    for package_name in status_dict["broken"]:
-                        Logger.info("- %s" % package_name)
+                    for pkn in status_dict["broken"]:
+                        Logger.info("- %s" % pkn)
                 status = OK
             else:
                 status = FAIL
@@ -235,7 +250,7 @@ def process_action(action, instance_name, package_name, script_name,
             status = bc.reconcile_system(action)
         else:
             bc.record_errors = False
-            status = bc.use_pkg(package_name, action, script_name)
+            status = bc.use_pkg(pkn, action, script_name)
 
         bc.filesystem.clearLock()
     except:
@@ -321,19 +336,19 @@ if __name__ == "__main__":
             print "This command requires a package name as an argument."
             parser.print_help()
             exit_with_return_code( 1 )
-        package_names = args[1:]
+        pkns = args[1:]
         if options.action == EXECUTE:
             if len(args) != 3:
                 print "CMD: %s" % ' '.join(sys.argv)
                 print "This command requires a package name and a script name."
                 parser.print_help()
                 exit_with_return_code( 1 )
-            package_names = [args[1]]
+            pkns = [args[1]]
             script_name = args[2]
 
-        for package_name in package_names:
+        for pkn in pkns:
             status = process_action(options.action, instance_name,
-                                    package_name, script_name,
+                                    pkn, script_name,
                                     package_factory, env)
             if status != OK:
                 exit_with_return_code(status)

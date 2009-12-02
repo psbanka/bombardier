@@ -33,12 +33,13 @@ For stuff in a machine's status field'''
 import PinshCmd
 from bombardier_core.static_data import PARTIAL, COMPLETE, NO_MATCH
 from SystemStateSingleton import SystemState
+from Exceptions import MachineStatusException
 system_state = SystemState()
 
 FIX=1
 PURGE=2
 INSTALLED=3
-NOT_INSTALLED=3
+NOT_INSTALLED=4
 
 def clean_version_numbers(installed_set):
     output = set()
@@ -68,10 +69,14 @@ class PackageField(PinshCmd.PinshCmd):
         'returns a list of all self.data_type things'
         url = "json/summary/name/%s" % (machine_name)
         data = system_state.cnm_connector.service_yaml_request(url)
+        #print "PN: data:" % data
+        if data.get("command_status") == "FAIL":
+            raise MachineStatusException(data.get("command_output"))
         broken = set(data.get("broken", []))
         not_installed = set(data.get("not_installed", []))
         full_installed = set(data.get("installed", []))
         installed = clean_version_numbers(full_installed)
+        #print "action_type: %s" % self.action_type
         if self.action_type == FIX:
             return list(broken.union(not_installed))
         if self.action_type == PURGE:

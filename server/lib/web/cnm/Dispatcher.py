@@ -12,7 +12,7 @@ import StringIO, traceback
 import ServerLogger
 
 from Exceptions import InvalidJobName, JoinTimeout
-from Exceptions import InvalidAction
+from Exceptions import InvalidAction, MachineStatusException
 from bombardier_core.static_data import ACTION_LOOKUP
 
 PENDING = 4
@@ -72,8 +72,15 @@ class ShellCommand(AbstractCommand):
 class BombardierCommand(AbstractCommand):
     """Bombardier command is a command running bc.py for 
        package or status actions"""
-    def __init__(self, action_string, package_name=None,
-                 script_name = '', debug=False):
+    def __init__(self, action_string, package_name, script_name):
+        '''
+        action_string -- one of the following: uninstall, configure, install,
+                         verify, reconcile, status, execute, fix, purge,
+                         dry_ryn, or init
+        package_name -- the name of a package to act upon
+        script_name -- the name of a script to act upon
+        debug -- defunct, apparently
+        '''
         action_const = ACTION_LOOKUP.get(action_string.lower().strip())
         if action_const == None:
             raise InvalidAction(package_name, action_string)
@@ -82,7 +89,7 @@ class BombardierCommand(AbstractCommand):
         self.action = action_const
         self.package_name = package_name
         self.script_name = script_name
-        self.debug = debug
+        self.debug = False
 
     def execute(self, machine_interface):
         "Run bc command"
@@ -93,13 +100,13 @@ class BombardierCommand(AbstractCommand):
 class Job(Thread):
     """Job class: Runs remote commands or copies files to a remote machine.
      Watches status of job"""
-    def __init__(self, name, machine_interface, copy_dict, commands):
+    def __init__(self, name, machine_interface, copy_dict,
+                 commands, require_status):
         self.name = name
         self.copy_dict = copy_dict
         self.commands = commands
         self.server_log = machine_interface.server_log
         self.machine_interface = machine_interface
-        self.machine_interface.set_job(name)
         self.start_time = None
         self.elaped_time = None
         self.command_status = FAIL
@@ -108,8 +115,8 @@ class Job(Thread):
         self.final_logs = []
         self.elapsed_time = 0
         Thread.__init__(self)
-        self.machine_interface.freshen()
         self.complete_log = ''
+        self.machine_interface.freshen(name, require_status)
 
     def run(self):
         "Runs commands in command list and watches status"
@@ -202,7 +209,8 @@ class Dispatcher(Pyro.core.ObjBase):
             self.machine_interface_pool[machine_name] = machine_interface
         return machine_interface 
     
-    def start_job(self, username, machine_interface, commands, copy_dict=None):
+    def start_job(self, username, machine_interface, commands,
+                  copy_dict, require_status):
         "Add a job into the jobs dictionary and start it"
         output = {"status": OK}
         if not copy_dict:
@@ -210,7 +218,8 @@ class Dispatcher(Pyro.core.ObjBase):
         try:
             machine_name = machine_interface.machine_name
             job_name = "%s@%s-%d" % (username, machine_name, self.next_job)
-            job = Job(job_name, machine_interface, copy_dict, commands)
+            job = Job(job_name, machine_interface, copy_dict,
+                      commands, require_status)
             self.jobs[job_name] = job
             self.next_job += 1
             machine_interface.scp_dict(copy_dict)
@@ -240,14 +249,15 @@ class Dispatcher(Pyro.core.ObjBase):
             else:
                 cmd = 'echo spkgPath: %s > /etc/bombardier.yml' % spkg_dir
             set_spkg_config = ShellCommand("Setting spkg path", cmd, '.')
-            bombardier_init = BombardierCommand("init")
+            bombardier_init = BombardierCommand("init", None, None)
 
             commands = [set_spkg_config, bombardier_init]
         except Exception:
             output.update(self.dump_exception(username))
             output["status"] = FAIL
             return output
-        return self.start_job(username, machine_interface, commands, copy_dict)
+        return self.start_job(username, machine_interface, commands, 
+                              copy_dict, False)
 
     def bom_job(self, username, machine_name, action_string):
         "Run a bom level job on a machine"
@@ -256,13 +266,14 @@ class Dispatcher(Pyro.core.ObjBase):
         try:
             machine_interface = self.get_machine_interface(username,
                                                            machine_name)
-            bombardier_recon = BombardierCommand(action_string)
+            bombardier_recon = BombardierCommand(action_string, None, None)
             commands = [bombardier_recon]
         except Exception:
             output.update(self.dump_exception(username))
             output["status"] = FAIL
             return output
-        return self.start_job(username, machine_interface, commands, copy_dict)
+        return self.start_job(username, machine_interface, commands,
+                              copy_dict, True)
 
     def status_job(self, username, machine_name):
         "Check a machine's install status against its bom"
@@ -274,29 +285,36 @@ class Dispatcher(Pyro.core.ObjBase):
 
     def package_action_job(self, username, package_name, action_string, 
                            machine_name):
-        "Runs a bc command for a certain machine and package"
+        '''
+        Runs a bc command for a certain machine and package
+        username -- the name of the user issuing the command
+        package_name -- the name of the package to deal with
+        action_string -- one of the following: uninstall, configure, install,
+                         verify, reconcile, status, execute, fix, purge,
+                         dry_ryn, or init
+        machine_name -- name of the machine to run the job on
+        '''
         output = {"status": OK}
         script_name = ''
         if action_string not in ACTION_LOOKUP:
             script_name = action_string
             action_string= "execute"
-        if package_name: # FIXME: this is pretty sucky.
+        if package_name:
             if action_string == "status" or action_string == "reconcile":
                 script_name = action_string
                 action_string = "execute"
         try:
             machine_interface = self.get_machine_interface(username,
                                                            machine_name)
-            bom_cmd = BombardierCommand(action_string,
-                                        package_name=package_name, 
-                                        script_name=script_name)
+            bom_cmd = BombardierCommand(action_string, package_name, 
+                                        script_name)
             commands = [bom_cmd]
 
         except Exception:
             output.update(self.dump_exception(username))
             output["status"] = FAIL
             return output
-        return self.start_job(username, machine_interface, commands, {})
+        return self.start_job(username, machine_interface, commands, {}, True)
 
     def dist_job(self, username, machine_name, dist_name):
         "Job that unpacks and installs a distutils package"
@@ -316,7 +334,8 @@ class Dispatcher(Pyro.core.ObjBase):
             output.update(self.dump_exception(username))
             output["status"] = FAIL
             return output
-        return self.start_job(username, machine_interface, commands, copy_dict)
+        return self.start_job(username, machine_interface, commands,
+                              copy_dict, False)
 
     def enable_job(self, username, machine_name, password):
         "Set up ssh shared keys with a remote machine"
@@ -342,7 +361,8 @@ class Dispatcher(Pyro.core.ObjBase):
             output.update(self.dump_exception(username))
             output["status"] = FAIL
             return output
-        return self.start_job(username, machine_interface, commands, copy_dict)
+        return self.start_job(username, machine_interface, commands,
+                              copy_dict, False)
 
     def disable_job(self, username, machine_name):
         "Remove shared ssh key from a remote machine"
@@ -369,14 +389,15 @@ class Dispatcher(Pyro.core.ObjBase):
             output.update(self.dump_exception(username))
             output["status"] = FAIL
             return output
-        return self.start_job(username, machine_interface, commands, copy_dict)
+        return self.start_job(username, machine_interface, commands,
+                              copy_dict, False)
 
     def test_job(self, username, machine_name):
         "Simple test job"
         cmd = 'for i in 1 2 3 4; do sleep 1; echo "Testing $i/4"; done'
         commands = [ShellCommand("self_test", cmd, '.')]
         machine_interface = self.get_machine_interface(username, machine_name)
-        return self.start_job(username, machine_interface, commands)
+        return self.start_job(username, machine_interface, commands, {}, False)
 
     def cleanup_connections(self, username):
         "Close connections for machine interfaces in interface pool"

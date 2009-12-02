@@ -77,6 +77,12 @@ class ServerTracebackException(ExceptionBase):
     def __repr__(self):
         return self.traceback_lines
 
+class MachineStatusException(ExceptionBase):
+    def __init__(self, msg):
+        self.msg = msg
+    def __repr__(self):
+        return "Error in status data: %s" % self.msg
+
 class ServerException(Exception):
     '''It is necessary to communicate with the RESTful Bombardier web server
     to make the CLI work. If there is an issue with a command to that server

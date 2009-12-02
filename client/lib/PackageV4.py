@@ -61,7 +61,6 @@ class PackageV4(Package):
         '''
         Package.__init__(self, name, repository, config,
                          filesystem, instance_name)
-        self.full_name    = ''
         self.package_version = 4
 
     ############################################ PUBLIC METHODS

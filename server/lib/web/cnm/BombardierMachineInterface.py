@@ -2,6 +2,7 @@
 #!/usr/bin/env python
 
 import re, os, base64
+import glob
 import yaml
 import StringIO
 import copy
@@ -10,14 +11,14 @@ from MachineInterface import MachineInterface, MachineUnavailableException
 from Exceptions import MachineConfigurationException, BombardierMachineException
 from Exceptions import MachineStatusException, PackageNotFound
 from bombardier_core.mini_utility import strip_version
-from bombardier_core.static_data import OK, FAIL, PURGE, EXECUTE
-from bombardier_core.static_data import INIT, ACTION_DICT, RETURN_DICT
+from bombardier_core.static_data import OK, FAIL, EXECUTE
+from bombardier_core.static_data import INIT, FIX, PURGE
+from bombardier_core.static_data import ACTION_DICT, RETURN_DICT
 from MachineStatus import MachineStatus, LOCAL_PACKAGES
 
 from pexpect import EOF
 import tempfile
 import syck
-
 
 BLK_SIZE = 77
 TMP_FILE = "tmp.yml"
@@ -72,15 +73,23 @@ class BombardierMachineInterface(MachineInterface):
                         ]
         return state_machine
 
-    def freshen(self):
+    def freshen(self, job_name, require_status):
         "Refresh config data"
-        status = MachineInterface.freshen(self)
-        if self.machine_status.freshen() == FAIL:
+        self.set_job(job_name)
+        MachineInterface.freshen(self)
+        try:
+            self.machine_status.freshen()
+        except MachineStatusException:
             msg = "Can't find status. Fetching from machine."
             self.polling_log.warning(msg)
             self.get_status_yml()
-            self.machine_status.freshen()
-        return status
+            try:
+                self.machine_status.freshen()
+            except MachineStatusException:
+                if require_status:
+                    self.unset_job()
+                    raise
+        return OK
 
     def get_action_result(self, data):
         "Add action result to logs"
@@ -205,13 +214,15 @@ class BombardierMachineInterface(MachineInterface):
                 self.polling_log.error(message % package_name)
                 raise MachineConfigurationException(self.machine_name)
             send_data["package_data"][package_name] = this_package_data
-            # FIXME
             send_data["packageData"][package_name] = this_package_data 
         return send_data
 
-    def send_all_client_data(self):
+    def send_all_client_data(self, action):
         "Stream package metadata to a remote client"
-        send_data = self.get_all_client_data()
+        if action == PURGE:
+            send_data = {"configData": self.data}
+        else:
+            send_data = self.get_all_client_data()
         if 'config_key' in self.data:
             self.scp_all_client_data(send_data)
         else:
@@ -245,7 +256,7 @@ class BombardierMachineInterface(MachineInterface):
         cmd += " %s %s %s %s" % (ACTION_DICT[action],
                                 self.machine_name, package_name, script_name)
         self.ssh_conn.sendline(cmd)
-        self.send_all_client_data()
+        self.send_all_client_data(action)
         self.watch_bc()
 
         try:
@@ -292,6 +303,7 @@ class BombardierMachineInterface(MachineInterface):
             self.polling_log.warning(msg)
             delivered_packages = []
         required_base_names = copy.deepcopy(self.data.get("packages"))
+        self.polling_log.warning("Packages: %s" % required_base_names)
         newest_names = []
         for base_name in required_base_names:
             newest_data = self.machine_status.get_package_data(base_name)
@@ -320,7 +332,8 @@ class BombardierMachineInterface(MachineInterface):
                 sync_data = sync_section[sync_item]
                 sync_file = sync_data.get("path")
                 if not sync_file.startswith(os.path.sep):
-                    sync_file = os.path.join(self.server_home, dir, sync_file)
+                    sync_file = os.path.join(self.server_home, "repos",
+                                             dir, sync_file)
                 self.check_file( package_name, sync_file )
                 package_sync[dir].append(sync_file)
         return package_sync
@@ -338,12 +351,11 @@ class BombardierMachineInterface(MachineInterface):
         return tmp_path
 
     def rsync_repository(self, tmp_path, dest):
-        import glob
         cmd = "rsync -La %s %s@%s:%s" 
         cmd = cmd % (tmp_path, self.username, self.ip_address, dest)
         #self.server_log.info("Running: %s" % cmd)
         files = glob.glob("%s/*" % tmp_path)
-        self.polling_log.warning(cmd)
+        self.polling_log.debug(cmd)
         return os.system(cmd)
 
     def new_upload_new_packages(self):
@@ -383,18 +395,21 @@ class BombardierMachineInterface(MachineInterface):
         #os.system("rm -rf %s" % tmp_path)
 
     def take_action(self, action, package_name, script_name, debug):
-        "Run a maintenance script on a machine"
+        '''
+        Run a package-oriented action on a remote machine
+        action -- one of the following: EXECUTE, INIT, INSTALL,
+                  UNINSTALL, VERIFY, CONFIGURE, DRY_RUN
+        package_name -- the name of a package to operate on
+        script_name -- the name of a script to run (againsta a package)
+        debug -- defunct
+        '''
         message = []
         try:
             self.action_result = []
             self.pull_report = True
             if action == EXECUTE:
                 self.clear_script_output(script_name)
-            if self.freshen() != OK:
-                msg = "UNABLE TO CONNECT TO %s. No actions are available."
-                self.server_log.error(msg, self.machine_name)
-                return FAIL, [msg % self.machine_name]
-            if action != INIT:
+            if not action in [ INIT, FIX, PURGE ]:
                 #self.upload_new_packages()
                 self.new_upload_new_packages()
             message = self.run_bc(action, package_name, script_name, debug)

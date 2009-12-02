@@ -18,6 +18,7 @@ from MachineStatus import MachineStatus
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 import yaml
+from Exceptions import MachineStatusException
 
 MAPPER = {"merged": Machine, "machine": Machine, "include": Include,
           "bom": Bom, "package": Package, "status": Status }
@@ -116,7 +117,13 @@ class SummaryEntry(CnmResource):
         "Digest useful information from the status of the server"
         server_home = self.get_server_home()
         mbs = MachineStatus(server_home, machine_name)
-        output = mbs.machine_install_status()
+        output = {}
+        try:
+            output = mbs.machine_install_status()
+            output["command_status"] = "OK"
+        except MachineStatusException, err:
+            output["command_status"] = "FAIL"
+            output["command_output"] = str(err)
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -224,8 +231,8 @@ class DistCollection(ConfigCollection):
         dist_path = os.path.join(server_home, "dist")
         files = glob.glob(os.path.join(dist_path, "%s*.tar.gz" % dist_name))
         output = []
-        for file in files:
-            full_dist_name = file.rpartition('.tar.gz')[0]
+        for filename in files:
+            full_dist_name = filename.rpartition('.tar.gz')[0]
             full_dist_name = full_dist_name.rpartition(os.path.sep)[-1]
             output.append({"fields": {"name": full_dist_name}})
         responder = JsonDictResponder(output)

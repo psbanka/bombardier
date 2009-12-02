@@ -137,7 +137,8 @@ class MachineInterface:
                 self.polling_log.warning(msg)
                 self.disconnect()
             if self.connect() != OK:
-                return FAIL
+                msg = "Unable to connect to %s." % self.machine_name
+                raise MachineUnavailableException(self.machine_name, msg)
 
         dead = False
         try:
@@ -156,8 +157,8 @@ class MachineInterface:
             except:
                 pass
             if self.connect() != OK:
-                return FAIL
-        return OK
+                msg = "Unable to connect to %s." % self.machine_name
+                raise MachineUnavailableException(self.machine_name, msg)
 
     def process_scp(self, scp_conn):
         expect_list = [pexpect.TIMEOUT, SSH_NEW_KEY,
@@ -299,9 +300,7 @@ class MachineInterface:
     def run_cmd(self, command_string):
         "Run a remote shell command"
         self.report_info = ''
-        if self.freshen() != OK:
-            msg = "Unable to connect to %s." % self.machine_name
-            raise MachineUnavailableException(self.machine_name, msg)
+        #self.freshen(False) # Not sure why this was needed, but removing.
         return_code = OK
         self.ssh_conn.sendline(command_string)
         command_complete = False
@@ -386,7 +385,8 @@ class MachineInterface:
     def disconnect(self):
         self.connect_time = 0
         try:
-            self.ssh_conn.logout()
+            #self.ssh_conn.logout()
+            self.ssh_conn.terminate(force=True)
         finally:
             self.status = DISCONNECTED
 

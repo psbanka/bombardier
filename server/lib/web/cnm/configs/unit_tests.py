@@ -431,7 +431,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         status, output = self.package_action("fix", package_name)
         assert status == OK
         status, output = self.package_action("purge", package_name+"-7")
-        #assert status == OK
+        assert status == OK
 
     def test_package_global(self):
         self.reset_packages()
@@ -556,7 +556,7 @@ if __name__ == '__main__':
     client = Client()
     initialize_tests(client)
 
-    full_suite = 1
+    full_suite = 0
     suite = unittest.TestSuite()
     if full_suite:
         suite.addTest(unittest.makeSuite(CnmTests))

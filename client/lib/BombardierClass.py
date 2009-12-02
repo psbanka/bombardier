@@ -157,24 +157,12 @@ class PackageChain:
         '''
         return( self.v_pkgs.get_actual_pkn( pkn, self.pkd.keys() ) )
 
-    def _determine_pkg_version(self, pkn):
-        '''
-        We need to know what version a 
-        '''
-        meta_data = self.repository.get_meta_data(pkn)
-        version = meta_data.data.get("package-version")
-        if type(version) == type(1):
-            if version in VALID_PACKAGE_VERSIONS:
-                return version
-        msg = "Unknown package version"
-        raise Exceptions.BadPackage, (pkn, msg)
-
     def _get_new_pkg( self, pkn ):
         '''
         create a package object based on pkn
         pkn -- the name of the package to create
         '''
-        version = self._determine_pkg_version(pkn)
+        version = self.repository.determine_pkg_version(pkn)
         pkg = None
         if version == 4:
             pkg = PackageV4.PackageV4(pkn, self.repository,
@@ -467,7 +455,7 @@ class Bombardier:
         Instantiate a package object based on name
         pkn -- The name of a package to instantiate
         '''
-        version = self._determine_pkg_version(pkn)
+        version = self.repository.determine_pkg_version(pkn)
         pkg = None
         if version == 4:
             pkg = PackageV4.PackageV4(pkn, self.repository,
@@ -704,16 +692,6 @@ class Bombardier:
             if uninstall_status == FAIL:
                 return FAIL
         return status
-
-    def _determine_pkg_version(self, pkn):
-        'We need to know what version a package is'
-        meta_data = self.repository.get_meta_data(pkn)
-        version = meta_data.data.get("package-version")
-        if type(version) == type(1):
-            if version in VALID_PACKAGE_VERSIONS:
-                return version
-        msg = "Unknown package version"
-        raise Exceptions.BadPackage, (pkn, msg)
 
     def verify_system(self):
         '''Apparently NOT USED.
