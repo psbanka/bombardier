@@ -166,8 +166,8 @@ class Repository:
         '''
         base_path = os.path.join(getSpkgPath(), "repos")
         for component_type in info_dict:
-            Logger.info("Component: %s" % component_type)
-            Logger.info("info_dict: %s" % info_dict)
+            #Logger.info("Component: %s" % component_type)
+            #Logger.info("info_dict: %s" % info_dict)
             component_dict = info_dict[component_type]
             for component_name in component_dict:
                 full_path = component_dict[component_name]["path"]
@@ -175,6 +175,8 @@ class Repository:
                 full_name = full_name.split('.tar.gz')[0]
                 src = os.path.join(base_path, component_type, full_name)
                 dst = os.path.join(pkg_path, component_type, component_name)
+                if os.path.islink(dst):
+                    continue
                 cmd = "ln -s %s %s" % (src, dst)
                 if os.system(cmd) != OK:
                     msg = "Could not create symlink (%s)" % cmd
