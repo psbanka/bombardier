@@ -98,6 +98,7 @@ class PackageV5(Package):
         execute a user-defined function
         script_name -- name of the function to run
         '''
+        Package.execute_maint_script(self, script_name)
         self.status = self._find_cmd(script_name, [], False)
         msg = "&s result for %s : %s"
         Logger.info(msg % (script_name, self.full_name, self.status))
