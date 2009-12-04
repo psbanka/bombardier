@@ -36,6 +36,7 @@ import sys
 import Spkg
 from bombardier_core.mini_utility import evalBoolean, getPackagePath
 from Exceptions import BadPackage, FeatureRemovedException
+from Job import Job
 from Exceptions import RebootRequiredException
 from bombardier_core.Logger import Logger
 from bombardier_core.static_data import OK, FAIL, REBOOT
@@ -104,6 +105,33 @@ class PackageV4(Package):
             msg = "No metadata found for this package"
             raise BadPackage, (self.name, msg)
 
+    def execute_maint_script(self, script_name):
+        '''
+        execute a user-defined function
+        script_name -- name of the function to run
+        '''
+        Package.execute_maint_script(self)
+        script_path = "%s/%s.py" % (self.maint_dir, script_name)
+        start_dir = os.getcwd()
+        os.chdir(self.maint_dir)
+        if not os.path.isfile(script_path):
+            msg = "%s does not exist" % script_path
+            raise BadPackage, (self.name, msg)
+        sys.path.append(self.maint_dir )
+        import_string = 'import %s' % script_name
+        cmd = 'status = %s.execute(self.config, Logger)' % script_name
+        job = Job(import_string, cmd, self.config)
+        status = job.execute()
+        sys.path.remove(self.maint_dir)
+        os.chdir(start_dir)
+        if status == None:
+            status = OK
+        if type(status) != type(1):
+            msg = "Invalid status type (%s: '%s')"
+            Logger.warning(msg % (type(status), status))
+            status = FAIL
+        return status
+
     ############################################ PRIVATE METHODS
 
     def _eval_priority(self):
@@ -148,7 +176,7 @@ class PackageV4(Package):
                 files = [vpkg_name]
         return files
 
-    def _find_cmd(self, action, future_pkns, dry_run=False):
+    def _find_cmd(self, action, future_pkns, dry_run):
         '''
         Perform the action on the system, importing modules from the package
         and running the appropriate method on the class within.

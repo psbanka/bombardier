@@ -31,112 +31,14 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import os, time
-import sys, StringIO, traceback
+import StringIO, traceback
 
 import MetaData
 from bombardier_core.mini_utility import getPackagePath, getSpkgPath
 from Exceptions import BadPackage, FeatureRemovedException
-from threading import Thread
 from bombardier_core.Logger import Logger
 from bombardier_core.static_data import OK, FAIL, AVERAGE
 from bombardier_core.static_data import INSTALL, UNINSTALL, CONFIGURE, VERIFY
-
-class JobThread(Thread):
-    'Runs an action on a machine in a separate thread'
-
-    def __init__(self, import_string, cmd, config):
-        '''
-        import_string -- python code which will be exec'd to import the
-                         package class
-        cmd -- python code which will be exec'd which will run the actual
-               action on this machine.
-        config -- the configuration of this machine
-        '''
-        Thread.__init__(self)
-        self.import_string = import_string
-        self.cmd = cmd
-        self.config = config
-        self.cmd_status = None
-
-    def run(self):
-        'Thread interface'
-        Logger.debug("Running %s..." % self.cmd)
-        try:
-            exec(self.import_string)
-            exec("self.cmd_status = %s" % self.cmd)
-        except StandardError, err:
-            Logger.error("Failed to run %s (%s)" % (self.cmd, err))
-            sio = StringIO.StringIO()
-            traceback.print_exc(file=sio)
-            sio.seek(0)
-            data = sio.read()
-            ermsg = ''
-            for line in data.split('\n'):
-                ermsg += "\n||>>>%s" % line
-            Logger.error(ermsg)
-            self.cmd_status = FAIL
-
-class Job:
-    'Controls the execution of a thread'
-
-    def __init__(self, import_string, cmd, config):
-        '''
-        import_string -- python code which will be exec'd to import the
-                         package class
-        cmd -- python code which will be exec'd which will run the actual
-               action on this machine.
-        config -- the configuration of this machine
-        '''
-        self.import_string = import_string
-        self.cmd = cmd
-        self.config = config
-        self.start_time = None
-        self.job_thread = None
-        self.job_status = None
-
-    def is_running(self):
-        'ability to check if the job is finished'
-        if self.job_thread:
-            if self.job_thread.isAlive():
-                return True
-            if type(self.job_thread.cmd_status) == type(0) \
-               or type(self.job_thread.cmd_status) == type('str'):
-                Logger.debug("-- status: %s" % (self.job_thread.cmd_status))
-                self.job_status = self.job_thread.cmd_status
-            else:
-                msg = "Invalid return status (type: %s)"
-                Logger.error(msg % (type(self.job_thread.cmd_status)))
-                self.job_status = FAIL
-        return False
-
-    def execute(self):
-        'starts a job and waits for it to finish'
-        self.start_time = time.time()
-        status = FAIL
-        if self.is_running():
-            msg = "Refusing to run %s; it is already running" % self.cmd
-            Logger.error(msg)
-            return FAIL
-        self.job_thread = JobThread(self.import_string, self.cmd, self.config)
-        self.job_thread.start()
-        Logger.info("Started job...")
-        counter = 1
-        while self.is_running():
-            time.sleep(1)
-            counter += 1
-            if not counter % 100:
-                msg = "Waiting for completion (%s)..."
-                Logger.info(msg % time.strftime(time.ctime()))
-                counter = 1
-        status = self.job_thread.cmd_status
-        return status
-
-    def kill_thread(self, timeout=5):
-        'Aborts a job'
-        if not self.is_running():
-            return OK
-        self.job_thread.join(timeout)
-        return OK
 
 class Package:
 
@@ -261,7 +163,7 @@ class Package:
         if dry_run:
             dry_run_string = " --DRY_RUN-- "
         Logger.info("Uninstalling package %s%s" % (self.name, dry_run_string))
-        self.status = self._find_cmd(UNINSTALL, [], dry_run=dry_run)
+        self.status = self._find_cmd(UNINSTALL, [], dry_run)
         if not dry_run:
             self._write_progress()
         msg = "Uninstall result for %s%s : %s"
@@ -280,26 +182,6 @@ class Package:
         self.filesystem.rmScheduledFile(output_path)
         message = "Executing (%s) inside package (%s)"
         Logger.info(message % (script_name, self.full_name))
-        script_path = "%s/%s.py" % (self.maint_dir, script_name)
-        start_dir = os.getcwd()
-        os.chdir(self.maint_dir)
-        if not os.path.isfile(script_path):
-            msg = "%s does not exist" % script_path
-            raise BadPackage, (self.name, msg)
-        sys.path.append(self.maint_dir )
-        import_string = 'import %s' % script_name
-        cmd = 'status = %s.execute(self.config, Logger)' % script_name
-        job = Job(import_string, cmd, self.config)
-        status = job.execute()
-        sys.path.remove(self.maint_dir)
-        os.chdir(start_dir)
-        if status == None:
-            status = OK
-        if type(status) != type(1):
-            msg = "Invalid status type (%s: '%s')"
-            Logger.warning(msg % (type(status), status))
-            status = FAIL
-        return status
 
     def get_path(self):
         'find place on the disk where this package can be accessed'
@@ -313,7 +195,7 @@ class Package:
         'Virtual method'
         pass
 
-    def _find_cmd(self):
+    def _find_cmd(self, action, pkns, dry_run):
         'Virtual method'
         return FAIL
 
@@ -384,7 +266,7 @@ class Package:
         self._download()
         message = "Beginning installation of (%s)%s"
         Logger.info(message % (self.full_name, dry_run_string))
-        self.status = self._find_cmd(INSTALL, pkns, dry_run=dry_run)
+        self.status = self._find_cmd(INSTALL, pkns, dry_run)
         msg = "Install result for %s%s : %s"
         Logger.info(msg % (self.full_name, dry_run_string, self.status))
         return self.status

@@ -36,10 +36,10 @@ import Spkg
 from bombardier_core.mini_utility import getSpkgPath
 from bombardier_core.mini_utility import getPackagePath
 from Exceptions import BadPackage
-from Exceptions import FeatureRemovedException, RebootRequiredException
+from Exceptions import RebootRequiredException
 from bombardier_core.Logger import Logger
 from bombardier_core.static_data import OK, FAIL, REBOOT
-from bombardier_core.static_data import INSTALL, UNINSTALL, CONFIGURE, VERIFY
+#from bombardier_core.static_data import INSTALL, UNINSTALL, CONFIGURE, VERIFY
 from Package import Package
 
 class PackageV5(Package):
@@ -93,6 +93,16 @@ class PackageV5(Package):
             raise BadPackage, (self.name, msg)
         self.full_name = "%s-%d" % (self.name, self.release)
 
+    def execute_maint_script(self, script_name):
+        '''
+        execute a user-defined function
+        script_name -- name of the function to run
+        '''
+        self.status = self._find_cmd(script_name, [], False)
+        msg = "&s result for %s : %s"
+        Logger.info(msg % (script_name, self.full_name, self.status))
+        return self.status
+
     ############################################ PRIVATE METHODS
 
     def _eval_priority(self):
@@ -121,24 +131,30 @@ class PackageV5(Package):
                 raise BadPackage(self.name, errmsg % self.full_name)
         self.downloaded = True
 
-    def _find_cmd(self, action, future_pkns=[], dry_run=False):
+    def _get_lib_path(self):
         '''
-        Perform the action on the system, importing modules from the package
-        and running the appropriate method on the class within.
-        action -- INSTALL, UNINSTALL, CONFIGURE, VERIFY
-        future_pkns -- future package names. Some packages want to know
-                       about the packages that will come after them
-        dry_run -- boolean flag to see if we're really going to do this
+        Need to modify our path and then clean it out again. This gets
+        the data that both operations will need.
         '''
         package_path = os.path.join(getSpkgPath(), self.instance_name,
                                     "packages", self.full_name)
         lib_path = os.path.join(package_path, "libs")
+        return lib_path
+
+    def _get_object(self, future_pkns):
+        '''
+        Import modules from the package in order to run an appropriate method
+        on the class within.
+        future_pkns -- future package names. Some packages want to know
+                       about the packages that will come after them
+        '''
+        lib_path = self._get_lib_path()
         sys.path.insert(0, lib_path)
+        obj = None
 
         try:
             class_name = '.'.join(self.class_name.split('.')[1:])
             obj = Spkg.SpkgV4(self.config, Logger)
-            cwd = os.getcwd()
             self.filesystem.chdir(self.working_dir)
             letters = [ chr( x ) for x in range(65, 91) ]
             random.shuffle(letters)
@@ -148,26 +164,43 @@ class PackageV5(Package):
             self.config["__INSTANCE__"] = self.instance_name
             cmd_str = "obj = %s.%s(self.config, Logger)"
             exec(cmd_str % (rand_string, class_name))
-            if not dry_run:
-                if action == INSTALL:
-                    status = obj.installer()
-                elif action == VERIFY:
-                    status = obj.verify()
-                elif action == UNINSTALL:
-                    status = obj.uninstaller()
-                elif action == CONFIGURE:
-                    status = obj.configure()
-                else:
-                    raise FeatureRemovedException(action)
-            else:
-                status = OK
-            del rand_string
-            if self.class_name in sys.modules:
-                sys.modules.pop(self.class_name)
-            sys.path.remove(lib_path)
         except ImportError:
             msg = "Class %s is not importable." % self.class_name
             raise BadPackage(self.name, msg)
+        return obj, rand_string
+
+    def _cleanup(self, obj, rand_string):
+        '''
+        Running a package action is messy business. Here's where we
+        attempt to clean up the mess
+        '''
+        lib_path = self._get_lib_path()
+        exec("del %s" % rand_string)
+        if self.class_name in sys.modules:
+            sys.modules.pop(self.class_name)
+        sys.path.remove(lib_path)
+
+    def _find_cmd(self, action, future_pkns, dry_run):
+        '''
+        Perform the action on the system, importing modules from the package
+        and running the appropriate method on the class within.
+        action -- INSTALL, UNINSTALL, CONFIGURE, VERIFY
+        future_pkns -- future package names. Some packages want to know
+                       about the packages that will come after them
+        dry_run -- boolean flag to see if we're really going to do this
+        '''
+        cwd = os.getcwd()
+        obj, rand_string = self._get_object(future_pkns)
+        try:
+            if not hasattr(obj, action):
+                msg = "Class %s does not have a %s method."
+                raise BadPackage(self.name, msg % (self.class_name, action))
+            if not dry_run:
+                exec("status = obj.%s()" % action)
+            else:
+                status = OK
+            del rand_string
+            self._cleanup(obj, rand_string)
         except SystemExit, err:
             if err.code:
                 status = err.code
