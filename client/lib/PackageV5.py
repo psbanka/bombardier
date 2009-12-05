@@ -39,7 +39,7 @@ from Exceptions import BadPackage
 from Exceptions import RebootRequiredException
 from bombardier_core.Logger import Logger
 from bombardier_core.static_data import OK, FAIL, REBOOT
-#from bombardier_core.static_data import INSTALL, UNINSTALL, CONFIGURE, VERIFY
+from bombardier_core.static_data import ACTION_REVERSE_LOOKUP
 from Package import Package
 
 class PackageV5(Package):
@@ -190,6 +190,8 @@ class PackageV5(Package):
                        about the packages that will come after them
         dry_run -- boolean flag to see if we're really going to do this
         '''
+        if type(action) == type(1):
+            action=ACTION_REVERSE_LOOKUP[action]
         cwd = os.getcwd()
         obj, rand_string = self._get_object(future_pkns)
         try:
