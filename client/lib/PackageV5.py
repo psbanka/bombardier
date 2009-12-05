@@ -170,13 +170,12 @@ class PackageV5(Package):
             raise BadPackage(self.name, msg)
         return obj, rand_string
 
-    def _cleanup(self, obj, rand_string):
+    def _cleanup(self, obj):
         '''
         Running a package action is messy business. Here's where we
         attempt to clean up the mess
         '''
         lib_path = self._get_lib_path()
-        exec("del %s" % rand_string)
         if self.class_name in sys.modules:
             sys.modules.pop(self.class_name)
         sys.path.remove(lib_path)
@@ -202,8 +201,8 @@ class PackageV5(Package):
                 exec("status = obj.%s()" % action)
             else:
                 status = OK
+            self._cleanup(obj)
             del rand_string
-            self._cleanup(obj, rand_string)
         except SystemExit, err:
             if err.code:
                 status = err.code
