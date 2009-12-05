@@ -14,6 +14,7 @@ from bombardier_core.mini_utility import strip_version
 from bombardier_core.static_data import OK, FAIL, EXECUTE
 from bombardier_core.static_data import INIT, FIX, PURGE
 from bombardier_core.static_data import ACTION_DICT, RETURN_DICT
+from bombardier_core.mini_utility import updateDict
 from MachineStatus import MachineStatus, LOCAL_PACKAGES
 
 from pexpect import EOF
@@ -328,6 +329,7 @@ class BombardierMachineInterface(MachineInterface):
 
         for dir in [ "libs", "injectors" ]:
             sync_section = package_data.get(dir, [])
+            self.server_log.info("SYNC SECTION: %s" % sync_section)
             for sync_item in sync_section:
                 sync_data = sync_section[sync_item]
                 sync_file = sync_data.get("path")
@@ -375,6 +377,7 @@ class BombardierMachineInterface(MachineInterface):
         for base_name in required_base_names:
             newest_data = self.machine_status.get_package_data(base_name)
             version = newest_data.get("package-version")
+            self.server_log.info("BASE_NAME: %s" % base_name)
             if version == 4:
                 newest_name = newest_data.get("install", {}).get("fullName")
                 path_to_file = os.path.join(self.server_home, "repos",
@@ -384,8 +387,8 @@ class BombardierMachineInterface(MachineInterface):
                     files_to_send["type4"].append(path_to_file)
             elif version == 5:
                 package_sync = self.get_type_5_files(base_name, newest_data)
-                files_to_send.update(package_sync)
-        #self.server_log.info("FILES TO SEND: %s" % files_to_send)
+                files_to_send = updateDict(files_to_send, package_sync)
+        self.server_log.info("FILES TO SEND: %s" % files_to_send)
         tmp_path = self.create_sync_directory(files_to_send)
         dest = os.path.join(self.spkg_dir, "repos")
         self.rsync_repository(tmp_path + os.path.sep, dest)
