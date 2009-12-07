@@ -42,6 +42,8 @@ from PackageField import PackageField, FIX, PURGE, NOT_INSTALLED, INSTALLED
 import PackageActionField
 from Exceptions import MachineTraceback, CommandError
 import Integer
+from Ssh import Ssh
+from Show import Status, Summary
 system_state = SystemState()
 import libUi, time, yaml
 
@@ -102,6 +104,7 @@ class Machine(PinshCmd.PinshCmd):
 #       [OK, []]
 #       bomsh# machine localhost enable
 #       [OK, []]
+
     def __init__(self):
         """Top-level object has a 'test' child: test the machine
         """
@@ -126,13 +129,14 @@ class Machine(PinshCmd.PinshCmd):
         init = PinshCmd.PinshCmd("init", "init\tintialize bombardier on a machine")
         reconcile = PinshCmd.PinshCmd("reconcile", "reconcile\treconcile machine state to bill of materials")
         status = PinshCmd.PinshCmd("status", "status\tstatus reporting or manipulation")
+        summary = PinshCmd.PinshCmd("summary", "summary\tshow the digested status information")
         install = PinshCmd.PinshCmd("install", "install\tinstall a package")
         uninstall = PinshCmd.PinshCmd("uninstall", "uninstall\tremove a package")
         configure = PinshCmd.PinshCmd("configure", "configure\tconfigure a package")
         verify = PinshCmd.PinshCmd("verify", "verify\tverify a package")
         execute = PinshCmd.PinshCmd("execute", "execute\trun an action on a package")
-        maintenance = PinshCmd.PinshCmd("maintenance", "maintenance\tset a server to be in maintenance mode")
-        self.machine_field.children = [test, dist, init, enable, maintenance,
+        ssh = PinshCmd.PinshCmd("ssh", "ssh\tconnect directly to this machine from the cli")
+        self.machine_field.children = [test, dist, init, enable, ssh, summary,
                                        disable, status, reconcile, execute,
                                        install, uninstall, configure, verify]
 
@@ -237,6 +241,15 @@ class Machine(PinshCmd.PinshCmd):
             return OK,[]
 
         command = tokens[2].lower()
+
+        if command == "ssh":
+            return Ssh().cmd(["ssh", machine_name], 0)
+
+        if command == "status" and len(tokens) == 3:
+            return Status().cmd(["show", "status", machine_name], 0)
+
+        if command == "summary" and len(tokens) == 3:
+            return Summary().cmd(["show", "summary", machine_name], 0)
 
         if command in ["install", "uninstall", "verify",
                        "configure", "execute"]:

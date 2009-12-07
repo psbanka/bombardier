@@ -100,7 +100,7 @@ class PackageV5(Package):
         '''
         Package.execute_maint_script(self, script_name)
         self.status = self._find_cmd(script_name, [], False)
-        msg = "&s result for %s : %s"
+        msg = "%s result for %s : %s"
         Logger.info(msg % (script_name, self.full_name, self.status))
         return self.status
 
