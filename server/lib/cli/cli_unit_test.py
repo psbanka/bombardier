@@ -100,7 +100,6 @@ class CliHelpTest(CliUnitTest):
              'edit           modify components of the system', 
              'exit           exit current mode',
              'machine        commands that operate on a given machine',
-             'package        commands that operate on a single package',
              'set            set a configuration value',
              'show           display components of the system',
              'ssh            ssh to another host',

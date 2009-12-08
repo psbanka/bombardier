@@ -32,7 +32,7 @@ from bombardier_client.PackageV4 import PackageV4
 from bombardier_client.PackageV5 import PackageV5
 from bombardier_client.BombardierClass import Bombardier
 from bombardier_core.mini_utility import getProgressPath, getSpkgPath
-from bombardier_core.static_data import FIX, STATUS, CONFIGURE, RECONCILE
+from bombardier_core.static_data import FIX, CHECK_STATUS, CONFIGURE, RECONCILE
 from bombardier_core.static_data import VERIFY, INSTALL, UNINSTALL, PURGE
 from bombardier_core.static_data import DRY_RUN, INIT, EXECUTE
 from bombardier_core.static_data import OK, FAIL
@@ -235,7 +235,7 @@ def process_action(action, instance_name, pkn, script_name,
             status = fix_spkg(instance_name, pkn, action, package_factory)
             return status
         bc = get_bc(instance_name, env)
-        if action == STATUS:
+        if action == CHECK_STATUS:
             status_dict = bc.check_system()
             if type(status_dict) == type({}):
                 if status_dict["broken"]:
@@ -281,7 +281,7 @@ if __name__ == "__main__":
     parser = optparse.OptionParser('\n'.join(usage))
 
     parser.add_option("-s", "--status", dest="action",
-                      action="store_const", const=STATUS,
+                      action="store_const", const=CHECK_STATUS,
                       help="display the status of the system")
     parser.add_option("-c", "--configure", dest="action",
                       action="store_const", const=CONFIGURE,
@@ -326,7 +326,7 @@ if __name__ == "__main__":
     env.data_request()
     package_factory = PackageFactory(env)
 
-    if options.action in [ RECONCILE, STATUS, DRY_RUN, INIT ]:
+    if options.action in [ RECONCILE, CHECK_STATUS, DRY_RUN, INIT ]:
         status = process_action(options.action, instance_name,
                                '', '', package_factory, env)
     else:

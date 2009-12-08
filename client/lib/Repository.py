@@ -137,7 +137,6 @@ class Repository:
         untar the files properly.
         '''
         _status, output = gso('find /opt/spkg/ -name "*.tar.gz"')
-        overall_status = OK
         start_dir = os.getcwd()
         for full_tar_file_name in output.split('\n'):
             tmp_list = full_tar_file_name.split(os.path.sep)
@@ -152,9 +151,9 @@ class Repository:
                     cmd = "cd %s && tar -xzf ../%s"
                     cmd = cmd % (tar_file_dir, tar_file_name)
                     if os.system(cmd) != OK:
-                        overall_status = FAIL
+                        msg = "could not untar %s" % (tar_file_name)
+                        raise Exceptions.BadPackage(full_name, msg)
         os.chdir(start_dir)
-        return overall_status
 
     def make_symlinks(self, pkg_path, info_dict, full_name):
         '''

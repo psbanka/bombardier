@@ -98,13 +98,13 @@ class Slash(PinshCmd.PinshCmd):
         'When somebody hits return in the shell, this method handles it.'
         try:
             no_flag, help_flag, tokens, comment = libUi.process_input(command)
+            if help_flag: # Process the [?] key first
+                self.find_help(tokens, 0)
+                return None
             if len(tokens) == 0:
                 # somebody just pressed return for no reason
                 return OK, []
             tokens = system_state.get_state_tokens(tokens)
-            if help_flag: # Process the [?] key first
-                self.find_help(tokens, 0)
-                return None
             status, output = self.run(tokens, no_flag)
             #if comment:
                 #makeComment(comment) # MISSING

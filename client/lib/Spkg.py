@@ -1,151 +1,257 @@
 import re, os, yaml
 from bombardier_core.mini_utility import getSpkgPath
-import sys
+import sys, inspect
 import Config
 from bombardier_core.Filesystem import Filesystem
-from bombardier_core.static_data import OK, FAIL, LAST_REPORT
+from bombardier_core.static_data import OK, FAIL
 from bombardier_core.Logger import Logger
 import Repository
 
-def doubleEscape(oldString):
-    outString = ''
-    for i in oldString:
+def double_escape(old_string):
+    out_string = ''
+    for i in old_string:
         if i == '\\':
-            outString += "\\\\"
+            out_string += "\\\\"
         else:
-            outString += i
-    return outString
+            out_string += i
+    return out_string
 
 class SpkgException( Exception ):
-    def __init__(self, errorMessage=""):
-        self.errorMessage = str(errorMessage)
-        e = Exception()
-        Exception.__init__(e)
+    def __init__(self, err_msg=""):
+        self.err_msg = str(err_msg)
+        err = Exception()
+        Exception.__init__(err)
     def __str__(self):
-        return self.errorMessage
+        return self.err_msg
     def __repr__(self):
-        return self.errorMessage
+        return self.err_msg
 
-def getInstance():
+def get_instance():
     path = os.getcwd()
     spkgPath = getSpkgPath()
     subDir = path.split(spkgPath)[1]
-    instanceName = subDir.split(os.path.sep)[1]
-    return instanceName
+    instance_name = subDir.split(os.path.sep)[1]
+    return instance_name
 
 def getConfig():
-    instanceName = getInstance()
+    instance_name = get_instance()
     filesystem = Filesystem()
-    _repository = Repository.Repository(filesystem, instanceName)
-    config = Config.Config(filesystem, instanceName)
+    _repository = Repository.Repository(filesystem, instance_name)
+    config = Config.Config(filesystem, instance_name)
     return config
 
-def mainBody(pkgVersion, cls):
+def main(cls):
+    'A main method that can be used for troubleshooting'
     config = getConfig()
-    ha = None
-    if pkgVersion < 4:
-        ha = cls(config, logger=Logger)
-    else:
-        ha = cls(config, Logger)
+    obj = cls(config, Logger)
+    action = sys.argv[-1].lower()
+    status = OK
+    exec("status = obj.%s()" % action)
+    sys.exit(status)
+
+def mainV4(cls):
+    'A main method that can be used for troubleshooting'
+    config = getConfig()
+    obj = cls(config, Logger)
     action = sys.argv[-1].lower()
     status = OK
     if action == "install":
-        status = ha.installer()
+        status = obj.installer()
     elif action == "uninstall":
-        status = ha.uninstaller()
+        status = obj.uninstaller()
     elif action == "configure":
-        status = ha.configure()
+        status = obj.configure()
     elif action == "verify":
-        status = ha.verify()
+        status = obj.verify()
     else:
         print "Unknown action %s" % action
         status = FAIL
     sys.exit(status)
 
-def main(cls):
-    mainBody(3, cls)
-
-def mainV4(cls):
-    mainBody(4, cls)
-
-def dumpReportV4(report, logger):
-    instanceName = getInstance()
+def dumpReport(report, logger):
+    instanceName = get_instance()
     outputPath = os.path.join(getSpkgPath(), instanceName, "output")
     if not os.path.isdir(outputPath):
         os.makedirs(outputPath)
     scriptName = sys.argv[-1].split(".py")[0]
     outputFile = "%s-output.yml" % scriptName
-    yamlString = yaml.dump(report)
-    open(os.path.join(outputPath, outputFile), 'w').write(yamlString)
-    for line in yamlString.split('\n'):
+    yaml_string = yaml.dump(report)
+    open(os.path.join(outputPath, outputFile), 'w').write(yaml_string)
+    for line in yaml_string.split('\n'):
         logger.info("==REPORT==:%s" % line)
 
-def dumpReport(report, config, logger):
-    dumpReportV4(report, logger)
-
-class SpkgV4:
+class SpkgV5:
+    "a type-five abstract package"
 
     def __init__(self, config, logger = None, filesystem = Filesystem()):
-        self.thisPackagesName = self._getname()
-        self.filesystem = filesystem
-        self.stderr     = True
-        self.server     = None
-        self.dbInstance = None
-        self.port       = None
+        '''
+        config -- configuarion data object
+        logger -- log4py object
+        filesystem -- object that interacts with the filesystem
+        '''
+        self.this_package_name = self._getname()
+        self.filesystem    = filesystem
+        self.stderr        = True
+        self.server        = None
+        self.port          = None
+        self.instance_name = config.get_instance()
+        self.report        = {}
         if logger == None:
             import Logger
         else:
             self.stderr = False
-        self.lastReport = {}
 
-    def loadLastReport(self):
-        self.info("Loading last report data...")
-        self.report = {"pending-changes": [], "executed-changes":[], "authorized": {},
-                       "unauthorized": {}, "ignoredUsers": {}}
-        self.lastReport = {"pending-changes": []}
-        if os.path.isfile(LAST_REPORT):
-            self.lastReport = yaml.load(open(LAST_REPORT, 'r').read())
-        pendingChanges = len(self.lastReport["pending-changes"])
-        if pendingChanges == 0:
-            self.info("There are no pending changes.")
-        else:
-            self.warning("There are %d pending changes." % pendingChanges)
+    def dump_report(self, report = None):
+        '''
+        command -- the command that was run
+        report -- a dictionary of the data that was generated
+        For a command that was run on an spkg class, this provides
+        data back to the CNM 
+        '''
+        if type(report) != type({}):
+            report = self.report
+        command = inspect.stack()[2][3]
+        output_path = os.path.join(getSpkgPath(), self.instance_name, "output")
+        if not os.path.isdir(output_path):
+            os.makedirs(output_path)
+        output_file = "%s-output.yml" % command
+        yaml_string = yaml.dump(report)
+        open(os.path.join(output_path, output_file), 'w').write(yaml_string)
+        for line in yaml_string.split('\n'):
+            Logger.info("==REPORT==:%s" % line)
 
-    def checkAction(self, actionString):
-        if actionString in self.lastReport["pending-changes"]:
-            self.info("PERFORMING: %s" % actionString)
-            self.report["executed-changes"].append(actionString)
-            return OK
-        else:
-            self.info("QUEUING: %s" % actionString)
-            self.report["pending-changes"].append(actionString)
-        return FAIL
-
-    def writeReport(self):
-        self.info("Writing report...")
-        open(LAST_REPORT, 'w').write(yaml.dump(self.report))
-
-    def setFuturePackages(self, packageList):
-        self.futurePackages = packageList
-
-    def checkStatus(self, status, errMsg="FAILED"):
+    def check_status(self, status, err_msg="FAILED"):
+        'small convenience function'
         if status != OK:
-            raise SpkgException(errMsg)
+            raise SpkgException(err_msg)
 
-    def system(self, command, errMsg=""):
-        errMsg = command
-        self.checkStatus( os.system( command ), errMsg )
+    def system(self, command, err_msg=""):
+        '''run a command and raise if there's an error'''
+        err_msg = command
+        self.check_status( os.system( command ), err_msg )
 
     def debug(self, string):
-        Logger.debug("[%s]|%s" % (self.thisPackagesName, string))
+        'log a debug-level message'
+        Logger.debug("[%s]|%s" % (self.this_package_name, string))
+
     def info(self, string):
-        Logger.info("[%s]|%s" % (self.thisPackagesName, string))
+        'log a info-level message'
+        Logger.info("[%s]|%s" % (self.this_package_name, string))
+
     def warning(self, string):
-        Logger.warning("[%s]|%s" % (self.thisPackagesName, string))
+        'log a warning-level message'
+        Logger.warning("[%s]|%s" % (self.this_package_name, string))
+
     def error(self, string):
-        Logger.error("[%s]|%s" % (self.thisPackagesName, string))
+        'log a error-level message'
+        Logger.error("[%s]|%s" % (self.this_package_name, string))
+
     def critical(self, string):
-        Logger.critical("[%s]|%s" % (self.thisPackagesName, string))
+        'log a critical-level message'
+        Logger.critical("[%s]|%s" % (self.this_package_name, string))
+
+    def _getname(self):
+        cwd = os.getcwd()
+        path = cwd.split(os.sep)
+        return path[-1]
+
+    def _abstract(self):
+        self.error("Attempting to call an abstract method")
+        return FAIL
+
+    def configure(self):
+        return self._abstract()
+
+    def verify(self):
+        return self._abstract()
+
+    def install(self):
+        return self._abstract()
+
+    def uninstall(self):
+        return self._abstract()
+
+    def modify_template_string(self, input_string, output_file, encoding=None,
+                               process_escape = False):
+        '''
+        Goes through a string and replaces templates using member variables
+        defined in this class
+        input_string -- a string that may or may not have templated place-
+                        holder information in it
+        output_file -- where to write out our templated string output
+        encoding -- what encoding to use when outputting our data
+        process_escape -- sometimes we need to deal with '\' characters
+        '''
+        var_match = re.compile("\%\((.*?)\)s")
+        variables = var_match.findall(input_string)
+        status = OK
+        output = []
+        for line in input_string.split('\n'):
+            variables = var_match.findall(line)
+            config_dict = {}
+            if len(variables) == 0:
+                output.append(line)
+                continue
+            for variable in variables:
+                if hasattr(self, variable):
+                    config_value = getattr(self, variable)
+                    if process_escape:
+                        config_dict[variable] = double_escape(config_value)
+                    else:
+                        config_dict[variable] = config_value
+                else:
+                    self.error('A variable was found in template "%s" for which there'\
+                               " is no configuration value (variable: %s)" % (output_file, variable))
+                    config_dict[variable] = 'UNKNOWN_TEMPLATE_VALUE'
+                    status = FAIL
+            if config_dict == {}:
+                output.append(line)
+            else:
+                output.append(line % config_dict)
+        output_data = '\n'.join(output)
+
+        if encoding == None:
+            self.filesystem.open(output_file, 'w').write(output_data)
+        else:
+            self.filesystem.open(output_file, 'wb').write(output_data.encode( encoding ))
+        return status
+
+    def modify_template(self, input_file, output_file, encoding=None,
+                        process_escape = False):
+        'opens a file ane processes all template values in it'
+        if encoding == None:
+            input_string = self.filesystem.open(input_file, 'r').read()
+        else:
+            input_string = unicode( self.filesystem.open(input_file, 'rb').read(), encoding )
+        self.info("Template: " + input_file )
+        self.info("Created: " + output_file )
+        return self.modify_template_string(input_string, output_file, encoding,
+                                           process_escape)
+
+class Spkg(SpkgV5):
+    "Kept for backwards compatibility"
+    def __init__(self, config, filesystem = Filesystem(), logger = None):
+        SpkgV5.__init__(self, config, logger, filesystem)
+        self.thisPackagesName = self.this_package_name
+
+    def checkStatus(self, status, err_msg="FAILED"):
+        return self.check_status(status, err_msg)
+
+    def installer(self):
+        return self.install()
+
+    def uninstaller(self):
+        return self.uninstall()
+
+    def modifyTemplateString(self, input_string, output_file, encoding=None,
+                             process_escape = False):
+        return self.modify_template_string(input_string, output_file, encoding,
+                                           process_escape)
+
+    def modifyTemplate(self, input_file, output_file, encoding=None,
+                       process_escape = False):
+        return self.modify_template(input_file, output_file, encoding,  
+                                    process_escape)
 
     def _getname(self):
         cwd = os.getcwd()
@@ -154,82 +260,6 @@ class SpkgV4:
             return path[-2]
         return path[-1]
 
-    def makeConnectionString(self):
-        dataSource = ''
-        if hasattr(self, "server") and type(self.server) == type("string"):
-            dataSource = self.server.strip()
-            if hasattr(self, "dbInstance") and type(self.dbInstance) == type("string"):
-                dbInstance = self.dbInstance.strip()
-                if dbInstance != '':
-                    dataSource += "\\"+dbInstance
-                if hasattr(self, "port") and type(self.port) == type("string"):
-                    port = self.port.strip()
-                    if port != '':
-                        dataSource += ","+port
-        return dataSource
-
-    def _abstracty(self):
-        self.error("Attempting to call an abstract method")
-        return FAIL
-
-    def configure(self):
-        return self._abstracty()
-
-    def verify(self):
-        return self._abstracty()
-
-    def installer(self):
-        return self._abstracty()
-
-    def uninstaller(self):
-        return self._abstracty()
-
-    def modifyTemplateString(self, inputString, outputFile, encoding=None, processEscape = False):
-        varMatch = re.compile("\%\((.*?)\)s")
-        variables = varMatch.findall(inputString)
-        status = OK
-        output = []
-        for line in inputString.split('\n'):
-            variables = varMatch.findall(line)
-            configDict = {}
-            if len(variables) == 0:
-                output.append(line)
-                continue
-            for variable in variables:
-                if hasattr(self, variable):
-                    configValue = getattr(self, variable)
-                    if processEscape:
-                        configDict[variable] = doubleEscape(configValue)
-                    else:
-                        configDict[variable] = configValue
-                else:
-                    self.error('A variable was found in template "%s" for which there'\
-                               " is no configuration value (variable: %s)" % (outputFile, variable))
-                    configDict[variable] = 'UNKNOWN_TEMPLATE_VALUE'
-                    status = FAIL
-            if configDict == {}:
-                output.append(line)
-            else:
-                output.append(line % configDict)
-        outputData = '\n'.join(output)
-
-        if encoding == None:
-            self.filesystem.open(outputFile, 'w').write(outputData)
-        else:
-            self.filesystem.open(outputFile, 'wb').write(outputData.encode( encoding ))
-        return status
-
-    
-    def modifyTemplate(self, inputFile, outputFile, encoding=None, processEscape = False):
-        if encoding == None:
-            inputString = self.filesystem.open(inputFile, 'r').read()
-        else:
-            inputString = unicode( self.filesystem.open(inputFile, 'rb').read(), encoding )
-        self.info("Template: " + inputFile )
-        self.info("Created: " + outputFile )
-        return self.modifyTemplateString(inputString, outputFile, encoding, processEscape)
-
-class Spkg(SpkgV4):
+class SpkgV4(Spkg):
     def __init__(self, config, filesystem = Filesystem(), logger = None):
-        SpkgV4.__init__(self, config, logger, filesystem)
-
+        Spkg.__init__(self, config, logger, filesystem)

@@ -388,6 +388,8 @@ class PackageTests(unittest.TestCase, BasicTest):
                         "timestamp": 1250868198.8639009,
                       }
         os.system("rm -rf /opt/spkg/localhost/packages/*")
+        os.system("rm -rf /opt/spkg/repos/libs/*")
+        os.system("rm -rf /opt/spkg/repos/injectors/*")
         self.set_status(status_dict)
 
     def test_package_error(self):
@@ -556,7 +558,7 @@ if __name__ == '__main__':
     client = Client()
     initialize_tests(client)
 
-    full_suite = 0
+    full_suite = 1
     suite = unittest.TestSuite()
     if full_suite:
         suite.addTest(unittest.makeSuite(CnmTests))
@@ -564,8 +566,8 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        #suite.addTest(PackageTests("test_type5_package_actions"))
-        suite.addTest(PackageTests("test_package_actions"))
+        suite.addTest(PackageTests("test_type5_package_actions"))
+        #suite.addTest(PackageTests("test_package_actions"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)
 

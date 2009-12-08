@@ -51,6 +51,7 @@ URL_LOOKUP = {'test': "json/machine/start_test/%s",
               'dist': "json/machine/dist/%s",
               'init': "json/machine/init/%s",
               'reconcile': "json/machine/reconcile/%s",
+              'check-status': "json/machine/check_status/%s",
               'status': "json/machine/status/%s",
               'enable': "json/machine/enable/%s",
               'disable': "json/machine/disable/%s",
@@ -91,7 +92,7 @@ class Machine(PinshCmd.PinshCmd):
     '''
        bomsh# machine localhost reconcile
        [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7', 'Finished installing']]
-       bomsh# machine localhost status
+       bomsh# machine localhost check-status
        [OK, []]
        bomsh# machine localhost status purge TestPackageType4-7
        [OK, ['TestPackageType4-7 has been removed from localhost status']]
@@ -128,6 +129,7 @@ class Machine(PinshCmd.PinshCmd):
         disable = PinshCmd.PinshCmd("disable", "disable\tremove ssh key from a machine")
         init = PinshCmd.PinshCmd("init", "init\tintialize bombardier on a machine")
         reconcile = PinshCmd.PinshCmd("reconcile", "reconcile\treconcile machine state to bill of materials")
+        check_status = PinshCmd.PinshCmd("check-status", "check-status\treview the current state of the system")
         status = PinshCmd.PinshCmd("status", "status\tstatus reporting or manipulation")
         summary = PinshCmd.PinshCmd("summary", "summary\tshow the digested status information")
         install = PinshCmd.PinshCmd("install", "install\tinstall a package")
@@ -137,8 +139,9 @@ class Machine(PinshCmd.PinshCmd):
         execute = PinshCmd.PinshCmd("execute", "execute\trun an action on a package")
         ssh = PinshCmd.PinshCmd("ssh", "ssh\tconnect directly to this machine from the cli")
         self.machine_field.children = [test, dist, init, enable, ssh, summary,
-                                       disable, status, reconcile, execute,
-                                       install, uninstall, configure, verify]
+                                       disable, check_status, status,
+                                       reconcile, execute, install, uninstall,
+                                       configure, verify]
 
         # Third-level commands
         dist_field = ConfigField(data_type=DIST)

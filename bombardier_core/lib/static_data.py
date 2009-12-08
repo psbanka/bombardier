@@ -107,13 +107,13 @@ RECONCILE        = 10
 EXECUTE          = 11
 FIX              = 12
 PURGE            = 13
-STATUS           = 14
+CHECK_STATUS     = 14
 DRY_RUN          = 15
 INIT             = 16
 
 ACTION_LOOKUP = { 'uninstall':UNINSTALL, 'configure':CONFIGURE, 
                 'install':INSTALL, 'verify':VERIFY, 
-                'reconcile':RECONCILE, 'status':STATUS, 
+                'reconcile':RECONCILE, 'check_status':CHECK_STATUS, 
                 'execute':EXECUTE, 'fix':FIX, 'purge':PURGE,
                 'dry_run': DRY_RUN, "init": INIT } 
 
@@ -172,7 +172,7 @@ PACKAGES_FILE = os.path.join("packages", "packages.yml")
 GLOBAL_CONFIG_FILE = "/etc/bombardier.yml"
 
 ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i',
-               VERIFY: '-v', RECONCILE: '-r', STATUS: '-s',
+               VERIFY: '-v', RECONCILE: '-r', CHECK_STATUS: '-s',
                EXECUTE: '-x', FIX: '-f', PURGE: '-p',
                DRY_RUN: '-d', INIT: '-n'}
 

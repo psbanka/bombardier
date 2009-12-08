@@ -75,7 +75,7 @@ class BombardierCommand(AbstractCommand):
     def __init__(self, action_string, package_name, script_name):
         '''
         action_string -- one of the following: uninstall, configure, install,
-                         verify, reconcile, status, execute, fix, purge,
+                         verify, reconcile, check_status, execute, fix, purge,
                          dry_ryn, or init
         package_name -- the name of a package to act upon
         script_name -- the name of a script to act upon
@@ -275,9 +275,9 @@ class Dispatcher(Pyro.core.ObjBase):
         return self.start_job(username, machine_interface, commands,
                               copy_dict, True)
 
-    def status_job(self, username, machine_name):
+    def check_status_job(self, username, machine_name):
         "Check a machine's install status against its bom"
-        return self.bom_job(username, machine_name, "status")
+        return self.bom_job(username, machine_name, "check_status")
 
     def reconcile_job(self, username, machine_name):
         "Reconciles a machine to its bom"
@@ -290,7 +290,7 @@ class Dispatcher(Pyro.core.ObjBase):
         username -- the name of the user issuing the command
         package_name -- the name of the package to deal with
         action_string -- one of the following: uninstall, configure, install,
-                         verify, reconcile, status, execute, fix, purge,
+                         verify, reconcile, check_status, execute, fix, purge,
                          dry_ryn, or init
         machine_name -- name of the machine to run the job on
         '''
@@ -300,7 +300,7 @@ class Dispatcher(Pyro.core.ObjBase):
             script_name = action_string
             action_string= "execute"
         if package_name:
-            if action_string == "status" or action_string == "reconcile":
+            if action_string == "check_status" or action_string == "reconcile":
                 script_name = action_string
                 action_string = "execute"
         try:

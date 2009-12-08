@@ -91,7 +91,7 @@ class MachineStatusEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.status_job(request.user, machine_name)
+            output = dispatcher.check_status_job(request.user, machine_name)
         except Exception:
             output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
