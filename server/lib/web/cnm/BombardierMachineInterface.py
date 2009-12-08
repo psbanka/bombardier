@@ -393,8 +393,11 @@ class BombardierMachineInterface(MachineInterface):
         dest = os.path.join(self.spkg_dir, "repos")
         self.rsync_repository(tmp_path + os.path.sep, dest)
         dest = os.path.join(self.spkg_dir, self.machine_name, "packages")
-        cmd = "ln -fs %s/repos/type4/*.spkg %s/" % (self.spkg_dir, dest)
-        self.gso(cmd)
+        spkg_files = glob.glob("%s/*.spkg" % self.spkg_dir)
+        for file in spkg_files:
+            cmd = "ln -fs %s %s/" % (file, dest)
+            self.polling_log.warning(cmd)
+            self.gso(cmd)
         #os.system("rm -rf %s" % tmp_path)
 
     def take_action(self, action, package_name, script_name, debug):
