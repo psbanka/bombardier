@@ -83,23 +83,21 @@ def dumpReport(report, logger):
 class SpkgV5:
     "a type-five abstract package"
 
-    def __init__(self, config, logger = None, filesystem = Filesystem()):
+    def __init__(self, config):
         '''
         config -- configuarion data object
         logger -- log4py object
         filesystem -- object that interacts with the filesystem
         '''
         self.this_package_name = self._getname()
-        self.filesystem    = filesystem
-        self.stderr        = True
+        self.filesystem    = Filesystem()
+        self.stderr        = False
         self.server        = None
         self.port          = None
         self.instance_name = config.get_instance()
         self.report        = {}
-        if logger == None:
-            import Logger
-        else:
-            self.stderr = False
+        self.logger = Logger
+        self.config = config
 
     def dump_report(self, report = None):
         '''

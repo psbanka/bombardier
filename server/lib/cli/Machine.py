@@ -44,6 +44,7 @@ from Exceptions import MachineTraceback, CommandError
 import Integer
 from Ssh import Ssh
 from Show import Status, Summary
+import Edit
 system_state = SystemState()
 import libUi, time, yaml
 
@@ -138,8 +139,9 @@ class Machine(PinshCmd.PinshCmd):
         verify = PinshCmd.PinshCmd("verify", "verify\tverify a package")
         execute = PinshCmd.PinshCmd("execute", "execute\trun an action on a package")
         ssh = PinshCmd.PinshCmd("ssh", "ssh\tconnect directly to this machine from the cli")
+        edit = PinshCmd.PinshCmd("edit", "edit\tedit the configuration for this machine")
         self.machine_field.children = [test, dist, init, enable, ssh, summary,
-                                       disable, check_status, status,
+                                       disable, check_status, status, edit,
                                        reconcile, execute, install, uninstall,
                                        configure, verify]
 
@@ -244,6 +246,9 @@ class Machine(PinshCmd.PinshCmd):
             return OK,[]
 
         command = tokens[2].lower()
+
+        if command == "edit":
+            return Edit.Machine().cmd(["edit", "machine", machine_name], 0)
 
         if command == "ssh":
             return Ssh().cmd(["ssh", machine_name], 0)

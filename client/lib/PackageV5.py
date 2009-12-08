@@ -33,6 +33,7 @@
 import os, sys, random
 
 import Spkg
+import StringIO, traceback
 from bombardier_core.mini_utility import getSpkgPath
 from bombardier_core.mini_utility import getPackagePath
 from Exceptions import BadPackage
@@ -155,7 +156,7 @@ class PackageV5(Package):
 
         try:
             class_name = '.'.join(self.class_name.split('.')[1:])
-            obj = Spkg.SpkgV4(self.config, Logger)
+            obj = Spkg.SpkgV5(self.config)
             self.filesystem.chdir(self.working_dir)
             letters = [ chr( x ) for x in range(65, 91) ]
             random.shuffle(letters)
@@ -163,9 +164,16 @@ class PackageV5(Package):
             exec("import %s as %s" % (self.class_name, rand_string))
             self.config["__FUTURE_PACKAGES__"] = future_pkns
             self.config["__INSTANCE__"] = self.instance_name
-            cmd_str = "obj = %s.%s(self.config, Logger)"
+            cmd_str = "obj = %s.%s(self.config)"
             exec(cmd_str % (rand_string, class_name))
-        except ImportError:
+        except ImportError, ie:
+            tb_str = StringIO.StringIO()
+            traceback.print_exc(file=tb_str)
+            tb_str.seek(0)
+            data = tb_str.read()
+            ermsg = ''
+            for line in data.split('\n'):
+                Logger.error(line)
             msg = "Class %s is not importable." % self.class_name
             raise BadPackage(self.name, msg)
         return obj, rand_string
