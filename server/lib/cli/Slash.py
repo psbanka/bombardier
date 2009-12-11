@@ -79,7 +79,7 @@ class Slash(PinshCmd.PinshCmd):
         except AmbiguousCommand, amb_err:
             return FAIL, [str(amb_err)]
         except UnknownCommand, unk_err:
-            return FAIL, [str(unk_err)]
+            return FAIL, [' ', str(unk_err)]
         except ServerTracebackException, trc:
             return FAIL, ['Server traceback: ', [trc.traceback_lines]]
         if return_value == None or len(return_value) != 2:
@@ -123,7 +123,7 @@ class Slash(PinshCmd.PinshCmd):
                 #makeComment()
             sys.exit(0)
         except CommandError, err:
-            system_state.fp_out.write(" %% %s\n\n" % err )
+            system_state.fp_out.write("\n %% %s\n\n" % err )
         except Exception, err:
             msg = " %%%% Error detected in %s (%s)." % (command, err)
             system_state.fp_err.write( msg )

@@ -278,7 +278,7 @@ class Machine(PinshCmd.PinshCmd):
 
         try:
             job_name = system_state.cnm_connector.get_job(url, post_data)
-            output = self.watch_job(job_name)
+            output = system_state.cnm_connector.watch_job(job_name)
             return self.analyze_output(machine_name, tokens, output, post_data)
         except MachineTraceback, m_err:
             libUi.process_traceback(m_err)

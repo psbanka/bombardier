@@ -4,6 +4,13 @@ class ExceptionBase(Exception):
     def __str__(self):
         return self.__repr__()
 
+class CnmServerException(ExceptionBase):
+    def __init__(self, msg):
+        ExceptionBase.__init__(self)
+        self.msg = msg
+    def __repr__(self):
+        return "Error from CNM server: %s" % self.msg
+
 class MachineStatusException(ExceptionBase):
     def __init__(self, msg):
         ExceptionBase.__init__(self)

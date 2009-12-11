@@ -33,13 +33,16 @@ __author__ =  'Peter Banka'
 __version__ = '1.0'
 
 import StringIO
-import urllib2, urlparse, os
+import urllib2, urlparse, os, time
 import yaml, syck
 import pycurl
 import urllib
 from bombardier_core.static_data import OK, FAIL
 from Exceptions import UnexpectedDataException, ServerException
 from Exceptions import MachineTraceback, ServerTracebackException
+import libUi
+from SystemStateSingleton import SystemState, ENABLE
+system_state = SystemState()
 
 LOGIN_PATH = "/accounts/login/"
 
@@ -280,6 +283,22 @@ class CnmConnector:
     def cleanup_connections(self):
         url = "json/machine/cleanup_connections"
         self.service_yaml_request(url, post_data={})
+
+    def watch_job(self, job_name):
+        libUi.info("Job name: %s" % job_name)
+        output = {"alive": 1}
+        while output.get("alive", 0):
+            time.sleep(0.25)
+            url = "json/job/poll/%s" % job_name
+            output = system_state.cnm_connector.service_yaml_request(url)
+            if "traceback" in output:
+                raise MachineTraceback(url, output["traceback"])
+            new_output = output["new_output"]
+            if new_output:
+                libUi.process_cnm(new_output)
+        libUi.info("Joining...")
+        output = system_state.cnm_connector.join_job(job_name)
+        return output
 
     def get_job(self, url, post_data):
         out = self.service_yaml_request(url, post_data=post_data)

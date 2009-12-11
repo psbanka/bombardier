@@ -26,6 +26,25 @@ def safe_get(request, option):
     check_string(value)
     return value
 
+class PackageBuildEntry(CnmResource):
+    "Create a new package based on the information it contains"
+    @login_required
+    def create(self, request, package_name):
+        "Create a package"
+        output = {"status": OK}
+        try:
+            svn_user = safe_get(request, "svn_user")
+            svn_password = safe_get(request, "svn_password")
+            dispatcher = self.get_dispatcher()
+            server_home = CnmResource.get_server_home()
+            dispatcher.set_server_home(request.user, server_home)
+            output = dispatcher.package_build_job(request.user, package_name,
+                                                  svn_user, svn_password) 
+        except Exception:
+            output.update(self.dump_exception(request))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
 class PackageActionEntry(CnmResource):
     "Run a package action job on a remote machine "
     @login_required
@@ -275,6 +294,8 @@ class DispatcherControlEntry(CnmResource):
 urlpatterns = patterns('',
    url(r'^json/package_action/(?P<package_name>.*)',
        PackageActionEntry(permitted_methods = ['POST'])),
+   url(r'^json/package_build/(?P<package_name>.*)',
+       PackageBuildEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/enable/(?P<machine_name>.*)$',
        MachineEnableEntry(permitted_methods=['POST'])),
    url(r'^json/machine/disable/(?P<machine_name>.*)$',

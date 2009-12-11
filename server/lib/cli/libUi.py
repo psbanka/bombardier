@@ -38,7 +38,7 @@ from bombardier_core.static_data import OK, FAIL
 from bombardier_core.static_data import WARNING, ERROR, CRITICAL, DEBUG, INFO
 from bombardier_core.static_data import USER, ADMIN, LOG_LEVEL_LOOKUP
 from bombardier_core.static_data import GOOD_COLOR, WARNING_COLOR, STRONG_COLOR
-from bombardier_core.static_data import WEAK_COLOR, NO_COLOR, NORMAL_COLOR
+from bombardier_core.static_data import WEAK_COLOR, NO_COLOR
 
 import re
 
@@ -398,22 +398,22 @@ def process_cnm(server_output_lines):
                 date = components[0]
                 job_name = components[2]
                 if system_state.termcolor != NO_COLOR:
+                    color_code = None
                     if log_level == DEBUG:
                         color_code = WEAK_COLOR[system_state.termcolor]
-                    elif log_level == INFO:
-                        color_code = NORMAL_COLOR[system_state.termcolor]
                     elif log_level == WARNING:
                         color_code = STRONG_COLOR[system_state.termcolor]
                     elif log_level > WARNING:
                         color_code = WARNING_COLOR[system_state.termcolor]
-                    else:
+                    elif log_level != INFO:
                         print "=== UNKNOWN log level: ", log_level
                         color_code = WARNING_COLOR[system_state.termcolor]
-                    #message = "  | \033%s%s\033[m\n" % (color_code, '|'.join(components[3:]))
-                    prefix = "  | \033%s%20s\033[m | " % (WEAK_COLOR[system_state.termcolor], job_name)
-                    message = "%s\033%s%s\033[m\n" % (prefix, color_code, '|'.join(components[3:]))
+                    if color_code != None:
+                        prefix = "  | \033%s%20s\033[m | " % (WEAK_COLOR[system_state.termcolor], job_name)
+                        message = "%s\033%s%s\033[m\n" % (prefix, color_code, '|'.join(components[3:]))
+                    else:
+                        message = "  | %s | %s\n" % (job_name, '|'.join(components[3:]))
                 else:
-                    #message = "  | %s\n" % ('|'.join(components[3:]))
                     message = "  | %s | %s\n" % (job_name, '|'.join(components[3:]))
                 system_state.fp_out.write(message)
         else:

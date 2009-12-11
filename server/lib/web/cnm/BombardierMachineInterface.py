@@ -377,7 +377,7 @@ class BombardierMachineInterface(MachineInterface):
         for base_name in required_base_names:
             newest_data = self.machine_status.get_package_data(base_name)
             version = newest_data.get("package-version")
-            self.server_log.info("BASE_NAME: %s" % base_name)
+            #self.server_log.info("BASE_NAME: %s" % base_name)
             if version == 4:
                 newest_name = newest_data.get("install", {}).get("fullName")
                 path_to_file = os.path.join(self.server_home, "repos",
@@ -388,17 +388,59 @@ class BombardierMachineInterface(MachineInterface):
             elif version == 5:
                 package_sync = self.get_type_5_files(base_name, newest_data)
                 files_to_send = updateDict(files_to_send, package_sync)
-        self.server_log.info("FILES TO SEND: %s" % files_to_send)
+        #self.server_log.info("FILES TO SEND: %s" % files_to_send)
         tmp_path = self.create_sync_directory(files_to_send)
         dest = os.path.join(self.spkg_dir, "repos")
         self.rsync_repository(tmp_path + os.path.sep, dest)
         dest = os.path.join(self.spkg_dir, self.machine_name, "packages")
-        spkg_files = glob.glob("%s/*.spkg" % self.spkg_dir)
+
+        type_4_dir = os.path.join(self.spkg_dir, "repos", "type4")
+        self.server_log.debug("LOOKING FOR: %s/*.spkg" % type_4_dir)
+        spkg_files = glob.glob("%s/*.spkg" % type_4_dir)
         for file in spkg_files:
+            self.server_log.debug("FOUND: %s" % file)
             cmd = "ln -fs %s %s/" % (file, dest)
             self.polling_log.warning(cmd)
             self.gso(cmd)
         #os.system("rm -rf %s" % tmp_path)
+
+    def dump_trace(self):
+        "Pretty print a stack trace into the logs"
+        stack_trace = []
+        found_index = 1
+        while found_index == 1:
+            stack_trace.append(self.ssh_conn.match.groups()[0])
+            expect_list = [self.ssh_conn.PROMPT, self.trace_matcher,
+                           self.log_matcher]
+            found_index = self.ssh_conn.expect(expect_list, timeout=6000)
+        t_string = ''.join(stack_trace)
+
+        noop_re = "NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'"
+        re_obj = re.compile(noop_re)
+        data = re_obj.findall(t_string)
+        invalid_data_msg = "Invalid client configuration data"
+        if data:
+            self.polling_log.error(invalid_data_msg)
+            self.server_log.error(invalid_data_msg, self.machine_name)
+            if len(data) == 2:
+                need_msg = "Need option '%s' in section '%s'." % \
+                            (data[0], data[1])
+            else:
+                need_msg = "Need options: %s" % data
+            self.polling_log.info(need_msg)
+            self.server_log.error(need_msg, self.machine_name)
+        no_section_re = re.compile("NoSectionError\: No section\: \'(\w+)\'")
+        data = no_section_re.findall(t_string)
+        if data:
+            self.polling_log.error(invalid_data_msg)
+            self.server_log.error(invalid_data_msg, self.machine_name)
+            need_msg = "Need section '%s'." % (data[0])
+            self.polling_log.info(need_msg)
+            self.server_log.error(need_msg, self.machine_name)
+        else:
+            for line in stack_trace:
+                self.polling_log.error(line)
+                self.server_log.error(line, self.machine_name)
 
     def take_action(self, action, package_name, script_name, debug):
         '''

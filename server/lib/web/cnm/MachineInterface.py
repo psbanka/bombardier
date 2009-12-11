@@ -1,46 +1,39 @@
-"pexpect machine interface module"
 #!/usr/bin/env python
+"MachineInterface: pexpect machine interface module"
 
 import pxssh, pexpect
-import sys, time, os, re
-import StringIO
-from bombardier_core.static_data import OK, FAIL, SERVER, TRACEBACK, INFO
-from ServerLogger import ServerLogger
-from Exceptions import JobAlreadySet, EnableRequiredException
+import time, os, re
+from bombardier_core.static_data import OK, FAIL
+from Exceptions import EnableRequiredException
 from Exceptions import IncompleteConfigurationException
 from Exceptions import MachineUnavailableException
 from Exceptions import SecureCopyException
+from AbstractMachineInterface import AbstractMachineInterface
+from AbstractMachineInterface import DISCONNECTED, CONNECTED, BROKEN
 
 #Statuses:
-DISCONNECTED = 0
-CONNECTED    = 1
-BROKEN       = 2
 DOT_LENGTH = 20
 BAD_BREAK_CHARS = ['[', '\033', 'm', ';', '0', '3', '1']
 GOOD_BREAK_CHARS = ['.', '-', ' ', '\\', '/', '=', ')', ']', '_']
 CONNECTION_TIMEOUT = 90 * 3600 #90 min
 SSH_NEW_KEY = 'Are you sure you want to continue connecting'
 
-class MachineInterface:
+class MachineInterface(AbstractMachineInterface):
     "Interface to a remote machine via pxssh"
     def __init__(self, machine_config, server_log):
-        self.server_log    = server_log
-        self.polling_log   = None
-        self.job_name      = None
-        self.output_handle = sys.stdout
-        self.status        = DISCONNECTED
-        self.connect_time  = 0
-        self.ssh_pass      = ''
-        self.ssh_conn      = None
-        self.machine_name     = None
-        self.server_home   = None
-        self.data          = {}
-        self.user_name     = None
+        AbstractMachineInterface.__init__(self, machine_config, server_log)
+        self.ssh_pass    = None
+        self.spkg_dir    = None # FIXME
+        self.username    = None
+        self.ip_address  = None
+        self.platform    = None
+        self.report_info = {}
+        self.ssh_conn    = None
         self.set_data(machine_config)
 
     def set_data(self, machine_config):
         "Set up MachineInterface data"
-        self.machine_name     = machine_config.machine_name
+        self.machine_name  = machine_config.machine_name
         self.server_home   = machine_config.server_home
         self.data          = machine_config.data
         self.username      = self.data.get("default_user", None)
@@ -62,39 +55,8 @@ class MachineInterface:
             msg = "'platform' is not defined"
             raise IncompleteConfigurationException(self.machine_name, msg)
 
-    def set_job(self, job_name):
-        if self.job_name:
-            raise JobAlreadySet(self.job_name)
-        self.job_name = job_name
-        self.polling_log = ServerLogger(job_name)
-        self.polling_log.add_stringio_handle()
-        msg = "Binding interface %s to job %s" % (self.machine_name, job_name)
-        self.server_log.info(msg, self.machine_name)
-
-    def unset_job(self):
-        self.job_name = None
-        self.polling_log = None
-        msg = "UN-Binding interface %s to job %s"
-        msg = msg % (self.machine_name, self.job_name)
-        self.server_log.info(msg, self.machine_name)
-
-    def get_new_logs(self):
-        if self.polling_log:
-            return self.polling_log.get_new_logs()
-        return []
-
-    def traceback_output(self, source, msg):
-        self.log(source, TRACEBACK, msg)
-
-    def from_output(self, msg, severity=INFO):
-        self.log(self.machine_name, severity, msg)
-
-    def log(self, source, severity, msg):
-        formatted_msg = "<<%s|%d|%s>>\n" % (source, severity, msg)
-        self.output_handle.write(formatted_msg)
-        self.output_handle.flush()
-
     def terminate(self):
+        "Harshly disconnect from the remote system"
         result = self.ssh_conn.terminate(force=True)
         if result:
             self.status = DISCONNECTED
@@ -102,6 +64,7 @@ class MachineInterface:
         return FAIL
 
     def connect(self):
+        "Make a new connection to the remote system"
         self.ssh_conn = pxssh.pxssh()
         self.ssh_conn.timeout = 6000
         msg = "Connecting to %s..." % self.machine_name
@@ -126,6 +89,8 @@ class MachineInterface:
         return OK
 
     def freshen(self):
+        '''Since we like to keep connections around for a long time,
+        verify that our connection to the remote system is still working'''
         connection_age = time.time() - self.connect_time
         if self.status == DISCONNECTED or \
             connection_age > CONNECTION_TIMEOUT or \
@@ -160,7 +125,8 @@ class MachineInterface:
                 msg = "Unable to connect to %s." % self.machine_name
                 raise MachineUnavailableException(self.machine_name, msg)
 
-    def process_scp(self, scp_conn):
+    def _process_scp(self, scp_conn):
+        "After we've started an scp, drive it until finished"
         expect_list = [pexpect.TIMEOUT, SSH_NEW_KEY,
                        '[pP]assword: ', 'Exit status']
         select_index = scp_conn.expect(expect_list, timeout=50)
@@ -185,14 +151,16 @@ class MachineInterface:
         return OK
 
     def get(self, dest_file):
+        "secure copy from a remote host"
         self.polling_log.info( "Getting %s" % dest_file)
         cmd = 'scp -v %s@%s:%s .'
         cmd = cmd % (self.username, self.ip_address, dest_file)
         self.polling_log.debug("EXECUTING: %s" % cmd, cmd)
         scp_conn = pexpect.spawn(cmd, timeout=30)
-        return self.process_scp(scp_conn)
+        return self._process_scp(scp_conn)
 
     def scp(self, source, dest, verbose=True):
+        "secure copy to a remote host"
         if not os.path.isfile(source):
             msg = "Attempting to send nonexistant file: %s" % source
             self.server_log.error(msg)
@@ -242,7 +210,6 @@ class MachineInterface:
         scp_conn.close()
         return OK
 
-    # BEING USED
     def scp_dict(self, copy_dict):
         "Use scp with a dictionary to copy files grouped by file type"
         self.connect()
@@ -269,14 +236,6 @@ class MachineInterface:
         self.ssh_conn.sendline ('cd %s' % path)
         self.ssh_conn.prompt()
 
-    def log_raw_data(self, output_queue):
-        "Transfer full lines from queue into the polling log"
-        while '\n' in output_queue:
-            position = len(output_queue.split('\n')[0])
-            self.polling_log.info(output_queue[:position-1])
-            output_queue = output_queue[position+2:]
-        return output_queue
-
     def gso(self, cmd, raise_on_error=True, cmd_debug=False):
         "Run a remote shell command"
         if cmd_debug:
@@ -286,7 +245,7 @@ class MachineInterface:
         try:
             self.ssh_conn.sendline( cmd )
             self.ssh_conn.prompt()
-        except EOF:
+        except pexpect.EOF:
             if raise_on_error:
                 msg = "Error running %s" % (cmd)
                 raise MachineUnavailableException(self.machine_name, msg)
@@ -319,45 +278,8 @@ class MachineInterface:
         self.ssh_conn.setecho(False)
         return [OK, []]
 
-    def dump_trace(self):
-        "Pretty print a stack trace into the logs"
-        stack_trace = []
-        found_index = 1
-        while found_index == 1:
-            stack_trace.append(self.ssh_conn.match.groups()[0])
-            expect_list = [self.ssh_conn.PROMPT, self.trace_matcher,
-                           self.log_matcher]
-            found_index = self.ssh_conn.expect(expect_list, timeout=6000)
-        t_string = ''.join(stack_trace)
-
-        noop_re = "NoOptionError\: No option \'(\w+)\' in section\: \'(\w+)\'"
-        re_obj = re.compile(noop_re)
-        data = re_obj.findall(t_string)
-        invalid_data_msg = "Invalid client configuration data"
-        if data:
-            self.polling_log.error(invalid_data_msg)
-            self.server_log.error(invalid_data_msg, self.machine_name)
-            if len(data) == 2:
-                need_msg = "Need option '%s' in section '%s'." % \
-                            (data[0], data[1])
-            else:
-                need_msg = "Need options: %s" % data
-            self.polling_log.info(need_msg)
-            self.server_log.error(need_msg, self.machine_name)
-        no_section_re = re.compile("NoSectionError\: No section\: \'(\w+)\'")
-        data = no_section_re.findall(t_string)
-        if data:
-            self.polling_log.error(invalid_data_msg)
-            self.server_log.error(invalid_data_msg, self.machine_name)
-            need_msg = "Need section '%s'." % (data[0])
-            self.polling_log.info(need_msg)
-            self.server_log.error(need_msg, self.machine_name)
-        else:
-            for line in stack_trace:
-                self.polling_log.error(line)
-                self.server_log.error(line, self.machine_name)
-
     def check_result(self):
+        "Examine the output of a command"
         self.ssh_conn.setecho(False)
         self.ssh_conn.sendline("echo $?")
         self.ssh_conn.prompt()
@@ -367,20 +289,6 @@ class MachineInterface:
         except Exception:
             return FAIL
         return return_code
-
-    def check_possible_paths(self, test_path):
-        while len(test_path):
-            self.ssh_conn.sendline("ls --color=never -Fd1 %s*" %test_path)
-            self.ssh_conn.prompt()
-            result_list = self.ssh_conn.before.split()[:-1]
-            if self.check_result() != OK:
-                test_path = test_path[:test_path.rfind('/')]
-                continue
-            output = [ result.replace('*', '') for result in result_list ]
-            if test_path.endswith('/'):
-                output.append(test_path)
-            return output
-        return [test_path]
 
     def disconnect(self):
         self.connect_time = 0

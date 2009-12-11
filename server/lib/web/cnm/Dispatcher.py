@@ -5,6 +5,7 @@ import yaml
 import Pyro.naming
 from MachineConfig import MachineConfig
 from BombardierMachineInterface import BombardierMachineInterface
+from LocalMachineInterface import LocalMachineInterface 
 from bombardier_core.static_data import OK, FAIL
 from bombardier_core.libCipher import encrypt, decrypt, DecryptionException
 from threading import Thread
@@ -12,31 +13,10 @@ import StringIO, traceback
 import ServerLogger
 
 from Exceptions import InvalidJobName, JoinTimeout
-from Exceptions import InvalidAction, MachineStatusException
+from Exceptions import InvalidAction
 from bombardier_core.static_data import ACTION_LOOKUP
 
 PENDING = 4
-
-def exception_dumper(func):
-    "This is a troubleshooting tool for exceptions"
-    #argnames = func.func_code.co_varnames[:func.func_code.co_argcount]
-    fname = func.func_name
-    def traceback_func(*args, **kwargs):
-        "Catching exceptions in traced function"
-        try:
-            print "watching the %s function" % fname
-            return func(*args, **kwargs)
-        except Exception:
-            exc = StringIO.StringIO()
-            traceback.print_exc(file=exc)
-            exc.seek(0)
-            data = exc.read()
-            ermsg = ''
-            for line in data.split('\n'):
-                ermsg = "%% %s" % line
-                print ermsg
-    return traceback_func
-
 
 class AbstractCommand:
     "Abstract class for a dispatched command"
@@ -52,6 +32,25 @@ class AbstractCommand:
     def info(self):
         "Default info function"
         return self.name
+
+class BuildCommand(AbstractCommand):
+    "Package build command"
+    def __init__(self, package_name, svn_user, svn_password):
+        name = "Build-%s" % (package_name)
+        AbstractCommand.__init__(self, name)
+        self.package_name = package_name
+        self.svn_user = svn_user
+        self.svn_password = svn_password
+
+    def execute(self, machine_interface):
+        "Build the package"
+        return machine_interface.build_components(self.package_name,
+                                                  self.svn_user,
+                                                  self.svn_password)
+
+    def info(self):
+        "Return command to be run on the remote machine"
+        return "Build package %s" % self.package_name
 
 class ShellCommand(AbstractCommand):
     "Remote shell command"
@@ -76,7 +75,7 @@ class BombardierCommand(AbstractCommand):
         '''
         action_string -- one of the following: uninstall, configure, install,
                          verify, reconcile, check_status, execute, fix, purge,
-                         dry_ryn, or init
+                         dry_run, or init
         package_name -- the name of a package to act upon
         script_name -- the name of a script to act upon
         debug -- defunct, apparently
@@ -188,6 +187,13 @@ class Dispatcher(Pyro.core.ObjBase):
         self.server_log.info("Setting server home: %s" % server_home, username)
         self.server_home = server_home
 
+    def get_local_machine(self):
+        "Returns an interface to a machine, creating a new one if needed"
+        machine_config = MachineConfig("CNM_Server", self.password,
+                                       self.server_home)
+        machine_interface = LocalMachineInterface(machine_config, self.server_log)
+        return machine_interface 
+
     def get_machine_interface(self, username, machine_name):
         "Returns an interface to a machine, creating a new one if needed"
         machine_config = MachineConfig(machine_name, self.password,
@@ -283,6 +289,27 @@ class Dispatcher(Pyro.core.ObjBase):
         "Reconciles a machine to its bom"
         return self.bom_job(username, machine_name, "reconcile")
 
+    def package_build_job(self, username, package_name, svn_user,
+                          svn_password):
+        '''
+        Looks at a package .yml file and revises data regarding it
+        username -- the name of the user issuing the command
+        package_name -- the name of the package to deal with
+        svn_user -- svn credentials
+        svn_password -- svn credentials
+        '''
+        output = {"command_status": OK}
+        try:
+            machine_interface = self.get_local_machine()
+            build_cmd = BuildCommand(package_name, svn_user, svn_password)
+            commands = [build_cmd]
+
+        except Exception:
+            output.update(self.dump_exception(username))
+            output["command_status"] = FAIL
+            return output
+        return self.start_job(username, machine_interface, commands, {}, True)
+
     def package_action_job(self, username, package_name, action_string, 
                            machine_name):
         '''
@@ -291,14 +318,14 @@ class Dispatcher(Pyro.core.ObjBase):
         package_name -- the name of the package to deal with
         action_string -- one of the following: uninstall, configure, install,
                          verify, reconcile, check_status, execute, fix, purge,
-                         dry_ryn, or init
+                         dry_run, or init
         machine_name -- name of the machine to run the job on
         '''
         output = {"status": OK}
         script_name = ''
         if action_string not in ACTION_LOOKUP:
             script_name = action_string
-            action_string= "execute"
+            action_string = "execute"
         if package_name:
             if action_string == "check_status" or action_string == "reconcile":
                 script_name = action_string

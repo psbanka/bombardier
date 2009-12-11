@@ -29,6 +29,10 @@ OLD_CLIENT_VERSION = "0.70-597"
 CLIENT_VERSION = "1.00-624"
 CORE_VERSION = "1.00-623"
 
+test_config = yaml.load(open("config.yml").read())
+SVN_USER = test_config["svn_user"]
+SVN_PASSWORD = test_config["svn_password"]
+
 class BasicTest:
     def setUp(self):
         self.client = Client()
@@ -120,7 +124,7 @@ class BasicTest:
         except KeyError:
             print "CONT========", content_dict
             assert False
-        assert job_name.startswith("%s@localhost" % (self.super_user.username))
+        #assert job_name.startswith("%s@localhost" % (self.super_user.username))
 
         testing = True
         timeout_counter = 0
@@ -184,7 +188,7 @@ class CnmTests(unittest.TestCase, BasicTest):
                                     "fo"  : ["foo"],
                                     "swe" : [] },
                        "dist": { "": ["test", client_dist, core_dist, old_client_dist]  }, 
-                       "package": { "": ["TestPackageType5", "TestPackageType4"]  } }
+                       "package": { "": ["TestPackageType5", "TestPackageType4", "TestPackageBuild"]  } }
         for section in test_dict:
             for search_term in test_dict[section]:
                 expected = test_dict[section][search_term]
@@ -412,6 +416,44 @@ class PackageTests(unittest.TestCase, BasicTest):
         progress_data = status_data["install-progress"]["TestPackageType5-23"]
         assert "INSTALLED" in progress_data
 
+    def _get_file_names(self, file_dict, file_names):
+        for name in file_dict:
+            sub_item = file_dict[name]
+            if type(sub_item) == type({}):
+                file_names += self._get_file_names(sub_item, file_names)
+            elif type(sub_item) == type('string') or type(sub_item) == type(u'string'):
+                if '.tar.gz' in sub_item:
+                    file_names.append(sub_item)
+        return file_names
+
+    def _remove_paths(self, package_name):
+        url = '/json/package/name/%s' % package_name
+        status_data = self.get_content_dict(url)
+        for section in ["injectors", "libs"]:
+            file_names = self._get_file_names(status_data[section], [])
+            for file_name in file_names:
+                if os.path.isfile(file_name):
+                    os.unlink(file_name)
+
+    def _get_release(self, package_name):
+        url = '/json/package/name/%s' % package_name
+        status_data = self.get_content_dict(url)
+        release = status_data["release"]
+        return release
+
+    def test_package_build(self):
+        package_name = "TestPackageBuild"
+        current_release = self._get_release(package_name)
+        self._remove_paths(package_name)
+        url = '/json/package_build/%s' % package_name
+        post_data = {"svn_user": SVN_USER,
+                     "svn_password": SVN_PASSWORD,
+                    }
+        status, output = self.run_job(url, data=post_data, timeout=60)
+        assert status == OK
+        updated_release = self._get_release(package_name)
+        assert updated_release == current_release + 1
+
     def test_package_actions(self):
         self.reset_packages()
         package_name = "TestPackageType4"
@@ -566,7 +608,9 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        suite.addTest(PackageTests("test_type5_package_actions"))
+        suite.addTest(PackageTests("test_encrypted_ci"))
+        #suite.addTest(CnmTests("test_search"))
+        #suite.addTest(PackageTests("test_package_build"))
         #suite.addTest(PackageTests("test_package_actions"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)

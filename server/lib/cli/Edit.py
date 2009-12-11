@@ -69,23 +69,30 @@ class EditType(PinshCmd.PinshCmd):
             return OK, [msg]
 
 class Machine(EditType):
-    'Displays basic machine configuration data from the server'
+    'Edit basic machine configuration data from the server'
     def __init__(self):
-        EditType.__init__(self, "machine", "machine\tshow the configuration for one machine")
+        EditType.__init__(self, "machine", "machine\tedit the configuration for one machine")
         self.config_field = ConfigField.ConfigField(data_type=ConfigField.MACHINE)
         self.children = [self.config_field]
 
 class Include(EditType):
     'Displays include information from the server'
     def __init__(self):
-        EditType.__init__(self, "include", "include\tshow a shared include file")
+        EditType.__init__(self, "include", "include\tedit a shared include file")
         self.config_field = ConfigField.ConfigField(data_type=ConfigField.INCLUDE)
+        self.children = [self.config_field]
+
+class Package(EditType):
+    'Displays package data'
+    def __init__(self):
+        EditType.__init__(self, "package", "package\tedit package metadata")
+        self.config_field = ConfigField.ConfigField(data_type=ConfigField.PACKAGE)
         self.children = [self.config_field]
 
 class Bom(EditType):
     'Displays bill-of-materials ("bom") data from the server'
     def __init__(self):
-        EditType.__init__(self, "bom", "bom\tshow a bill of materials")
+        EditType.__init__(self, "bom", "bom\tedit a bill of materials")
         self.config_field = ConfigField.ConfigField(data_type=ConfigField.BOM)
         self.children = [self.config_field]
 
@@ -96,7 +103,8 @@ class Edit(PinshCmd.PinshCmd):
         self.help_text = "edit\tmodify components of the system"
         machine = Machine()
         include = Include()
+        package = Package()
         bom = Bom()
-        self.children = [machine, include, bom]
+        self.children = [machine, include, bom, package]
         self.cmd_owner = 1
 
