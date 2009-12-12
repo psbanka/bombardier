@@ -22,7 +22,7 @@ class MachineInterface(AbstractMachineInterface):
     "Interface to a remote machine via pxssh"
     def __init__(self, machine_config, server_log):
         AbstractMachineInterface.__init__(self, machine_config, server_log)
-        self.ssh_pass    = None
+        self.ssh_pass    = ''
         self.spkg_dir    = None # FIXME
         self.username    = None
         self.ip_address  = None
@@ -71,8 +71,9 @@ class MachineInterface(AbstractMachineInterface):
         self.polling_log.debug(msg)
         #self.server_log.debug(msg, self.machine_name)
         try:
+            self.server_log.debug(msg, self.machine_name)
             login_okay = self.ssh_conn.login(self.ip_address, self.username,
-                                       self.ssh_pass, login_timeout=6000)
+                                             self.ssh_pass, login_timeout=6000)
             if not login_okay:
                 msg = "Could not connect."
                 raise MachineUnavailableException(self.machine_name, msg)
