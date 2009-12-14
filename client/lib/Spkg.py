@@ -43,7 +43,7 @@ def getConfig():
 def main(cls):
     'A main method that can be used for troubleshooting'
     config = getConfig()
-    obj = cls(config, Logger)
+    obj = cls(config)
     action = sys.argv[-1].lower()
     status = OK
     exec("status = obj.%s()" % action)
@@ -68,6 +68,8 @@ def mainV4(cls):
         status = FAIL
     sys.exit(status)
 
+def mainV5(cls):
+    main(cls)
 def dumpReport(report, logger):
     instanceName = get_instance()
     outputPath = os.path.join(getSpkgPath(), instanceName, "output")
