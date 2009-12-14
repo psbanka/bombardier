@@ -32,6 +32,7 @@ Supports access to 'configurable items' on the bombardier web server'''
 
 import PinshCmd
 from bombardier_core.static_data import OK, FAIL, PARTIAL, COMPLETE, NO_MATCH
+from Exceptions import UnexpectedDataException
 from SystemStateSingleton import SystemState
 system_state = SystemState()
 
@@ -105,6 +106,7 @@ class ConfigField(PinshCmd.PinshCmd):
         to figure out that localhost is the object that needs to be found and
         to return the dictionary for that object.
         '''
+        #print "my directory: %s" % self.directory
         #print "get_top_lvl_data: tokens", tokens
         partial_first = tokens[index]
         object_names = self.get_object_list()
@@ -142,6 +144,9 @@ class ConfigField(PinshCmd.PinshCmd):
             first_token_names, data = self.get_top_level_data(tokens, index)
         except TypeError:
             return FAIL, "Unable to read data from server"
+        if len(first_token_names) < 1:
+            msg = "%s was not found on the server to upload to" % tokens[index]
+            raise UnexpectedDataException(msg)
         url = "json/%s/name/%s" % ( self.directory, first_token_names[0])
         post_data = {"yaml": new_data}
         output_dict = system_state.cnm_connector.service_yaml_request(url,

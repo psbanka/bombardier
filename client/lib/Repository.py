@@ -170,13 +170,14 @@ class Repository:
             component_dict = info_dict[component_type]
             for component_name in component_dict:
                 full_path = component_dict[component_name]["path"]
-                full_name = full_path.split(os.path.sep)[0]
+                full_name = full_path.split(os.path.sep)[-1]
                 full_name = full_name.split('.tar.gz')[0]
                 src = os.path.join(base_path, component_type, full_name)
                 dst = os.path.join(pkg_path, component_type, component_name)
                 if os.path.islink(dst):
                     continue
                 cmd = "ln -s %s %s" % (src, dst)
+                #Logger.info("CMD: (%s)" % cmd)
                 if os.system(cmd) != OK:
                     msg = "Could not create symlink (%s)" % cmd
                     raise Exceptions.BadPackage(full_name, msg)

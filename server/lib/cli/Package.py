@@ -104,7 +104,7 @@ class Package(PinshCmd.PinshCmd):
         command = tokens[2].lower()
 
         if command == "edit":
-            return Edit.Machine().cmd(["edit", "package", package_name], 0)
+            return Edit.Package().cmd(["edit", "package", package_name], 0)
 
         if command == "build":
             svn_password = ''

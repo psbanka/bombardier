@@ -362,6 +362,7 @@ class BombardierMachineInterface(MachineInterface):
 
     def new_upload_new_packages(self):
         "Send needed packages to a machine using symlinks and rsync"
+        self.polling_log.debug("Syncing packages...")
         dest_path = os.path.join(self.spkg_dir, "repos")
         try:
             package_names = self.machine_status.get_package_names_from_progress()
@@ -400,9 +401,9 @@ class BombardierMachineInterface(MachineInterface):
         for file in spkg_files:
             self.server_log.debug("FOUND: %s" % file)
             cmd = "ln -fs %s %s/" % (file, dest)
-            self.polling_log.warning(cmd)
             self.gso(cmd)
         #os.system("rm -rf %s" % tmp_path)
+        self.polling_log.debug("...Finished syncing packages.")
 
     def dump_trace(self):
         "Pretty print a stack trace into the logs"
