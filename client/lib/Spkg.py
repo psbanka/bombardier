@@ -70,6 +70,7 @@ def mainV4(cls):
 
 def mainV5(cls):
     main(cls)
+
 def dumpReport(report, logger):
     instanceName = get_instance()
     outputPath = os.path.join(getSpkgPath(), instanceName, "output")
@@ -231,7 +232,7 @@ class SpkgV5:
 class Spkg(SpkgV5):
     "Kept for backwards compatibility"
     def __init__(self, config, filesystem = Filesystem(), logger = None):
-        SpkgV5.__init__(self, config, logger, filesystem)
+        SpkgV5.__init__(self, config)
         self.thisPackagesName = self.this_package_name
 
     def checkStatus(self, status, err_msg="FAILED"):

@@ -16,6 +16,8 @@ from bombardier_core.static_data import INIT, FIX, PURGE
 from bombardier_core.static_data import ACTION_DICT, RETURN_DICT
 from bombardier_core.mini_utility import updateDict
 from MachineStatus import MachineStatus, LOCAL_PACKAGES
+import random
+from bombardier_core import libCipher
 
 from pexpect import EOF
 import tempfile
@@ -190,9 +192,6 @@ class BombardierMachineInterface(MachineInterface):
         return False
 
     def scp_all_client_data(self, raw_data):
-        import random
-        from bombardier_core import libCipher
-
         enc_key = self.data['config_key']
         yaml_data_str = yaml.dump(raw_data)
         enc_data = libCipher.encrypt(yaml_data_str, enc_key)
@@ -227,6 +226,7 @@ class BombardierMachineInterface(MachineInterface):
         if 'config_key' in self.data:
             self.scp_all_client_data(send_data)
         else:
+            self.polling_log.warning("Streaming configuration data...")
             self.stream_data(yaml.dump(send_data))
 
     def get_bc_command(self):
@@ -333,6 +333,8 @@ class BombardierMachineInterface(MachineInterface):
             for sync_item in sync_section:
                 sync_data = sync_section[sync_item]
                 sync_file = sync_data.get("path")
+                if not sync_file:
+                    raise PackageNotFound(package_name, "No PATH DEFINED")
                 if not sync_file.startswith(os.path.sep):
                     sync_file = os.path.join(self.server_home, "repos",
                                              dir, sync_file)
@@ -349,6 +351,7 @@ class BombardierMachineInterface(MachineInterface):
             file_list = files_to_send[directory_name]
             for file_name in file_list:
                 cmd = "ln -s %s %s" % (file_name, subdir)
+                self.server_log.info("Running: %s" % cmd)
                 os.system(cmd)
         return tmp_path
 
