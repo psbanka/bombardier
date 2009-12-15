@@ -143,6 +143,38 @@ class MachineStartReconcileEntry(CnmResource):
         responder = JsonDictResponder(output)
         return responder.element(request)
 
+class MachineUnPushEntry(CnmResource):
+    "Remove cleartext configuration data to a machine for troubleshooting"
+    @login_required
+    def create(self, request, machine_name):
+        "Run a job to initialize bombardier client on a machine"
+        output = {"status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            server_home = CnmResource.get_server_home()
+            dispatcher.set_server_home(request.user, server_home)
+            output = dispatcher.unpush_job(request.user, machine_name)
+        except Exception:
+            output.update(self.dump_exception(request))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
+class MachinePushEntry(CnmResource):
+    "Push cleartext configuration data to a machine for troubleshooting"
+    @login_required
+    def create(self, request, machine_name):
+        "Run a job to initialize bombardier client on a machine"
+        output = {"status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            server_home = CnmResource.get_server_home()
+            dispatcher.set_server_home(request.user, server_home)
+            output = dispatcher.push_job(request.user, machine_name)
+        except Exception:
+            output.update(self.dump_exception(request))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
 class MachineStartInitEntry(CnmResource):
     "Initialize bombardier client class"
     @login_required
@@ -306,6 +338,10 @@ urlpatterns = patterns('',
        MachineStatusEntry(permitted_methods = ['GET','POST'])),
    url(r'^json/machine/reconcile/(?P<machine_name>.*)',
        MachineStartReconcileEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/unpush/(?P<machine_name>.*)',
+       MachineUnPushEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/push/(?P<machine_name>.*)',
+       MachinePushEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/init/(?P<machine_name>.*)',
        MachineStartInitEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/dist/(?P<machine_name>.*)',

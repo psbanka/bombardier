@@ -140,10 +140,12 @@ class Machine(PinshCmd.PinshCmd):
         execute = PinshCmd.PinshCmd("execute", "execute\trun an action on a package")
         ssh = PinshCmd.PinshCmd("ssh", "ssh\tconnect directly to this machine from the cli")
         edit = PinshCmd.PinshCmd("edit", "edit\tedit the configuration for this machine")
+        push = PinshCmd.PinshCmd("push", "push\tsend cleartext configuration data to machine for troublehsooting")
+        unpush = PinshCmd.PinshCmd("unpush", "unpush\tremove cleartext configuration data from machine")
         self.machine_field.children = [test, dist, init, enable, ssh, summary,
                                        disable, check_status, status, edit,
                                        reconcile, execute, install, uninstall,
-                                       configure, verify]
+                                       configure, verify, push, unpush]
 
         # Third-level commands
         dist_field = ConfigField(data_type=DIST)
@@ -258,6 +260,18 @@ class Machine(PinshCmd.PinshCmd):
 
         if command == "summary" and len(tokens) == 3:
             return Summary().cmd(["show", "summary", machine_name], 0)
+
+        if command == "push":
+            url = "/json/machine/push/%s" % machine_name
+            post_data = {"machine": machine_name}
+            job_name = system_state.cnm_connector.get_job(url, post_data)
+            return system_state.cnm_connector.watch_job(job_name)
+
+        if command == "unpush":
+            url = "/json/machine/unpush/%s" % machine_name
+            post_data = {"machine": machine_name}
+            job_name = system_state.cnm_connector.get_job(url, post_data)
+            return system_state.cnm_connector.watch_job(job_name)
 
         if command in ["install", "uninstall", "verify",
                        "configure", "execute"]:

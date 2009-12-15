@@ -17,7 +17,7 @@ class AbstractMachineInterface:
         self.job_name      = None
         self.output_handle = sys.stdout
         self.status        = DISCONNECTED
-        self.machine_name  = "CNM Server"
+        self.machine_name  = "CNM_Server"
         self.server_home   = None
         self.data          = {}
         self.user_name     = None

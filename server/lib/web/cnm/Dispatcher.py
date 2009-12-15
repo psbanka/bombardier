@@ -108,7 +108,7 @@ class Job(Thread):
         self.machine_interface = machine_interface
         self.start_time = None
         self.elaped_time = None
-        self.command_status = FAIL
+        self.command_status = OK
         self.command_output = None
         self.output_pointer = 0
         self.final_logs = []
@@ -236,10 +236,47 @@ class Dispatcher(Pyro.core.ObjBase):
             output["status"] = FAIL
         return output
 
+    def unpush_job(self, username, machine_name):
+        "remove cleartext configuration data to the remote machine for testing"
+        output = {"status": OK}
+        commands = []
+        try:
+            machine_interface = self.get_machine_interface(username,
+                                                           machine_name)
+            config_path = os.path.join(machine_interface.spkg_dir,
+                                       machine_interface.machine_name)
+            clear = ShellCommand("Removing cleartext configuration file", 
+                                 "rm -f config.yml", config_path)
+            commands = [clear]
+        except Exception:
+            output.update(self.dump_exception(username))
+            output["status"] = FAIL
+            return output
+        return self.start_job(username, machine_interface, commands, 
+                              {}, False)
+
+    def push_job(self, username, machine_name):
+        "push cleartext configuration data to the remote machine for testing"
+        output = {"status": OK}
+        copy_dict = {}
+        try:
+            machine_interface = self.get_machine_interface(username,
+                                                           machine_name)
+            spkg_dir = machine_interface.spkg_dir
+            src = os.path.join("machine", "%s.yml" % machine_name)
+            dst = os.path.join(spkg_dir, machine_interface.machine_name,
+                               "config.yml")
+            copy_dict = {"config": [ src, dst ]}
+        except exception:
+            output.update(self.dump_exception(username))
+            output["status"] = fail
+            return output
+        return self.start_job(username, machine_interface, [], 
+                              copy_dict, False)
+
     def init_job(self, username, machine_name):
         "Initialize a bombardier client install"
         output = {"status": OK}
-        copy_dict = {}
         try:
             machine_interface = self.get_machine_interface(username,
                                                            machine_name)
@@ -263,12 +300,11 @@ class Dispatcher(Pyro.core.ObjBase):
             output["status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands, 
-                              copy_dict, False)
+                              {}, False)
 
     def bom_job(self, username, machine_name, action_string):
         "Run a bom level job on a machine"
         output = {"status": OK}
-        copy_dict = {}
         try:
             machine_interface = self.get_machine_interface(username,
                                                            machine_name)
@@ -279,7 +315,7 @@ class Dispatcher(Pyro.core.ObjBase):
             output["status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands,
-                              copy_dict, True)
+                              {}, True)
 
     def check_status_job(self, username, machine_name):
         "Check a machine's install status against its bom"
@@ -356,7 +392,7 @@ class Dispatcher(Pyro.core.ObjBase):
                               "~/%s" % dist_name)
             commands = [unpack, install]
             src_file = dist_name+".tar.gz"
-            copy_dict = {"dist": [src_file]}
+            copy_dict = {"dist": [os.path.join("dist",src_file), '.']}
         except Exception:
             output.update(self.dump_exception(username))
             output["status"] = FAIL
@@ -372,7 +408,7 @@ class Dispatcher(Pyro.core.ObjBase):
                                                            machine_name)
             machine_interface.ssh_pass = password
             public_key = "id_dsa.pub"
-            copy_dict = { "admin" : [public_key] }
+            copy_dict = { "admin" : [os.path.join("admin", public_key), '.'] }
             ssh_keys_dir = "~/.ssh"
             ssh_keys_dir_cmd = "[ -e %s ] || mkdir %s && chmod 700 %s" \
                              % (ssh_keys_dir, ssh_keys_dir, ssh_keys_dir)
@@ -400,7 +436,7 @@ class Dispatcher(Pyro.core.ObjBase):
             public_key = "id_dsa.pub"
             auth_keys = ".ssh/authorized_keys2"
             tmp_auth = "tmp_auth_keys2"
-            copy_dict = { "admin" : [public_key] }
+            copy_dict = { "admin" : [os.path.join("admin", public_key), '.'] }
 
             filter_cmd = """grep -v "$( awk '{print $3}' < %s""" % public_key
             filter_cmd += """)" < %s > %s""" % ( auth_keys, tmp_auth )

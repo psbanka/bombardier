@@ -146,6 +146,8 @@ class BasicTest:
 
         url = '/json/machine/cleanup'
         response = self.client.post(path=url, data={})
+        if verbose:
+            print "FINAL OUTPUT: (%s) / (%s)" % (join_output["command_status"], join_output["complete_log"])
         return join_output["command_status"], join_output["complete_log"]
 
     def make_localhost_config(self, additional_config={}):
@@ -321,11 +323,20 @@ class CnmTests(unittest.TestCase, BasicTest):
 
         
 
-
 class DispatcherTests(unittest.TestCase, BasicTest):
 
     def setUp(self):
         BasicTest.setUp(self)
+
+    def test_push_config(self):
+        url = '/json/machine/push/localhost'
+        status, output = self.run_job(url)
+        assert status == OK
+        assert os.path.isfile("/opt/spkg/localhost/config.yml")
+        url = '/json/machine/unpush/localhost'
+        status, output = self.run_job(url)
+        assert status == OK
+        assert os.path.isfile("/opt/spkg/localhost/config.yml") == False
 
     def test_run_check_job(self):
         url = '/json/machine/start_test/localhost'
@@ -600,7 +611,7 @@ if __name__ == '__main__':
     client = Client()
     initialize_tests(client)
 
-    full_suite = 1
+    full_suite = 0
     suite = unittest.TestSuite()
     if full_suite:
         suite.addTest(unittest.makeSuite(CnmTests))
@@ -608,7 +619,7 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        suite.addTest(PackageTests("test_encrypted_ci"))
+        suite.addTest(DispatcherTests("test_push_config"))
         #suite.addTest(CnmTests("test_search"))
         #suite.addTest(PackageTests("test_package_build"))
         #suite.addTest(PackageTests("test_package_actions"))
