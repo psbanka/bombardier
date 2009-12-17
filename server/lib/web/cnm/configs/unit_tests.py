@@ -459,6 +459,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         url = '/json/package_build/%s' % package_name
         post_data = {"svn_user": SVN_USER,
                      "svn_password": SVN_PASSWORD,
+                     "debug": False, "prepare": True
                     }
         status, output = self.run_job(url, data=post_data, timeout=60)
         assert status == OK
@@ -611,7 +612,7 @@ if __name__ == '__main__':
     client = Client()
     initialize_tests(client)
 
-    full_suite = 0
+    full_suite = 1
     suite = unittest.TestSuite()
     if full_suite:
         suite.addTest(unittest.makeSuite(CnmTests))
@@ -619,9 +620,10 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        suite.addTest(DispatcherTests("test_push_config"))
+        #suite.addTest(PackageTests("test_encrypted_ci"))
         #suite.addTest(CnmTests("test_search"))
         #suite.addTest(PackageTests("test_package_build"))
+        suite.addTest(PackageTests("test_type5_package_actions"))
         #suite.addTest(PackageTests("test_package_actions"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)

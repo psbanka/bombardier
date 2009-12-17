@@ -42,32 +42,34 @@ class LocalMachineInterface(AbstractMachineInterface):
             cmd = "svn export --no-auth-cache -r %s --username %s %s %s"
         cmd = cmd % (version, svn_user, svn_url, checkout_dir)
         
+        #self.server_log.info("cmd: (%s)" % cmd, self.machine_name)
         svn_conn = pexpect.spawn(cmd, timeout=30)
-        select_index = 100
         while True:
             expect_list = [re.compile("Exported revision (\d+)"),
                            re.compile("Checked out revision (\d+)"),
                            str("Password for '%s':" % svn_user),
                            re.compile("A\s+(\S+)"),
                            "svn: REPORT request failed", 
+                           "is already a working copy",
                            "doesn't exist", pexpect.TIMEOUT, pexpect.EOF]
             select_index = svn_conn.expect(expect_list, timeout=50)
-            #self.polling_log.info("SELECT INDEX: (%s)" % select_index)
+            #self.server_log.info("SELECT INDEX: (%s)" % select_index, self.machine_name)
             if select_index == 0 or select_index == 1:
                 version = svn_conn.match.groups()[0]
+                self.server_log.info("Exported version %s" % version)
                 break
             elif select_index == 2:
                 svn_conn.sendline(svn_password)
             elif select_index == 3:
                 self.polling_log.info("--- %s" % svn_conn.match.groups()[0])
-            elif select_index > 2:
-                msg = "Could not execute SVN export"
+            elif select_index > 3:
+                msg = "Could not execute SVN export (%s)" % select_index
                 raise CnmServerException(msg)
         svn_conn.close()
         return version
 
-    def _build_component(self, component_dict, section_name, svn_user,
-                         svn_password, tmp_path, debug, prepare):
+    def _build_component(self, component_dict, section_name,
+                         svn_user, svn_password, tmp_path, debug, prepare):
         '''Export one item from SVN and create an appropriate TAR file
         component_dict -- dictionary of item data
         section_name -- either 'libs' or 'injectors'
@@ -93,7 +95,9 @@ class LocalMachineInterface(AbstractMachineInterface):
                 self.polling_log.info(msg)
                 return None
         start_path = os.getcwd()
-        checkout_dir = os.path.join(tmp_path, base)
+        checkout_dir = os.path.join(tmp_path, section_name, base)
+        if not os.path.isdir(checkout_dir):
+            os.system("mkdir -p %s" % checkout_dir)
         
         msg = "Checking out and building %s..." % base
         self.polling_log.info(msg)

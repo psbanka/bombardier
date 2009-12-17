@@ -193,7 +193,7 @@ class PackageV4(Package):
         file_found = False
         for file_name in files:
             try:
-                obj = Spkg.SpkgV4(self.config, Logger)
+                obj = Spkg.SpkgV4(self.config, logger=Logger)
                 self.filesystem.chdir(self.working_dir)
                 letters = [ chr( x ) for x in range(65, 91) ]
                 random.shuffle(letters)
