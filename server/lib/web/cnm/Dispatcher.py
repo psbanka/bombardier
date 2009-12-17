@@ -35,18 +35,22 @@ class AbstractCommand:
 
 class BuildCommand(AbstractCommand):
     "Package build command"
-    def __init__(self, package_name, svn_user, svn_password):
+    def __init__(self, package_name, svn_user, svn_password,
+                 debug, prepare):
         name = "Build-%s" % (package_name)
         AbstractCommand.__init__(self, name)
         self.package_name = package_name
         self.svn_user = svn_user
         self.svn_password = svn_password
+        self.debug = debug
+        self.prepare = prepare
 
     def execute(self, machine_interface):
         "Build the package"
         return machine_interface.build_components(self.package_name,
                                                   self.svn_user,
-                                                  self.svn_password)
+                                                  self.svn_password,
+                                                  self.debug, self.prepare)
 
     def info(self):
         "Return command to be run on the remote machine"
@@ -109,7 +113,7 @@ class Job(Thread):
         self.start_time = None
         self.elaped_time = None
         self.command_status = OK
-        self.command_output = None
+        self.command_output = ''
         self.output_pointer = 0
         self.final_logs = []
         self.elapsed_time = 0
@@ -152,6 +156,8 @@ class Job(Thread):
             for line in data.split('\n'):
                 ermsg = "%% %s" % line
                 self.server_log.error(ermsg, self.name)
+            self.command_status = FAIL
+            self.command_output += "Exception in server. Check log for details"
 
 class Dispatcher(Pyro.core.ObjBase):
     "Dispatcher class, manages jobs on remote machines"
@@ -326,7 +332,7 @@ class Dispatcher(Pyro.core.ObjBase):
         return self.bom_job(username, machine_name, "reconcile")
 
     def package_build_job(self, username, package_name, svn_user,
-                          svn_password):
+                          svn_password, debug, prepare):
         '''
         Looks at a package .yml file and revises data regarding it
         username -- the name of the user issuing the command
@@ -337,7 +343,8 @@ class Dispatcher(Pyro.core.ObjBase):
         output = {"command_status": OK}
         try:
             machine_interface = self.get_local_machine()
-            build_cmd = BuildCommand(package_name, svn_user, svn_password)
+            build_cmd = BuildCommand(package_name, svn_user, svn_password,
+                                     debug, prepare)
             commands = [build_cmd]
 
         except Exception:

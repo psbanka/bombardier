@@ -113,7 +113,9 @@ class Package(PinshCmd.PinshCmd):
                 svn_password = libUi.pwd_input("svn password: ")
             url = "/json/package_build/%s" % package_name
             post_data = {"svn_user": svn_user,
-                         "svn_password": svn_password}
+                         "svn_password": svn_password,
+                         "debug": True,
+                         "prepare": True}
             try:
                 job_name = system_state.cnm_connector.get_job(url, post_data)
                 output = system_state.cnm_connector.watch_job(job_name)

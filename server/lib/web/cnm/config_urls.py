@@ -218,9 +218,17 @@ class PackageCollection(ConfigCollection):
     "Package config collection"
     @login_required
     def read(self, request, package_name):
-        "Call superclass read method with collection type"
-        sup = super(PackageCollection, self)
-        return sup.read(request, "package", package_name)
+        "Expose custom fields for Package type collection and return as json"
+        server_home = self.get_server_home()
+        package_path = os.path.join(server_home, "package")
+        files = glob.glob(os.path.join(package_path, "%s*.yml" % package_name))
+        output = []
+        for filename in files:
+            full_pkn = filename.rpartition('.yml')[0]
+            full_pkn = full_pkn.rpartition(os.path.sep)[-1]
+            output.append({"fields": {"name": full_pkn}})
+        responder = JsonDictResponder(output)
+        return responder.element(request)
 
 class DistCollection(ConfigCollection):
     "Dist config collection"

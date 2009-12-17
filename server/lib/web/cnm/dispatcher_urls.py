@@ -35,11 +35,14 @@ class PackageBuildEntry(CnmResource):
         try:
             svn_user = safe_get(request, "svn_user")
             svn_password = safe_get(request, "svn_password")
+            debug = safe_get(request, "debug")
+            prepare = safe_get(request, "prepare")
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
             output = dispatcher.package_build_job(request.user, package_name,
-                                                  svn_user, svn_password) 
+                                                  svn_user, svn_password, debug,
+                                                  prepare) 
         except Exception:
             output.update(self.dump_exception(request))
         responder = JsonDictResponder(output)
