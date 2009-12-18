@@ -95,6 +95,11 @@ class Config(dict):
         'for dictionary impersonation'
         return self.data.keys()
 
+    def getInstance(self):
+        'deprecated function'
+        Logger.warning("getInstance is Deprecated: use get_instance instead")
+        return get_instance()
+
     def get_instance(self):
         'getter'
         return self.instance_name

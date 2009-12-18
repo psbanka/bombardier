@@ -61,6 +61,9 @@ class MachineConfig:
         new_data = syck.load( open(file_name, 'r').read() )
         if new_data == None:
             new_data = {}
+        if type(new_data) != type({}):
+            errmsg = "Error parsing %s (syck did not get a dict)" % file_name
+            raise MachineConfigurationException(self.machine_name, errmsg)
         self.data = addDictionaries(self.data, new_data)
         new_includes = self.find_include_list(new_data)
         self.load_includes(new_includes)

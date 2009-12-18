@@ -18,7 +18,7 @@ from MachineStatus import MachineStatus
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 import yaml
-from Exceptions import MachineStatusException
+from Exceptions import MachineStatusException, MachineConfigurationException
 
 MAPPER = {"merged": Machine, "machine": Machine, "include": Include,
           "bom": Bom, "package": Package, "status": Status }
@@ -122,6 +122,9 @@ class SummaryEntry(CnmResource):
             output = mbs.machine_install_status()
             output["command_status"] = "OK"
         except MachineStatusException, err:
+            output["command_status"] = "FAIL"
+            output["command_output"] = str(err)
+        except MachineConfigurationException, err:
             output["command_status"] = "FAIL"
             output["command_output"] = str(err)
         responder = JsonDictResponder(output)
