@@ -98,7 +98,7 @@ class Config(dict):
     def getInstance(self):
         'deprecated function'
         Logger.warning("getInstance is Deprecated: use get_instance instead")
-        return get_instance()
+        return self.get_instance()
 
     def get_instance(self):
         'getter'
