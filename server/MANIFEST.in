@@ -1,0 +1,2 @@
+include lib/web/cnm/templates/*.html
+include lib/web/cnm/templates/registration/*.html
