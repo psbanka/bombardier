@@ -50,8 +50,8 @@ class LocalMachineInterface(AbstractMachineInterface):
         else:
             cmd = "svn export --no-auth-cache -r %s --username %s %s %s"
         cmd = cmd % (version, svn_user, svn_url, checkout_dir)
-        
-        #self.server_log.info("cmd: (%s)" % cmd, self.machine_name)
+        self.polling_log.info("CMD: --- %s" % cmd)
+        self.server_log.info("cmd: (%s)" % cmd, self.machine_name)
         svn_conn = pexpect.spawn(cmd, timeout=30)
         while True:
             expect_list = [re.compile("Exported revision (\d+)"),
@@ -95,7 +95,7 @@ class LocalMachineInterface(AbstractMachineInterface):
         if prepare:
             version = "HEAD"
         else:
-            version = component_dict["version"]
+            version = component_dict.get("version", "HEAD")
         expected_file_path = os.path.join(self.server_home, "repos",
                                           section_name,
                                           "%s-%s.tar.gz" % (base, version))
@@ -124,7 +124,7 @@ class LocalMachineInterface(AbstractMachineInterface):
         if status != OK:        
             msg = "Could not create tarball"
             raise CnmServerException(msg)
-        return tar_file_path
+        return tar_file_path, version
 
     def _inspect_libraries(self, tmp_path, pkg_data):
         """This will instantiate the Bombardier installer script and collect
@@ -137,13 +137,11 @@ class LocalMachineInterface(AbstractMachineInterface):
 
         class_name = pkg_data.get("class_name")
 
-
         letters = [ chr( x ) for x in range(65, 91) ]
         random.shuffle(letters)
         rand_name = ''.join(letters)
         self.polling_log.info("My current directory: %s" % os.getcwd())
         cmd = "import %s as %s" % ( class_name, rand_name )
-        import glob
         exec(cmd)
         config = MockConfig()
         exec ('object = %s.%s(config)' % ( rand_name, class_name.split('.')[0]))
@@ -174,27 +172,28 @@ class LocalMachineInterface(AbstractMachineInterface):
         package_name -- the name of the package we're modifying
         svn_user / svn_password -- svn credentials
         '''
-        tmp_path = tempfile.mkdtemp()
-        package_file = os.path.join(self.server_home, "package",
-                                    "%s.yml" % package_name)
-        pkg_data = yaml.load(open(package_file).read())
-        release = pkg_data.get("release", 0)
-        output = []
-        for section_name in ["injectors", "libs"]:
-            for component_name in pkg_data[section_name]:
-                component_dict = pkg_data[section_name][component_name]
-                path = component_dict.get("path", '')
-                if "svn" in component_dict and "version" in component_dict:
-                    tar_file_path = self._build_component(component_dict,
-                                                          section_name,
-                                                          svn_user,
-                                                          svn_password,
-                                                          tmp_path, debug,
-                                                          prepare)
-                    if tar_file_path:
-                        pkg_data[section_name][component_name]["path"] = tar_file_path
-                        output.append("built %s" % tar_file_path)
         try:
+            tmp_path = tempfile.mkdtemp()
+            package_file = os.path.join(self.server_home, "package",
+                                        "%s.yml" % package_name)
+            pkg_data = yaml.load(open(package_file).read())
+            release = pkg_data.get("release", 0)
+            output = []
+            for section_name in ["injectors", "libs"]:
+                for component_name in pkg_data[section_name]:
+                    component_dict = pkg_data[section_name][component_name]
+                    path = component_dict.get("path", '')
+                    if "svn" in component_dict:
+                        tar_file_path, version = self._build_component(component_dict,
+                                                              section_name,
+                                                              svn_user,
+                                                              svn_password,
+                                                              tmp_path, debug,
+                                                              prepare)
+                        pkg_data[section_name][component_name]["version"] = version
+                        if tar_file_path:
+                            pkg_data[section_name][component_name]["path"] = tar_file_path
+                            output.append("built %s" % tar_file_path)
             pkg_data["release"] = release + 1
             configuration, methods = self._inspect_libraries(tmp_path, pkg_data)
             pkg_data['configuration'] = configuration
