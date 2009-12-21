@@ -273,9 +273,9 @@ class Dispatcher(Pyro.core.ObjBase):
             dst = os.path.join(spkg_dir, machine_interface.machine_name,
                                "config.yml")
             copy_dict = {"config": [ src, dst ]}
-        except exception:
+        except Exception:
             output.update(self.dump_exception(username))
-            output["status"] = fail
+            output["status"] = FAIL
             return output
         return self.start_job(username, machine_interface, [], 
                               copy_dict, False)
@@ -585,16 +585,16 @@ if __name__ == '__main__':
     import settings
     setup_environ(settings)
 
-#    #Pyro.core.initServer()
-#    daemon = Pyro.core.Daemon()
+    Pyro.core.initServer()
+    daemon = Pyro.core.Daemon()
 #    ns = Pyro.naming.NameServerLocator().getNS()
 #    daemon.useNameServer(ns)
 #
 #    #daemon=Pyro.core.Daemon()
-#    #print "The daemon runs on port:",daemon.port
-#    #print "The object's uri is:",uri
+    uri = daemon.connect(Dispatcher(),"dispatcher")
+    print "The daemon runs on port:",daemon.port
+    print "The object's uri is:",uri
 #
-#    uri = daemon.connect(Dispatcher(),"dispatcher")
-#    print "Started server."
-#    daemon.requestLoop()
+    print "Started server."
+    daemon.requestLoop()
 #

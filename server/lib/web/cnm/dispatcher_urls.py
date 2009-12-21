@@ -34,7 +34,7 @@ class PackageBuildEntry(CnmResource):
         output = {"status": OK}
         try:
             svn_user = safe_get(request, "svn_user")
-            svn_password = safe_get(request, "svn_password")
+            svn_password = request.POST.get("svn_password", "")
             debug = safe_get(request, "debug")
             prepare = safe_get(request, "prepare")
             dispatcher = self.get_dispatcher()
@@ -304,7 +304,16 @@ class DispatcherControlEntry(CnmResource):
                 dispatcher.set_server_home(request.user, server_home)
                 password = request.POST.get("password", "")
                 output = dispatcher.set_password(password)
-
+            elif action == "attach":
+                try:
+                    uri = request.POST.get("uri", "")
+                    status = self.attach_dispatcher(uri)
+                    output["command_status"] = status
+                    msg = "Attached to dispatcher %s" % uri
+                    output["command_output"] = [msg]
+                except DispatcherOffline:
+                    msg = "Dispatcher %s is offline / cannot attach" % uri
+                    output["command_output"] = [msg]
             elif action == "start":
                 try:
                     status = self.start_dispatcher()

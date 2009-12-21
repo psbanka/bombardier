@@ -37,7 +37,7 @@ import PinshCmd
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState, ENABLE
 from Exceptions import CommandError, ServerException
-import MultipleChoice
+from Expression import Expression
 system_state = SystemState()
 
 class Dispatcher(PinshCmd.PinshCmd):
@@ -60,12 +60,14 @@ class Dispatcher(PinshCmd.PinshCmd):
         self.help_text = "dispatcher\tdispatcher control commands and status"
         self.cmd_owner = 1
 
-        choices = ["start", "stop", "status"]
-        help_text = ["start the dispatcher", "stop the dispatcher",
-                     "check dispatcher status"]
-        dispatcher_actions = MultipleChoice.MultipleChoice(choices, help_text)
+        start = PinshCmd.PinshCmd("start", "start\tstart the dispatcher")
+        stop = PinshCmd.PinshCmd("stop", "stop\tstop the dispatcher")
+        status = PinshCmd.PinshCmd("status", "status\tstatus of the dispatcher")
+        attach = PinshCmd.PinshCmd("attach", "attach\tattach to an already-running dispatcher")
+        dispatcher_uri = Expression("uri")
+        attach.children = [dispatcher_uri]
 
-        self.children = [dispatcher_actions]
+        self.children = [start, stop, status, attach]
         self.auth = ENABLE
 
     def cmd(self, tokens, no_flag):
@@ -74,5 +76,10 @@ class Dispatcher(PinshCmd.PinshCmd):
         no_flag -- whether the 'no' keyword was used in the command string
         """
         action = tokens[1].lower()
-        return system_state.cnm_connector.dispatcher_control(action)
+        post_data = {}
+        if action == "attach":
+            if len(tokens) < 3:
+                raise CommandError("Incomplete command")
+            post_data["uri"]= tokens[2]
+        return system_state.cnm_connector.dispatcher_control(action, post_data)
 

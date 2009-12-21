@@ -320,7 +320,7 @@ class CnmConnector:
         output = self.service_yaml_request(url, post_data=post_data)
         return output["command_status"], output["command_output"]
 
-    def dispatcher_control(self, action):
+    def dispatcher_control(self, action, post_data = {}):
         dispatcher_url = "/json/dispatcher/%s" % action
         if action == "status":
             output = self.service_yaml_request(dispatcher_url)
@@ -335,7 +335,8 @@ class CnmConnector:
         else:
             try:
                 output = self.service_yaml_request(dispatcher_url, 
-                                                   post_data = {}, timeout=5)
+                                                   post_data = post_data,
+                                                   timeout=5)
             except ServerException:
                 if action == "start":
                     output = {"command_status": OK,

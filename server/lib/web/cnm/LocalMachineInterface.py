@@ -7,7 +7,8 @@ from Exceptions import CnmServerException
 import pexpect
 import tempfile
 import os, re, sys
-import yaml
+import yaml, random
+import StringIO, traceback
 from commands import getstatusoutput as gso
 from MockConfig import MockConfig
 
@@ -32,7 +33,15 @@ class LocalMachineInterface(AbstractMachineInterface):
 
     def dump_trace(self):
         "Pretty print a stack trace into the logs"
-        pass
+        exc = StringIO.StringIO()
+        traceback.print_exc(file=exc)
+        exc.seek(0)
+        data = exc.read()
+        ermsg = ''
+        for line in data.split('\n'):
+            ermsg = "%% %s" % line
+            self.polling_log.error(ermsg)
+            self.server_log.error(ermsg, self.machine_name)
 
     def _svn_checkout(self, version, svn_user, svn_password,
                       svn_url, checkout_dir, debug):
@@ -63,6 +72,8 @@ class LocalMachineInterface(AbstractMachineInterface):
             elif select_index == 3:
                 self.polling_log.info("--- %s" % svn_conn.match.groups()[0])
             elif select_index > 3:
+                for line in svn_conn.before.split('\n'):
+                    self.polling_log.info("--- %s" % line)
                 msg = "Could not execute SVN export (%s)" % select_index
                 raise CnmServerException(msg)
         svn_conn.close()
@@ -109,6 +120,7 @@ class LocalMachineInterface(AbstractMachineInterface):
                                      "%s-%s.tar.gz" % (base, version))
         cmd = "tar -czf %s *" % ( tar_file_path )
         status, output = gso(cmd)
+        os.chdir( start_path )
         if status != OK:        
             msg = "Could not create tarball"
             raise CnmServerException(msg)
@@ -117,26 +129,43 @@ class LocalMachineInterface(AbstractMachineInterface):
     def _inspect_libraries(self, tmp_path, pkg_data):
         """This will instantiate the Bombardier installer script and collect
         all of the configuration information that it requires"""
-        sys.path.append(tmp_path)
+        tmp_libs = os.path.join(tmp_path, "libs")
+        sys.path.append(tmp_libs)
 
         output = []
         metadata = {}
+
         class_name = pkg_data.get("class_name")
-        exec("import %s as Pkg" % class_name )
-        if not hasattr(Pkg, "metadata"):
+
+
+        letters = [ chr( x ) for x in range(65, 91) ]
+        random.shuffle(letters)
+        rand_name = ''.join(letters)
+        self.polling_log.info("My current directory: %s" % os.getcwd())
+        cmd = "import %s as %s" % ( class_name, rand_name )
+        import glob
+        exec(cmd)
+        config = MockConfig()
+        exec ('object = %s.%s(config)' % ( rand_name, class_name.split('.')[0]))
+
+        if not hasattr(object, "metadata"):
             msg = "Package does not contain any metadata"
             self.polling_log.info(msg)
         else:
-            metadata = Pkg.metadata
-        config = MockConfig()
-        exec ('object = Pkg.%s(config)' % class_name.split('.')[0])
-        pkg_data['configuration'] = config.get_requests()
-        for item in pkg_data['configuration']:
-            self.polling_log.info("Configuration item: %s" % item)
+            metadata = object.metadata
+        config_requests = config.get_requests()
+        for item in config_requests:
+            self.polling_log.info("Configuration dictionary: %s" % item)
+        public_methods = []
+        for method in dir(object):
+            if callable(getattr(object, method)) and not method.startswith('_'):
+                public_methods.append(method)
+
         if class_name in sys.modules:
             sys.modules.pop(class_name)
-        sys.path.remove(tmp_path)
-        return output
+        sys.path.remove(tmp_libs)
+        exec('del %s' % rand_name)
+        return config_requests, public_methods
         
     def build_components(self, package_name, svn_user, svn_password,
                          debug, prepare):
@@ -150,7 +179,6 @@ class LocalMachineInterface(AbstractMachineInterface):
                                     "%s.yml" % package_name)
         pkg_data = yaml.load(open(package_file).read())
         release = pkg_data.get("release", 0)
-        modified = False
         output = []
         for section_name in ["injectors", "libs"]:
             for component_name in pkg_data[section_name]:
@@ -164,17 +192,19 @@ class LocalMachineInterface(AbstractMachineInterface):
                                                           tmp_path, debug,
                                                           prepare)
                     if tar_file_path:
-                        modified = True
                         pkg_data[section_name][component_name]["path"] = tar_file_path
                         output.append("built %s" % tar_file_path)
-        if modified:
+        try:
             pkg_data["release"] = release + 1
+            configuration, methods = self._inspect_libraries(tmp_path, pkg_data)
+            pkg_data['configuration'] = configuration
+            pkg_data['executables'] = methods
             open(package_file, 'w').write(yaml.dump(pkg_data))
-            output += self._inspect_libraries(tmp_path, pkg_data)
-        else:
-            output = ["Nothing to do."]
-        cmd = "rm -rf %s" % ( tmp_path )
-        status, output = gso(cmd)
+            self.polling_log.info("Note: not deleting %s" % tmp_path)
+        except Exception:
+            self.dump_trace()
+            advice = "%s is still available for code inspection." % tmp_path
+            self.polling_log.error(advice)
         
         return OK, output
 

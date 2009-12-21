@@ -102,7 +102,7 @@ class SpkgV5:
         self.logger = Logger
         self.config = config
 
-    def dump_report(self, report = None):
+    def _dump_report(self, report = None):
         '''
         command -- the command that was run
         report -- a dictionary of the data that was generated
@@ -121,33 +121,33 @@ class SpkgV5:
         for line in yaml_string.split('\n'):
             Logger.info("==REPORT==:%s" % line)
 
-    def check_status(self, status, err_msg="FAILED"):
+    def _check_status(self, status, err_msg="FAILED"):
         'small convenience function'
         if status != OK:
             raise SpkgException(err_msg)
 
-    def system(self, command, err_msg=""):
+    def _system(self, command, err_msg=""):
         '''run a command and raise if there's an error'''
         err_msg = command
         self.check_status( os.system( command ), err_msg )
 
-    def debug(self, string):
+    def _debug(self, string):
         'log a debug-level message'
         Logger.debug("[%s]|%s" % (self.this_package_name, string))
 
-    def info(self, string):
+    def _info(self, string):
         'log a info-level message'
         Logger.info("[%s]|%s" % (self.this_package_name, string))
 
-    def warning(self, string):
+    def _warning(self, string):
         'log a warning-level message'
         Logger.warning("[%s]|%s" % (self.this_package_name, string))
 
-    def error(self, string):
+    def _error(self, string):
         'log a error-level message'
         Logger.error("[%s]|%s" % (self.this_package_name, string))
 
-    def critical(self, string):
+    def _critical(self, string):
         'log a critical-level message'
         Logger.critical("[%s]|%s" % (self.this_package_name, string))
 
@@ -172,7 +172,7 @@ class SpkgV5:
     def uninstall(self):
         return self._abstract()
 
-    def modify_template_string(self, input_string, output_file, encoding=None,
+    def _modify_template_string(self, input_string, output_file, encoding=None,
                                process_escape = False):
         '''
         Goes through a string and replaces templates using member variables
@@ -217,7 +217,7 @@ class SpkgV5:
             self.filesystem.open(output_file, 'wb').write(output_data.encode( encoding ))
         return status
 
-    def modify_template(self, input_file, output_file, encoding=None,
+    def _modify_template(self, input_file, output_file, encoding=None,
                         process_escape = False):
         'opens a file ane processes all template values in it'
         if encoding == None:
@@ -254,12 +254,26 @@ class Spkg(SpkgV5):
         return self.modify_template(input_file, output_file, encoding,  
                                     process_escape)
 
-    def _getname(self):
-        cwd = os.getcwd()
-        path = cwd.split(os.sep)
-        if path[-1] == "injector" or path[-1] == "scripts":
-            return path[-2]
-        return path[-1]
+    def dump_report(self, report = None):
+        return self._dump_report(report)
+
+    def system(self, command, err_msg=""):
+        return self._system(command, err_msg)
+
+    def debug(self, string):
+        return self._debug(string)
+
+    def info(self, string):
+        return self._info(string)
+
+    def warning(self, string):
+        return self._warning(string)
+
+    def error(self, string):
+        return self._error(string)
+
+    def critical(self, string):
+        return self._critical(string)
 
 class SpkgV4(Spkg):
     def __init__(self, config, filesystem = Filesystem(), logger = None):

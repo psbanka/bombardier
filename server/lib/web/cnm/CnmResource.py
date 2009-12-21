@@ -30,11 +30,12 @@ class CnmResource(Resource):
         return server_home
 
     @classmethod
-    def get_dispatcher(cls):
+    def get_dispatcher(cls, dispatcher_uri = None):
         "Create and return a dispatcher"
         try:
-            config_entry = ServerConfig.objects.get(name="dispatcher_uri")
-            dispatcher_uri = config_entry.value
+            if dispatcher_uri == None:
+                config_entry = ServerConfig.objects.get(name="dispatcher_uri")
+                dispatcher_uri = config_entry.value
             dispatcher = Pyro.core.getProxyForURI(dispatcher_uri)
             dispatcher.check_status()
         except ServerConfig.DoesNotExist:
@@ -98,6 +99,20 @@ class CnmResource(Resource):
         except ServerConfig.DoesNotExist:
             pass
         return OK
+
+    def attach_dispatcher(self, dispatcher_uri):
+        "Connect to an already-running dispatcher"
+        try:
+            self.get_dispatcher(dispatcher_uri)
+        except DispatcherOffline:
+            raise DispatcherError("Dispatcher %s is not online")
+        dispatcher_info = open("dispatcher_info.yml").read()
+        dispatcher_dict = yaml.load(dispatcher_info)
+        dispatcher_dict["dispatcher_uri"] = dispatcher_uri
+        self._standard_update(dispatcher_dict)
+        server_co = ServerConfig.objects.get(name="dispatcher_uri")
+        return self._wait_for_dispatcher(self._check_dispatcher_running,
+                                              server_co.value)
 
     def start_dispatcher(self):
         "Start dispatcher if it's not running"
