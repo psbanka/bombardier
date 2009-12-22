@@ -129,7 +129,7 @@ class SpkgV5:
     def _system(self, command, err_msg=""):
         '''run a command and raise if there's an error'''
         err_msg = command
-        self.check_status( os.system( command ), err_msg )
+        self._check_status( os.system( command ), err_msg )
 
     def _debug(self, string):
         'log a debug-level message'
@@ -201,7 +201,7 @@ class SpkgV5:
                     else:
                         config_dict[variable] = config_value
                 else:
-                    self.error('A variable was found in template "%s" for which there'\
+                    self._error('A variable was found in template "%s" for which there'\
                                " is no configuration value (variable: %s)" % (output_file, variable))
                     config_dict[variable] = 'UNKNOWN_TEMPLATE_VALUE'
                     status = FAIL
@@ -224,9 +224,9 @@ class SpkgV5:
             input_string = self.filesystem.open(input_file, 'r').read()
         else:
             input_string = unicode( self.filesystem.open(input_file, 'rb').read(), encoding )
-        self.info("Template: " + input_file )
-        self.info("Created: " + output_file )
-        return self.modify_template_string(input_string, output_file, encoding,
+        self._info("Template: " + input_file )
+        self._info("Created: " + output_file )
+        return self._modify_template_string(input_string, output_file, encoding,
                                            process_escape)
 
 class Spkg(SpkgV5):
@@ -236,7 +236,7 @@ class Spkg(SpkgV5):
         self.thisPackagesName = self.this_package_name
 
     def checkStatus(self, status, err_msg="FAILED"):
-        return self.check_status(status, err_msg)
+        return self._check_status(status, err_msg)
 
     def installer(self):
         return self.install()
@@ -246,12 +246,12 @@ class Spkg(SpkgV5):
 
     def modifyTemplateString(self, input_string, output_file, encoding=None,
                              process_escape = False):
-        return self.modify_template_string(input_string, output_file, encoding,
+        return self._modify_template_string(input_string, output_file, encoding,
                                            process_escape)
 
     def modifyTemplate(self, input_file, output_file, encoding=None,
                        process_escape = False):
-        return self.modify_template(input_file, output_file, encoding,  
+        return self._modify_template(input_file, output_file, encoding,  
                                     process_escape)
 
     def dump_report(self, report = None):
