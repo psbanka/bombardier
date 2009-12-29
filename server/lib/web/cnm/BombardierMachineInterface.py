@@ -399,12 +399,14 @@ class BombardierMachineInterface(MachineInterface):
         dest = os.path.join(self.spkg_dir, self.machine_name, "packages")
 
         type_4_dir = os.path.join(self.spkg_dir, "repos", "type4")
-        self.server_log.debug("LOOKING FOR: %s/*.spkg" % type_4_dir)
-        spkg_files = glob.glob("%s/*.spkg" % type_4_dir)
-        for file in spkg_files:
-            self.server_log.debug("FOUND: %s" % file)
-            cmd = "ln -fs %s %s/" % (file, dest)
-            self.gso(cmd)
+        cmd = "ln -fs %s/*.spkg %s/" % (type_4_dir, dest)
+        self.ssh_conn.sendline(cmd)
+        if not self.ssh_conn.prompt(timeout = 5):
+            dead = True
+            msg = "Unable to create links: %s" % self.ssh_conn.before
+            raise MachineUnavailableException(self.machine_name, msg)
+            
+        #self.gso(cmd)
         #os.system("rm -rf %s" % tmp_path)
         self.polling_log.debug("...Finished syncing packages.")
 
