@@ -151,7 +151,7 @@ class ConfigField(PinshCmd.PinshCmd):
         post_data = {"yaml": new_data}
         output_dict = system_state.cnm_connector.service_yaml_request(url,
                                                                post_data=post_data)
-        return output_dict["status"], output_dict["message"]
+        return output_dict["command_status"], output_dict["command_output"]
 
     def preferred_names(self, tokens, index):
         '''Provide a list of names that the system would prefer to use, other

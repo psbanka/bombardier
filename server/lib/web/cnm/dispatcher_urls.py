@@ -31,7 +31,7 @@ class PackageBuildEntry(CnmResource):
     @login_required
     def create(self, request, package_name):
         "Create a package"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             svn_user = safe_get(request, "svn_user")
             svn_password = request.POST.get("svn_password", "")
@@ -53,7 +53,7 @@ class PackageActionEntry(CnmResource):
     @login_required
     def create(self, request, package_name):
         "Dispatch a package action"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             action = safe_get(request, "action")
             machine_name = safe_get(request, "machine")
@@ -72,7 +72,7 @@ class MachineEnableEntry(CnmResource):
     @login_required
     def create(self, request, machine_name):
         "Dispatch key sharing"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             post_dict = yaml.load(request.POST.get("yaml"))
             password = post_dict.get('password')
@@ -92,7 +92,7 @@ class MachineDisableEntry(CnmResource):
     @login_required
     def create(self, request, machine_name):
         "Dispatch key removal"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
@@ -108,7 +108,7 @@ class MachineStatusEntry(CnmResource):
     @login_required
     def create(self, request, machine_name):
         "Check status of on a remote machine"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
@@ -135,7 +135,7 @@ class MachineStartReconcileEntry(CnmResource):
     @login_required
     def create(self, request, machine_name):
         "Start a reconcile job on a machine"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
@@ -151,7 +151,7 @@ class MachineUnPushEntry(CnmResource):
     @login_required
     def create(self, request, machine_name):
         "Run a job to initialize bombardier client on a machine"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
@@ -167,7 +167,7 @@ class MachinePushEntry(CnmResource):
     @login_required
     def create(self, request, machine_name):
         "Run a job to initialize bombardier client on a machine"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
@@ -183,7 +183,7 @@ class MachineStartInitEntry(CnmResource):
     @login_required
     def create(self, request, machine_name):
         "Run a job to initialize bombardier client on a machine"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
@@ -199,7 +199,7 @@ class MachineStartDistEntry(CnmResource):
     @login_required
     def create(self, request, machine_name):
         "Run a job that installs a python distutils package on a machine"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             dist_name = safe_get(request, "dist")
             dispatcher = self.get_dispatcher()
@@ -216,7 +216,7 @@ class MachineStartTestEntry(CnmResource):
     @login_required
     def create(self, request, machine_name):
         "Run a test job on a machine"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
@@ -232,7 +232,7 @@ class MachineCleanupEntry(CnmResource):
     @login_required
     def create(self, request):
         "Clean up all machine connections in the dispatcher"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
             output = dispatcher.cleanup_connections(request.user)
@@ -248,7 +248,7 @@ class JobJoinEntry(CnmResource):
     @login_required
     def read(self, request, job_name):
         "Tell dispatcher to wait a job thread to return"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
             output = dispatcher.job_join(request.user, job_name, 10)
@@ -262,7 +262,7 @@ class JobPollEntry(CnmResource):
     @login_required
     def read(self, request, job_name):
         "Ask dispatcher for output from a job"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
             output = dispatcher.job_poll(request.user, job_name)

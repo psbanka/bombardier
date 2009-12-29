@@ -40,6 +40,7 @@ import urllib
 from bombardier_core.static_data import OK, FAIL
 from Exceptions import UnexpectedDataException, ServerException
 from Exceptions import MachineTraceback, ServerTracebackException
+from Exceptions import MachineUnavailableException
 import libUi
 from SystemStateSingleton import SystemState, ENABLE
 system_state = SystemState()
@@ -262,7 +263,7 @@ class CnmConnector:
         if new_path != server_home_path:
             raise UnexpectedDataException("server_home is set to %s" % new_path)
         output = self.service_yaml_request("/json/dbsync", post_data={"a":"a"})
-        if not output["status"] == "OK":
+        if not output["command_status"] == "OK":
             raise UnexpectedDataException("Server could not sync")
 
     def service_yaml_request(self, path, args=None,
@@ -304,6 +305,8 @@ class CnmConnector:
         out = self.service_yaml_request(url, post_data=post_data)
         if "traceback" in out:
             raise MachineTraceback(url, out["traceback"])
+        if out.get("command_status") != OK:
+            raise MachineUnavailableException(out.get("command_output",""))
         job_name = out.get("job_name")
         return job_name
 

@@ -79,7 +79,11 @@ class BombardierMachineInterface(MachineInterface):
     def freshen(self, job_name, require_status):
         "Refresh config data"
         self.set_job(job_name)
-        MachineInterface.freshen(self)
+        try:
+            MachineInterface.freshen(self)
+        except MachineUnavailableException:
+            self.unset_job()
+            raise
         try:
             self.machine_status.freshen()
         except MachineStatusException:

@@ -289,14 +289,14 @@ class CnmTests(unittest.TestCase, BasicTest):
         yaml_string = yaml.dump(config_data)
         response = self.client.post(path=url, data={"yaml": yaml_string})
         content_dict = json.loads( response.content )
-        assert content_dict["status"] == OK
-        assert content_dict["message"].startswith("updated")
+        assert content_dict["command_status"] == OK
+        assert content_dict["command_output"].startswith("updated")
 
     def test_summary(self):
         url = "/json/summary/name/localhost"
         response = self.client.get(url)
         content_dict = json.loads( response.content )
-        assert content_dict["status"] == OK, content_dict
+        assert content_dict["command_status"] == u"OK", content_dict
 
         test_dict = {"value":"test_value", "directory": "/tmp/foogazi"}
         config_packages = ["TestPackageType4"]
@@ -317,7 +317,7 @@ class CnmTests(unittest.TestCase, BasicTest):
         
         response = self.client.get(url)
         content_dict = json.loads( response.content )
-        assert content_dict["status"] == OK, content_dict
+        assert content_dict["command_status"] == "OK", content_dict
         assert content_dict["not_installed"] == config_packages, content_dict
         assert content_dict["installed"] == ["TestPackageType5"], content_dict
 
@@ -556,7 +556,7 @@ class DangerousTests(unittest.TestCase, BasicTest):
         url = "/json/machine/disable/localhost" 
         response = self.client.post(path=url, data={})
         content_dict = json.loads( response.content )
-        assert content_dict["status"] == OK
+        assert content_dict["command_status"] == OK
 
     def test_good_enable(self):
         url = "/json/machine/enable/localhost"
@@ -568,7 +568,7 @@ class DangerousTests(unittest.TestCase, BasicTest):
         yaml_string = yaml.dump(config_data)
         response = self.client.post(path=url, data={"yaml": yaml_string})
         content_dict = json.loads( response.content )
-        assert content_dict["status"] == OK
+        assert content_dict["command_status"] == OK
 
 
 class ExperimentTest(unittest.TestCase, BasicTest):
@@ -620,10 +620,10 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        #suite.addTest(PackageTests("test_encrypted_ci"))
+        suite.addTest(CnmTests("test_summary"))
         #suite.addTest(CnmTests("test_search"))
         #suite.addTest(PackageTests("test_package_build"))
-        suite.addTest(PackageTests("test_type5_package_actions"))
+        #suite.addTest(PackageTests("test_type5_package_actions"))
         #suite.addTest(PackageTests("test_package_actions"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)

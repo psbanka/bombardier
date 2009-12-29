@@ -13,7 +13,7 @@ import StringIO, traceback
 import ServerLogger
 
 from Exceptions import InvalidJobName, JoinTimeout
-from Exceptions import InvalidAction
+from Exceptions import InvalidAction, MachineUnavailableException
 from bombardier_core.static_data import ACTION_LOOKUP
 
 PENDING = 4
@@ -186,7 +186,7 @@ class Dispatcher(Pyro.core.ObjBase):
             traceback_data.append(line)
             ermsg = "%% %s" % line
             self.server_log.error(ermsg, username)
-        return {"status": FAIL, "traceback": traceback_data}
+        return {"command_status": FAIL, "traceback": traceback_data}
 
     def set_server_home(self, username, server_home):
         "Set server_home"
@@ -224,7 +224,7 @@ class Dispatcher(Pyro.core.ObjBase):
     def start_job(self, username, machine_interface, commands,
                   copy_dict, require_status):
         "Add a job into the jobs dictionary and start it"
-        output = {"status": OK}
+        output = {"command_status": OK}
         if not copy_dict:
             copy_dict = {}
         try:
@@ -237,14 +237,17 @@ class Dispatcher(Pyro.core.ObjBase):
             machine_interface.scp_dict(copy_dict)
             job.start()
             output["job_name"] = job.name
+        except MachineUnavailableException, err:
+            output["command_output"] = str(err)
+            output["command_status"] = FAIL
         except Exception:
             output.update(self.dump_exception(username))
-            output["status"] = FAIL
+            output["command_status"] = FAIL
         return output
 
     def unpush_job(self, username, machine_name):
         "remove cleartext configuration data to the remote machine for testing"
-        output = {"status": OK}
+        output = {"command_status": OK}
         commands = []
         try:
             machine_interface = self.get_machine_interface(username,
@@ -256,14 +259,14 @@ class Dispatcher(Pyro.core.ObjBase):
             commands = [clear]
         except Exception:
             output.update(self.dump_exception(username))
-            output["status"] = FAIL
+            output["command_status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands, 
                               {}, False)
 
     def push_job(self, username, machine_name):
         "push cleartext configuration data to the remote machine for testing"
-        output = {"status": OK}
+        output = {"command_status": OK}
         copy_dict = {}
         try:
             machine_interface = self.get_machine_interface(username,
@@ -275,14 +278,14 @@ class Dispatcher(Pyro.core.ObjBase):
             copy_dict = {"config": [ src, dst ]}
         except Exception:
             output.update(self.dump_exception(username))
-            output["status"] = FAIL
+            output["command_status"] = FAIL
             return output
         return self.start_job(username, machine_interface, [], 
                               copy_dict, False)
 
     def init_job(self, username, machine_name):
         "Initialize a bombardier client install"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             machine_interface = self.get_machine_interface(username,
                                                            machine_name)
@@ -303,14 +306,14 @@ class Dispatcher(Pyro.core.ObjBase):
             commands = [set_spkg_config, bombardier_init]
         except Exception:
             output.update(self.dump_exception(username))
-            output["status"] = FAIL
+            output["command_status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands, 
                               {}, False)
 
     def bom_job(self, username, machine_name, action_string):
         "Run a bom level job on a machine"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             machine_interface = self.get_machine_interface(username,
                                                            machine_name)
@@ -318,7 +321,7 @@ class Dispatcher(Pyro.core.ObjBase):
             commands = [bombardier_recon]
         except Exception:
             output.update(self.dump_exception(username))
-            output["status"] = FAIL
+            output["command_status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands,
                               {}, True)
@@ -364,7 +367,7 @@ class Dispatcher(Pyro.core.ObjBase):
                          dry_run, or init
         machine_name -- name of the machine to run the job on
         '''
-        output = {"status": OK}
+        output = {"command_status": OK}
         script_name = ''
         if action_string not in ACTION_LOOKUP:
             script_name = action_string
@@ -382,13 +385,13 @@ class Dispatcher(Pyro.core.ObjBase):
 
         except Exception:
             output.update(self.dump_exception(username))
-            output["status"] = FAIL
+            output["command_status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands, {}, True)
 
     def dist_job(self, username, machine_name, dist_name):
         "Job that unpacks and installs a distutils package"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             machine_interface = self.get_machine_interface(username,
                                                            machine_name)
@@ -402,14 +405,14 @@ class Dispatcher(Pyro.core.ObjBase):
             copy_dict = {"dist": [os.path.join("dist",src_file), '.']}
         except Exception:
             output.update(self.dump_exception(username))
-            output["status"] = FAIL
+            output["command_status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands,
                               copy_dict, False)
 
     def enable_job(self, username, machine_name, password):
         "Set up ssh shared keys with a remote machine"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             machine_interface = self.get_machine_interface(username,
                                                            machine_name)
@@ -429,14 +432,14 @@ class Dispatcher(Pyro.core.ObjBase):
             commands = [make_ssh_dir, cat_key]
         except Exception:
             output.update(self.dump_exception(username))
-            output["status"] = FAIL
+            output["command_status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands,
                               copy_dict, False)
 
     def disable_job(self, username, machine_name):
         "Remove shared ssh key from a remote machine"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             machine_interface = self.get_machine_interface(username,
                                                            machine_name)
@@ -457,7 +460,7 @@ class Dispatcher(Pyro.core.ObjBase):
             commands = [filter_sc, overwrite_sc]
         except Exception:
             output.update(self.dump_exception(username))
-            output["status"] = FAIL
+            output["command_status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands,
                               copy_dict, False)
@@ -471,7 +474,7 @@ class Dispatcher(Pyro.core.ObjBase):
 
     def cleanup_connections(self, username):
         "Close connections for machine interfaces in interface pool"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             for machine_name in self.machine_interface_pool:
                 machine_interface = self.machine_interface_pool[machine_name]
@@ -486,7 +489,7 @@ class Dispatcher(Pyro.core.ObjBase):
 
     def job_join(self, username, job_name, timeout):
         "Wait for a job to finish"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             job = self.jobs.get(job_name)
             start_time = time.time()
@@ -507,7 +510,7 @@ class Dispatcher(Pyro.core.ObjBase):
 
     def job_poll(self, username, job_name):
         "Poll a job for status info and log data"
-        output = {"status": OK}
+        output = {"command_status": OK}
         try:
             job = self.jobs.get(job_name)
             if not job:

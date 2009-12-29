@@ -77,6 +77,12 @@ class ServerTracebackException(ExceptionBase):
     def __repr__(self):
         return self.traceback_lines
 
+class MachineUnavailableException(ExceptionBase):
+    def __init__(self, msg):
+        self.msg = msg
+    def __repr__(self):
+        return "Machine is not available: %s" % self.msg
+
 class MachineStatusException(ExceptionBase):
     def __init__(self, msg):
         self.msg = msg

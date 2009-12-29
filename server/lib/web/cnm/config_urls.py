@@ -44,18 +44,18 @@ class ConfigEntry(CnmResource):
         server_home = self.get_server_home()
         file_path = os.path.join(server_home, config_type,
                                  "%s.yml" % config_name)
-        output = {"status": OK}
+        output = {"command_status": OK}
         if os.path.isfile(file_path):
-            output["message"] = "updated %s" % file_path
+            output["command_output"] = "updated %s" % file_path
         else:
-            output["message"] = "created %d"  % file_path
+            output["command_output"] = "created %d"  % file_path
         try:
             data = yaml.load(yaml_string)
             nice_yaml_string = yaml.dump(data, default_flow_style=False)
             open(file_path, 'w').write(nice_yaml_string)
         except IOError, ioe:
-            output["status"] = FAIL
-            output["message"] = "IO Error: %s" % str(ioe)
+            output["command_status"] = FAIL
+            output["command_output"] = "IO Error: %s" % str(ioe)
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -299,7 +299,7 @@ class DbSyncCollection(CnmResource):
     def create(self, request):
         "Sync db from server home"
         self._server_home_sync()
-        config_data = {"status": "OK"}
+        config_data = {"command_status": "OK"}
         responder = JsonDictResponder(config_data)
         return responder.element(request)
 
