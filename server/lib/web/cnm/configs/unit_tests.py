@@ -54,9 +54,6 @@ class BasicTest:
                                     data={"server_home": self.test_server_home})
         content_dict = json.loads( response.content )
 
-        # sync the DB
-        self.dbsync()
-
         # set the configuration string
         content_dict = self.set_config_password(CONFIG_PASSWORD)
         self.failUnlessEqual( content_dict[ u"command_status" ], OK)
@@ -102,12 +99,6 @@ class BasicTest:
         yaml_str = open(SERVER_CONFIG_FILE).read()
         config_dict = yaml.load(yaml_str)
         return config_dict
-
-    def dbsync(self):
-        self.login(self.super_user)
-        url = '/json/dbsync'
-        response = self.client.post(path=url)
-        self.failUnlessEqual(response.status_code, 200)
 
     def set_status(self, status_dict):
         yaml_str = yaml.dump(status_dict)
@@ -594,8 +585,6 @@ def initialize_tests(client):
     test_server_home = os.path.join(cwd, 'configs', 'fixtures')
     print "test_server_home", test_server_home
     response = client.post(url, data={"server_home": test_server_home})
-    url = '/json/dbsync'
-    response = client.post(path=url)
 
     url = '/json/dispatcher/start'
     response = client.post(url, {})
@@ -620,8 +609,8 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        suite.addTest(CnmTests("test_summary"))
-        #suite.addTest(CnmTests("test_search"))
+        #suite.addTest(CnmTests("test_summary"))
+        suite.addTest(CnmTests("test_search"))
         #suite.addTest(PackageTests("test_package_build"))
         #suite.addTest(PackageTests("test_type5_package_actions"))
         #suite.addTest(PackageTests("test_package_actions"))

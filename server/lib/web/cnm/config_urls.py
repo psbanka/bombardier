@@ -7,10 +7,7 @@ from django import forms
 
 from django.shortcuts import render_to_response
 from CnmResource import CnmResource
-from configs.models import Machine, Include, Bom, ServerConfig, Package, Status
-from configs.models import Dist, MachineModelFactory, IncludeModelFactory
-from configs.models import BomModelFactory, PackageModelFactory
-from configs.models import DistModelFactory, StatusModelFactory
+from configs.models import ServerConfig
 from bombardier_core.static_data import OK, FAIL
 import os, glob
 import MachineConfig
@@ -19,13 +16,6 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 import yaml
 from Exceptions import MachineStatusException, MachineConfigurationException
-
-MAPPER = {"merged": Machine, "machine": Machine, "include": Include,
-          "bom": Bom, "package": Package, "status": Status }
-#MAPPER["dist"] = Dist
-
-FACTORIES = [MachineModelFactory, IncludeModelFactory, BomModelFactory,
-             PackageModelFactory, StatusModelFactory]
 
 class ConfigEntry(CnmResource):
     "ConfigEntry base class"
@@ -166,16 +156,24 @@ class MergedEntry(CnmResource):
 
 #==================================
 
+def basename(filename):
+    output = filename.rpartition(os.path.sep)[-1].rpartition('.')[0]
+    return output
+
 class ConfigCollection(CnmResource):
     "Base config collection"
     @login_required
     def read(self, request, config_type, config_name):
         "Default read method for ConfigCollection"
-        mapped = MAPPER[config_type.lower()]
-        objects = mapped.objects.filter(name__startswith=config_name)
-        responder = JSONResponder()
-        responder.expose_fields = ["name"]
-        return responder.list(request, objects)
+        server_home = self.get_server_home()
+        search_string = os.path.join(server_home, config_type,
+                                     "%s*.yml" % config_name)
+        filenames = glob.glob(search_string)
+        output = []
+        for filename in filenames:
+            output.append({"fields": {"name": basename(filename)}})
+        responder = JsonDictResponder(output)
+        return responder.element(request)
 
 class StatusCollection(ConfigCollection):
     "Status config collection"
@@ -221,17 +219,9 @@ class PackageCollection(ConfigCollection):
     "Package config collection"
     @login_required
     def read(self, request, package_name):
-        "Expose custom fields for Package type collection and return as json"
-        server_home = self.get_server_home()
-        package_path = os.path.join(server_home, "package")
-        files = glob.glob(os.path.join(package_path, "%s*.yml" % package_name))
-        output = []
-        for filename in files:
-            full_pkn = filename.rpartition('.yml')[0]
-            full_pkn = full_pkn.rpartition(os.path.sep)[-1]
-            output.append({"fields": {"name": full_pkn}})
-        responder = JsonDictResponder(output)
-        return responder.element(request)
+        "Call superclass read method with collection type"
+        sup = super(PackageCollection, self)
+        return sup.read(request, "package", package_name)
 
 class DistCollection(ConfigCollection):
     "Dist config collection"
@@ -258,21 +248,23 @@ class ServerConfigCollection(CnmResource):
     def read(self, request):
         "Return json representation of server configuration"
         output = {}
-        server_config = {}
 
+        server_config = {}
         server_config_objects = ServerConfig.objects.all()
         for server_co in server_config_objects:
             server_config[server_co.name] = server_co.value
         output["server configuration"] = server_config
-        object_config = {}
-        for factory_name in FACTORIES:
-            factory = factory_name()
-            object_config[factory.subdir] = factory.summarize()
-
-        output["object lists"] = object_config
-
         responder = JsonDictResponder(output)
         return responder.element(request)
+#        object_config = {}
+#        for factory_name in FACTORIES:
+#            factory = factory_name()
+#            object_config[factory.subdir] = factory.summarize()
+#
+#        output["object lists"] = object_config
+#
+#        responder = JsonDictResponder(output)
+#        return responder.element(request)
 
     @login_required
     def create(self, request):
@@ -298,17 +290,9 @@ class DbSyncCollection(CnmResource):
     @login_required
     def create(self, request):
         "Sync db from server home"
-        self._server_home_sync()
         config_data = {"command_status": "OK"}
         responder = JsonDictResponder(config_data)
         return responder.element(request)
-
-    def _server_home_sync(self):
-        "Use each Factory to sync itself from its corresponding yaml file"
-        for factory_constructor in FACTORIES:
-            factory = factory_constructor()
-            factory.clean()
-            factory.create()
 
 def config_setting_form(request):
     "Form for setting configuration items. Mostly a debugging tool."

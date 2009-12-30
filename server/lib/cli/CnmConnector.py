@@ -262,9 +262,6 @@ class CnmConnector:
         new_path = output["server_home"]
         if new_path != server_home_path:
             raise UnexpectedDataException("server_home is set to %s" % new_path)
-        output = self.service_yaml_request("/json/dbsync", post_data={"a":"a"})
-        if not output["command_status"] == "OK":
-            raise UnexpectedDataException("Server could not sync")
 
     def service_yaml_request(self, path, args=None,
                              put_data=None, post_data=None, timeout=None):
