@@ -256,15 +256,6 @@ class ServerConfigCollection(CnmResource):
         output["server configuration"] = server_config
         responder = JsonDictResponder(output)
         return responder.element(request)
-#        object_config = {}
-#        for factory_name in FACTORIES:
-#            factory = factory_name()
-#            object_config[factory.subdir] = factory.summarize()
-#
-#        output["object lists"] = object_config
-#
-#        responder = JsonDictResponder(output)
-#        return responder.element(request)
 
     @login_required
     def create(self, request):
@@ -283,15 +274,6 @@ class ServerConfigCollection(CnmResource):
         for server_co in server_config_objects:
             output[server_co.name] = server_co.value
         responder = JsonDictResponder(output)
-        return responder.element(request)
-
-class DbSyncCollection(CnmResource):
-    "Class for populating the database from yaml files present in server home."
-    @login_required
-    def create(self, request):
-        "Sync db from server home"
-        config_data = {"command_status": "OK"}
-        responder = JsonDictResponder(config_data)
         return responder.element(request)
 
 def config_setting_form(request):
@@ -315,8 +297,6 @@ class ServerConfigForm(forms.ModelForm):
 urlpatterns = patterns('',
    url(r'^json/server/config',
        ServerConfigCollection(permitted_methods = ['POST', "GET"])),
-   url(r'^json/dbsync',
-       DbSyncCollection(permitted_methods = ['POST'])),
    url(r'^json/merged/search/(?P<machine_name>.*)', MergedCollection()),
    url(r'^json/merged/name/(?P<machine_name>.*)$',
        MergedEntry(permitted_methods=['GET'])),

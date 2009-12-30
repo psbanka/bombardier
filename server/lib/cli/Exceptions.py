@@ -73,9 +73,9 @@ class ConfigFileException(Exception):
 class ServerTracebackException(ExceptionBase):
     def __init__(self, traceback_lines):
         ExceptionBase.__init__(self)
-        self.traceback_lines = traceback_lines
+        self.traceback = traceback_lines
     def __repr__(self):
-        return self.traceback_lines
+        return "Server Exception"
 
 class MachineUnavailableException(ExceptionBase):
     def __init__(self, msg):

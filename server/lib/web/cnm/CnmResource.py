@@ -23,8 +23,10 @@ class CnmResource(Resource):
     @classmethod
     def get_server_home(cls):
         "Return server_home"
-        config_entry = ServerConfig.objects.get(name="server_home")
-        server_home = config_entry.value
+        config_entries = ServerConfig.objects.filter(name="server_home")
+        if len(config_entries) != 1:
+            raise InvalidServerHome("NOT DEFINED")
+        server_home = config_entries[0].value
         if not os.path.isdir(server_home):
             raise InvalidServerHome(server_home)
         return server_home

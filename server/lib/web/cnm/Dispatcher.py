@@ -311,7 +311,7 @@ class Dispatcher(Pyro.core.ObjBase):
         return self.start_job(username, machine_interface, commands, 
                               {}, False)
 
-    def bom_job(self, username, machine_name, action_string):
+    def bom_job(self, username, machine_name, action_string, status_required):
         "Run a bom level job on a machine"
         output = {"command_status": OK}
         try:
@@ -324,15 +324,17 @@ class Dispatcher(Pyro.core.ObjBase):
             output["command_status"] = FAIL
             return output
         return self.start_job(username, machine_interface, commands,
-                              {}, True)
+                              {}, status_required)
 
     def check_status_job(self, username, machine_name):
         "Check a machine's install status against its bom"
-        return self.bom_job(username, machine_name, "check_status")
+        return self.bom_job(username, machine_name, "check_status",
+                                              status_required=False)
 
     def reconcile_job(self, username, machine_name):
         "Reconciles a machine to its bom"
-        return self.bom_job(username, machine_name, "reconcile")
+        return self.bom_job(username, machine_name, "reconcile",
+                                            status_required=True)
 
     def package_build_job(self, username, package_name, svn_user,
                           svn_password, debug, prepare):

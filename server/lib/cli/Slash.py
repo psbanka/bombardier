@@ -81,7 +81,7 @@ class Slash(PinshCmd.PinshCmd):
         except UnknownCommand, unk_err:
             return FAIL, [' ', str(unk_err)]
         except ServerTracebackException, trc:
-            return FAIL, ['Server traceback: ', [trc.traceback_lines]]
+            return FAIL, ['Server traceback: ', [trc.traceback]]
         if return_value == None or len(return_value) != 2:
             return OK, []
         else:
