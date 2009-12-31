@@ -95,25 +95,71 @@ metadata describes the package-- what it does, what configuration data
 it needs, what dependencies it has, etc. An example of package
 metadata is this::
 
-  class_name: TestPackage.TestPackage
+  class_name: SvnServer.SvnServer
   configuration:
-    test:
-      directory: /tmp
-      value: hello
-  dependencies: []
+    fqdn: ''
+    ip_address: ''
+    ldap:
+      admin_email: admin@test.com
+      admin_pass: abc123
+      admin_user: admin
+      backup_dir: NOT_CONFIGURED
+      base: dc=mycompany,dc=com
+      groupOu: UNKNOWN
+      ignore_users: []
+      password_complexity: '100'
+      port: '389'
+      schema: {}
+      userOu: UNKNOWN
+      users: {}
+    ssl_cert: ''
+    ssl_key: ''
+    svn:
+      admin_pass: NONE
+      daemon_group: www-data
+      daemon_user: www-data
+      friendly_email: The SVN admins
+      lock_dir: /var/lock/apache2
+      log_dir: /var/log/apache2
+      name: Un-named repository
+      ou: UKNOWN
+      repositories: []
+      repository_root: ''
+      rights: {}
+      server_port: '443'
+      server_root: /etc/apache2
+  dependencies:
+  - LdapServer
   executables:
-  - echo
+  - configure
+  - generate_auth_files
+  - install
+  - start
+  - stop
+  - uninstall
+  - verify
   injectors:
-    TestInjector:
-      path: TestPackage-injector-7.tar.gz
+    LdapManager:
+      path: /var/deploy/repos/injectors/LdapManager-526.tar.gz
+      svn: https://svn.ge-is-beta.com/icontrol/src/trunk/libs/LdapManager
+      version: '526'
+    apache_templates:
+      path: /var/deploy/repos/injectors/apache_templates-526.tar.gz
+      svn: https://svn.ge-is-beta.com/icontrol/src/trunk/injector/apache_templates/
+      version: '526'
+    sousaphone:
+      path: /var/deploy/repos/injectors/sousaphone-526.tar.gz
+      svn: https://svn.ge-is-beta.com/icontrol/src/trunk/injector/sousaphone/
+      version: '526'
   libs:
-    TestLib:
-      path: TestLib-0.7.tar.gz
-    TestPackage:
-      path: TestPackage-script-7.tar.gz
+    LdapManager:
+      path: /var/deploy/repos/libs/LdapManager-526.tar.gz
+      svn: https://svn.ge-is-beta.com/icontrol/src/trunk/libs/LdapManager
+      version: '526'
+    SvnServer:
+      path: /var/deploy/repos/libs/SvnServer-526.tar.gz
   package-version: 5
-  priority: 100
-  release: 23
+  release: 26
 
 This metadata defines what configuration data the package requires (in
 this case, test.directory and test.value), what executables it
@@ -133,316 +179,206 @@ and uninstalling the package needs to be called out under the
 part of the package, under the libs directory. Here's a quick example
 of a class::
 
-  class TestPackage(SpkgV5):
+  class SvnServer(SpkgV5):
+      "Class for SVN/Apache installation"
 
       def __init__(self, config):
 	  SpkgV5.__init__(self, config)
-	  os.chdir("TestInjector")
-	  self.thing = config.string("test.value", "foo")
-	  self.directory = config.string("test.directory", r"/tmp/test")
-	  if not self.directory:
-	      self._error("self.directory is not set")
-	  self.test_path  = os.path.join(self.directory, "TEST.TXT")
+
+	  self.debug = "False"
+	  domain_white_list = config.listobj("svn.domain_white_list", [], optional=True)
+	  self.domain_white_list = ','.join(domain_white_list)
+	  self.friendly_email = config.string('svn.friendly_email', "The SVN admins")
+	  self.fqdn = config.string('fqdn')
+	  self.company = config.string("svn.company_name", optional=True)
+	  if not self.company:
+	      self.company = self.fqdn
+	  self.days_before_token_expiration = config.string("svn.days_before_token_expiration",
+							    "2", optional=True)
+	  self.server_root = config.string("svn.server_root", "/etc/apache2")
+	  self.lock_dir = config.string("svn.lock_dir", '/var/lock/apache2')
+	  self.daemon_user = config.string("svn.daemon_user", 'www-data')
+	  self.daemon_group = config.string("svn.daemon_group", 'www-data')
+	  self.log_dir = config.string("svn.log_dir", '/var/log/apache2')
+	  self.admin_pass = config.string("svn.admin_pass", "NONE")
+	  self.server_port = config.string("svn.server_port", '443')
 
       def configure(self):
-	  self._info( "configuring..." )
-	  tl = TestLib.TestLib("value")
-	  assert tl.check() == "value"
-	  open(self.test_path, 'w').write(self.thing)
-	  return OK
+	  "Standard configuration method for a package"
+	  self.stop()
+	  self._info("Current directory: %s" % os.getcwd())
+	  sites_dir = os.path.join(self.server_root, "sites-enabled")
+	  if not os.path.isdir(sites_dir):
+	      os.system("mkdir -p %s" % sites_dir)
+	  config_file = os.path.join(self.server_root, 'apache2.conf')
+	  template_file = "apache_templates/apache-svn.template"
+	  status1 = self._modify_template(template_file, config_file)
+	  self._info("Creating repository configuration")
+	  status2 = self._create_repositories()
+	  self._info("Generating authorization file...")
+	  status3 = self.generate_auth_files()
+	  if [status1, status2, status3] == 3 * [OK]:
+	      return OK
+	  return FAIL
 
-      def install(self):
-	  self._info( "installing..." )
-	  if not os.path.isdir(self.directory):
-	      self._info("creating directory %s" % self.directory)
-	      os.makedirs(self.directory)
-	  file_name = "testFile.txt"
-	  src = file_name
-	  dst = os.path.join(self.directory, file_name)
-	  self._info("Copying %s to %s" % (file_name, dst))
-	  shutil.copy(file_name, dst)
-	  self.configure()
-	  return OK
+
 
 Install it
 ==========
 
-Next, run the Django command-line utility to create the database tables
-automatically:
+Packages have to get installed on a computer somewhere in order for
+them to be useful. We call the computers that are part of the
+datacenter "machines" in order to distinguish them from the Bombardier
+server.
 
-.. code-block:: bash
+Set up a machine
+----------------
 
-    manage.py syncdb
+A machine has a metadata file similar to the package just
+shown. Here's an example of a miniumum machine configuration file for
+a machine svn_server::
 
-The :djadmin:`syncdb` command looks at all your available models and creates
-tables in your database for whichever tables don't already exist.
+  default_user: root
+  ip_address: 10.10.1.70
+  platform: linux
+
+If you're going to install the SVN package on this server, you'll have
+to add the configuration values to it that the package requires (not
+shown). Finally, you'll need to actually install the package onto the
+remote server::
+
+  ( machine svn_server )> inst svn
+  >>> Job name: admin@svn_server-10
+    |  admin@svn_server-10 | Package SvnServer does not have a priority (assuming 100)
+    | admin@svn_server-10 | Packages remaining to install (in order): ['SvnServer']
+    | admin@svn_server-10 | Currently installing package priority 100 [SvnServer]
+    | admin@svn_server-10 | svn_server installing SvnServer-27
+    | admin@svn_server-10 | [injectors]|Template: settings.template
+    | admin@svn_server-10 | [injectors]|Created: sousaphone/settings.py
+    | admin@svn_server-10 | [injectors]|Installing the sousaphone webapp libraries...
+    | admin@svn_server-10 | [injectors]|Template: sousaphone/header.html.template
+    | admin@svn_server-10 | [injectors]|Created: /var/www/templates/header.html
+    | admin@svn_server-10 | [injectors]|Template: sousaphone/password_policy.html.template
+    | admin@svn_server-10 | [injectors]|Created: /var/www/site_media/password_policy.html
+    |  admin@svn_server-10 | [injectors]|No PID file: /var/lock/apache2/apache.pid
+    | admin@svn_server-10 | [injectors]|Current directory: /opt/spkg/svn_server/packages/SvnServer-27/injectors
+    | admin@svn_server-10 | [injectors]|Template: apache_templates/apache-svn.template
+    | admin@svn_server-10 | [injectors]|Created: /etc/apache2/apache2.conf
+    | admin@svn_server-10 | [injectors]|Creating repository configuration
+    | admin@svn_server-10 | [injectors]|Generating authorization file...
+    | admin@svn_server-10 | install OK: SvnServer-27
+    | admin@svn_server-10 | Verifying package SvnServer-27
+    | admin@svn_server-10 | verify OK: SvnServer-27
+    | svn_server | Finished install for SvnServer.
+    | svn_server | Finished install for SvnServer.
+  >>> Joining...
+   info:
+     Generated /etc/apache2/devel
+     Generated /etc/apache2/partner
+     Generated /etc/apache2/admin
+
+  ( machine svn_server )> exec svn start
+  >>> Job name: admin@svn_server-11
+    | admin@svn_server-11 | Using SvnServer
+    |  admin@svn_server-11 | Package SvnServer does not have a priority (assuming 100)
+    | admin@svn_server-11 | Executing (start) inside package (SvnServer-27)
+    | admin@svn_server-11 | [injectors]|Waiting for apache2 to start...
+    | admin@svn_server-11 | start OK: SvnServer-27
+    | svn_server | Finished execute for SvnServer.
+    | svn_server | Finished execute for SvnServer.
+  >>> Joining...
+   time to start: 0
+
+  ( machine svn_server )>
+
 
 Enjoy the free API
 ==================
 
-With that, you've got a free, and rich, :ref:`Python API <topics-db-queries>` to
-access your data. The API is created on the fly, no code generation necessary::
+With that, you've got a free, and rich, Python API to write
+installation and configuration packages however you like.  Bombardier
+also provides quite a bit of assistance on the remote machine side for
+making packages easier to create. For example, you'll notice that the
+class SvnServer inherited from SpkgV5.  With this inheritence you get
+the following:
 
-    >>> from mysite.models import Reporter, Article
+config object
+-------------
 
-    # No reporters are in the system yet.
-    >>> Reporter.objects.all()
-    []
+A "config" object is passed into your constructor. This object
+provides your installer class with all the information that the
+administrator has configured for this machine.  For example, if you
+want to know what daemon the Apache server should be configured to run
+as, you can request the information from the config object in the
+following way::
 
-    # Create a new Reporter.
-    >>> r = Reporter(full_name='John Smith')
+    apache_user = config.string("svn.daemon_user")
 
-    # Save the object into the database. You have to call save() explicitly.
-    >>> r.save()
+logging methods
+---------------
 
-    # Now it has an ID.
-    >>> r.id
-    1
+If you want to report-out the the user-interface anything of interest
+that happens during the installation, you can use the build-in logging
+methods:
 
-    # Now the new reporter is in the database.
-    >>> Reporter.objects.all()
-    [<Reporter: John Smith>]
+ * self._debug()
+ * self._info()
+ * self._warning()
+ * self._error()
+ * self._critical()
 
-    # Fields are represented as attributes on the Python object.
-    >>> r.full_name
-    'John Smith'
+While the installation is proceeding, the administrator running the
+package commands will be able to see what's going on with the
+installation, and the details of the package actions will be recorded
+in Bombardier's permanent log file for forensic analysis if that's
+ever necessary.
 
-    # Django provides a rich database lookup API.
-    >>> Reporter.objects.get(id=1)
-    <Reporter: John Smith>
-    >>> Reporter.objects.get(full_name__startswith='John')
-    <Reporter: John Smith>
-    >>> Reporter.objects.get(full_name__contains='mith')
-    <Reporter: John Smith>
-    >>> Reporter.objects.get(id=2)
-    Traceback (most recent call last):
-        ...
-    DoesNotExist: Reporter matching query does not exist.
+standard interface methods
+--------------------------
 
-    # Create an article.
-    >>> from datetime import datetime
-    >>> a = Article(pub_date=datetime.now(), headline='Django is cool',
-    ...     content='Yeah.', reporter=r)
-    >>> a.save()
+Each package installation class must provide the following standard
+interface methods:
 
-    # Now the article is in the database.
-    >>> Article.objects.all()
-    [<Article: Django is cool>]
+install()
+   This method is called on the class when the user wants to install
+   the package
 
-    # Article objects get API access to related Reporter objects.
-    >>> r = a.reporter
-    >>> r.full_name
-    'John Smith'
+configure()
+   This method is called on the class when the user wants to make a
+   configuration change to an already-installed system.  Configuration
+   is supported on already-installed systems and provides for those
+   changes that you can make to a 'live' system.
 
-    # And vice versa: Reporter objects get API access to Article objects.
-    >>> r.article_set.all()
-    [<Article: Django is cool>]
+verify()
+   This method is used to verify that the software is deployed
+   as-designed.
 
-    # The API follows relationships as far as you need, performing efficient
-    # JOINs for you behind the scenes.
-    # This finds all articles by a reporter whose name starts with "John".
-    >>> Article.objects.filter(reporter__full_name__startswith="John")
-    [<Article: Django is cool>]
+uninstall()
+   This method is used when a package is to be removed (uninstalled)
+   from the system. The package should provide for *idempotance*,
+   meaning that the system should be left in exactly the same state
+   after being uninstalled that it was before the package was
+   installed. 
 
-    # Change an object by altering its attributes and calling save().
-    >>> r.full_name = 'Billy Goat'
-    >>> r.save()
+additional interface methods
+----------------------------
 
-    # Delete an object with delete().
-    >>> r.delete()
-
-A dynamic admin interface: it's not just scaffolding -- it's the whole house
-============================================================================
-
-Once your models are defined, Django can automatically create a professional,
-production ready :ref:`administrative interface <ref-contrib-admin>` -- a Web
-site that lets authenticated users add, change and delete objects. It's as easy
-as registering your model in the admin site::
-
-    # In models.py...
-
-    from django.db import models
-
-    class Article(models.Model):
-        pub_date = models.DateTimeField()
-        headline = models.CharField(max_length=200)
-        content = models.TextField()
-        reporter = models.ForeignKey(Reporter)
-
-
-    # In admin.py in the same directory...
-
-    import models
-    from django.contrib import admin
-
-    admin.site.register(models.Article)
-
-The philosophy here is that your site is edited by a staff, or a client, or
-maybe just you -- and you don't want to have to deal with creating backend
-interfaces just to manage content.
-
-One typical workflow in creating Django apps is to create models and get the
-admin sites up and running as fast as possible, so your staff (or clients) can
-start populating data. Then, develop the way data is presented to the public.
-
-Design your URLs
-================
-
-A clean, elegant URL scheme is an important detail in a high-quality Web
-application. Django encourages beautiful URL design and doesn't put any cruft
-in URLs, like ``.php`` or ``.asp``.
-
-To design URLs for an app, you create a Python module called a :ref:`URLconf
-<topics-http-urls>`. A table of contents for your app, it contains a simple mapping
-between URL patterns and Python callback functions. URLconfs also serve to
-decouple URLs from Python code.
-
-Here's what a URLconf might look like for the ``Reporter``/``Article``
-example above::
-
-    from django.conf.urls.defaults import *
-
-    urlpatterns = patterns('',
-        (r'^articles/(\d{4})/$', 'mysite.views.year_archive'),
-        (r'^articles/(\d{4})/(\d{2})/$', 'mysite.views.month_archive'),
-        (r'^articles/(\d{4})/(\d{2})/(\d+)/$', 'mysite.views.article_detail'),
-    )
-
-The code above maps URLs, as simple regular expressions, to the location of
-Python callback functions ("views"). The regular expressions use parenthesis to
-"capture" values from the URLs. When a user requests a page, Django runs
-through each pattern, in order, and stops at the first one that matches the
-requested URL. (If none of them matches, Django calls a special-case 404 view.)
-This is blazingly fast, because the regular expressions are compiled at load
-time.
-
-Once one of the regexes matches, Django imports and calls the given view, which
-is a simple Python function. Each view gets passed a request object --
-which contains request metadata -- and the values captured in the regex.
-
-For example, if a user requested the URL "/articles/2005/05/39323/", Django
-would call the function ``mysite.views.article_detail(request,
-'2005', '05', '39323')``.
-
-Write your views
-================
-
-Each view is responsible for doing one of two things: Returning an
-:class:`~django.http.HttpResponse` object containing the content for the
-requested page, or raising an exception such as :class:`~django.http.Http404`.
-The rest is up to you.
-
-Generally, a view retrieves data according to the parameters, loads a template
-and renders the template with the retrieved data. Here's an example view for
-``year_archive`` from above::
-
-    def year_archive(request, year):
-        a_list = Article.objects.filter(pub_date__year=year)
-        return render_to_response('news/year_archive.html', {'year': year, 'article_list': a_list})
-
-This example uses Django's :ref:`template system <topics-templates>`, which has
-several powerful features but strives to stay simple enough for non-programmers
-to use.
-
-Design your templates
-=====================
-
-The code above loads the ``news/year_archive.html`` template.
-
-Django has a template search path, which allows you to minimize redundancy among
-templates. In your Django settings, you specify a list of directories to check
-for templates. If a template doesn't exist in the first directory, it checks the
-second, and so on.
-
-Let's say the ``news/article_detail.html`` template was found. Here's what that
-might look like:
-
-.. code-block:: html+django
-
-    {% extends "base.html" %}
-
-    {% block title %}Articles for {{ year }}{% endblock %}
-
-    {% block content %}
-    <h1>Articles for {{ year }}</h1>
-
-    {% for article in article_list %}
-        <p>{{ article.headline }}</p>
-        <p>By {{ article.reporter.full_name }}</p>
-        <p>Published {{ article.pub_date|date:"F j, Y" }}</p>
-    {% endfor %}
-    {% endblock %}
-
-Variables are surrounded by double-curly braces. ``{{ article.headline }}``
-means "Output the value of the article's headline attribute." But dots aren't
-used only for attribute lookup: They also can do dictionary-key lookup, index
-lookup and function calls.
-
-Note ``{{ article.pub_date|date:"F j, Y" }}`` uses a Unix-style "pipe" (the "|"
-character). This is called a template filter, and it's a way to filter the value
-of a variable. In this case, the date filter formats a Python datetime object in
-the given format (as found in PHP's date function; yes, there is one good idea
-in PHP).
-
-You can chain together as many filters as you'd like. You can write custom
-filters. You can write custom template tags, which run custom Python code behind
-the scenes.
-
-Finally, Django uses the concept of "template inheritance": That's what the
-``{% extends "base.html" %}`` does. It means "First load the template called
-'base', which has defined a bunch of blocks, and fill the blocks with the
-following blocks." In short, that lets you dramatically cut down on redundancy
-in templates: each template has to define only what's unique to that template.
-
-Here's what the "base.html" template might look like:
-
-.. code-block:: html+django
-
-    <html>
-    <head>
-        <title>{% block title %}{% endblock %}</title>
-    </head>
-    <body>
-        <img src="sitelogo.gif" alt="Logo" />
-        {% block content %}{% endblock %}
-    </body>
-    </html>
-
-Simplistically, it defines the look-and-feel of the site (with the site's logo),
-and provides "holes" for child templates to fill. This makes a site redesign as
-easy as changing a single file -- the base template.
-
-It also lets you create multiple versions of a site, with different base
-templates, while reusing child templates. Django's creators have used this
-technique to create strikingly different cell-phone editions of sites -- simply
-by creating a new base template.
-
-Note that you don't have to use Django's template system if you prefer another
-system. While Django's template system is particularly well-integrated with
-Django's model layer, nothing forces you to use it. For that matter, you don't
-have to use Django's database API, either. You can use another database
-abstraction layer, you can read XML files, you can read files off disk, or
-anything you want. Each piece of Django -- models, views, templates -- is
-decoupled from the next.
+Any non-public methods (methods that don't start with an underscore)
+in your class will also be made available to the administrator for
+performing specific functions with that package. For example,
+``start``, ``stop``, and ``backup`` are often added as public methods
+to a package class to start services and backup data.
 
 This is just the surface
 ========================
 
-This has been only a quick overview of Django's functionality. Some more useful
+This has been only a quick overview of Bombardier's functionality. Some more useful
 features:
 
-    * A :ref:`caching framework <topics-cache>` that integrates with memcached
-      or other backends.
+    * The Bombardier CLI :ref:` <topics-cli>` that provides for a
+      great and simple command-line user experience.
 
-    * A :ref:`syndication framework <ref-contrib-syndication>` that makes
-      creating RSS and Atom feeds as easy as writing a small Python class.
+The next obvious steps are for you to `download Bombardier`_, read
+:ref:`the tutorial <intro-tutorial01>`. Thanks for your interest!
 
-    * More sexy automatically-generated admin features -- this overview barely
-      scratched the surface.
-
-The next obvious steps are for you to `download Django`_, read :ref:`the
-tutorial <intro-tutorial01>` and join `the community`_. Thanks for your
-interest!
-
-.. _download Django: http://www.djangoproject.com/download/
-.. _the community: http://www.djangoproject.com/community/
+.. _download Bombardier: https://launchpad.net/bombardier/+download

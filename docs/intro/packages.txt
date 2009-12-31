@@ -1,0 +1,6 @@
+.. _intro-packages:
+
+==========================================
+Everything you need to know about packages
+==========================================
+

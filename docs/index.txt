@@ -21,9 +21,10 @@ First steps
 ===========
 
     * **From scratch:**
-      :ref:`Overview <intro-overview>` |
-      :ref:`Installation <intro-install>`
-      :ref:`Creating a package <intro-packages>`
+
+      * :ref:`Overview <intro-overview>`
+      * :ref:`Installation <intro-install>`
+      * :ref:`Creating a package <intro-packages>`
 
 Contents:
 
