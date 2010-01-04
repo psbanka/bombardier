@@ -73,6 +73,9 @@ class MachineStatus:
         if yml == None:
             msg = "Cannot retrieve status (EMPTY FILE: %s)" % status_yml
             raise MachineStatusException(msg)
+        elif type(yml) != type({}):
+            msg = "Cannot retrieve status (received: %s)" % str(yml)[:30]
+            raise MachineStatusException(msg)
         return yml
 
     def get_all_package_names(self, config_packages):
