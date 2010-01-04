@@ -227,7 +227,7 @@ class BombardierMachineInterface(MachineInterface):
             send_data = {"configData": self.data}
         else:
             send_data = self.get_all_client_data()
-        if 'config_key' in self.data:
+        if 'config_key' in self.data and action != INIT:
             self.scp_all_client_data(send_data)
         else:
             self.polling_log.warning("Streaming configuration data...")
