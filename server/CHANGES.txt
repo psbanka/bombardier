@@ -1,0 +1,56 @@
+The Bombardier project was started in 2004 and was released as an
+Open-source project in 2005, but a full stable release was never made
+to the public. The project continued development and was released
+again to the open-source community in 2008.
+
+The project has undergone significant rework and re-design. It started
+out as a tool to assist in building machines for a testing
+network. The main thrust of the project initially was something like,
+"Go install software on a remote machine. If you have any trouble,
+just keep doing as much as you can and then I'll check back later to
+see what needs to be fixed." And while that was nice for sloppy
+rack-and-stack deployments, it didn't really suit our needs in a
+production environment.
+
+For the 2008 release, the project had been transformed into a
+production datacenter management tool. It focuses on deploying typical
+datacenter software (e.g. Apache Tomcat, Apache HTTP server, Java,
+Microsoft IIS, web applications, Microsoft SQL server databases, etc.)
+in a very tightly controlled and repeatable way with a central
+management console.
+
+We took quite a bit of inspiration from ITIL in developing this
+software, focusing on the Change Control practices defined there and
+trying our best to make them as simple as easy to implement as
+possible. ITIL itself can be very challenging to take hold of and
+actually implement in a datacenter, and we believe that the Bombardier
+software goes a long way towards making it possible to bite
+off the Change Management piece and go all the way with it (it has for
+our organization, anyway).
+
+0.70     Released to beta in November 2008. We had done extensive
+         regression testing against the Bombardier code base and
+         believed it to be ready for use. We have been using it in our
+         QA environments and promoted it to our production datacenters.
+
+         Besides bug-scrubbing, a few features were added:
+
+          * Cleaned up traceback output and did some better exception
+            handling.
+
+          * Improved Sql Server functionality
+
+          * Cleaned up the way communications are done with the client
+
+          * Made the logic for determining when to send packages to
+            client more robust.
+
+1.00-668 Alpha release of system. The 1.00 branch provides a
+         centralized RESTful web server enabled with Django. This
+         architecture change enables greater security, better
+         reporting, and provides for adding quite a few additional
+         services, such as monitoring system integration,
+         load-balancer integration, and log management. Deprecated
+         Windows compatibility
+
+
