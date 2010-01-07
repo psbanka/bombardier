@@ -121,6 +121,25 @@ class Job(Thread):
         self.complete_log = ''
         self.machine_interface.freshen(name, require_status)
 
+    def kill(self, suggested_timeout):
+        timeout = 5
+        if type(suggested_timeout) == type(10):
+            timeout = float(suggested_timeout)
+        elif type(suggested_timeout) == type(u"10"):
+            timeout = float(suggested_timeout)
+        elif type(suggested_timeout) == type(10.0):
+            timeout = suggested_timeout
+        self.machine_interface.control_c()
+        start_time = time.time()
+        end_time = start_time + timeout
+        while self.isAlive():
+            if time.time() > end_time:
+                self.machine_interface.terminate()
+                self.machine_interface.unset_job()
+                return FAIL
+            time.sleep(1)
+        return OK
+
     def run(self):
         "Runs commands in command list and watches status"
         self.server_log.info("Starting...", self.name)
@@ -129,10 +148,13 @@ class Job(Thread):
         for command in self.commands:
             self.run_command(command)
         self.server_log.info("Finishing", self.name)
-        self.elapsed_time = time.time() - self.start_time
-        self.final_logs = self.machine_interface.polling_log.get_final_logs()
-        polling_log = self.machine_interface.polling_log 
-        self.complete_log = polling_log.get_complete_log()
+        try:
+            self.elapsed_time = time.time() - self.start_time
+            self.final_logs = self.machine_interface.polling_log.get_final_logs()
+            polling_log = self.machine_interface.polling_log 
+            self.complete_log = polling_log.get_complete_log()
+        except:
+            self.server_log.info("EXCEPTION")
         self.machine_interface.unset_job()
 
     def run_command(self, command):
@@ -531,6 +553,25 @@ class Dispatcher(Pyro.core.ObjBase):
                 output["new_output"] = job.final_logs
         except Exception:
             output.update(self.dump_exception(username))
+        return output
+
+    def job_kill(self, username, job_name, timeout):
+        "Be mean to a job and get rid of it"
+        output = {"command_status": OK}
+        try:
+            job = self.jobs.get(job_name)
+            if not job:
+                raise InvalidJobName(job_name)
+            self.server_log.info("Killing job %s..." % job_name)
+            if job.kill(timeout) == OK:
+                output["command_status"] = job.command_status
+                output["command_output"] = job.command_output
+                output["complete_log"] = job.complete_log
+            else:
+                output["command_output"] = "KILLED"
+        except Exception:
+            output.update(self.dump_exception(username))
+        del self.jobs[job_name]
         return output
 
     def check_status(self):

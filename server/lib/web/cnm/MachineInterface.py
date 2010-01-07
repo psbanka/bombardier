@@ -89,6 +89,10 @@ class MachineInterface(AbstractMachineInterface):
         self.connect_time = time.time()
         return OK
 
+    def control_c(self):
+        #self.ssh_conn.sendcontrol('c')
+        pass
+
     def freshen(self):
         '''Since we like to keep connections around for a long time,
         verify that our connection to the remote system is still working'''
@@ -101,7 +105,7 @@ class MachineInterface(AbstractMachineInterface):
                       "%4.2f minutes. Reconnecting..."
                 msg = msg % (self.machine_name, connection_age / 60.0)
                 self.polling_log.warning(msg)
-                self.disconnect()
+                self.terminate()
             if self.connect() != OK:
                 msg = "Unable to connect to %s." % self.machine_name
                 raise MachineUnavailableException(self.machine_name, msg)
@@ -119,7 +123,7 @@ class MachineInterface(AbstractMachineInterface):
             self.polling_log.warning(msg)
             self.server_log.warning(msg, self.machine_name)
             try:
-                self.disconnect()
+                self.terminate()
             except:
                 pass
             if self.connect() != OK:

@@ -117,7 +117,6 @@ class BasicTest:
             assert False
         #assert job_name.startswith("%s@localhost" % (self.super_user.username))
 
-        testing = True
         timeout_counter = 0
         next_number = 1
         while timeout_counter < timeout:
@@ -328,6 +327,25 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         status, output = self.run_job(url)
         assert status == OK
         assert os.path.isfile("/opt/spkg/localhost/config.yml") == False
+
+    def test_kill_job(self):
+        url = '/json/machine/start_test/localhost'
+        username = self.super_user.username
+        
+        response = self.client.post(path=url)
+        content_dict = json.loads( response.content )
+        try:
+            job_name = content_dict["job_name"]
+        except KeyError:
+            print "CONT========", content_dict
+            assert False
+
+        url = '/json/job/kill/%s' % job_name
+        response = self.client.post(path=url, data={"timeout": 1})
+        print "CONTENT:",response.content
+        content_dict = json.loads( response.content )
+        print content_dict
+        assert "command_status" in content_dict, content_dict
 
     def test_run_check_job(self):
         url = '/json/machine/start_test/localhost'
@@ -601,7 +619,7 @@ if __name__ == '__main__':
     client = Client()
     initialize_tests(client)
 
-    full_suite = 1
+    full_suite = 0
     suite = unittest.TestSuite()
     if full_suite:
         suite.addTest(unittest.makeSuite(CnmTests))
@@ -610,7 +628,8 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
         #suite.addTest(CnmTests("test_summary"))
-        suite.addTest(CnmTests("test_search"))
+        #suite.addTest(CnmTests("test_search"))
+        suite.addTest(DispatcherTests("test_kill_job"))
         #suite.addTest(PackageTests("test_package_build"))
         #suite.addTest(PackageTests("test_type5_package_actions"))
         #suite.addTest(PackageTests("test_package_actions"))

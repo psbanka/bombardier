@@ -271,6 +271,21 @@ class JobPollEntry(CnmResource):
         responder = JsonDictResponder(output)
         return responder.element(request)
 
+class JobKillEntry(CnmResource):
+    "Job kill class"
+    @login_required
+    def create(self, request, job_name):
+        "Tell dispatcher to terminate a job"
+        output = {"command_status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            timeout = request.POST.get("timeout", None)
+            output = dispatcher.job_kill(request.user, job_name, timeout)
+        except Exception:
+            output.update(self.dump_exception(request))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
 class DispatcherControlEntry(CnmResource):
     "Dispatcher control handler"
     @login_required
@@ -364,6 +379,8 @@ urlpatterns = patterns('',
        MachineCleanupEntry(permitted_methods = ['POST'])),
    url(r'^json/job/join/(?P<job_name>.*)', JobJoinEntry()),
    url(r'^json/job/poll/(?P<job_name>.*)', JobPollEntry()),
+   url(r'^json/job/kill/(?P<job_name>.*)', 
+        JobKillEntry(permitted_methods = ['POST'])),
    url(r'^json/dispatcher/(?P<action>.*)', 
        DispatcherControlEntry(permitted_methods = ['GET', 'POST'])),
 )

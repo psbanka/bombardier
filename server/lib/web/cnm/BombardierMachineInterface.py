@@ -369,7 +369,7 @@ class BombardierMachineInterface(MachineInterface):
 
     def new_upload_new_packages(self):
         "Send needed packages to a machine using symlinks and rsync"
-        self.polling_log.debug("Syncing packages...")
+        self.polling_log.info("Syncing packages...")
         dest_path = os.path.join(self.spkg_dir, "repos")
         try:
             package_names = self.machine_status.get_package_names_from_progress()

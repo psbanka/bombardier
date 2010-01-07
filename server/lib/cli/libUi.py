@@ -409,12 +409,12 @@ def process_cnm(server_output_lines):
                         print "=== UNKNOWN log level: ", log_level
                         color_code = WARNING_COLOR[system_state.termcolor]
                     if color_code != None:
-                        prefix = "  | \033%s%20s\033[m | " % (WEAK_COLOR[system_state.termcolor], job_name)
+                        prefix = "  | %20s | " % (job_name)
                         message = "%s\033%s%s\033[m\n" % (prefix, color_code, '|'.join(components[3:]))
                     else:
-                        message = "  | %s | %s\n" % (job_name, '|'.join(components[3:]))
+                        message = "  | %20s | %s\n" % (job_name, '|'.join(components[3:]))
                 else:
-                    message = "  | %s | %s\n" % (job_name, '|'.join(components[3:]))
+                    message = "  | %20s | %s\n" % (job_name, '|'.join(components[3:]))
                 system_state.fp_out.write(message)
         else:
             system_state.fp_out.write("-- %s\n" % line )
