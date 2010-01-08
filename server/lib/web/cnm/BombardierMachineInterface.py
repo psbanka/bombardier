@@ -2,6 +2,7 @@
 #!/usr/bin/env python
 
 import re, os, base64
+from commands import getstatusoutput as gso
 import glob
 import yaml
 import StringIO
@@ -362,10 +363,13 @@ class BombardierMachineInterface(MachineInterface):
     def rsync_repository(self, tmp_path, dest):
         cmd = "rsync -La %s %s@%s:%s" 
         cmd = cmd % (tmp_path, self.username, self.ip_address, dest)
-        #self.server_log.info("Running: %s" % cmd)
+        self.server_log.info("Running: %s" % cmd)
         files = glob.glob("%s/*" % tmp_path)
         self.polling_log.debug(cmd)
-        return os.system(cmd)
+        status, output = gso(cmd)
+        if status != OK:
+            msg = "Error rsyncing repository: %s" % output
+            raise MachineUnavailableException(self.machine_name, msg)
 
     def new_upload_new_packages(self):
         "Send needed packages to a machine using symlinks and rsync"
