@@ -18,7 +18,7 @@ setup (name = "bombardier_server",
        scripts = ["scripts/bdr", "scripts/dsl", "scripts/ymlEncrypter.py"],
        author = "Peter Banka and Shawn Sherwood",
        author_email = "peter.banka@gmail.com",
-       url = "http://bombardierinstaller.org/"
+       url = "http://bombardierinstaller.org/",
        classifiers = [
           "Development Status :: 2 - Pre-Alpha",
           "Programming Language :: Python",
