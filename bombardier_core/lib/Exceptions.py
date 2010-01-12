@@ -8,7 +8,7 @@ class InvalidConfigData(Exception):
         msg = "Unable to read configuration data: %s. [expected %s, got %s]"
         return msg % (self.section, self.t1, self.t2)
     def __str__(self):
-        return self.__repr_()
+        return self.__repr__()
 
 class StatusException(Exception):
     def __init__(self, path):
@@ -18,4 +18,4 @@ class StatusException(Exception):
         msg = "Error in status data located at %s"
         return msg % (self.path)
     def __str__(self):
-        return self.__repr_()
+        return self.__repr__()

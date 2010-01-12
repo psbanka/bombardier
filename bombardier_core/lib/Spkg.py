@@ -2,10 +2,10 @@
 "Provides a standard superclass for all Bombardier packages"
 
 import re, os, yaml
-from bombardier_core.mini_utility import get_spkg_path
+from mini_utility import get_spkg_path
 import sys, inspect
-from bombardier_core.static_data import OK, FAIL
-from bombardier_core.Logger import Logger
+from static_data import OK, FAIL
+from Logger import Logger
 from Config import Config
 
 def double_escape(old_string):
@@ -154,7 +154,7 @@ class SpkgV5:
 
     def _abstract(self):
         "A generic abstract method"
-        self.error("Attempting to call an abstract method")
+        self._error("Attempting to call an abstract method")
         return FAIL
 
     def configure(self):
