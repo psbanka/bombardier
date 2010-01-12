@@ -40,17 +40,16 @@ NOTE ON NAMING CONVENTIONS:
  - 'pdat' = a dictionary of package progress data
 '''
 
-import sets, os, time, copy
+import sets, os, copy
 import PackageV4, PackageV5
 import Exceptions
 from bombardier_core.Logger import Logger
 from bombardier_core.mini_utility import get_installed, get_progress_data
-from bombardier_core.mini_utility import diff_dicts, strip_version
+from bombardier_core.mini_utility import diff_dicts
 from bombardier_core.static_data import OK, FAIL, HASH_FILE
 from bombardier_core.static_data import UNINSTALL, DRY_RUN, VERIFY
 from bombardier_core.static_data import INSTALL, CONFIGURE
 from bombardier_core.static_data import EXECUTE, ACTION_REVERSE_LOOKUP
-from bombardier_core.static_data import VALID_PACKAGE_VERSIONS
 
 MAX_CHAIN_DEPTH = 50
 
@@ -99,6 +98,7 @@ class PackageChain:
         Go through my chain of packages, and if there are any 'bad' packages
         in the list of dependencies, cut off the package chain at that point
         '''
+        index = 0
         for index in range(0, len(self.chain)):
             pkn = self.chain[index]
             if pkn in self.broken_pkns:

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+" Exceptions that might be encountered within the Bombardier Client"
 # BSD License
 # Copyright (c) 2009, Peter Banka et al
 # All rights reserved.
@@ -28,105 +29,79 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 class RebootRequiredException(Exception):
+    "Thrown after a package is installed that notes a reboot is required."
     def __init__(self, name):
-        e = Exception()
-        Exception.__init__(e)
+        Exception.__init__(self)
         self.name=name
     def __repr__(self):
-        return "RebootRequiredException: Package %s requires a reboot, stopping..." %self.name
+        return "Package %s requires a reboot. Stopping..." % self.name
     def __str__(self):
         return self.__repr__()
-
-class ConsoleException(Exception):
-    def __init__(self, msg):
-        e = Exception()
-        Exception.__init__(e)
-        self.msg=msg
-    def __repr__(self):
-        return "ConsoleException: %s" % self.msg
-    def __str__(self):
-        return self.__repr__()
-
-class InvalidConfigData(Exception):
-    def __init__(self, section, t1, t2):
-        e = Exception()
-        Exception.__init__(e)
-        self.section = section
-        self.t1      = t1
-        self.t2      = t2
-    def __repr__(self):
-        return "Unable to read configuration data: %s. [expected %s, got %s]" % (self.section, self.t1, self.t2)
-    def __str__(self):
-        return "Unable to read configuration data: %s. [expected %s, got %s]" % (self.section, self.t1, self.t2)
 
 class FeatureRemovedException(Exception):
-    def __init__(self, featureName):
-        e = Exception()
-        Exception.__init__(e)
-        self.featureName  = featureName
+    "Thrown when attempting to run an invalid action"
+    def __init__(self, feature_name):
+        Exception.__init__(self)
+        self.feature_name  = feature_name
     def __repr__(self):
-        return "Feature %s is obsolete" % (self.featureName)
+        return "Feature %s is obsolete" % (self.feature_name)
     def __str__(self):
-        return "Feature %s is obsolete" % (self.featureName)
+        return self.__repr__()
 
 class AbstractClassException(Exception):
-    def __init__(self, methodName):
-        e = Exception()
-        Exception.__init__(e)
-        self.className  = methodName
+    "Thrown when the Spkg superclass hasn't been overridden"
+    def __init__(self, method_name):
+        Exception.__init__(self)
+        self.class_name  = method_name
     def __repr__(self):
-        return "Method %s was attempted in an abstract class" % (self.className)
+        return "Method %s was attempted in an abstract class" % (self.class_name)
     def __str__(self):
-        return "Method %s was attempted in an abstract class" % (self.className)
+        return self.__repr__()
 
 class DependencyLoopException(Exception):
+    "Thrown when a package A depends on package B which depends on package A..."
     def __init__(self, chain):
-        e = Exception()
-        Exception.__init__(e)
+        Exception.__init__(self)
         self.chain  = chain
     def __repr__(self):
         output  = "Package chain has a recursive loop in dependencies: "
-        for pkgName in self.chain:
-            output += pkgName + ','
+        for pkn in self.chain:
+            output += pkn + ','
         return output[:-1]
     def __str__(self):
-        output  = "Package chain has a recursive loop in dependencies: "
-        for pkgName in self.chain:
-            output += pkgName + ','
-        return output[:-1]
+        return self.__repr__()
 
 class BadPackage(Exception):
     def __init__(self, pkn, errmsg):
-        e = Exception()
-        Exception.__init__(e)
+        Exception.__init__(self)
         self.errmsg      = errmsg
         self.pkn = pkn
     def __repr__(self):
         return "%s: %s" % (self.pkn, self.errmsg)
     def __str__(self):
-        return "%s: %s" % (self.pkn, self.errmsg)
+        return self.__repr__()
 
 class BadBillOfMaterials(Exception):
     def __init__(self, errmsg):
-        e = Exception()
-        Exception.__init__(e)
+        Exception.__init__(self)
         self.errmsg = errmsg
     def __repr__(self):
         return "%s" % self.errmsg
     def __str__(self):
-        return "%s" % self.errmsg
+        return self.__repr__()
 
 class QuitException(Exception):
     pass
 
 class ServerUnavailable(Exception):
     def __init__(self, path, errmsg):
-        e = Exception()
-        Exception.__init__(e)
+        Exception.__init__(self)
         self.errmsg = errmsg
         self.path   = path
-    def __str__(self):
+    def __repr__(self):
         return "%s: %s" % (self.path, self.errmsg)
+    def __str__(self):
+        return self.__repr__()
 
 class FileNotFound(ServerUnavailable):
     def __init__(self, path, data=""):
@@ -137,9 +112,10 @@ class StoppedExecution(Exception):
 
 class MissingComponent(Exception):
     def __init__(self, name):
-        e = Exception()
-        Exception.__init__(e)
+        Exception.__init__(self)
         self.name = name
-    def __str__(self):
+    def __repr__(self):
         return self.name
+    def __str__(self):
+        return self.__repr__()
     
