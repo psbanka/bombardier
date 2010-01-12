@@ -62,7 +62,7 @@ setup (name = "bombardier_core",
        author = "Peter Banka and Shawn Sherwood",
        author_email = "peter.banka@gmail.com",
        url = "http://bombardierinstaller.org/",
-       requires = [ 'PyYAML', 'pycrypto' ],
+       install_requires = [ 'PyYAML', 'pycrypto' ],
        provides = [ 'bombardier_core' ],
        classifiers = [
            "Development Status :: 2 - Pre-Alpha",
