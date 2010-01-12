@@ -7,7 +7,7 @@ from MachineConfig import MachineConfig
 from BombardierMachineInterface import BombardierMachineInterface
 from LocalMachineInterface import LocalMachineInterface 
 from bombardier_core.static_data import OK, FAIL
-from bombardier_core.libCipher import encrypt, decrypt, DecryptionException
+from bombardier_core.Cipher import Cipher, DecryptionException
 from threading import Thread
 import StringIO, traceback
 import ServerLogger
@@ -228,6 +228,7 @@ class Dispatcher(Pyro.core.ObjBase):
                                        self.server_home)
         machine_config.merge()
         if self.password:
+            # ^^^
             machine_config.decrypt_config()
         machine_interface = None
         if machine_name in self.machine_interface_pool:
@@ -321,7 +322,7 @@ class Dispatcher(Pyro.core.ObjBase):
                 cmd += '%s set -v "%s/InstallPath" $SPKG_DOS_DIR'
                 cmd = cmd % ( rtool, bom_hkey )
             else:
-                cmd = 'echo spkgPath: %s > /etc/bombardier.yml' % spkg_dir
+                cmd = 'echo spkg_path: %s > /etc/bombardier.yml' % spkg_dir
             set_spkg_config = ShellCommand("Setting spkg path", cmd, '.')
             bombardier_init = BombardierCommand("init", None, None)
 
@@ -491,9 +492,15 @@ class Dispatcher(Pyro.core.ObjBase):
 
     def test_job(self, username, machine_name):
         "Simple test job"
-        cmd = 'for i in 1 2 3 4; do sleep 1; echo "Testing $i/4"; done'
-        commands = [ShellCommand("self_test", cmd, '.')]
-        machine_interface = self.get_machine_interface(username, machine_name)
+        output = {"command_status": OK}
+        try:
+            cmd = 'for i in 1 2 3 4; do sleep 1; echo "Testing $i/4"; done'
+            commands = [ShellCommand("self_test", cmd, '.')]
+            machine_interface = self.get_machine_interface(username, machine_name)
+        except Exception:
+            output.update(self.dump_exception(username))
+            output["command_status"] = FAIL
+            return output
         return self.start_job(username, machine_interface, commands, {}, False)
 
     def cleanup_connections(self, username):
@@ -611,7 +618,8 @@ class Dispatcher(Pyro.core.ObjBase):
         if not os.path.isfile(test_decrypt_file):
             msg = "%s doesn't exist, creating..." % test_decrypt_file
             self.server_log.warning( msg )
-            enc_lazy = encrypt(lazy_dog, password)
+            cipher = Cipher(password)
+            enc_lazy = cipher.encrypt_string(lazy_dog)
             enc_dict = { "enc_test" : enc_lazy }
             open( test_decrypt_file, 'w' ).write(yaml.dump( enc_dict ))
         try:
@@ -619,7 +627,8 @@ class Dispatcher(Pyro.core.ObjBase):
         except IOError:
             return FAIL, "Encryption not set up properly. %s not readable"
         try:
-            clear_dict = decrypt(cipher_dict, password)
+            cipher = Cipher(password)
+            clear_dict = cipher.decrypt_dict(cipher_dict)
         except DecryptionException:
             return FAIL, ["Invalid configuration key."]
         if clear_dict.get("test") == lazy_dog:

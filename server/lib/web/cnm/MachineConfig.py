@@ -1,10 +1,10 @@
 "MachineConfig module, does merged cmdb entries and decrption"
 #!/opt/python2.5/bin/python
-from bombardier_core.mini_utility import addDictionaries
+from bombardier_core.mini_utility import add_dictionaries
 import os
 import yaml, syck
 import getpass
-from bombardier_core.libCipher import pad, decryptLoop
+from bombardier_core.Cipher import Cipher
 from bombardier_core.static_data import OK, FAIL
 from Exceptions import MachineConfigurationException
 
@@ -19,11 +19,8 @@ class MachineConfig:
             errmsg = "Machine name not specified"
             raise MachineConfigurationException("NOT_DEFINED", errmsg)
         self.machine_name = machine_name
-        self.server_home   = server_home
-        if password:
-            self.passwd = pad(password)
-        else:
-            self.passwd = ''
+        self.password     = password
+        self.server_home  = server_home
 
     def __getitem__(self, key):
         return self.data[key]
@@ -64,7 +61,7 @@ class MachineConfig:
         if type(new_data) != type({}):
             errmsg = "Error parsing %s (syck did not get a dict)" % file_name
             raise MachineConfigurationException(self.machine_name, errmsg)
-        self.data = addDictionaries(self.data, new_data)
+        self.data = add_dictionaries(self.data, new_data)
         new_includes = self.find_include_list(new_data)
         self.load_includes(new_includes)
 
@@ -84,8 +81,16 @@ class MachineConfig:
         return OK
 
     def decrypt_config(self):
-        "Decrypt entries as necessary with decryptLoop from libCipher"
-        decryptLoop(self.data, self.passwd)
+        "Decrypt entries as necessary with decryptLoop from Cipher"
+        if 1 == 1:
+        #try:
+            cipher = Cipher(self.password)
+            cipher.decrypt_dict(self.data)
+        else:
+        #except:
+            errmsg = "Error decrypting configuration"
+            raise MachineConfigurationException(self.machine_name, errmsg)
+            
 
 def main_func():
     "Utility function for command line usage"
@@ -103,10 +108,10 @@ def main_func():
         parser.print_help()
         sys.exit(1)
     machine = args[0]
-    passwd = ''
+    password = ''
     if not options.insecure:
-        passwd = getpass.getpass("Enter decryption password: ")
-    config = MachineConfig(machine, passwd, mode.server_home)
+        password = getpass.getpass("Enter decryption password: ")
+    config = MachineConfig(machine, password, mode.server_home)
     status = config.get()
     if status == FAIL:
         print "Bad config file."

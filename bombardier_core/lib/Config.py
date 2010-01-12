@@ -37,30 +37,31 @@ config.yml file in the bombardier home directory.'''
 
 
 import yaml
-from bombardier_core.mini_utility import hashDictionary, diffDicts, getSpkgPath
+from mini_utility import hash_dictionary, diff_dicts, get_spkg_path
 import copy, os
 from Exceptions import InvalidConfigData
-from bombardier_core.Logger import Logger
-from bombardier_core.static_data import OK, FAIL, CONFIG_FILE
+from Logger import Logger
+from static_data import OK, FAIL, CONFIG_FILE
 
 class Config(dict):
     """This object retains the complete configuration for a system.
     It tries to impersonate a dictionary as well as provide a nice
     string interface to the data it holds"""
 
-    def __init__(self, filesystem, instance_name, config_data = {}):
+    def __init__(self, instance_name, config_data):
         '''
-        filesystem -- object that performs filesystem operations
         instance -- the name of this machine
         config_data -- configuration information for this machine
         '''
-        self.filesystem = filesystem
+        dict.__init__(self)
         self.instance_name = instance_name
         self.includes   = []
         self.automated  = False
         self.username   = None
         self.password   = None
         self.domain     = None
+        if not config_data:
+            config_data = {}
         self.data       = config_data
         self._read_local_config()
 
@@ -68,7 +69,10 @@ class Config(dict):
         '''If there is a cleartext configuration file on the system,
         we will read that and ignore the configuration sent to us from
         the server.'''
-        config_path = os.path.join(getSpkgPath(), self.instance_name,
+        spkg_path = get_spkg_path()
+        if not spkg_path:
+            return FAIL
+        config_path = os.path.join(get_spkg_path(), self.instance_name,
                                   CONFIG_FILE)
         if not os.path.isfile(config_path):
             return FAIL
@@ -120,8 +124,8 @@ class Config(dict):
         path -- the place to find the configuration hash that was used the
                 last time this package was configured or installed
         '''
-        file_handle = self.filesystem.open(path, 'w')
-        hash_dict = hashDictionary(self.data)
+        file_handle = open(path, 'w')
+        hash_dict = hash_dictionary(self.data)
         hash_yaml = yaml.dump(hash_dict)
         file_handle.write(hash_yaml)
         file_handle.close()
@@ -138,16 +142,15 @@ class Config(dict):
         '''
         old_config = {}
         try:
-            yaml_string = self.filesystem.open(path, 'r').read()
+            yaml_string = open(path, 'r').read()
             old_config = yaml.load(yaml_string)
         except IOError:
             msg = "Could not load saved configuration data in %s" % path
             Logger.warning(msg)
-            pass
         except:
             Logger.warning("Bad yaml in file %s" % path)
-        new_config = hashDictionary(self.data)
-        difference =  diffDicts(old_config, new_config, checkValues=True)
+        new_config = hash_dictionary(self.data)
+        difference =  diff_dicts(old_config, new_config, check_values=True)
         return difference
 
     def set(self, section, option, value):
@@ -210,7 +213,7 @@ class Config(dict):
         'dictionary impersonation'
         return str(self.get_raw(section, option, default))
 
-    def get_dict(self, section, option, default={}, optional=True):
+    def get_dict(self, section, option, default = {}, optional = True):
         '''Get a dictionary object from the configuration
         section -- this is a top-level value
         option -- a key under the top-level
@@ -267,13 +270,37 @@ class Config(dict):
         return self._getobj(section_string, default, [], optional)
 
     def string(self, section_string, default='', optional=True):
-        'Get a string object from the config'
+        '''Get a string object from the config
+        >>> data = {"section": {"item1": "value1", "item2": 2, "item3": [1,2,3]}}
+        >>> config = Config("tester", data)
+        >>> config.string("section.item1")
+        "value1"
+        >>> config.string("section.item234", default = "not_defined")
+        "not_defined"
+        >>> config.string("section.item2")
+        "2"
+        '''
         return self._getobj(section_string, default, "string", optional)
 
     def integer(self, section_string, default=1, optional=True):
-        'Get a integer object from the config'
+        '''Get a integer object from the config
+        >>> data = {"section": {"item1": "value1", "item2": 2, "item3": [1,2,3]}}
+        >>> config = Config("tester", data)
+        >>> config.integer("section.item2")
+        2
+        '''
         return self._getobj(section_string, default, 1, optional)
 
     def dictionary(self, section_string, default={}, optional=True):
-        'Get a dictionary object from the config'
+        '''Get a dictionary object from the config'
+        >>> data = {"section": {"item1": "value1", "item2": 2, "item3": [1,2,3]}}
+        >>> config = Config("tester", data)
+        >>> config.dictionary("section")
+        {"item1": "value1", "item2": 2, "item3": [1,2,3]}
+        '''
         return self._getobj(section_string, default, {}, optional)
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
+

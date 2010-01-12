@@ -33,8 +33,8 @@
 import os, glob, random
 import sys
 
-import Spkg
-from bombardier_core.mini_utility import evalBoolean, getPackagePath
+from bombardier_core import Spkg
+from bombardier_core.mini_utility import get_package_path
 from Exceptions import BadPackage, FeatureRemovedException
 from Job import Job
 from Exceptions import RebootRequiredException
@@ -45,23 +45,41 @@ from bombardier_core.static_data import CONFIGURE, VERIFY
 
 from Package import Package
 
+def eval_boolean(data):
+    """Someone has typed in some data in a configuration file that should
+    be treated as boolean data. Convert it."""
+    if not data:
+        return False
+    if type(data) != type('string'):
+        if type(data) == type(1):
+            if data == 1:
+                return True
+            else:
+                return False
+        else:
+            return False
+    data = data.strip().upper()
+    if data in ["TRUE", "YES", "1", "OK"]:
+        return True
+    return False
+
+
 class PackageV4(Package):
 
     """This class provides an abstraction for a downloadable,
     installable, verifiable, and uninstallable thing. Each
     package is held in the repository"""
 
-    def __init__(self, name, repository, config, filesystem,
+    def __init__(self, name, repository, config, 
                  instance_name):
         '''
         name -- the name of this package
         repository -- object that keeps track of package data
         config -- configuration for this machine
-        filesystem -- object that performs filesystem actions
         instance_name -- name of this machine
         '''
         Package.__init__(self, name, repository, config,
-                         filesystem, instance_name)
+                         instance_name)
         self.package_version = 4
 
     ############################################ PUBLIC METHODS
@@ -77,9 +95,9 @@ class PackageV4(Package):
             if type(self.meta_data.data) == type(dict()):
                 install_data = self.meta_data.data.get("install")
                 chk = install_data.get('console')
-                self.console = evalBoolean(chk)
+                self.console = eval_boolean(chk)
                 chk = install_data.get('reboot')
-                self.reboot = evalBoolean(chk)
+                self.reboot = eval_boolean(chk)
                 self.checksum = install_data.get('md5sum')
                 if install_data:
                     if type(install_data) == type({}):
@@ -147,15 +165,15 @@ class PackageV4(Package):
         the pieces and parts are there for a good type-4 package
         '''
         if not self.downloaded:
-            pkg_dir = os.path.join(getPackagePath(self.instance_name),
+            pkg_dir = os.path.join(get_package_path(self.instance_name),
                                                   self.full_name)
-            if not self.filesystem.isdir(pkg_dir):
+            if not os.path.isdir(pkg_dir):
                 self.repository.get_type_4(self.full_name)
             self.scripts_dir = os.path.join(pkg_dir, "scripts")
             self.maint_dir = os.path.join(pkg_dir, "maint")
             injector_dir = os.path.join(pkg_dir, "injector")
             for required_dir in [self.scripts_dir, injector_dir]:
-                if not self.filesystem.isdir(required_dir):
+                if not os.path.isdir(required_dir):
                     errmsg = "Required directory %s does not exist"
                     errmsg = errmsg % required_dir
                     self.status = FAIL
@@ -185,16 +203,16 @@ class PackageV4(Package):
                        about the packages that will come after them
         dry_run -- boolean flag to see if we're really going to do this
         '''
-        cwd = self.filesystem.getcwd()
+        cwd = os.getcwd()
         sys.path.insert(0, self.scripts_dir)
-        self.filesystem.chdir(self.scripts_dir)
+        os.chdir(self.scripts_dir)
         files = self._get_possible_module_files()
         status = FAIL
         file_found = False
         for file_name in files:
             try:
                 obj = Spkg.SpkgV4(self.config, logger=Logger)
-                self.filesystem.chdir(self.working_dir)
+                os.chdir(self.working_dir)
                 letters = [ chr( x ) for x in range(65, 91) ]
                 random.shuffle(letters)
                 rand_string = ''.join(letters)
@@ -249,7 +267,7 @@ class PackageV4(Package):
                 status = FAIL
                 del rand_string
                 break
-        self.filesystem.chdir(cwd)
+        os.chdir(cwd)
         if not file_found:
             msg = "Unable to find a suitable script to install."
             raise BadPackage(self.name, msg)

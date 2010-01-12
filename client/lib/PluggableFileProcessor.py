@@ -2,7 +2,7 @@
 compression, and splitting on files with full MD5 support to ensure
 operational integrity."""
 
-import md5, time, yaml, sys, os
+import md5, time, yaml, sys, os, glob
 
 ###### Constants #############################################################
 
@@ -110,10 +110,9 @@ class Md5Validation:
 class AbstractFileWriter:
     """Writes a file to disk, doing nothing to it. Does not record MD5 
     data because it is no different than the previous processor"""
-    def __init__(self, file_name, filesystem, logger):
+    def __init__(self, file_name, logger):
         self.logger = logger
         self.file_name = file_name
-        self.filesystem = filesystem
         self.file_handle = None
 
     def __repr__(self):
@@ -121,7 +120,7 @@ class AbstractFileWriter:
 
     def open(self):
         if not self.file_handle:
-            self.file_handle = self.filesystem.open(self.file_name, 'wb')
+            self.file_handle = open(self.file_name, 'wb')
 
     def set_max_file_size(self, max_file_size):
         "used by the testing harness only. Does nothing on normal file writers"
@@ -140,12 +139,11 @@ class AbstractFileWriter:
 
 class AbstractFileReader:
     "Base class for reading files from the disk"
-    def __init__(self, file_name, filesystem, logger):
+    def __init__(self, file_name, logger):
         self.logger     = logger
         self.block_size = BLOCK_SIZE
-        self.filesystem = filesystem
 
-        self.original_size = filesystem.stat(file_name)[6]
+        self.original_size = os.stat(file_name)[6]
         self.size_so_far = 0
         self.output = 0
         self.file_name = file_name
@@ -161,7 +159,7 @@ class AbstractFileReader:
         keep_trying = 0
         while True:
             try:
-                self.file_handle = self.filesystem.open(self.file_name, 'rb')
+                self.file_handle = open(self.file_name, 'rb')
                 break
             except IOError, ioe:
                 msg = "Unable to read %s (%d)"
@@ -190,8 +188,8 @@ class AbstractFileReader:
 
 class FileReader(AbstractFileReader, Md5Validation):
     "This will read a file from the disk, doing nothing to it."
-    def __init__(self, file_name, target_md5_data, filesystem, logger):
-        AbstractFileReader.__init__(self, file_name, filesystem, logger)
+    def __init__(self, file_name, target_md5_data, logger):
+        AbstractFileReader.__init__(self, file_name, logger)
         Md5Validation.__init__(self, file_name, target_md5_data, logger)
 
     def __repr__(self):
@@ -205,12 +203,12 @@ class FileReader(AbstractFileReader, Md5Validation):
 class JoinReader(AbstractFileReader, Md5Validation):
     """Reads a series of files from the disk, all ending in .part?, for 
     example, foo.part0, foo.part1, foo.part2... and join them back up"""
-    def __init__(self, base_file_name, target_md5_data, filesystem, logger):
+    def __init__(self, base_file_name, target_md5_data, logger):
         Md5Validation.__init__(self, base_file_name, target_md5_data, logger)
         self.file_number = 0
         self.base_file_name = base_file_name
         self.get_file_name()
-        AbstractFileReader.__init__(self, self.file_name, filesystem, logger)
+        AbstractFileReader.__init__(self, self.file_name, logger)
 
     def __repr__(self):
         return "JOIN_READER"
@@ -226,7 +224,7 @@ class JoinReader(AbstractFileReader, Md5Validation):
         while not data:
             self.file_number += 1
             self.get_file_name()
-            if not self.filesystem.isfile(self.file_name):
+            if not os.path.isfile(self.file_name):
                 return ''
             self.open()
             data = AbstractFileReader.read(self)
@@ -252,9 +250,9 @@ class NullWriter(AbstractFileWriter, Md5Validation):
 class FileWriter(AbstractFileWriter, Md5Validation):
     """Writes a file to disk, doing nothing to it. Does not record MD5 
     data because it is no different than the previous processor"""
-    def __init__(self, base_file_name, target_md5_data, filesystem, logger):
+    def __init__(self, base_file_name, target_md5_data, logger):
         target_md5_data = {}
-        AbstractFileWriter.__init__(self, base_file_name, filesystem, logger)
+        AbstractFileWriter.__init__(self, base_file_name, logger)
         Md5Validation.__init__(self, base_file_name, target_md5_data, logger)
     def __repr__(self):
         return "FILE_WRITER"
@@ -262,9 +260,9 @@ class FileWriter(AbstractFileWriter, Md5Validation):
 
 class SplitWriter(AbstractFileWriter, Md5Validation):
     "This class splits files into parts as it writes."
-    def __init__(self, base_file_name, filesystem, logger):
+    def __init__(self, base_file_name, logger):
         target_md5_data = {}
-        AbstractFileWriter.__init__(self, base_file_name, filesystem, logger)
+        AbstractFileWriter.__init__(self, base_file_name, logger)
         Md5Validation.__init__(self, base_file_name, target_md5_data, logger)
         self.base_file_name = base_file_name
         self.max_file_size = MAX_FILE_SIZE
@@ -277,7 +275,7 @@ class SplitWriter(AbstractFileWriter, Md5Validation):
     def open(self):
         if not self.file_handle:
             self.file_name = "%s.part%d" % (self.base_file_name, self.file_number)
-            self.file_handle = self.filesystem.open(self.file_name, 'wb')
+            self.file_handle = open(self.file_name, 'wb')
 
     def set_max_file_size(self, max_file_size):
         "used by the testing harness only"
@@ -472,11 +470,11 @@ def get_base_path(file_name):
         return ''
     return base_path
 
-def get_manifest_data(file_name, filesystem):
+def get_manifest_data(file_name):
     manifest_path = os.path.join(get_base_path(file_name), MANIFEST_FILE)
     md5_dict = {}
-    if filesystem.isfile(manifest_path):
-        md5_string = filesystem.open(manifest_path, 'r').read()
+    if os.path.isfile(manifest_path):
+        md5_string = open(manifest_path, 'r').read()
         md5_dict = yaml.load(md5_string)
         if type(md5_dict) != type({}):
             md5_dict = {}
@@ -494,10 +492,9 @@ class ForwardPluggableFileProcessor:
     compression, and/or splitting. Takes options for what to do and
     writes out a manifest.yml file for md5 information."""
 
-    def __init__(self, file_name, options, filesystem, 
+    def __init__(self, file_name, options,
                  logger, private_key=''):
         self.file_name         = file_name
-        self.filesystem        = filesystem
         self.logger            = logger
         self.processors        = []
         if not options:
@@ -525,14 +522,12 @@ class ForwardPluggableFileProcessor:
 
         target_md5_data = {}
         suffix_file_name = get_suffix_file_name(self.file_name, self.processors)
-        self.reader = FileReader(self.file_name, target_md5_data,
-                                 self.filesystem, self.logger)
+        self.reader = FileReader(self.file_name, target_md5_data, self.logger)
         if SPLIT in options:
-            self.writer = SplitWriter(creation_file_name, self.filesystem,
-                                      self.logger)
+            self.writer = SplitWriter(creation_file_name, self.logger)
         else:
             self.writer = FileWriter(creation_file_name, target_md5_data,
-                                     self.filesystem, self.logger)
+                                     self.logger)
 
     def set_block_size(self, block_size):
         "used by the testing harness only"
@@ -554,12 +549,12 @@ class ForwardPluggableFileProcessor:
         return md5_dict
 
     def create_manifest(self):
-        old_md5_data = get_manifest_data(self.file_name, self.filesystem)
+        old_md5_data = get_manifest_data(self.file_name)
         md5_data = self.dump_md5_sums()
         md5_data.update(old_md5_data)
         yaml_string = yaml.dump(md5_data)
         manifest_path = os.path.join(get_base_path(self.file_name), MANIFEST_FILE)
-        self.filesystem.open(manifest_path, 'w').write(yaml_string)
+        open(manifest_path, 'w').write(yaml_string)
 
     def process_all(self, priority=0):
         process_all(self.reader, self.processors, self.writer, priority)
@@ -571,13 +566,12 @@ class ReversePluggableFileProcessor:
     will look at a directory and 'do the right thing' with the files that
     are there, based on extension, and will validate against md5 hash
     information in the manifest.yml file"""
-    def __init__(self, file_name, filesystem, logger, private_key = ''):
-        self.filesystem        = filesystem
+    def __init__(self, file_name, logger, private_key = ''):
         self.file_name         = file_name
         self.logger            = logger
         self.processors        = []
 
-        target_md5_data = get_manifest_data(self.file_name, self.filesystem)
+        target_md5_data = get_manifest_data(self.file_name)
 
         options = self.determine_options()
         source_file_name = self.source_file_name(options)
@@ -585,14 +579,14 @@ class ReversePluggableFileProcessor:
             self.writer = NullWriter(self.logger)
         else:
             self.writer = FileWriter(self.file_name, target_md5_data,
-                                     self.filesystem, self.logger)
+                                     self.logger)
 
         if JOIN in options:
             self.reader = JoinReader(source_file_name, target_md5_data,
-                                     self.filesystem, self.logger)
+                                     self.logger)
         else:
             self.reader = FileReader(source_file_name, target_md5_data,
-                                     self.filesystem, self.logger)
+                                     self.logger)
         if DECRYPT in options:
             if not private_key:
                 raise NoPrivateKeyException()
@@ -609,9 +603,9 @@ class ReversePluggableFileProcessor:
     def determine_options(self):
         """Based on files in a directory, determine what options we should 
         do and what file(s) we should operate on."""
-        if self.filesystem.isfile(self.file_name):
+        if os.path.isfile(self.file_name):
             return []
-        possible_files = self.filesystem.glob(self.file_name+"*")
+        possible_files = glob.glob(self.file_name+"*")
         suffix_set = set()
         for fname in possible_files:
             new_suffix_list = fname.replace(self.file_name, '').split('.')
@@ -641,7 +635,7 @@ class ReversePluggableFileProcessor:
         
     def check_md5_sums(self):
         manifest_path = os.path.join(get_base_path(self.file_name), MANIFEST_FILE)
-        if self.filesystem.isfile(manifest_path):
+        if os.path.isfile(manifest_path):
             self.reader.check_md5()
             for processor in self.processors:
                 processor.check_md5()

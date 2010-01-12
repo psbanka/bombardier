@@ -1,8 +1,8 @@
-#!/cygdrive/c/Python24/python.exe
+#!/usr/bin/env python
 
-# mini_utility.py: common stuff that many Bombardier modules need.
+"common stuff that many Bombardier modules need."
 
-# Copyright (C) 2005 Peter Banka
+# Copyright (C) 2005-2010 Peter Banka, Shawn Sherwood
 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,215 +19,366 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, re, time, random, yaml, md5
+import os, re, time, random, yaml, md5, shutil
 import sys
 from static_data import OK, FAIL
-from static_data import CONSOLE_MONITOR, PACKAGES, STATUS_FILE, CONFIG_FILE
+from static_data import PACKAGES, STATUS_FILE, SERVER_CONFIG_FILE
+from Exceptions import StatusException
 
 BROKEN_INSTALL   = 0
 INSTALLED        = 1
 BROKEN_UNINSTALL = 2
 UNINSTALLED      = 3
 
-def cygpath(dosPath):
-    prefix = ''
-    if not dosPath:
-        return ''
-    if ':' in dosPath:
-        drive = dosPath.split(':')[0]
-        prefix = '/cygdrive/%s' % drive
-        dosPath = dosPath.split(':')[-1]
-    return prefix + dosPath.replace('\\', '/')
+def load_current_progress(instance_name):
+    "Loads the status.yml file for this instance"
+    status_path = get_progress_path(instance_name)
+    try:
+        raw_data = open(status_path, 'r').read()
+        data = yaml.load(raw_data)
+        assert type(data) == type({})
+    except Exception:
+        raise StatusException(status_path)
+    return data
 
-def cyghome():
-    import RegistryDict
-    a = RegistryDict.RegistryDict(r"SOFTWARE\Cygnus Solutions\Cygwin\mounts v2\/")
-    cygwinRoot = a["native"].replace('\\', '/')
-    return cygwinRoot
+def update_dict(newdict, olddict):
+    """mashes two dictionaries together
+    >>> update_dict({'a': 1}, {})
+    {'a': 1}
+    >>> update_dict({'a': 1}, {'b':2})
+    {'a': 1, 'b': 2}
+    >>> update_dict({'a': 1}, {'a':2})
+    {'a': 1}
+    >>> update_dict({'a': [1]}, {'a':[2]})
+    {'a': [2, 1]}
+    """
+    for key, value in newdict.iteritems():
+        if type(value) == type({}) and olddict.has_key(key):
+            olddict[key] = update_dict(value, olddict[key])
+        elif type(value) == type(["list"]) and olddict.has_key(key):
+            olddict[key] = olddict[key] + value
+        else:
+            olddict[key] = value
+    return olddict
 
-def dospath(cygpath):
-    cygwinRoot = cyghome()
-    if cygpath.startswith("/cygdrive/"):
-        elements = cygpath.split('/')
-        drive    = elements[2]
-        dosPath  = drive+':/'+'/'.join(elements[3:])
+def integrate(data, dictionary, overwrite):
+    "mashes two dictionaries together based on timestamp"
+    data["timestamp"] = time.time()
+    if overwrite:
+        for key, value in dictionary.iteritems():
+            data[key] = value
     else:
-        dosPath  = cygwinRoot+cygpath
-    return dosPath
+        data = update_dict(dictionary, data)
+    return data
 
-def hashList(l):
-    r = []
-    for value in l:
+def get_tmp_path():
+    "probably could be replaced by tempfile"
+    alphabet = map(chr, range(97, 123))
+    tmp_fn    = "tmp"
+    tmp_fn   += random.choice(alphabet)
+    tmp_fn   += random.choice(alphabet)
+    tmp_fn   += random.choice(alphabet)
+    tmp_fn   += random.choice(alphabet)
+    tmp_fn   += random.choice(alphabet)
+    tmp_path  = os.path.join(get_spkg_path(), tmp_fn)
+    return tmp_path
+
+def update_progress(dictionary, instance_name, overwrite=False):
+    "updates package status information"
+    status_path = get_progress_path(instance_name)
+    tmp_path    = get_tmp_path()
+    data        = load_current_progress(instance_name)
+    try:
+        int_data = integrate(data, dictionary, overwrite)
+        yaml_string = yaml.dump(int_data, default_flow_style=False)
+        file_handle = open(tmp_path, 'w')
+        file_handle.write(yaml_string)
+        file_handle.flush()
+        file_handle.close()
+        shutil.copy(tmp_path, status_path)
+        os.unlink(tmp_path)
+    except IOError:
+        return FAIL
+    except StatusException:
+        return FAIL
+    return OK
+
+def get_progress_data(instance_name, strip_version_from_name = False):
+    "Obtains just the installation progress information from status.yml"
+    data = load_current_progress(instance_name)
+    if data.has_key("install-progress"):
+        progress_data = data["install-progress"]
+        if strip_version_from_name:
+            return strip_version_from_keys(progress_data)
+        return progress_data
+    return {}
+
+def cygpath(dos_path):
+    "Converts an MS-DOS path to a POSIX path"
+    prefix = ''
+    if not dos_path:
+        return ''
+    if ':' in dos_path:
+        drive = dos_path.split(':')[0]
+        prefix = '/cygdrive/%s' % drive
+        dos_path = dos_path.split(':')[-1]
+    return prefix + dos_path.replace('\\', '/')
+
+def hash_list(listobj):
+    """hashes all the values of a list
+
+    >>> hash_list(['a', 1])
+    ['0cc175b9c0f1b6a831c399e269772661', 'c4ca4238a0b923820dcc509a6f75849b']
+    """
+    output = []
+    for value in listobj:
         if type(value) == type({}):
-            r.append(hashDictionary(value))
+            output.append(hash_dictionary(value))
         elif type(value) == type([]):
-            r.append(hashList(value))
+            output.append(hash_list(value))
         elif type(value) == type('string'):
-            r.append(md5.new(value).hexdigest())
+            output.append(md5.new(value).hexdigest())
         elif  type(value) == type(1):
-            r.append(md5.new(`value`).hexdigest())
-    return r
+            output.append(md5.new(`value`).hexdigest())
+    return output
 
-def hashDictionary(d):
-    r = {}
-    for key in d.keys():
-        value = d[key]
+def hash_dictionary(dictionary):
+    """goes through a dictionary and turns all the values in it
+    to md5 hashes. This is useful for saving off the information
+    about a configuration without saving the configuration itself
+
+    >>> hash_dictionary({'a': 2, 'b': {'c': 'terrance'}})
+    {'a': 'c81e728d9d4c2f636f067f89cc14862c', 'b': {'c': '370574fb6b12bfabab1b23a7b8c11c0a'}}
+    """
+    output = {}
+    for key in dictionary.keys():
+        value = dictionary[key]
         if type(value) == type({}):
-            r[key] = hashDictionary(value)
+            output[key] = hash_dictionary(value)
         elif type(value) == type([]):
-            r[key] = hashList(value)
+            output[key] = hash_list(value)
         elif type(value) == type('string'):
-            r[key] = md5.new(value).hexdigest()
+            output[key] = md5.new(value).hexdigest()
         elif type(value) == type(1):
-            r[key] = md5.new(`value`).hexdigest()
-    return r
+            output[key] = md5.new(`value`).hexdigest()
+    return output
+
+def diff_lists(sub_list, super_list, check_values=False):
+    """Finds the differences between two lists
 
 
-def diffLists(sub, super, checkValues=False):
+    """
     differences = []
-    #print "compareLists: (%s/%s)" % (sub, super)
-    if len(sub) == 0:
+    if len(sub_list) == 0:
         return []
-    if type(sub[0]) == type(super[0]):
-        if type(sub[0]) == type(1) or type(sub[0]) == type('string'):
+    if type(sub_list[0]) == type(super_list[0]):
+        if type(sub_list[0]) == type(1) or type(sub_list[0]) == type('string'):
             # comparing a list of literals, length doesn't matter.
             return []
-    if len(sub) != len(super):
-        differences = list(set(sub) - set(super))
-    for index in range(0, len(sub)):
-        subValue = sub[index]
-        superValue = super[index]
-        if type(subValue) != type(superValue):
-            differences.append(subValue)
+    print 'a'
+    if len(sub_list) != len(super_list):
+        differences = list(set(sub_list) - set(super_list))
+    for index in range(0, len(sub_list)):
+        sub_value = sub_list[index]
+        super_value = super_list[index]
+        if type(sub_value) != type(super_value):
+            differences.append(sub_value)
             continue
-        if type(subValue) == type({}):
-            differences.append(diffDicts(subValue, superValue, checkValues))
+        if type(sub_value) == type({}):
+            differences.append(diff_dicts(sub_value, super_value, check_values))
             continue
-        elif type(subValue) == type([]):
-            differences.append(diffLists(subValue, superValue, checkValues))
+        elif type(sub_value) == type([]):
+            differences.append(diff_lists(sub_value, super_value, check_values))
             continue
-        elif type(subValue) == type('string') or type(subValue) == type(1):
-            if checkValues and subValue != superValue:
-                differences.append(subValue)
+        elif type(sub_value) == type('string') or type(sub_value) == type(1):
+            if check_values and sub_value != super_value:
+                differences.append(sub_value)
                 continue
         else:
-            differences.append(subValue)
+            differences.append(sub_value)
             continue
     return differences
 
-def diffDicts(sub, super, checkValues=False):
-    #print "diffDicts: (\nsub\n%s\nsuper\n%s)" % (sub, super)
+def diff_dicts(sub_dict, super_dict, check_values=False):
+    """Finds all the entries in sub_dict that are not in super_dict.
+    
+    >>> diff_dicts({'a':1}, {'b':2})
+    {'a': 1}
+
+    >>> diff_dicts({'a':1, 'b':2}, {'b':2})
+    {'a': 1}
+
+    >>> diff_dicts({'b': 2}, {'a':1, 'b':2})
+    {}
+
+    When lists are encountered, only the type is relevant, and not the values.
+    For example:
+
+    >>> diff_dicts({'b': [2]}, {'a':1, 'b':[1,2,3,4]})
+    {}
+    
+    >>> diff_dicts({'b': 2}, {'a':1, 'b':[1,2,3,4]})
+    {'b': 2}
+
+    Similarly, all scalar values are treated the same, whether they are string
+    or character values:
+    >>> diff_dicts({'b': 2}, {'a':1, 'b':'2'})
+    {}
+
+    Unless the check_values flag is given:
+    >>> diff_dicts({'b': 2}, {'a':1, 'b':'2'}, True)
+    {'b': 2}
+    """
     differences = {}
-    for subKey in sub.keys():
-        #print "SUBKEY:", subKey
-        if subKey not in super.keys():
-            differences[subKey] = sub[subKey]
-            #print "Found 0"
+    for sub_key in sub_dict.keys():
+        if sub_key not in super_dict.keys():
+            differences[sub_key] = sub_dict[sub_key]
             continue
-        subValue = sub[subKey]
-        superValue = super[subKey]
-        if type(subValue) == type('string') or type(subValue) == type(1):
-            if type(superValue) != type('string') and type(superValue) != type(1):
-                differences[subKey] = subValue
-                #print "Found 1"
+        sub_value = sub_dict[sub_key]
+        super_value = super_dict[sub_key]
+        if type(sub_value) == type('string') or type(sub_value) == type(1):
+            if type(super_value) != type('string') and \
+              type(super_value) != type(1):
+                differences[sub_key] = sub_value
                 continue
-            if not checkValues:
+            if not check_values:
                 continue
-            if subValue != superValue:
-                differences[subKey] = subValue
-                #print "Found 2"
+            if sub_value != super_value:
+                differences[sub_key] = sub_value
                 continue
             continue
-        elif type(subValue) != type(superValue):
-            differences[subKey] = subValue
-            #print "Found 3"
+        elif type(sub_value) != type(super_value):
+            differences[sub_key] = sub_value
             continue
-        elif type(subValue) == type({}):
-            diff = diffDicts(subValue, superValue, checkValues)
+        elif type(sub_value) == type({}):
+            diff = diff_dicts(sub_value, super_value, check_values)
             if diff != {}:
-                differences[subKey] = diff
-                #print "Found 4", checkValues, diff
+                differences[sub_key] = diff
             continue
-        elif type(subValue) == type([]):
-            diff = diffLists(subValue, superValue, checkValues)
+        elif type(sub_value) == type([]):
+            diff = diff_lists(sub_value, super_value, check_values)
             if diff != []:
-                differences[subKey] = diff
-                #print "Found 5"
+                differences[sub_key] = diff
             continue
         else:
-            differences[subKey] = subValue
-            #print "Found 6"
+            differences[sub_key] = sub_value
             continue
     return differences
 
-def compareLists(sub, super, checkValues=False):
-    if diffLists(sub, super, checkValues) == []:
+def compare_dicts(sub_dict, super_dict, check_values=False):
+    "Tells you if two dictionaries are the same or not"
+    if diff_dicts(sub_dict, super_dict, check_values) == {}:
         return True
     return False
 
-def compareDicts(sub, super, checkValues=False):
-    if diffDicts(sub, super, checkValues) == {}:
-        return True
+def datesort(thing_one, thing_two):
+    "used by sort() to sort a list"
+    if type(thing_one) == type(["list"]):
+        if type(thing_two) == type(["list"]):
+            if thing_one[1]:
+                if thing_two[1]:
+                    return thing_one[1] - thing_two[1]
     return False
 
-def datesort(x, y):
-    if type(x) == type(["list"]):
-        if type(y) == type(["list"]):
-            if x[1]:
-                if y[1]:
-                    return x[1] - y[1]
-    return False
+def get_time_struct(time_string):
+    """Convert the time_string into a time struct. If a package has
+    been both installed and uninstalled, it's necessary to known which
+    one came more recently so that we know if the package is on the
+    system or not.
 
-def getTimeStruct(s):
-    if s == "NA":
+    >>> get_time_struct("NA")
+    0
+
+    >>> get_time_struct("Fri Dec  4 17:13:46 2009")
+    1259975626
+    """
+    if time_string == "NA":
         return 0
     try:
-        timestruct = int(time.mktime(time.strptime(s)))
+        timestruct = int(time.mktime(time.strptime(time_string)))
     except ValueError:
         timestruct = int(time.time())
     return timestruct
 
-def strip_version(packageFile):
-    if packageFile.rfind('-') == -1:
-        return packageFile
-    ending = packageFile[packageFile.rfind('-')+1:]
+def strip_version(package_name):
+    """removes the -\d version number from a package name
+    >>> strip_version("abc")
+    'abc'
+    >>> strip_version("abc-2")
+    'abc'
+    >>> strip_version("abc-2834343-2")
+    'abc-2834343'
+    """
+
+    if package_name.rfind('-') == -1:
+        return package_name
+    ending = package_name[package_name.rfind('-')+1:]
     validator = re.compile("([0-9]+)")
     if validator.search(ending):
         if validator.search(ending).groups()[0] == ending:
-            packageFile = packageFile[:packageFile.rfind('-')]
-    return packageFile
+            package_name = package_name[:package_name.rfind('-')]
+    return package_name
 
 def strip_version_from_keys(progress_data):
+    """removes the "-\d" version information from the progress info
+    >>> b = {'LdapServer-19': {'UNINSTALLED': 'NA', 
+    ...                        'VERIFIED': 'Fri Dec  4 17:13:46 2009',
+    ...                        'DEPENDENCY_ERRORS': [],
+    ...                        'INSTALLED': 'Fri Dec  4 17:13:46 2009'}}
+    >>> strip_version_from_keys(b)
+    {'LdapServer': {'UNINSTALLED': 'NA', 'VERIFIED': 'Fri Dec  4 17:13:46 2009', 'DEPENDENCY_ERRORS': [], 'INSTALLED': 'Fri Dec  4 17:13:46 2009'}}
+    """
     output = {}
     for key in progress_data.keys():
         output[strip_version(key)] = progress_data[key]
     return output
 
 def determine_install_status(item, progress_data):
-    # 1. Broken installation
-    # 2. Installed, not uninstalled.
-    # 3. Broken uninstallation
-    # 4. ok uninstallation
+    '''Goes through the progress data that is stored in status.yml,
+    and determines which packages are broken-not installed, which are installed,
+    which are broken-installed, and which are uninstalled.
+
+    >>> b = {'LdapServer-19': {'UNINSTALLED': 'NA',
+    ...                        'VERIFIED': 'Fri Dec  4 17:13:46 2009',
+    ...                        'DEPENDENCY_ERRORS': [],
+    ...                        'INSTALLED': 'Fri Dec  4 17:13:46 2009'}}
+    >>> determine_install_status("LdapServer-19", b)
+    (1, 1259975626)
+
+    >>> b["LdapServer-19"]["UNINSTALLED"] = 'Sat Dec  5 17:13:46 2009'
+    >>> determine_install_status("LdapServer-19", b)
+    (3, 1260062026)
+    '''
     if progress_data[item].get("INSTALLED") == None:
         progress_data[item]["INSTALLED"] = ''
     if progress_data[item].get("UNINSTALLED") == None:
         progress_data[item]["UNINSTALLED"] = ''
-    iTxt = progress_data[item]["INSTALLED"]
-    uTxt = progress_data[item]["UNINSTALLED"]
-    if iTxt == "BROKEN":
+    inst_txt = progress_data[item]["INSTALLED"]
+    uninst_txt = progress_data[item]["UNINSTALLED"]
+    if inst_txt == "BROKEN":
         return BROKEN_INSTALL, None
-    if uTxt == "BROKEN":
+    if uninst_txt == "BROKEN":
         return BROKEN_UNINSTALL, None
-    if iTxt == "NA":
+    if inst_txt == "NA":
         return UNINSTALLED, None
-    iInt = getTimeStruct(iTxt)
-    if uTxt != "NA":
-        uInt = getTimeStruct(uTxt)
-        if uInt > iInt:
-            return UNINSTALLED, uInt
-    return INSTALLED, iInt
+    inst_int = get_time_struct(inst_txt)
+    if uninst_txt != "NA":
+        uninst_int = get_time_struct(uninst_txt)
+        if uninst_int > inst_int:
+            return UNINSTALLED, uninst_int
+    return INSTALLED, inst_int
 
 def get_installed_uninstalled_times(progress_data):
+    """Provides information about what time installation or uninstallation
+    activities have taken place
+
+    >>> b = {'LdapServer-19': {'UNINSTALLED': 'NA',
+    ...                        'VERIFIED': 'Fri Dec  4 17:13:46 2009',
+    ...                        'DEPENDENCY_ERRORS': [],
+    ...                        'INSTALLED': 'Fri Dec  4 17:13:46 2009'}}
+    >>> get_installed_uninstalled_times(b)
+    {'broken_uninstalled': [], 'uninstalled': [], 'broken_installed': [], 'installed': [['LdapServer-19', 1259975626]]}
+    """
     output = {"installed":[], "uninstalled":[], 
               "broken_installed":[], "broken_uninstalled":[]}
     for item in progress_data.keys():
@@ -244,329 +395,133 @@ def get_installed_uninstalled_times(progress_data):
     output["uninstalled"].sort(datesort)
     return output
 
-def rpartition(str, chr):
-    chunks = str.split(chr)
+def rpartition(string, char):
+    "Python2.5's rpartition method. Useful in old versions of Python"
+    chunks = string.split(char)
     if len(chunks) == 1:
-        return ('', '', str)
-    first = chr.join(chunks[:-1])
+        return ('', '', string)
+    first = char.join(chunks[:-1])
     last = chunks[-1]
-    return (first, chr, last)
+    return (first, char, last)
 
-def checkToRemove(basePackageName, actionTime, comparisonList):
+def check_if_more_recent(base_package_name, action_time, comparison_list):
+    """If a package has both an INSTALL action and an UNINSTALL action
+    shown next to it, we need to determine which is the more recent and
+    then ignore the other one.
+    """
     remove = False
-    for fullPackageName2, actionTime2 in comparisonList:
-        basePackageName2 = rpartition(fullPackageName2, '-')[0]
-        if basePackageName == basePackageName2:
-            if actionTime2 > actionTime:
+    for full_package_name_2, action_time_2 in comparison_list:
+        base_package_name_2 = rpartition(full_package_name_2, '-')[0]
+        if base_package_name == base_package_name_2:
+            if action_time_2 > action_time:
                 remove = True
     return remove
 
-def strip_version_info(pkgInfo):
+def strip_version_info(pkg_info):
+    '''
+    This strips '-\d' version information from each package_name in
+    the pkg_info dictionary.
+    pkg_info -- a dictionary of ["installed"], ["uninstalled"],
+                ["broken_installed"], ["broken_uninstalled"]. Each item
+                is a tuple of package_name / date.
+    '''
     output = {"installed":[], "uninstalled":[], 
               "broken_installed":[], "broken_uninstalled":[]}
-    packageListNames = output.keys()
-    for packageListName in packageListNames: # look at packageListName for duplicates in other listTypes
-        for fullPackageName, actionTime in pkgInfo[packageListName]: # do other package lists have this basename?
-            basePackageName = rpartition(fullPackageName, '-')[0]
-            otherTypes = output.keys()
-            otherTypes.remove(packageListName)
-            for compareList in otherTypes:
-                remove = checkToRemove(basePackageName, actionTime, pkgInfo[compareList])
-                if remove == True:
+    package_list_names = output.keys()
+
+    # look at package_list_name for duplicates in other listTypes
+    for package_list_name in package_list_names:
+        # do other package lists have this basename?
+        for full_package_name, action_time in pkg_info[package_list_name]:
+            base_package_name = rpartition(full_package_name, '-')[0]
+            other_types = output.keys()
+            other_types.remove(package_list_name)
+            for compare_list in other_types:
+                more_recent = check_if_more_recent(base_package_name, action_time,
+                                              pkg_info[compare_list])
+                if more_recent == True:
                     break
-            if not remove:
-                output[packageListName].append([basePackageName, actionTime])
+            if not more_recent:
+                output[package_list_name].append([base_package_name,
+                                                  action_time])
     return output
 
+def get_installed(progress_data):
+    """Tells you what packages are installed (and which are broken)
 
-def getInstalled(progress_data):
-    pkgInfo = get_installed_uninstalled_times(progress_data)
-    pkgInfo = strip_version_info(pkgInfo)
-    installedPackageNames = [packageName[0] for packageName in pkgInfo["installed"]]
-    brokenPackageNames    = [packageName[0] for packageName in pkgInfo["broken_installed"]]
-    brokenPackageNames   += [packageName[0] for packageName in pkgInfo["broken_uninstalled"]]
-    return installedPackageNames, brokenPackageNames
+    >>> b = {'LdapServer-19': {'UNINSTALLED': 'NA',
+    ...                        'VERIFIED': 'Fri Dec  4 17:13:46 2009',
+    ...                        'DEPENDENCY_ERRORS': [],
+    ...                        'INSTALLED': 'Fri Dec  4 17:13:46 2009'}}
+    >>> get_installed(b)
+    (['LdapServer'], [])
 
-def integrate(data, dictionary, overwrite):
-    data["timestamp"] = time.time()
-    if overwrite:
-        for key, value in dictionary.iteritems():
-            data[key] = value
-    else:
-        data = updateDict(dictionary, data)
-    return data
+    >>> b["LdapServer-19"]["UNINSTALLED"] = 'Fri Dec  4 20:13:46 2009'
+    >>> get_installed(b)
+    ([], [])
 
-def updateDict(newdict, olddict):
-    for key, value in newdict.iteritems():
-        if type(value) == type({}) and olddict.has_key(key):
-            olddict[key] = updateDict(value, olddict[key])
-        elif type(value) == type(["list"]) and olddict.has_key(key):
-            olddict[key] = olddict[key] + value
-        else:
-            olddict[key] = value
-    return olddict
+    >>> b["LdapServer-19"]["UNINSTALLED"] = 'BROKEN'
+    >>> get_installed(b)
+    ([], ['LdapServer'])
+    """
+    pkg_info = get_installed_uninstalled_times(progress_data)
+    pkg_info = strip_version_info(pkg_info)
+    installed_package_names = [package_name[0] for package_name in pkg_info["installed"]]
+    broken_package_names    = [package_name[0] for package_name in pkg_info["broken_installed"]]
+    broken_package_names   += [package_name[0] for package_name in pkg_info["broken_uninstalled"]]
+    return installed_package_names, broken_package_names
 
-def getTmpPath():
-    alphabet = map(chr, range(97, 123))
-    tmpFn    = "tmp"
-    tmpFn   += random.choice(alphabet)
-    tmpFn   += random.choice(alphabet)
-    tmpFn   += random.choice(alphabet)
-    tmpFn   += random.choice(alphabet)
-    tmpFn   += random.choice(alphabet)
-    tmpPath  = os.path.join(getSpkgPath(), tmpFn)
-    return tmpPath
+# CONFIGURATION FILE METHODS
 
-def standAloneMode(filesystem):
-    configPath = os.path.join(getSpkgPath(), CONFIG_FILE)
-    if filesystem.isfile(configPath):
-        return True
-    return False
+def get_linux_config():
+    "our config file is in /etc/bombardier.yml. Go read it and give us the info"
+    data = open(SERVER_CONFIG_FILE, 'r').read()
+    config = yaml.load(data)
+    return config
 
+def put_linux_config(config):
+    "Write a change to our config file"
+    data = open("/etc/bombardier.yml", 'w')
+    data.write(yaml.dump(config))
 
-# TESTED
-def netStringToNetLong(netString):
-    quadIndex = 3
-    netLong = 0L
-    for octet in netString.split('.'):
-        netLong += (long(octet) << (quadIndex * 8))
-        quadIndex -= 1
-    return netLong
-
-def netLongToNetString(netLong):
-    netStrings = []
-    while netLong:
-        netString = str( netLong & 255 )
-        netStrings.append( netString )
-        netLong = netLong >> 8
-    netStrings.reverse()
-    return '.'.join(netStrings)
-    
-# TESTED
-def computeNetLongFromStrings(netStringAddress, netStringMask):
-    if type(netStringAddress) == type("string"):
-        netLongAddress = netStringToNetLong(netStringAddress)
-    else:
-        netLongAddress = netStringAddress
-    if type(netStringMask) == type("string"):
-        netLongMask = netStringToNetLong(netStringMask)
-    else:
-        netLongMask = netStringMask
-    netLong = netLongAddress & netLongMask
-    return netLong
-
-# TESTED
-def findBitMaskFromNetString(netString):
-    bits = 0
-    octets = netString.split('.')
-    if len(octets) != 4: return 0
-    for octet in octets:
-        if int(octet) < 0 or int(octet) > 255:
-            return 0
-        for j in range(0,8):
-            if int(octet) == 256-(2**j):
-                bits += (8-j)
-                break
-    return bits
-
-# TESTED
-def netLongFromBitmask(bits):
-    if bits == 0: return 0L
-    netLong = 0L
-    for i in range(0,31):
-        if bits:
-            netLong += 1
-            bits -= 1
-        netLong = netLong << 1
-    return netLong
-
-# TESTED
-def convertCidrToNetLongs(netStringCidr):
-    try:
-        netString  = netStringCidr.split('/')[0]
-        maskBits   = netStringCidr.split('/')[1]
-    except IndexError:
-        print "BAD DATA: %s" % netStringCidr
-        print netStringCidr.split('/')
-        return netLongFromBitmask(32)
-    netLongMask = netLongFromBitmask(int(maskBits))
-    netLong = computeNetLongFromStrings(netString, netLongMask)
-    return netLong, netLongMask
-
-
-# TESTED
-def getNetworkList(networkDict):
-    addressSet = networkDict["address"]
-    netLongs = []
-    for networkString in addressSet:
-        netLong, netLongMask = convertCidrToNetLongs(networkString)
-        netLongs.append(netLong)
-    return netLongs
-
-def ipConfig():
-    cmd="%s > output.txt" % os.path.join(os.environ["WINDIR"], "system32", "ipconfig.exe")
-    os.system(cmd)
-    pattern1 = ".*IP Address[\.\s]+\:\s(\S+)"
-    pattern2 = ".*Subnet Mask[\.\s]+\:\s(\S+)"
-    addresses = []
-    snms      = []
-    fh = open("output.txt", 'r')
-    for line in fh.readlines():
-        m1 = re.match(pattern1, line)
-        m2 = re.match(pattern2, line)
-        if m1:
-            addresses.append(m1.groups()[0])
-        elif m2:
-            snms.append(m2.groups()[0])
-    addressSet = set([])
-    if len(snms) != len(addresses):
-        return addressSet
-    for i in range(0, len(addresses)):
-        bits = findBitMaskFromNetString(snms[i])
-        addressSet.update(["%s/%d" % (addresses[i], bits)])
-    return addressSet
-
-def getMatchStringList( patternStr, fileName ):
-    import Filesystem
-    filesystem = Filesystem.Filesystem()
-    pat    = re.compile( patternStr )
-    lines  = filesystem.getAllFromFile(patternStr, fileName)
-    retSet = set([])
-    if not lines:
-        return retSet
-    for line in lines:
-        m = re.match( pat, line )
-        if m:
-            retSet.update( m.groups() )
-    return( retSet ) 
-
-# TESTED
-def getIpAddress():
-    retVal = {'dhcp': set(), 'address': set(), 'snm': set(),
-              'defgw': set(), 'dns': set(), 'wins': set()  }
-    ipdataList = [ "ipdata1.txt", "ipdata2.txt", "ipdata3.txt"]
-    netsh = os.path.join(os.environ["WINDIR"], "system32", "netsh.exe")
-    cmd = '%s interface ip show address '\
-          '"Local Area Connection" > %s' % (netsh, ipdataList[0])
-    os.system(cmd)
-    retVal['snm']     = getMatchStringList( ".*SubnetMask\:\s*(\S+)",
-                                            ipdataList[0] )    
-    retVal['dhcp']    = getMatchStringList( ".*DHCP enabled\:\s*(\S+)",
-                                            ipdataList[0] )
-    retVal['defgw']   = getMatchStringList( ".*Default Gateway\:\s*(\S+)",
-                                            ipdataList[0] )
-    retVal['address'] = ipConfig()
-
-    cmd = '%s interface ip show dns '\
-          '"Local Area Connection" > %s' % (netsh, ipdataList[1])
-    os.system(cmd)
-
-    retVal['dns'] = getMatchStringList( ".*DNS Servers\:\s*(\S+)",
-                                        ipdataList[1] )
-
-    cmd = '%s interface ip show wins '\
-          '"Local Area Connection" > %s' % (netsh, ipdataList[2])
-    os.system(cmd)
-    retVal['wins'] = getMatchStringList( ".*WINS Servers\:\s*(\S+)",
-                                         ipdataList[2] )
-    return( retVal )
-
-### TESTED
-def addDictionaries(dict1, dict2):
+def add_dictionaries(dict1, dict2):
     """dict1 gets stuff from dict2, only if it doesn't have it"""
-    #! must be deeper
     for key,value in dict2.iteritems():
         if not dict1.has_key(key):
             dict1[key] = value
         else:
             if type(value) == type(dict1[key]):
                 if type(value) == type(dict()):
-                    dict1[key] = addDictionaries(dict1[key], value)
+                    dict1[key] = add_dictionaries(dict1[key], value)
     return dict1
 
-def getLinuxConfig():
-    data = open("/etc/bombardier.yml", 'r').read()
-    config = yaml.load(data)
-    return config
-
-def putLinuxConfig(config):
-    data = open("/etc/bombardier.yml", 'w')
-    data.write(yaml.dump(config))
-
-def getSpkgPath():
-    spkgPath = ''
+def get_spkg_path():
+    "Find out where our root directory is on the client"
+    spkg_path = ''
     if sys.platform == "linux2":
-        config = getLinuxConfig()
-        spkgPath = config.get("spkgPath")
+        config = get_linux_config()
+        spkg_path = config.get("spkg_path")
     else:
         import _winreg as winreg
-        keyName = r"Software\GE-IT\Bombardier"
+        key_name = r"Software\GE-IT\Bombardier"
         try:
             key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
-                                 keyName, 0, winreg.KEY_QUERY_VALUE)
-            spkgPath, dummy = winreg.QueryValueEx(key, "InstallPath")
+                                 key_name, 0, winreg.KEY_QUERY_VALUE)
+            spkg_path, dummy = winreg.QueryValueEx(key, "InstallPath")
         except:
-            spkgPath = r"C:\spkg"
-    return spkgPath
+            spkg_path = r"C:\spkg"
+    return spkg_path
 
-def getPythonPath():
-    return os.path.join(sys.prefix, "python.exe")
+def get_package_path(instance_name):
+    "Find out where our package repository is"
+    return os.path.join(get_spkg_path(), instance_name, PACKAGES)
 
-# NOT WORTH TESTING
-def getPackagePath(instanceName):
-    return os.path.join(getSpkgPath(), instanceName, PACKAGES)
+def get_progress_path(instance_name):
+    "Find out where our 'status.yml' file is"
+    new_path = os.path.join(get_spkg_path(), instance_name, STATUS_FILE)
+    return new_path
 
-# TESTED
-def getProgressPath(instanceName):
-    newPath = os.path.join(getSpkgPath(), instanceName, STATUS_FILE)
-    return newPath
-
-#### TESTED
-def evalBoolean(data):
-    if not data:
-        return False
-    if type(data) != type('string'):
-        if type(data) == type(1):
-            if data == 1:
-                return True
-            else:
-                return False
-        else:
-            return False
-    data = data.strip().upper()
-    if data in ["TRUE", "YES", "1", "OK"]:
-        return True
-    return False
-
-def connectString(server, instance, port):
-    dataSource = server.strip()
-    instance = instance.strip()
-    port=port.strip()
-    if instance:
-        dataSource += "\\"+instance
-    if port:
-        dataSource += ","+port
-    return dataSource
-
-def getConnectString(config):
-    server = config.get('sql', 'server')
-    instance = config.get('sql', 'instance')
-    port = config.get('sql', 'port')
-    return connectString(server, instance, port)
-
-def consoleSync(status):
-    consoleFile = os.path.join(getSpkgPath(),CONSOLE_MONITOR)
-    f = open(consoleFile, 'w')
-    if type(status) == type('a'):
-        f.write(status)
-    elif type(status) == type(1):
-        f.write(`status`)
-    else: # assume a zero exit code
-        f.write('0')
-    f.close()
-
-def consoleFail( errorString="Failed, error unknown" ):
-    print errorString
-    consoleSync( FAIL )
-    sys.exit(FAIL)
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
 

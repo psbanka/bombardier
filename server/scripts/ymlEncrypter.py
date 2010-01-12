@@ -1,32 +1,33 @@
 #!/usr/bin/python
-from bombardier_server import libCipher
+import bombardier_core.Cipher
 import yaml
 import sys
 import getpass
 
-fileName = sys.argv[1]
-libCipher.VALID_CHARS.append('\n')
+filename = sys.argv[1]
+bombardier_core.Cipher.VALID_CHARS.append('\n')
 
-def encDict(dictionary, passwd):
+def enc_dict(dictionary, cipher):
     for key in dictionary:
         if key.startswith('enc'):
             continue
         value = dictionary[key]
         if type(value) == type({}):
-            dictionary[key] = encDict(dictionary[key], passwd)
+            dictionary[key] = enc_dict(dictionary[key], password)
         elif type(value) == type("string"):
-            cipherText = libCipher.encrypt(value, passwd)
+            cipher_text = cipher.encrypt(value, password)
             del dictionary[key]
-            dictionary['enc_%s' % key] = cipherText
+            dictionary['enc_%s' % key] = cipher_text
     return dictionary
 
-passwd = getpass.getpass("need the password to use:")
-dataDict = yaml.load(open(fileName).read())
-dataDict = encDict(dataDict, passwd)
-encFilename = "%s.enc" % fileName
-open(encFilename, 'w').write(yaml.dump(dataDict))
+password = getpass.getpass("need the password to use:")
+cipher = bombardier_core.Cipher.Cipher(password)
+data_dict = yaml.load(open(filename).read())
+data_dict = enc_dict(data_dict, cipher)
+enc_filename = "%s.enc" % filename
+open(enc_filename, 'w').write(yaml.dump(data_dict))
 
-a = yaml.load(open(encFilename).read())
-libCipher.decryptLoop(a, passwd)
+a = yaml.load(open(enc_filename).read())
+libCipher.decryptLoop(a, password)
 print "Round-trip data:", a
 

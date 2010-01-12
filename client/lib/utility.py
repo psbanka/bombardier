@@ -153,20 +153,6 @@ def xcopy(source, dest):
 
 # ================================================== TOOLS FOR INSTALLING
 
-def changeSqlListener(instance, port):
-    keyName = ''
-    if instance == '' or instance == 'MSSQLSERVER':
-        keyName = "SOFTWARE\\Microsoft\\MSSQLServer"\
-                  "\\MSSQLServer\\SuperSocketNetLib\\Tcp"
-    else:
-        keyName = "SOFTWARE\\Microsoft\\Microsoft SQL Server"\
-                  "\\%s\\MSSQLServer\\SuperSocketNetLib\\Tcp" % instance
-    portKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
-                             keyName, 0, winreg.KEY_SET_VALUE)
-    if type(port) == type(10):
-        port = `port`
-    winreg.SetValueEx(portKey, "TcpPort", 0, winreg.REG_SZ, port)
-
 class NTUser:
 # Uses ADSI to change password under user privileges    
     def __init__(self, domain, userId):
@@ -259,13 +245,13 @@ def modifyTemplate(inputFile, outputFile, configSections, config, encoding=None,
 
         varMatch = re.compile("\%\((.*?)\)s")
         if encoding == None:
-            configData = open(inputFile, 'r').read()
+            config_data = open(inputFile, 'r').read()
         else:
-            configData = unicode( open(inputFile, 'rb').read(), encoding )
+            config_data = unicode( open(inputFile, 'rb').read(), encoding )
 
-        variables = varMatch.findall(configData)
+        variables = varMatch.findall(config_data)
         output = []
-        for line in configData.split('\n'):
+        for line in config_data.split('\n'):
             variables = varMatch.findall(line)
             configDict = {}
             for variable in variables:

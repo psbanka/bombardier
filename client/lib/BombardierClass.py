@@ -44,13 +44,15 @@ import sets, os, time, copy
 import PackageV4, PackageV5
 import Exceptions
 from bombardier_core.Logger import Logger
-from bombardier_core.mini_utility import getInstalled
-from bombardier_core.mini_utility import diffDicts, strip_version
-from bombardier_core.static_data import OK, FAIL, MAX_CHAIN_DEPTH, HASH_FILE
+from bombardier_core.mini_utility import get_installed, get_progress_data
+from bombardier_core.mini_utility import diff_dicts, strip_version
+from bombardier_core.static_data import OK, FAIL, HASH_FILE
 from bombardier_core.static_data import UNINSTALL, DRY_RUN, VERIFY
-from bombardier_core.static_data import VERIFY_INTERVAL, INSTALL, CONFIGURE
+from bombardier_core.static_data import INSTALL, CONFIGURE
 from bombardier_core.static_data import EXECUTE, ACTION_REVERSE_LOOKUP
 from bombardier_core.static_data import VALID_PACKAGE_VERSIONS
+
+MAX_CHAIN_DEPTH = 50
 
 def swap(list_obj, index1, index2):
     'swap two indexes in a list'
@@ -66,7 +68,7 @@ class PackageChain:
     '''
     def __init__(self, priority, start_pkn, pkd,
                  installed_pkns, broken_pkns, repository,
-                 config, filesystem, instance_name, record_errors):
+                 config, instance_name, record_errors):
         """
         priority -- How important this package chain is (higher is better)
         start_pkn -- The name of the first package in this 
@@ -75,14 +77,12 @@ class PackageChain:
         installed_pkns -- a list of packages that have been installed
         repository -- the Repository object which keeps track of packages
         config -- the object that tracks of the configuration fo the system
-        filesystem -- the object that performs filesystem operations
         instance_name -- the name of this machine (can be more than one)
         record_errors -- flag whether dependency errors should be tracked
         """
         self.depth       = 0
         self.priority    = priority
         self.pkd         = pkd
-        self.filesystem  = filesystem
         self.instance_name = instance_name
         self.chain       = [start_pkn]
         self.repository  = repository
@@ -166,11 +166,11 @@ class PackageChain:
         pkg = None
         if version == 4:
             pkg = PackageV4.PackageV4(pkn, self.repository,
-                                          self.config, self.filesystem,
+                                          self.config,
                                           self.instance_name)
         else:
             pkg = PackageV5.PackageV5(pkn, self.repository,
-                                          self.config, self.filesystem,
+                                          self.config,
                                           self.instance_name)
         pkg.initialize()
         return pkg
@@ -275,16 +275,14 @@ def find_differences(pkg_config, config_diff, differences=[], chain=[]):
 class Bombardier:
     '''Master class for managing system actions'''
 
-    def __init__(self, repository, config, filesystem, instance_name):
+    def __init__(self, repository, config, instance_name):
         '''
         repository -- object that keeps track of package data
         config -- object that keeps track of this machine's configuration
-        filesystem -- object that performs filesystem operations
         instance_name -- the name of this machine
         '''
         self.repository = repository
         self.config     = config
-        self.filesystem = filesystem
         self.instance_name    = instance_name
         self.record_errors = True
         self.operation_status = OK
@@ -313,8 +311,8 @@ class Bombardier:
         pkd -- dictionary of package objects
         '''
         chains = []
-        pkg_data = self.filesystem.getProgressData(self.instance_name, False)
-        installed_pkns, broken_pkns = getInstalled(pkg_data)
+        pkg_data = get_progress_data(self.instance_name, False)
+        installed_pkns, broken_pkns = get_installed(pkg_data)
         for pkn in pkd.keys():
             if pkn in broken_pkns:
                 Logger.warning("Skipping broken package %s" % pkn)
@@ -327,7 +325,7 @@ class Bombardier:
                 new_chain = PackageChain(chain_priority, pkn,
                                          pkd, installed_pkns,
                                          broken_pkns, self.repository,
-                                         self.config, self.filesystem,
+                                         self.config,
                                          self.instance_name, self.record_errors)
             except Exceptions.BadPackage, err:
                 errmsg = "Package %s will not be installed because it is "\
@@ -361,9 +359,9 @@ class Bombardier:
         """
 
         chains = self._create_pkg_chains(pkd)
-        pdat = self.filesystem.getProgressData(self.instance_name,
+        pdat = get_progress_data(self.instance_name,
                                                         False)
-        installed_pkns, _broken_pkns = getInstalled(pdat)
+        installed_pkns, _broken_pkns = get_installed(pdat)
         # - Put all the packages of each chain into the installation
         # order, excluding those that have already been installed in order
         # of chain priority. If a package is already in the installation
@@ -421,7 +419,6 @@ class Bombardier:
 
     def _cleanup(self):
         'Some housekeeping before exiting'
-        self.filesystem.clearLock()
         if self.operation_status == FAIL:
             log_function = Logger.error
         else:
@@ -438,7 +435,7 @@ class Bombardier:
         '''
         if pkg.get_configuration():
             required_configs = pkg.get_configuration()
-            diff = diffDicts(required_configs, self.config.data)
+            diff = diff_dicts(required_configs, self.config.data)
             if diff != {}:
                 self.operation_status = FAIL
                 errmsg = "This machine does not have sufficient "\
@@ -459,11 +456,11 @@ class Bombardier:
         pkg = None
         if version == 4:
             pkg = PackageV4.PackageV4(pkn, self.repository,
-                                          self.config, self.filesystem,
+                                          self.config,
                                           self.instance_name)
         else:
             pkg = PackageV5.PackageV5(pkn, self.repository,
-                                          self.config, self.filesystem,
+                                          self.config,
                                           self.instance_name)
         pkg.initialize()
         return pkg
@@ -592,9 +589,9 @@ class Bombardier:
         del_pkns -- a list of package names that need to be removed
         '''
         uninstall_order = []
-        pdat = self.filesystem.getProgressData(self.instance_name,
+        pdat = get_progress_data(self.instance_name,
                                                         False)
-        installed_pkns, _broken_pkns = getInstalled(pdat)
+        installed_pkns, _broken_pkns = get_installed(pdat)
         del_pkd = self._get_del_pkd(del_pkns)
         if sets.Set(installed_pkns) == sets.Set(del_pkd.keys()):
             return del_pkd, del_pkd.keys()
@@ -615,9 +612,9 @@ class Bombardier:
         """
         should_be_installed = []
         shouldnt_be_installed = []
-        pdat = self.filesystem.getProgressData(self.instance_name,
+        pdat = get_progress_data(self.instance_name,
                                                         False)
-        installed_pkns, _broken_pkns = getInstalled(pdat)
+        installed_pkns, _broken_pkns = get_installed(pdat)
         dependency_errors = self._get_dependency_errors(bom_pkns,
                                                        pdat)
         if dependency_errors:
@@ -693,39 +690,6 @@ class Bombardier:
                 return FAIL
         return status
 
-    def verify_system(self):
-        '''Apparently NOT USED.
-        Verify all packages within the system that are currently installed.
-        Each package has an optional verify_interval value which specifies
-        the frequency which which it wants to be checked. If it hasn't been
-        checked within that interval, it will be checked when this is run.
-        '''
-        pdat = self.filesystem.getProgressData(self.instance_name)
-        installed_pkns, _broken_pkns = getInstalled(pdat)
-        test_results = {}
-        for full_pkn in installed_pkns:
-            try:
-                short_pkn = strip_version(full_pkn)
-                pkg = self._get_new_pkg(short_pkn)
-            except Exceptions.BadPackage, err:
-                errmsg = "Not testing %s (%s)" % (full_pkn, err)
-                Logger.warning(errmsg)
-                continue
-            interval = pkg.meta_data.get('verify', 'verify_interval',
-                                             VERIFY_INTERVAL)
-            # don't verify if the package isn't installed
-            if not pdat.has_key(pkg.full_name): 
-                return {}
-            Logger.info("Trying to verify %s" % pkg.name) 
-            time_string = pdat[pkg.full_name]['VERIFIED']
-            timer = time.mktime(time.strptime(time_string))
-
-            if timer + interval <= time.time():
-                pkg.action = VERIFY
-                pkg.verify()
-                test_results[short_pkn] = pkg.status
-        return test_results
-
     def check_system(self):
         '''
         After a system has had all of its packages installed and it's in
@@ -733,13 +697,12 @@ class Bombardier:
         is still kosher
         '''
         pkns = []
-        pdat = self.filesystem.getProgressData(self.instance_name)
-        full_pdat = self.filesystem.getProgressData(self.instance_name,
-                                                             False)
-        full_installed_pkns, _full_bpkns = getInstalled(full_pdat)
+        pdat = get_progress_data(self.instance_name)
+        full_pdat = get_progress_data(self.instance_name, False)
+        full_installed_pkns, _full_bpkns = get_installed(full_pdat)
         msg = "Packages that are installed: %s"
         Logger.info(msg % ' '.join(full_installed_pkns))
-        installed_pkns, broken_pkns = getInstalled(pdat)
+        installed_pkns, broken_pkns = get_installed(pdat)
         should_be_installed, shouldnt_be_installed = self._check_bom(pkns)
         # check the configuration for each installed package
         pkg_info = {"ok":installed_pkns,
@@ -770,9 +733,8 @@ class Bombardier:
                 self.operation_status = FAIL
                 return self._cleanup()
             if action == INSTALL:
-                pdat = self.filesystem.getProgressData(self.instance_name,
-                                                       False)
-                installed_pkns, broken_pkns = getInstalled(pdat)
+                pdat = get_progress_data(self.instance_name, False)
+                installed_pkns, broken_pkns = get_installed(pdat)
                 if pkn in [installed_pkns + broken_pkns]:
                     Logger.error("Package %s cannot be installed." % pkn)
                     self.operation_status = FAIL
@@ -780,9 +742,8 @@ class Bombardier:
                 add_pkd = {pkn:pkg}
                 status = self._install_pkgs(add_pkd)
             if action == UNINSTALL:
-                pdat = self.filesystem.getProgressData(self.instance_name,
-                                                       False)
-                installed_pkns, broken_pkns = getInstalled(pdat)
+                pdat = get_progress_data(self.instance_name, False)
+                installed_pkns, broken_pkns = get_installed(pdat)
                 bom_pkns = installed_pkns
                 if pkn in bom_pkns:
                     bom_pkns.remove(pkn)
@@ -827,8 +788,6 @@ class Bombardier:
             dry_run = True
         add_pkd, del_pkd, uninstall_order = self._ck_inst_stat(pkns)
         Logger.info("uninstall_order: %s" % uninstall_order)
-        if self.filesystem.setLock() == FAIL:
-            return FAIL
         status = self._uninstall_pkgs(del_pkd, uninstall_order,
                                           dry_run)
         if status == FAIL:

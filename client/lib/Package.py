@@ -30,15 +30,20 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import os, time
+import os, time, shutil
 import StringIO, traceback
+import yaml
 
 import MetaData
-from bombardier_core.mini_utility import getPackagePath, getSpkgPath
+from bombardier_core.mini_utility import get_package_path, get_spkg_path
+from bombardier_core.mini_utility import update_progress, get_progress_data
+
 from Exceptions import BadPackage, FeatureRemovedException
 from bombardier_core.Logger import Logger
-from bombardier_core.static_data import OK, FAIL, AVERAGE
+from bombardier_core.static_data import OK, FAIL
 from bombardier_core.static_data import INSTALL, UNINSTALL, CONFIGURE, VERIFY
+
+AVERAGE = 100
 
 class Package:
 
@@ -46,18 +51,16 @@ class Package:
     installable, verifiable, and uninstallable thing. Each
     package is held in the repository"""
 
-    def __init__(self, name, repository, config, filesystem,
+    def __init__(self, name, repository, config, 
                  instance_name):
         '''
         name -- name of the package
         repository -- object that manages files on the disk for the package
         config -- configuration of the machine
-        filesystem -- object that interfaces with the filesystem
         instance_name -- name of this machine
         '''
         self.name         = name
         self.repository   = repository
-        self.filesystem   = filesystem
         self.instance_name = instance_name
         self.action       = INSTALL
         self.installed    = False
@@ -177,15 +180,15 @@ class Package:
         '''
         self._download()
         # remove old history
-        output_path = os.path.join(getSpkgPath(), self.instance_name,
+        output_path = os.path.join(get_spkg_path(), self.instance_name,
                                   "output", "%s-output.yml" % script_name)
-        self.filesystem.rmScheduledFile(output_path)
+        os.unlink(output_path)
         message = "Executing (%s) inside package (%s)"
         Logger.info(message % (script_name, self.full_name))
 
     def get_path(self):
         'find place on the disk where this package can be accessed'
-        path = os.path.join(getPackagePath(self.instance_name), 
+        path = os.path.join(get_package_path(self.instance_name), 
                             self.full_name)
         return path
 
@@ -276,7 +279,7 @@ class Package:
         system. Keeps track of when packages were installed, uninstalled,
         verified, and keeps track of dependency errors.'''
         time_string = time.ctime()
-        pdat = self.filesystem.getProgressData(self.instance_name)
+        pdat = get_progress_data(self.instance_name)
         if not pdat.has_key(self.full_name):
             pdat[self.full_name] = {"INSTALLED": "NA",
                                              "UNINSTALLED": "NA",
@@ -316,6 +319,6 @@ class Package:
         elif self.action == VERIFY:
             pdat[self.full_name]['VERIFIED'] = time_string
         pdat[self.full_name]['DEPENDENCY_ERRORS'] = self.dependency_errors
-        self.filesystem.updateProgress({"install-progress":pdat},
-                                       self.instance_name, overwrite=True)
+        update_progress({"install-progress":pdat},
+                        self.instance_name, overwrite=True)
         return OK

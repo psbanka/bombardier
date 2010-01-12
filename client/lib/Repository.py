@@ -31,27 +31,27 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-from bombardier_core.static_data import OK, FAIL, BLOCK_SIZE
+from bombardier_core.static_data import OK, FAIL
 from bombardier_core.static_data import VALID_PACKAGE_VERSIONS
-import os, tarfile, sys
+import os, tarfile, sys, gzip, tarfile
 import MetaData
-from bombardier_core.mini_utility import getPackagePath
-from bombardier_core.mini_utility import getSpkgPath
+from bombardier_core.mini_utility import get_package_path
+from bombardier_core.mini_utility import get_spkg_path
 import Exceptions
 from bombardier_core.Logger import Logger
 from commands import getstatusoutput as gso
+
+BLOCK_SIZE = 10000
 
 class Repository:
     '''Provides support functions for package, dealing with proper
     package file layout, unpacking, and verification'''
 
-    def __init__(self, filesystem, instance_name, pkg_data = {}):
+    def __init__(self, instance_name, pkg_data = {}):
         '''
-        filesystem -- object that deals with the fileysstem
         instance_name -- name of this machine
         pkg_data -- data regarding all packages on this machine
         '''
-        self.filesystem   = filesystem
         self.instance_name = instance_name
         self.pkg_data  = pkg_data
 
@@ -69,13 +69,13 @@ class Repository:
 
     def unzip_type_4(self, pkg_path, full_name):
         '''
-        Perform untar/ungzip operations. (NOTE: NOT RELIABLE IN PYTHON)
+        Perform untar/ungzip operations. (NOTE: NOT RELIABLE IN Python)
         pkg_path -- full path to package file, minus extension
         full_name -- name of the package, including version
         '''
         Logger.info("Unzipping %s" % full_name)
-        gzip_file = self.filesystem.gzipOpen(pkg_path + ".spkg")
-        output_file = self.filesystem.open(pkg_path + ".tar", 'wb')
+        gzip_file = gzip.open(pkg_path + ".spkg")
+        output_file = open(pkg_path + ".tar", 'wb')
         data = '1'
         while data:
             try:
@@ -98,24 +98,24 @@ class Repository:
         Get a type-4 package from the filesystem, and process it
         full_name -- name of package (with version)
         '''
-        pkg_dir = getPackagePath(self.instance_name)
+        pkg_dir = get_package_path(self.instance_name)
         pkg_path = os.path.join(pkg_dir, full_name)
-        if not self.filesystem.isfile(pkg_path + ".spkg"):
+        if not os.path.isfile(pkg_path + ".spkg"):
             erstr = "No package file in %s." % (pkg_path + ".spkg")
             Logger.error(erstr)
             raise Exceptions.BadPackage(full_name, erstr)
         if sys.platform != 'win32':
             cmd = "cd %s && tar -xzf %s.spkg" % (pkg_dir, full_name)
-            Logger.info("Untarring with filesystem command: %s" %cmd)
-            if not self.filesystem.system(cmd) == OK:
+            Logger.info("Untarring with command: %s" %cmd)
+            if not os.system(cmd) == OK:
                 raise Exceptions.BadPackage(full_name, "Could not unpack")
             return OK
         if self.unzip_type_4(pkg_path, full_name) == FAIL:
             raise Exceptions.BadPackage(full_name, "could not unzip")
-        tar = self.filesystem.tarOpen(pkg_path + ".tar", "r")
+        tar = tarfile.open(pkg_path + ".tar", "r")
         tar.errorlevel = 2
-        cwd = self.filesystem.getcwd()
-        self.filesystem.chdir(pkg_dir)
+        cwd = os.getcwd()
+        os.chdir(pkg_dir)
         for tarinfo in tar:
             try:
                 tar.extract(tarinfo)
@@ -123,12 +123,12 @@ class Repository:
                 Logger.warning("Error with package %s,%s: "\
                                "%s" % (full_name, tarinfo.name, err))
         tar.close()
-        if not self.filesystem.isdir(os.path.join(pkg_path, full_name)):
+        if not os.path.isdir(os.path.join(pkg_path, full_name)):
             erstr = "Package %s is malformed." % (full_name)
-            self.filesystem.chdir(cwd)
+            os.chdir(cwd)
             raise Exceptions.BadPackage(full_name, erstr)
-        self.filesystem.chdir(cwd)
-        self.filesystem.unlink(pkg_path + ".tar")
+        os.chdir(cwd)
+        os.unlink(pkg_path + ".tar")
         return OK
 
     def hunt_and_explode(self):
@@ -163,7 +163,7 @@ class Repository:
         info_dict -- information regarding injectors and libraries
         full_name -- name of the package, including version info
         '''
-        base_path = os.path.join(getSpkgPath(), "repos")
+        base_path = os.path.join(get_spkg_path(), "repos")
         for component_type in info_dict:
             #Logger.info("Component: %s" % component_type)
             #Logger.info("info_dict: %s" % info_dict)
@@ -190,7 +190,7 @@ class Repository:
         libs_info -- dictionary describing python code libraries
         '''
         self.hunt_and_explode()
-        pkg_path = os.path.join(getSpkgPath(), self.instance_name,
+        pkg_path = os.path.join(get_spkg_path(), self.instance_name,
                                 "packages", full_name)
         injector_path = os.path.join(pkg_path, "injectors")
         lib_path = os.path.join(pkg_path, "libs")

@@ -1,0 +1,32 @@
+=============================
+Bombardier CORE documentation
+=============================
+
+These modules are shared components between the various parts of the
+Bombardier system, which comprise the following:
+
+* Bombardier Server: The server provides centralized configuration
+  data, definitive software library, a job dispatcher, and change
+  revision history.  Authentication to this server is granted only to
+  administrators of the network. All interaction with the server is
+  done through a REST interface.
+
+* Bombardier Command-line interface (CLI): This is a tool that the
+  network administrator uses to control the Bombardier server. The CLI
+  can exist on the same physical machine as the Bombardier Server or
+  on a separate one. The CLI communicates to the Server via a
+  web-based REST interface.
+
+* Bombardier Client: This is code that resides on machines throughout
+  your network that you want to control with the Bombardier
+  system. When a network administrator wants something to happen on
+  the network, he or she will start up the CLI, which issues commands
+  to the Server, which in turn reaches out to one or more machines in
+  the network via SSH. When the server connects to each machine, it
+  relies upon code in the Bombardier Client to make things happen
+  efficiently. The client does not run as a daemon, but only is used
+  when activated by the server through SSH.
+
+* Bombardier Core: (this distribution) which doesn't do anything,
+  really, only provides support modules for each of the other
+  components. 

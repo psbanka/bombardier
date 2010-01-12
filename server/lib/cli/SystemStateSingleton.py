@@ -86,10 +86,9 @@ class SystemState:
             self.termcolor = LIGHT
             self.cnm_url = "http://127.0.0.1:8000"
             self.cnm_connector = None
-            self.fp_out = sys.stdout #FIXME: Push into system_state
+            self.fp_out = sys.stdout
             self.fp_err = sys.stderr
             self.log_level = INFO
-
 
     __instance = None
 

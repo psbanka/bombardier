@@ -32,10 +32,10 @@
 
 import os, sys, random
 
-import Spkg
+from bombardier_core import Spkg
 import StringIO, traceback
-from bombardier_core.mini_utility import getSpkgPath
-from bombardier_core.mini_utility import getPackagePath
+from bombardier_core.mini_utility import get_spkg_path
+from bombardier_core.mini_utility import get_package_path
 from Exceptions import BadPackage
 from Exceptions import RebootRequiredException
 from bombardier_core.Logger import Logger
@@ -49,10 +49,10 @@ class PackageV5(Package):
     installable, verifiable, and uninstallable thing. Each
     package is held in the repository"""
 
-    def __init__(self, name, repository, config, filesystem,
+    def __init__(self, name, repository, config,
                  instance_name):
         Package.__init__(self, name, repository, config,
-                         filesystem, instance_name)
+                         instance_name)
         self.package_version = 5
         self.release = None
         self.injectors_info = {}
@@ -122,10 +122,10 @@ class PackageV5(Package):
         if not self.downloaded:
             self.repository.get_type_5(self.full_name, self.injectors_info,
                                        self.libs_info)
-            pkg_dir = os.path.join(getPackagePath(self.instance_name),
+            pkg_dir = os.path.join(get_package_path(self.instance_name),
                                                   self.full_name)
             injector_dir = os.path.join(pkg_dir, "injectors")
-            if self.filesystem.isdir(injector_dir):
+            if os.path.isdir(injector_dir):
                 self.working_dir = injector_dir
             else:
                 self.status = FAIL
@@ -138,7 +138,7 @@ class PackageV5(Package):
         Need to modify our path and then clean it out again. This gets
         the data that both operations will need.
         '''
-        package_path = os.path.join(getSpkgPath(), self.instance_name,
+        package_path = os.path.join(get_spkg_path(), self.instance_name,
                                     "packages", self.full_name)
         lib_path = os.path.join(package_path, "libs")
         return lib_path
@@ -157,7 +157,7 @@ class PackageV5(Package):
         try:
             class_name = '.'.join(self.class_name.split('.')[1:])
             obj = Spkg.SpkgV5(self.config)
-            self.filesystem.chdir(self.working_dir)
+            os.chdir(self.working_dir)
             letters = [ chr( x ) for x in range(65, 91) ]
             random.shuffle(letters)
             rand_string = ''.join(letters)
@@ -229,7 +229,7 @@ class PackageV5(Package):
             self._dump_error(err, self.class_name)
             status = FAIL
             del rand_string
-        self.filesystem.chdir(cwd)
+        os.chdir(cwd)
         if status == None:
             status = OK
         if status == REBOOT:

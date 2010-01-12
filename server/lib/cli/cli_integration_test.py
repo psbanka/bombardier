@@ -4,7 +4,6 @@ import glob, sys, StringIO, yaml
 import libUi
 import re
 import Slash
-from bombardier_core.Logger import LoggerClass
 IGNORE_MODULE_NAMES = ['tester', 'libUi', 'Slash', 'SystemStateSingleton',
                        '_version']
 
@@ -128,7 +127,6 @@ if __name__ == "__main__":
 
     system_state = SystemState()
     system_state.load_config()
-    logger = LoggerClass('bombardier_test', 'test.log')
     libUi.login("admin", 'abc123')
 
     output = system_state.cnm_connector.dispatcher_control("start")

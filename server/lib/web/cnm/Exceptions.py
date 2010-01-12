@@ -147,15 +147,11 @@ class InvalidServerHome(Exception):
 
 class MachineConfigurationException(Exception):
     def __init__(self, server, message=''):
-        err = Exception()
-        Exception.__init__(err)
         self.server = server
         self.message = message
     def __repr__(self):
         msg = "Could not find valid configuration data for %s (%s)" 
         return msg % (self.server, self.message)
-    def __str__(self):
-        return self.__repr__()
 
 class PackageNotFound(Exception):
     def __init__(self, package_name, path=''):

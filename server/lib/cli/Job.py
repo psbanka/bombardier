@@ -85,12 +85,9 @@ class JobNameField(PinshCmd.PinshCmd):
 
 
 class Job(PinshCmd.PinshCmd):
-    '''bomsh# dispatcher status
-       [OK, ['uptime: ==UNKNOWN==', 'active_jobs: []']]
-       bomsh# job view foo
-       [OK, ['Job stopped']]
-       bomsh# job kill foo
-       [OK, ['Dispatcher stopped']]
+    '''The idea is this: bomsh# job view foo
+       would produce this: [OK, ['Job stopped']]
+       But it can't be tested easily from this test harness.
     '''
 
     def __init__(self):

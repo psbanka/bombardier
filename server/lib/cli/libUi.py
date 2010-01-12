@@ -220,7 +220,7 @@ def pwd_input(prompt):
     try:
         tty.setraw(sys.stdin.fileno())
         print prompt,
-        passwd = ''
+        password = ''
         while 1 == 1:
             char = sys.stdin.read(1)
             if char == chr(3): # ^C was pressed
@@ -228,32 +228,32 @@ def pwd_input(prompt):
             if char == chr(13): # Enter was pressed
                 break
             if char == chr(8) or char == chr(127): # backspace
-                if len(passwd) > 0:
+                if len(password) > 0:
                     sys.stdout.write("\b")
                     sys.stdout.write(" ")
                     sys.stdout.write("\b")
-                    passwd = passwd[:-1]
+                    password = password[:-1]
                 continue
             if ord(char) > 31 and ord(char) < 128: # Valid character
                 sys.stdout.write("*")
                 sys.stdout.flush()
-                passwd += char
+                password += char
     except KeyboardInterrupt:
         sys.exit(1)
     finally:
         termios.tcsetattr(file_handle, termios.TCSADRAIN, old_settings)
-    redaction = "\b" * len(passwd) + " " * len(passwd)
+    redaction = "\b" * len(password) + " " * len(password)
     sys.stdout.write(redaction)
     print
-    return passwd
+    return password
 
 def get_password(prompt = "enter password:"):
     'have the user enter a password and verify it'
     while 1 == 1:
-        passwd1 = pwd_input(prompt)
-        passwd2 = pwd_input("Please re-enter password:")
-        if passwd1 == passwd2:
-            return passwd1
+        password1 = pwd_input(prompt)
+        password2 = pwd_input("Please re-enter password:")
+        if password1 == password2:
+            return password1
         print "% Passwords do not match\n\r"
 
 def ask_yes_no(prompt, default = NEUTRAL):

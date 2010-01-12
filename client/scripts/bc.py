@@ -1,8 +1,9 @@
 #!/usr/bin/env python
+"""module is meant to be run on a linux machine. This is the method the server
+uses to interact with a box: find out what pacakges need to be installed, etc.
+Currently supports RHEL5 and Ubuntu Hardy. Other POSIX environments could
+be easily added, including cygwin"""
 
-# bc.py: This module is essentially a hacked version of 
-# ReconcileThread.py, and is meant to be run on a linux machine.
-# It could use some refinement, but seems to work now.
 # Copyright (C) 2005 Peter Banka
 
 # This program is free software; you can redistribute it and/or
@@ -22,16 +23,15 @@
 
 import sys, optparse, StringIO, traceback, yaml, time, re
 
-from bombardier_core.libCipher import decryptString
+from bombardier_core.Cipher import Cipher
 from bombardier_core.Logger import Logger
-from bombardier_core.Filesystem import Filesystem
+from bombardier_core.Config import Config
 from bombardier_client.Repository import Repository
-from bombardier_client.Config import Config
 from bombardier_client.Exceptions import ServerUnavailable
 from bombardier_client.PackageV4 import PackageV4
 from bombardier_client.PackageV5 import PackageV5
 from bombardier_client.BombardierClass import Bombardier
-from bombardier_core.mini_utility import getProgressPath, getSpkgPath
+from bombardier_core.mini_utility import get_progress_path, get_spkg_path
 from bombardier_core.static_data import FIX, CHECK_STATUS, CONFIGURE, RECONCILE
 from bombardier_core.static_data import VERIFY, INSTALL, UNINSTALL, PURGE
 from bombardier_core.static_data import DRY_RUN, INIT, EXECUTE
@@ -42,14 +42,30 @@ import os
 import base64
 import zlib
 
+STREAM_BLOCK_SIZE = 77
+
+USAGE  = ["usage: %prog { -s | -r | -n } INSTANCE | "]
+USAGE += ["       %prog { -c | -v | -i | -u } INSTANCE PACKAGE-NAME [ PACKAGE-NAME2 ... ] | "]
+USAGE += ["       %prog { -f | -p } INSTANCE FULL-PACKAGE-NAME [FULL-PACKAGE-NAME2 ... ] | "]
+USAGE += ["       %prog -x INSTANCE PACKAGE-NAME SCRIPT-NAME "]
+USAGE += ['']
+USAGE += ["INSTANCE := A complete bombardier client configuration"]
+USAGE += ["PACKAGE-NAME := An individual software module"]
+USAGE += ["FULL-PACKAGE-NAME := {PACKAGE-NAME}-{PACKAGE-REVISION}"]
+USAGE += ["SCRIPT-NAME := The name of a maintenance script that resides in the package"]
+
 class NoInstanceError(Exception):
+    "Asking to work on an instance that doesn't exist"
     def __init__(self, instance_name):
         Exception.__init__(self)
         self.instance_name = instance_name
     def __repr__(self):
-        return "Attempting operation on a non-existant instance: %s" % self.instance_name
+        msg = "Attempting operation on a non-existant instance: %s"
+        msg = msg  % self.instance_name
+        return msg
 
 def exit_with_return_code(value):
+    "Provide proper output to the CNM server"
     if type(value) != type(0):
         Logger.error("Invalid exit code, not an integer: %s" % value)
         value = FAIL
@@ -57,7 +73,9 @@ def exit_with_return_code(value):
     sys.exit(value)
 
 def find_likely_pkn(instance_name, pkn):
-    status_yml = yaml.load(open(getProgressPath(instance_name)).read())
+    """Sometimes an ambiguous package name is requested.
+    This attempts to help a guy out."""
+    status_yml = yaml.load(open(get_progress_path(instance_name)).read())
     pkns = []
     status_packages = status_yml['install-progress']
     for name in status_packages:
@@ -66,7 +84,8 @@ def find_likely_pkn(instance_name, pkn):
         if pkn.lower() in name.lower():
             pkns.append(name)
     if len(pkns) > 1:
-        Logger.error( 'Ambiguous package name: %s could be any of %s' %(pkn, str(pkns)))
+        msg = 'Ambiguous package name: %s could be any of %s' % (pkn, str(pkns))
+        Logger.error( msg )
         exit_with_return_code(FAIL)
     if len(pkns) == 0:
         Logger.error( 'Package not found: %s' %pkn )
@@ -77,7 +96,10 @@ def find_likely_pkn(instance_name, pkn):
         return pkn
 
 def fix_spkg(instance_name, pkn, action, package_factory):
-    status_data = open(getProgressPath(instance_name), 'r').read()
+    """A user is requesting to take a package that is currently flagged
+    as 'broken' and set it to be 'installed'. Perhaps they have manually
+    fixed the package on the system."""
+    status_data = open(get_progress_path(instance_name), 'r').read()
     status = yaml.load(status_data)
     if status.get("install-progress") == None:
         status["install-progress"] = {}
@@ -94,7 +116,9 @@ def fix_spkg(instance_name, pkn, action, package_factory):
             if base_name in possible_pkn:
                 fix_name.append(possible_pkn)
         if len(fix_name) > 1:
-            Logger.error("Package name %s is ambigious. (possible %s)" % (pkn, ' '.join(fix_name)))
+            msg = "Package name %s is ambigious. (possible %s)"
+            msg = msg % (pkn, ' '.join(fix_name))
+            Logger.error(msg)
             return FAIL
         elif len(fix_name) == 1:
             pkn = fix_name[0]
@@ -102,39 +126,48 @@ def fix_spkg(instance_name, pkn, action, package_factory):
             new_package = package_factory.get_me_one(pkn)
             pkn = new_package.full_name
             Logger.info("Selecting previously UNINSTALLED package: %s" % pkn)
-        status["install-progress"]["%s" % pkn] = {"INSTALLED": now, "UNINSTALLED": "NA", "VERIFIED": now}
+        status["install-progress"]["%s" % pkn] = {"INSTALLED": now,
+                                                  "UNINSTALLED": "NA",
+                                                  "VERIFIED": now}
         Logger.info("==OUTPUT==:%s has been set to INSTALLED." % pkn )
     elif action == PURGE:
         if status["install-progress"].get(pkn):
             del status["install-progress"][pkn]
-            msg = "==OUTPUT==:%s has been removed from %s status" % (pkn, instance_name)
+            msg = "==OUTPUT==:%s has been removed from %s status"
+            msg = msg % (pkn, instance_name)
             Logger.info(msg)
         else:
             Logger.info("==OUTPUT==:%s is not in the status file" % pkn)
             pkns = status["install-progress"]
             possible_names = [x for x in pkns if pkn in x]
-            Logger.info("==OUTPUT==:Maybe you want one of these: %s" % str(possible_names))
+            msg = "==OUTPUT==:Maybe you want one of these: %s"
+            msg = msg % str(possible_names)
+            Logger.info(msg)
             return FAIL
-    open(getProgressPath(instance_name), 'w').write(yaml.dump(status))
+    open(get_progress_path(instance_name), 'w').write(yaml.dump(status))
     return OK
 
 class BombardierEnvironment:
+    """Holds information about the system Configuration. Should
+    probably be removed"""
     def __init__(self, instance_name):
-        self.filesystem      = Filesystem()
+        """instance_name -- a machine can have several different names
+                            that it is referred to to that packages can
+                            be installed more than once"""
         self.repository      = None
         self.config          = None
-        self.instance_name    = instance_name
+        self.instance_name   = instance_name
 
     def data_request(self):
-        STREAM_BLOCK_SIZE= 77
-        b64Data = []
+        "Obtain configuration data from the server"
+        b64_data = []
         while True:
             chunk = sys.stdin.read(STREAM_BLOCK_SIZE)
             if not chunk or chunk[0] == ' ':
                 break
-            b64Data.append(chunk)
+            b64_data.append(chunk)
         yaml_data = ''
-        yaml_data = zlib.decompress(base64.decodestring(''.join(b64Data)))
+        yaml_data = zlib.decompress(base64.decodestring(''.join(b64_data)))
         Logger.debug("Received %s lines of yaml" % len(yaml_data.split('\n')))
 
         try:
@@ -145,33 +178,33 @@ class BombardierEnvironment:
         if type(input_data) == type("string"):
             Logger.error("Invalid Yaml on server: %s" % input_data)
             raise ServerUnavailable, ("input_data", "invalid yaml")
-        if type(input_data) != type({}) and type(input_data) != type([]): # backwards comptible yaml
+        if type(input_data) != type({}) and type(input_data) != type([]):
             input_data = input_data.next()
         config_key = input_data.get("config_key", None)
         if config_key:
-            enc_yaml_file = os.path.join(getSpkgPath(), instance_name, 'client.yml.enc')
+            enc_yaml_file = os.path.join(get_spkg_path(), self.instance_name,
+                                         'client.yml.enc')
             if not os.path.isfile(enc_yaml_file):
                 raise ServerUnavailable, ("input_data", "no %s" % enc_yaml_file)
             enc_data = open(enc_yaml_file).read()
-            plain_yaml_str = decryptString(enc_data, config_key)
+            cipher = Cipher(config_key)
+            plain_yaml_str = cipher.decrypt_string(enc_data)
             try:
                 input_data = yaml.load(plain_yaml_str)
             except:
                 ermsg = "Received bad YAML file: %s" % enc_yaml_file
                 raise ServerUnavailable, ("input_data", ermsg)
                 
-        config_data  = input_data.get("configData")
+        config_data  = input_data.get("config_data")
         if not config_data:
             Logger.error("No configuration data received")
             raise ServerUnavailable, ("config_data", "invalid yaml")
-        package_data = input_data.get("packageData", {})
-        self.config = Config(self.filesystem, instance_name, config_data)
-        self.repository = Repository(self.filesystem, instance_name, package_data)
-
-    def clear_lock(self):
-        self.filesystem.clearLock()
+        package_data = input_data.get("package_data", {})
+        self.config = Config(self.instance_name, config_data)
+        self.repository = Repository(self.instance_name, package_data)
 
 class PackageFactory:
+    "Generate type-4 or type-5 packages"
     def __init__(self, env):
         self.env = env
 
@@ -181,47 +214,57 @@ class PackageFactory:
         pkn -- the name of the package to create
         '''
         version = self.env.repository.determine_pkg_version(pkn)
-        pkg = None
         if version == 4:
             new_package = PackageV4(pkn, self.env.repository,
                                     self.env.config,
-                                    self.env.filesystem,
                                     self.env.instance_name)
         else:
             new_package = PackageV5(pkn, self.env.repository,
                                     self.env.config,
-                                    self.env.filesystem,
                                     self.env.instance_name)
         new_package.initialize()
         return new_package
 
 def get_bc(instance_name, env):
-    env.clear_lock()
-    bc = Bombardier(env.repository, env.config, env.filesystem,
-                    instance_name)
-    return bc
+    "This class is the primary interface to the rest of the system"
+    bc_obj = Bombardier(env.repository, env.config, instance_name)
+    return bc_obj
 
 def instance_setup(instance_name):
-    progress_path = getProgressPath(instance_name)
+    "When Bombardier is first getting set up, this method is called."
+    progress_path = get_progress_path(instance_name)
     status_dict = None
     if os.path.isfile(progress_path):
         try:
             status_dict = yaml.load(open(progress_path).read())
         except:
-            Logger.warning("Unable to load existing yaml from %s" % progress_path)
+            msg = "Unable to load existing yaml from %s" % progress_path
+            Logger.warning(msg)
     if type(status_dict) != type({}):
         status_dict = {"install-progress": {}}
     status_dict["client_version"] = CLIENT_VERSION
     status_dict["core_version"] = CORE_VERSION
     status_dict["clientVersion"] = CLIENT_VERSION
     status_dict["coreVersion"] = CORE_VERSION
-    pkg_dir = os.path.join(getSpkgPath(), instance_name, "packages")
+    pkg_dir = os.path.join(get_spkg_path(), instance_name, "packages")
     if not os.path.isdir(pkg_dir):
         os.makedirs(pkg_dir)
     open(progress_path, 'w').write(yaml.dump(status_dict))
 
-def process_action(action, instance_name, pkn, script_name,
-                   package_factory, env):
+def process_action(action, instance_name, pkn, method_name,
+                   package_factory):
+    """
+    Performs a Bombardier action on this system
+    action -- either INIT, INSTALL, UNINSTALL, VERIFY, CONFIGURE,
+              EXECUTE, RECONCILE, CHECK_STATUS, FIX, or PURGE
+    instance_name -- the name of the machine
+    pkn -- the package name to operate on. Could be none for actions
+           that operate on the whole machine, such as RECONCILE,
+           CHECK_STATUS, or INIT 
+    method_name -- Only applicable for the EXECUTE action, runs a named
+                   method within a package.
+    package_factory -- provides packages we may need
+    """
     if action == INIT:
         instance_setup(instance_name)
         return OK
@@ -234,9 +277,9 @@ def process_action(action, instance_name, pkn, script_name,
         if action in [ FIX, PURGE ]:
             status = fix_spkg(instance_name, pkn, action, package_factory)
             return status
-        bc = get_bc(instance_name, env)
+        bc_obj = get_bc(instance_name, package_factory.env)
         if action == CHECK_STATUS:
-            status_dict = bc.check_system()
+            status_dict = bc_obj.check_system()
             if type(status_dict) == type({}):
                 if status_dict["broken"]:
                     Logger.info("BROKEN PACKAGES:")
@@ -246,18 +289,16 @@ def process_action(action, instance_name, pkn, script_name,
             else:
                 status = FAIL
         elif action in [ RECONCILE, DRY_RUN ]:
-            bc.record_errors = True
-            status = bc.reconcile_system(action)
+            bc_obj.record_errors = True
+            status = bc_obj.reconcile_system(action)
         else:
-            bc.record_errors = False
-            status = bc.use_pkg(pkn, action, script_name)
-
-        bc.filesystem.clearLock()
+            bc_obj.record_errors = False
+            status = bc_obj.use_pkg(pkn, action, method_name)
     except:
-        e = StringIO.StringIO()
-        traceback.print_exc(file=e)
-        e.seek(0)
-        data = e.read()
+        err = StringIO.StringIO()
+        traceback.print_exc(file = err)
+        err.seek(0)
+        data = err.read()
         ermsg = ''
         for line in data.split('\n'):
             ermsg += "\n||>>>%s" % line
@@ -265,20 +306,10 @@ def process_action(action, instance_name, pkn, script_name,
         return FAIL
     return status
 
-if __name__ == "__main__":
-    import optparse
+def main():
     Logger.add_std_err_logging()
 
-    usage  = ["usage: %prog { -s | -r | -n } INSTANCE | "]
-    usage += ["       %prog { -c | -v | -i | -u } INSTANCE PACKAGE-NAME [ PACKAGE-NAME2 ... ] | "]
-    usage += ["       %prog { -f | -p } INSTANCE FULL-PACKAGE-NAME [FULL-PACKAGE-NAME2 ... ] | "]
-    usage += ["       %prog -x INSTANCE PACKAGE-NAME SCRIPT-NAME "]
-    usage += ['']
-    usage += ["INSTANCE := A complete bombardier client configuration"]
-    usage += ["PACKAGE-NAME := An individual software module"]
-    usage += ["FULL-PACKAGE-NAME := {PACKAGE-NAME}-{PACKAGE-REVISION}"]
-    usage += ["SCRIPT-NAME := The name of a maintenance script that resides in the package"]
-    parser = optparse.OptionParser('\n'.join(usage))
+    parser = optparse.OptionParser('\n'.join(USAGE))
 
     parser.add_option("-s", "--status", dest="action",
                       action="store_const", const=CHECK_STATUS,
@@ -328,9 +359,9 @@ if __name__ == "__main__":
 
     if options.action in [ RECONCILE, CHECK_STATUS, DRY_RUN, INIT ]:
         status = process_action(options.action, instance_name,
-                               '', '', package_factory, env)
+                               '', '', package_factory)
     else:
-        script_name   = ""
+        method_name   = ""
         if len(args) < 2:
             print "CMD: %s" % ' '.join(sys.argv)
             print "This command requires a package name as an argument."
@@ -344,12 +375,15 @@ if __name__ == "__main__":
                 parser.print_help()
                 exit_with_return_code( 1 )
             pkns = [args[1]]
-            script_name = args[2]
+            method_name = args[2]
 
         for pkn in pkns:
             status = process_action(options.action, instance_name,
-                                    pkn, script_name,
-                                    package_factory, env)
+                                    pkn, method_name,
+                                    package_factory)
             if status != OK:
                 exit_with_return_code(status)
     exit_with_return_code(status)
+
+if __name__ == "__main__":
+    main()

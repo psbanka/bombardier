@@ -15,10 +15,10 @@ from bombardier_core.mini_utility import strip_version
 from bombardier_core.static_data import OK, FAIL, EXECUTE
 from bombardier_core.static_data import INIT, FIX, PURGE
 from bombardier_core.static_data import ACTION_DICT, RETURN_DICT
-from bombardier_core.mini_utility import updateDict
+from bombardier_core.mini_utility import update_dict
 from MachineStatus import MachineStatus, LOCAL_PACKAGES
 import random
-from bombardier_core import libCipher
+from bombardier_core import Cipher
 
 from pexpect import EOF
 import tempfile
@@ -199,7 +199,8 @@ class BombardierMachineInterface(MachineInterface):
     def scp_all_client_data(self, raw_data):
         enc_key = self.data['config_key']
         yaml_data_str = yaml.dump(raw_data)
-        enc_data = libCipher.encrypt(yaml_data_str, enc_key)
+        cipher = Cipher(enc_key)
+        enc_data = cipher.encrypt_string(yaml_data_str)
         dest_path = os.path.join(self.spkg_dir, self.machine_name, "client.yml.enc")
         temp_file = tempfile.mkstemp()[1]
         open(temp_file, 'w').write(enc_data)
@@ -207,9 +208,8 @@ class BombardierMachineInterface(MachineInterface):
         self.stream_data("config_key: '%s'\n" % enc_key)
 
     def get_all_client_data(self):
-        send_data = {"configData": self.data, 
+        send_data = {"config_data": self.data, 
                      "package_data": {},
-                     "packageData": {}, # FIXME
                     }
         package_names = self.machine_status.get_all_package_names(self.data.get("packages"))
         for package_name in package_names:
@@ -219,13 +219,12 @@ class BombardierMachineInterface(MachineInterface):
                 self.polling_log.error(message % package_name)
                 raise MachineConfigurationException(self.machine_name)
             send_data["package_data"][package_name] = this_package_data
-            send_data["packageData"][package_name] = this_package_data 
         return send_data
 
     def send_all_client_data(self, action):
         "Stream package metadata to a remote client"
         if action == PURGE:
-            send_data = {"configData": self.data}
+            send_data = {"config_data": self.data}
         else:
             send_data = self.get_all_client_data()
         if 'config_key' in self.data and action != INIT:
@@ -399,7 +398,7 @@ class BombardierMachineInterface(MachineInterface):
                     files_to_send["type4"].append(path_to_file)
             elif version == 5:
                 package_sync = self.get_type_5_files(base_name, newest_data)
-                files_to_send = updateDict(files_to_send, package_sync)
+                files_to_send = update_dict(files_to_send, package_sync)
         #self.server_log.info("FILES TO SEND: %s" % files_to_send)
         tmp_path = self.create_sync_directory(files_to_send)
         dest = os.path.join(self.spkg_dir, "repos")

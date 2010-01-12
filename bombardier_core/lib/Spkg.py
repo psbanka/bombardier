@@ -1,13 +1,15 @@
+#!/usr/bin/env python
+"Provides a standard superclass for all Bombardier packages"
+
 import re, os, yaml
-from bombardier_core.mini_utility import getSpkgPath
+from bombardier_core.mini_utility import get_spkg_path
 import sys, inspect
-import Config
-from bombardier_core.Filesystem import Filesystem
 from bombardier_core.static_data import OK, FAIL
 from bombardier_core.Logger import Logger
-import Repository
+from Config import Config
 
 def double_escape(old_string):
+    'sometimes stuff needs this for certain reasons.'
     out_string = ''
     for i in old_string:
         if i == '\\':
@@ -17,6 +19,7 @@ def double_escape(old_string):
     return out_string
 
 class SpkgException( Exception ):
+    "raised when a system call is made that fails"
     def __init__(self, err_msg=""):
         self.err_msg = str(err_msg)
         err = Exception()
@@ -27,22 +30,22 @@ class SpkgException( Exception ):
         return self.err_msg
 
 def get_instance():
+    "provides the name of the machine this is running on"
     path = os.getcwd()
-    spkgPath = getSpkgPath()
-    subDir = path.split(spkgPath)[1]
-    instance_name = subDir.split(os.path.sep)[1]
+    spkg_path = get_spkg_path()
+    sub_dir = path.split(spkg_path)[1]
+    instance_name = sub_dir.split(os.path.sep)[1]
     return instance_name
 
-def getConfig():
+def get_config():
+    "obtains the configuration object"
     instance_name = get_instance()
-    filesystem = Filesystem()
-    _repository = Repository.Repository(filesystem, instance_name)
-    config = Config.Config(filesystem, instance_name)
+    config = Config(instance_name)
     return config
 
 def main(cls):
     'A main method that can be used for troubleshooting'
-    config = getConfig()
+    config = get_config()
     obj = cls(config)
     action = sys.argv[-1].lower()
     status = OK
@@ -51,7 +54,7 @@ def main(cls):
 
 def mainV4(cls):
     'A main method that can be used for troubleshooting'
-    config = getConfig()
+    config = get_config()
     obj = cls(config, Logger)
     action = sys.argv[-1].lower()
     status = OK
@@ -68,18 +71,16 @@ def mainV4(cls):
         status = FAIL
     sys.exit(status)
 
-def mainV5(cls):
-    main(cls)
-
 def dumpReport(report, logger):
-    instanceName = get_instance()
-    outputPath = os.path.join(getSpkgPath(), instanceName, "output")
-    if not os.path.isdir(outputPath):
-        os.makedirs(outputPath)
-    scriptName = sys.argv[-1].split(".py")[0]
-    outputFile = "%s-output.yml" % scriptName
+    "Legacy"
+    instance_name = get_instance()
+    output_path = os.path.join(get_spkg_path(), instance_name, "output")
+    if not os.path.isdir(output_path):
+        os.makedirs(output_path)
+    script_name = sys.argv[-1].split(".py")[0]
+    output_file = "%s-output.yml" % script_name
     yaml_string = yaml.dump(report)
-    open(os.path.join(outputPath, outputFile), 'w').write(yaml_string)
+    open(os.path.join(output_path, output_file), 'w').write(yaml_string)
     for line in yaml_string.split('\n'):
         logger.info("==REPORT==:%s" % line)
 
@@ -89,18 +90,12 @@ class SpkgV5:
     def __init__(self, config):
         '''
         config -- configuarion data object
-        logger -- log4py object
-        filesystem -- object that interacts with the filesystem
         '''
         self.this_package_name = self._getname()
-        self.filesystem    = Filesystem()
-        self.stderr        = False
-        self.server        = None
-        self.port          = None
-        self.instance_name = config.get_instance()
-        self.report        = {}
-        self.logger = Logger
-        self.config = config
+        self.instance_name     = config.get_instance()
+        self.report            = {}
+        self.logger            = Logger
+        self.config            = config
 
     def _dump_report(self, report = None):
         '''
@@ -112,7 +107,7 @@ class SpkgV5:
         if type(report) != type({}):
             report = self.report
         command = inspect.stack()[2][3]
-        output_path = os.path.join(getSpkgPath(), self.instance_name, "output")
+        output_path = os.path.join(get_spkg_path(), self.instance_name, "output")
         if not os.path.isdir(output_path):
             os.makedirs(output_path)
         output_file = "%s-output.yml" % command
@@ -152,24 +147,38 @@ class SpkgV5:
         Logger.critical("[%s]|%s" % (self.this_package_name, string))
 
     def _getname(self):
+        "Provides the name of this package based on directory structure"        
         cwd = os.getcwd()
         path = cwd.split(os.sep)
         return path[-1]
 
     def _abstract(self):
+        "A generic abstract method"
         self.error("Attempting to call an abstract method")
         return FAIL
 
     def configure(self):
+        """*configure* is the canonical method of configuring a package
+        This should modify any settings that can be done on the fly"""
         return self._abstract()
 
     def verify(self):
+        """*verify* is the canonical method of validating that a package
+        is installed correctly. Doesn't necessary indicate that it is running
+        or providing any services"""
         return self._abstract()
 
     def install(self):
+        """*install* is the canonical method for installing a package the
+        first time. Bombardier will call *verify* after install whenever
+        a package is installed"""
         return self._abstract()
 
     def uninstall(self):
+        """*uninstall* is the canonical method for removing a package.
+        the package maintainer should always strive to remove all trace
+        of a package so that the system is identical to the state it was
+        in before the package was installed."""
         return self._abstract()
 
     def _modify_template_string(self, input_string, output_file, encoding=None,
@@ -201,8 +210,9 @@ class SpkgV5:
                     else:
                         config_dict[variable] = config_value
                 else:
-                    self._error('A variable was found in template "%s" for which there'\
-                               " is no configuration value (variable: %s)" % (output_file, variable))
+                    msg = 'A variable was found in template "%s" for which '\
+                          'there is no configuration value (variable: %s)'
+                    self._error(msg  % (output_file, variable))
                     config_dict[variable] = 'UNKNOWN_TEMPLATE_VALUE'
                     status = FAIL
             if config_dict == {}:
@@ -212,18 +222,18 @@ class SpkgV5:
         output_data = '\n'.join(output)
 
         if encoding == None:
-            self.filesystem.open(output_file, 'w').write(output_data)
+            open(output_file, 'w').write(output_data)
         else:
-            self.filesystem.open(output_file, 'wb').write(output_data.encode( encoding ))
+            open(output_file, 'wb').write(output_data.encode( encoding ))
         return status
 
     def _modify_template(self, input_file, output_file, encoding=None,
                         process_escape = False):
         'opens a file ane processes all template values in it'
         if encoding == None:
-            input_string = self.filesystem.open(input_file, 'r').read()
+            input_string = open(input_file, 'r').read()
         else:
-            input_string = unicode( self.filesystem.open(input_file, 'rb').read(), encoding )
+            input_string = unicode( open(input_file, 'rb').read(), encoding )
         self._info("Template: " + input_file )
         self._info("Created: " + output_file )
         return self._modify_template_string(input_string, output_file, encoding,
@@ -231,50 +241,63 @@ class SpkgV5:
 
 class Spkg(SpkgV5):
     "Kept for backwards compatibility"
-    def __init__(self, config, filesystem = Filesystem(), logger = None):
+    def __init__(self, config, filesystem = None, logger = None):
         SpkgV5.__init__(self, config)
         self.thisPackagesName = self.this_package_name
 
     def checkStatus(self, status, err_msg="FAILED"):
+        "Legacy"
         return self._check_status(status, err_msg)
 
     def installer(self):
+        "Legacy"
         return self.install()
 
     def uninstaller(self):
+        "Legacy"
         return self.uninstall()
 
     def modifyTemplateString(self, input_string, output_file, encoding=None,
                              process_escape = False):
+        "Legacy"
         return self._modify_template_string(input_string, output_file, encoding,
                                            process_escape)
 
     def modifyTemplate(self, input_file, output_file, encoding=None,
                        process_escape = False):
+        "Legacy"
         return self._modify_template(input_file, output_file, encoding,  
                                     process_escape)
 
     def dump_report(self, report = None):
+        "Legacy"
         return self._dump_report(report)
 
     def system(self, command, err_msg=""):
+        "Legacy"
         return self._system(command, err_msg)
 
     def debug(self, string):
+        "Legacy"
         return self._debug(string)
 
     def info(self, string):
+        "Legacy"
         return self._info(string)
 
     def warning(self, string):
+        "Legacy"
         return self._warning(string)
 
     def error(self, string):
+        "Legacy"
         return self._error(string)
 
     def critical(self, string):
+        "Legacy"
         return self._critical(string)
 
 class SpkgV4(Spkg):
-    def __init__(self, config, filesystem = Filesystem(), logger = None):
+    "Legacy"
+    def __init__(self, config, filesystem = None, logger = None):
         Spkg.__init__(self, config, logger, filesystem)

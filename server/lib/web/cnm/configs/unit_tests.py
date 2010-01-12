@@ -342,9 +342,7 @@ class DispatcherTests(unittest.TestCase, BasicTest):
 
         url = '/json/job/kill/%s' % job_name
         response = self.client.post(path=url, data={"timeout": 1})
-        print "CONTENT:",response.content
         content_dict = json.loads( response.content )
-        print content_dict
         assert "command_status" in content_dict, content_dict
 
     def test_run_check_job(self):
@@ -553,7 +551,7 @@ class PackageTests(unittest.TestCase, BasicTest):
 
         url = '/json/machine/reconcile/localhost'
         status, output = self.run_job(url, data={}, timeout=60)
-        assert status == OK
+        assert status == OK, output
 
 
 class DangerousTests(unittest.TestCase, BasicTest):
@@ -619,7 +617,7 @@ if __name__ == '__main__':
     client = Client()
     initialize_tests(client)
 
-    full_suite = 0
+    full_suite = 1
     suite = unittest.TestSuite()
     if full_suite:
         suite.addTest(unittest.makeSuite(CnmTests))
@@ -629,8 +627,10 @@ if __name__ == '__main__':
     else:
         #suite.addTest(CnmTests("test_summary"))
         #suite.addTest(CnmTests("test_search"))
-        suite.addTest(DispatcherTests("test_kill_job"))
-        #suite.addTest(PackageTests("test_package_build"))
+        #suite.addTest(DispatcherTests("test_kill_job"))
+        #suite.addTest(PackageTests("test_encrypted_ci"))
+        #suite.addTest(PackageTests("test_insufficient_config"))
+        suite.addTest(PackageTests("test_package_build"))
         #suite.addTest(PackageTests("test_type5_package_actions"))
         #suite.addTest(PackageTests("test_package_actions"))
 
