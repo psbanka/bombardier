@@ -93,7 +93,9 @@ class FileManifest:
         error_list = self.verify_file_md5_tuples( tuple_check_list )
         return( error_list )
 
-    def verify_file_md5_tuples(self, file_md5_tuple_list):
+    @classmethod
+    def verify_file_md5_tuples(cls, file_md5_tuple_list):
+        "Verify that a list of filepath, md5 pairs match"
         error_list = []
         for file_tuple in file_md5_tuple_list:
             filepath = file_tuple[0]
