@@ -5,6 +5,7 @@ if [ $(bzr stat | awk '/^modified:/' | wc -l) != 0 ]; then
     exit 1
 fi
 if [ $(bzr info | awk '/^Checkout .*/' | wc -l) != 0 ]; then
+    rm -rf dist build MANIFEST
     bzr version-info --format python > lib/_version.py
     python setup.py sdist
 else

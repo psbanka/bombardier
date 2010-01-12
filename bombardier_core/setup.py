@@ -9,9 +9,30 @@ from os.path import splitext, basename, join as pjoin, walk
 import os
 from lib._version import version_info
 
+LONG_DESCRIPTION = """\
+Bombardier is a software system that delivers visibility, control
+and automation to datacenter environments. Bombardier provides a means
+for changes to be rolled out to a network of servers in a highly
+controlled way, providing optimum security, logging, centralized
+change control.
+
+What happens when systems you're responsible for go offline?
+
+    * Do you get paged?
+    * Are you part of a team that needs to respond immediately?
+    * Are your products or services potentially at risk?
+    * Is your job or livelihood at risk?
+
+If the answer is yes to any of these questions, then Bombardier may be
+for you. Bombardier makes application deployment, minor changes, and
+routine maintenance much more reliable and secure. It also provides you
+with a degree of insight into the changes that are going on within your
+production datacenter that you may have never seen before.
+"""
+
+
 class CleanCommand(Command):
     user_options = [ ]
-
     def initialize_options(self):
         self._clean_me = [ ]
         for root, dirs, files in os.walk('.'):
@@ -31,7 +52,6 @@ class CleanCommand(Command):
 
 class TestCommand(Command):
     user_options = [ ]
-
     def initialize_options(self):
         self._dir = os.getcwd()
 
@@ -57,6 +77,7 @@ class TestCommand(Command):
 setup (name = "bombardier_core",
        description = "Open Source Configuration management and package delivery: shared components",
        version = str("%(branch_nick)s-%(revno)d" % version_info),
+       long_description = LONG_DESCRIPTION,
        packages = ["bombardier_core"],
        package_dir = {"bombardier_core": "lib"},
        author = "Peter Banka and Shawn Sherwood",
