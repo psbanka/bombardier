@@ -1,9 +1,0 @@
----
-server:
-    address: "http://172.22.10.56"
-site:
-    tmpPath: /tmp
-svn:
-    root: http://172.22.10.56/repository/dev/packages/
-    username: robot
-    password: 1qaz2wsx
