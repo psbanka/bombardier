@@ -1,15 +1,29 @@
-MAKE_FILE=../build/Makefile
+build_dir=../build
 
-define check_target_dir
-	[ -e ../$@ ] || exit 1
+MAKE_FILE=$(build_dir)/Makefile
+
+define upload_dir
+../$(subst _upload,,$@)
 endef
 
-define sdist_target
-	cd ../$@ && make -f $(MAKE_FILE) sdist
+define check_upload_dir
+	[ -e  $(upload_dir) ] || exit 1
 endef
 
 define upload_target
-	$(sdist_target) upload
+	cd $(upload_dir) && make -f $(MAKE_FILE) upload
+endef
+
+define target_dir
+../$@
+endef
+
+define check_target_dir
+	[ -e $(target_dir) ] || exit 1
+endef
+
+define sdist_target
+	cd $(target_dir) && make -f $(MAKE_FILE) sdist
 endef
 
 server:
@@ -41,8 +55,8 @@ cli_upload:
 #	$(upload_target) 
 
 core_upload:
-	[ -e ../core ] || exit 1
-	cd ../core && make -f $(MAKE_FILE) upload
+	$(check_upload_dir)
+	$(upload_target)
 
 sdist: do_sdist clean_files
 
@@ -77,15 +91,15 @@ clean_files:
 dist_files: AUTHORS CHANGELOG README LICENSE INSTALL MANIFEST.in 
 
 AUTHORS:
-	cp -f ../build/AUTHORS .
+	cp -f $(build_dir)/AUTHORS .
 CHANGELOG:
-	cp -f ../build/CHANGELOG .
+	cp -f $(build_dir)/CHANGELOG .
 README:
-	cp -f ../build/README .
+	cp -f $(build_dir)/README .
 LICENSE:
-	cp -f ../build/LICENSE .
+	cp -f $(build_dir)/LICENSE .
 INSTALL:
-	cp -f ../build/INSTALL .
+	cp -f $(build_dir)/INSTALL .
 MANIFEST.in:
-	cp -f ../build/MANIFEST.in .
+	cp -f $(build_dir)/MANIFEST.in .
 
