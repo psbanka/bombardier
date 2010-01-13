@@ -1,0 +1,9 @@
+Redwood City:
+  address: http://localhost
+  username: None
+  password: None
+  proxy:
+     address: None
+     port: None
+     username: None
+     password: None

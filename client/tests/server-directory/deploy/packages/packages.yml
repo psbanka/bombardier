@@ -1,0 +1,165 @@
+---
+testPackage:
+    config: {}
+    dependencies: {}
+    install:
+        autoreboot: FALSE
+        console: TRUE
+        fullName: testPackage-4
+        md5sum: '401cda2ce3feeecec04538fc676e4add'
+        priority: '70'
+        reboot: TRUE
+    package-version: 1
+testbadpackage1:
+    install:
+        fullName: testbadpackage1-1
+        md5sum: '5c514e70e8012755f1e7b2610fefc5d0'
+        priority: '10'
+    package-version: 1
+testbaduninstallpackage1:
+    dependencies: {}
+    install:
+        autoreboot: FALSE
+        console: FALSE
+        fullName: testbaduninstallpackage1-1
+        md5sum: e35d758ded9a6485ddea210aec2c9ebe
+        priority: '150'
+        reboot: FALSE
+    package-version: 1
+testbadverifypackage1:
+    dependencies: {}
+    install:
+        autoreboot: FALSE
+        console: FALSE
+        fullName: testbadverifypackage1-1
+        md5sum: '98231424a3593dfdd7d7552050eb9017'
+        priority: '150'
+        reboot: FALSE
+    package-version: 1
+testconfigpkg1:
+    config:
+        testconfig: 'homeDirectory,c:\installFile'
+    dependencies: {}
+    install:
+        autoreboot: FALSE
+        console: FALSE
+        fullName: testconfigpkg1-1
+        md5sum: d66634bf4935dadb7b21676b4aad37e0
+        priority: '150'
+        reboot: FALSE
+    package-version: 1
+testconsolepackage1:
+    dependencies: {}
+    install:
+        autoreboot: FALSE
+        console: TRUE
+        fullName: testconsolepackage1-13
+        md5sum: ee2fc2b7c18e4ec4c95b13cb2b368b44
+        priority: '150'
+        reboot: FALSE
+    package-version: 1
+testdb-data-initial:
+    backup:
+        databases: testdb
+        role: data
+        rootname: testdb-data
+    dependencies:
+        - testdb-structure
+    install:
+        autoreboot: FALSE
+        console: FALSE
+        fullName: testdb-data-initial-1
+        md5sum: '9e972510cd745484071c946ca8c7e9dd'
+        priority: '150'
+        reboot: FALSE
+    package-version: 1
+testdb-structure-1:
+    backup:
+        databases: testdb
+        role: data
+        rootname: testdb-data
+    configuration: {}
+    install:
+        console: 0
+        fullName: testdb-structure-1-1
+        md5sum: d08920b645d4d885cc62c26dcbc37072
+        priority: 150
+        reboot: 0
+    virtualpackage: testdb-structure
+testdb-structure-2:
+    backup:
+        databases: testdb
+        role: data
+        rootname: testdb-data
+    configuration: {}
+    install:
+        console: 0
+        fullName: testdb-structure-2-2
+        md5sum: '7f52b3f3d9e98f6b7efefe959a0b120a'
+        priority: 150
+        reboot: 0
+    virtualpackage: testdb-structure
+testdelaypackage-1:
+    dependencies: {}
+    install:
+        autoreboot: FALSE
+        console: FALSE
+        fullName: testdelaypackage-1-1
+        md5sum: ae8801a3e2e3aeac321ea5e193e7d858
+        priority: '150'
+        reboot: FALSE
+    package-version: 1
+testdependencies1:
+    backup:
+        databases: testdb
+        role: data
+        rootname: testdb-data
+    configuration: {}
+    dependencies: testokpackage1
+    install:
+        console: 0
+        fullName: testdependencies1-1
+        md5sum: '33eee1a6c4984c0f95e28264bf57e180'
+        priority: 150
+        reboot: 0
+    virtualpackage: testdb-structure
+testnoverifypackage1:
+    dependencies: {}
+    install:
+        autoreboot: FALSE
+        console: FALSE
+        fullName: testnoverifypackage1-1
+        md5sum: b184709fde976f4a7a64d478150bd049
+        priority: '150'
+        reboot: FALSE
+    package-version: 1
+testokpackage1:
+    dependencies: {}
+    install:
+        autoreboot: FALSE
+        console: FALSE
+        fullName: testokpackage1-1
+        md5sum: dc4e64edcd6a20049792621cf5cb7b6c
+        priority: '150'
+        reboot: FALSE
+    package-version: 1
+testrealdb-structure-1:
+    backup:
+        databases: ReaderDB,LoginDB
+        role: STRUCTURE
+        rootname: testrealdb-structure
+    config:
+        sql,instance: CDBA
+        sql,port: '1433'
+    dependencies:
+        - sql2ksp3
+        - dbtool-0.2
+        - system-setup
+    install:
+        autoreboot: FALSE
+        console: FALSE
+        fullName: testrealdb-structure-1-1
+        md5sum: '6a230a8abaf451152a2b92237d44e08e'
+        priority: '100'
+        reboot: FALSE
+    virtualpackage: omsdb-structure-P2

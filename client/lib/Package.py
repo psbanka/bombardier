@@ -50,8 +50,7 @@ class Package:
     installable, verifiable, and uninstallable thing. Each
     package is held in the repository"""
 
-    def __init__(self, name, repository, config, 
-                 instance_name):
+    def __init__(self, name, repository, config, instance_name):
         '''
         name -- name of the package
         repository -- object that manages files on the disk for the package
@@ -274,7 +273,7 @@ class Package:
         Logger.info(msg % (self.full_name, dry_run_string, self.status))
         return self.status
 
-    def _write_install(self, pdat):
+    def _write_install(self, pdat, time_string):
         if pdat.get(self.full_name) == None:
             pdat[self.full_name] = {}
         if self.full_name:
@@ -292,7 +291,7 @@ class Package:
             raise BadPackage(self.name, msg)
         return pdat
 
-    def _write_uninstall(self, pdat):
+    def _write_uninstall(self, pdat, time_string):
         like_packages = []
         for pkn in pdat:
             if pkn.startswith(self.name) and pkn != self.full_name:
@@ -318,10 +317,10 @@ class Package:
                                              "VERIFIED": "NA",
                                              "DEPENDENCY_ERRORS": []}
         if self.action == INSTALL:
-            pdat = self._write_install(pdat)
+            pdat = self._write_install(pdat, time_string)
     
         elif self.action == UNINSTALL:
-            pdat = self._write_uninstall(pdat)
+            pdat = self._write_uninstall(pdat, time_string)
             like_packages = []
             for pkn in pdat:
                 if pkn.startswith(self.name) and pkn != self.full_name:

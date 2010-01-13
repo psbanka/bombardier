@@ -43,6 +43,7 @@ from commands import getstatusoutput as gso
 
 BLOCK_SIZE = 10000
 
+
 class Repository:
     '''Provides support functions for package, dealing with proper
     package file layout, unpacking, and verification'''

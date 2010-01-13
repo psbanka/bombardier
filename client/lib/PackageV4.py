@@ -251,7 +251,6 @@ class PackageV4(Package):
                 else:
                     status = 0
                 file_found = True
-                del rand_string
                 break
             except KeyboardInterrupt:
                 Logger.error("Keyboard interrupt detected. Exiting...")
@@ -259,13 +258,11 @@ class PackageV4(Package):
             except SyntaxError, err:
                 self._dump_error(err, file_name)
                 file_found = False
-                del rand_string
                 break
             except StandardError, err:
                 self._dump_error(err, file_name)
                 file_found = True
                 status = FAIL
-                del rand_string
                 break
         os.chdir(cwd)
         if not file_found:

@@ -23,7 +23,8 @@ import os, re, time, random, yaml, md5, shutil
 import sys
 from static_data import OK, FAIL
 from static_data import PACKAGES, STATUS_FILE, SERVER_CONFIG_FILE
-from Exceptions import StatusException
+from Exceptions import StatusException, UnsupportedPlatform
+from Exceptions import ConfigurationException
 
 BROKEN_INSTALL   = 0
 INSTALLED        = 1
@@ -105,6 +106,8 @@ def update_progress(dictionary, instance_name, overwrite=False):
 
 def get_progress_data(instance_name, strip_version_from_name = False):
     "Obtains just the installation progress information from status.yml"
+    if not instance_name:
+        raise ConfigurationException("Must have a valid instance_name")
     data = load_current_progress(instance_name)
     if data.has_key("install-progress"):
         progress_data = data["install-progress"]
@@ -175,7 +178,6 @@ def diff_lists(sub_list, super_list, check_values=False):
         if type(sub_list[0]) == type(1) or type(sub_list[0]) == type('string'):
             # comparing a list of literals, length doesn't matter.
             return []
-    print 'a'
     if len(sub_list) != len(super_list):
         differences = list(set(sub_list) - set(super_list))
     for index in range(0, len(sub_list)):
@@ -475,7 +477,10 @@ def get_installed(progress_data):
 
 def get_linux_config():
     "our config file is in /etc/bombardier.yml. Go read it and give us the info"
-    data = open(SERVER_CONFIG_FILE, 'r').read()
+    try:
+        data = open(SERVER_CONFIG_FILE, 'r').read()
+    except IOError, ioe:
+        raise ConfigurationException(str(ioe))
     config = yaml.load(data)
     return config
 
@@ -498,10 +503,10 @@ def add_dictionaries(dict1, dict2):
 def get_spkg_path():
     "Find out where our root directory is on the client"
     spkg_path = ''
-    if sys.platform == "linux2":
+    if sys.platform == "linux2" or sys.platform == "cygwin":
         config = get_linux_config()
         spkg_path = config.get("spkg_path")
-    else:
+    elif sys.platform == "win32":
         import _winreg as winreg
         key_name = r"Software\GE-IT\Bombardier"
         try:
@@ -510,6 +515,8 @@ def get_spkg_path():
             spkg_path, dummy = winreg.QueryValueEx(key, "InstallPath")
         except:
             spkg_path = r"C:\spkg"
+    else:
+        raise UnsupportedPlatform()
     return spkg_path
 
 def get_package_path(instance_name):
