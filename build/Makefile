@@ -41,8 +41,8 @@ cli_upload:
 #	$(upload_target) 
 
 core_upload:
-	$(check_target_dir)
-	$(upload_target) 
+	[ -e ../core ] || exit 1
+	cd ../core && make -f $(MAKE_FILE) upload
 
 sdist: do_sdist clean_files
 
