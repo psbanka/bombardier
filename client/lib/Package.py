@@ -30,9 +30,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import os, time, shutil
+import os, time
 import StringIO, traceback
-import yaml
 
 import MetaData
 from bombardier_core.mini_utility import get_package_path, get_spkg_path
@@ -240,7 +239,8 @@ class Package:
             Logger.warning(errmsg % (self.name, self.dependencies))
             self.dependencies = []
     
-    def _dump_error(self, err, file_name):
+    @classmethod
+    def _dump_error(cls, err, file_name):
         '''
         perform a traceback for logging purposes
         err -- an exception object
@@ -274,6 +274,38 @@ class Package:
         Logger.info(msg % (self.full_name, dry_run_string, self.status))
         return self.status
 
+    def _write_install(self, pdat):
+        if pdat.get(self.full_name) == None:
+            pdat[self.full_name] = {}
+        if self.full_name:
+            if self.status == OK:
+                pdat[self.full_name]['INSTALLED']   = time_string
+                pdat[self.full_name]['VERIFIED']    = time_string 
+                pdat[self.full_name]['UNINSTALLED'] = 'NA'
+
+            else:
+                pdat[self.full_name]['INSTALLED']   = "BROKEN"
+                pdat[self.full_name]['VERIFIED']    = 'NA'
+                pdat[self.full_name]['UNINSTALLED'] = 'NA'
+        else:
+            msg = "Package installed that doesn't have a full_name"
+            raise BadPackage(self.name, msg)
+        return pdat
+
+    def _write_uninstall(self, pdat):
+        like_packages = []
+        for pkn in pdat:
+            if pkn.startswith(self.name) and pkn != self.full_name:
+                like_packages.append(pkn)
+        for pkn in like_packages:
+            del pdat[pkn]
+        if self.status == OK:
+            pdat[self.full_name]['UNINSTALLED'] = time_string
+            pdat[self.full_name]['INSTALLED']   = 'NA'
+        else:
+            pdat[self.full_name]['UNINSTALLED'] = "BROKEN"
+        return pdat
+
     def _write_progress(self):
         '''Write out information about the state of the packages on this
         system. Keeps track of when packages were installed, uninstalled,
@@ -286,24 +318,10 @@ class Package:
                                              "VERIFIED": "NA",
                                              "DEPENDENCY_ERRORS": []}
         if self.action == INSTALL:
-            if pdat.get(self.full_name) == None:
-                pdat[self.full_name] = {}
-            if self.full_name:
-                if self.status == OK:
-                    pdat[self.full_name]['INSTALLED']   = time_string
-                    # FIXME: shouldn't this next line be 'NA'? -- pbanka
-                    pdat[self.full_name]['VERIFIED']    = time_string 
-                    pdat[self.full_name]['UNINSTALLED'] = 'NA'
-
-                else:
-                    pdat[self.full_name]['INSTALLED']   = "BROKEN"
-                    pdat[self.full_name]['VERIFIED']    = 'NA'
-                    pdat[self.full_name]['UNINSTALLED'] = 'NA'
-            else:
-                Logger.error("Unnamed package installed: (%s)" % (self.name))
-                return FAIL
+            pdat = self._write_install(pdat)
     
         elif self.action == UNINSTALL:
+            pdat = self._write_uninstall(pdat)
             like_packages = []
             for pkn in pdat:
                 if pkn.startswith(self.name) and pkn != self.full_name:

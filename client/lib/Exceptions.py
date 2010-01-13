@@ -32,7 +32,7 @@ class RebootRequiredException(Exception):
     "Thrown after a package is installed that notes a reboot is required."
     def __init__(self, name):
         Exception.__init__(self)
-        self.name=name
+        self.name = name
     def __repr__(self):
         return "Package %s requires a reboot. Stopping..." % self.name
     def __str__(self):
@@ -54,7 +54,8 @@ class AbstractClassException(Exception):
         Exception.__init__(self)
         self.class_name  = method_name
     def __repr__(self):
-        return "Method %s was attempted in an abstract class" % (self.class_name)
+        msg = "Method %s was attempted in an abstract class"
+        return msg % (self.class_name)
     def __str__(self):
         return self.__repr__()
 
@@ -72,6 +73,7 @@ class DependencyLoopException(Exception):
         return self.__repr__()
 
 class BadPackage(Exception):
+    "Thrown when a package is not set up correctly."
     def __init__(self, pkn, errmsg):
         Exception.__init__(self)
         self.errmsg      = errmsg
@@ -80,42 +82,3 @@ class BadPackage(Exception):
         return "%s: %s" % (self.pkn, self.errmsg)
     def __str__(self):
         return self.__repr__()
-
-class BadBillOfMaterials(Exception):
-    def __init__(self, errmsg):
-        Exception.__init__(self)
-        self.errmsg = errmsg
-    def __repr__(self):
-        return "%s" % self.errmsg
-    def __str__(self):
-        return self.__repr__()
-
-class QuitException(Exception):
-    pass
-
-class ServerUnavailable(Exception):
-    def __init__(self, path, errmsg):
-        Exception.__init__(self)
-        self.errmsg = errmsg
-        self.path   = path
-    def __repr__(self):
-        return "%s: %s" % (self.path, self.errmsg)
-    def __str__(self):
-        return self.__repr__()
-
-class FileNotFound(ServerUnavailable):
-    def __init__(self, path, data=""):
-        ServerUnavailable.__init__(self, path, data)
-
-class StoppedExecution(Exception):
-    pass
-
-class MissingComponent(Exception):
-    def __init__(self, name):
-        Exception.__init__(self)
-        self.name = name
-    def __repr__(self):
-        return self.name
-    def __str__(self):
-        return self.__repr__()
-    

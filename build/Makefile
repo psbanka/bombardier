@@ -4,46 +4,64 @@ define check_target_dir
 	[ -e ../$@ ] || exit 1
 endef
 
-define dirty_target
-	cd ../$@ && make -f $(MAKE_FILE) dirty
+define sdist_target
+	cd ../$@ && make -f $(MAKE_FILE) sdist
+endef
+
+define upload_target
+	$(sdist_target) upload
 endef
 
 server:
 	$(check_target_dir)
-	$(dirty_target)
+	$(sdist_target)
 
 client:
 	$(check_target_dir)
-	$(dirty_target)
+	$(sdist_target)
 
 cli: 
 	$(check_target_dir)
-	$(dirty_target)
+	$(sdist_target)
 
 core:
 	$(check_target_dir)
-	$(dirty_target)
+	$(sdist_target)
 
-dirty: do_sdist clean
+server_upload:
+	$(check_target_dir)
+#	$(upload_target) 
 
-upload:	checked_out not_modified nice
-	rm -rf dist build MANIFEST
-	bzr version-info --format python > lib/_version.py
+client_upload:
+	$(check_target_dir)
+#	$(upload_target) 
+
+cli_upload:
+	$(check_target_dir)
+#	$(upload_target) 
+
+core_upload:
+	$(check_target_dir)
+	$(upload_target) 
+
+sdist: do_sdist clean_files
+
+upload:	official clean_dist dist_files version_dist
 	python setup.py sdist upload
 
-dist_clean:
-	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
-	rm -rf build dist
+version_dist:
+	bzr version-info --format python > lib/_version.py
 
-clean:
-	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
+clean_dist: clean_files clean_build
+	rm -rf dist
+
+clean_build: clean_files
 	rm -rf build 
 
-do_sdist: dist_clean nice 
-	bzr version-info --format python > lib/_version.py
+do_sdist: clean_dist dist_files version_dist
 	python setup.py sdist
 
-official_sdist: checked_out not_modified 
+official: checked_out not_modified 
 
 checked_out:
 	@bzr info | awk '/^Checkout .*/' | wc -l || exit 1
@@ -53,7 +71,10 @@ not_modified:
 	@bzr stat | awk '/^modified:/' | wc -l && exit 1
 	@echo "not_modified ok"
 
-nice: AUTHORS CHANGELOG README LICENSE INSTALL MANIFEST.in 
+clean_files:
+	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
+
+dist_files: AUTHORS CHANGELOG README LICENSE INSTALL MANIFEST.in 
 
 AUTHORS:
 	cp -f ../build/AUTHORS .
