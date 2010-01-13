@@ -1,8 +1,28 @@
-client_dirty: TARGET=client
-client_dirty: dirty
+MAKE_FILE=../build/Makefile
 
-server_dirty:
-	cd ../server && make -f ../build/Makefile dirty
+define check_target_dir
+	[ -e ../$@ ] || exit 1
+endef
+
+define dirty_target
+	cd ../$@ && make -f $(MAKE_FILE) dirty
+endef
+
+server:
+	$(check_target_dir)
+	$(dirty_target)
+
+client:
+	$(check_target_dir)
+	$(dirty_target)
+
+cli: 
+	$(check_target_dir)
+	$(dirty_target)
+
+core:
+	$(check_target_dir)
+	$(dirty_target)
 
 dirty: do_sdist clean
 
@@ -20,7 +40,6 @@ clean:
 	rm -rf build 
 
 do_sdist: dist_clean nice 
-	cd $$TARGET
 	bzr version-info --format python > lib/_version.py
 	python setup.py sdist
 
