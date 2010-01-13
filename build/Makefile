@@ -64,11 +64,11 @@ do_sdist: clean_dist dist_files version_dist
 official: checked_out not_modified 
 
 checked_out:
-	@bzr info | awk '/^Checkout .*/' | wc -l || exit 1
+	@[ $$(bzr info | awk '/^Checkout .*/' | wc -l ) -ne 0 ]
 	@echo "checked_out ok"
 	
 not_modified:
-	@bzr stat | awk '/^modified:/' | wc -l && exit 1
+	@[ $$(bzr stat | awk '/^modified:/' | wc -l ) -eq 0 ]
 	@echo "not_modified ok"
 
 clean_files:
