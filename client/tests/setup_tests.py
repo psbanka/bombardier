@@ -14,6 +14,8 @@ def start():
     if not os.path.isdir(PKG_DIR):
         print "Making %s..." % PKG_DIR
         os.system("mkdir -p %s" % PKG_DIR)
+        print "Copying package files..."
+        os.system("cp packages/*.spkg %s" % PKG_DIR)
     if not os.path.isdir(status_file):
         print "Creating %s" % status_file
         open(status_file, 'w').write("{}")

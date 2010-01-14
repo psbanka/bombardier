@@ -54,7 +54,8 @@ class Repository:
         pkg_data -- data regarding all packages on this machine
         '''
         self.instance_name = instance_name
-        self.pkg_data  = pkg_data
+        self.pkg_data      = pkg_data
+        #self.packages      = pkg_data.keys()
 
     def get_meta_data(self, name):
         '''

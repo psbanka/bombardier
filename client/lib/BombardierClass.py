@@ -359,8 +359,7 @@ class Bombardier:
         """
 
         chains = self._create_pkg_chains(pkd)
-        pdat = get_progress_data(self.instance_name,
-                                                        False)
+        pdat = get_progress_data(self.instance_name, False)
         installed_pkns, _broken_pkns = get_installed(pdat)
         # - Put all the packages of each chain into the installation
         # order, excluding those that have already been installed in order
@@ -492,11 +491,11 @@ class Bombardier:
         for pkn in del_pkns:
             try:
                 pkg = self._get_new_pkg(pkn)
+                pkg.action = UNINSTALL
+                pkd[pkn] = pkg
             except Exceptions.BadPackage, err:
                 errmsg = "Skipping Bad package: %s" % err
                 Logger.warning(errmsg)
-            pkg.action = UNINSTALL
-            pkd[pkn] = pkg
         return pkd
 
     def _sort_uninstalled_pkgs(self, uninstall_order):
@@ -589,8 +588,7 @@ class Bombardier:
         del_pkns -- a list of package names that need to be removed
         '''
         uninstall_order = []
-        pdat = get_progress_data(self.instance_name,
-                                                        False)
+        pdat = get_progress_data(self.instance_name, False)
         installed_pkns, _broken_pkns = get_installed(pdat)
         del_pkd = self._get_del_pkd(del_pkns)
         if sets.Set(installed_pkns) == sets.Set(del_pkd.keys()):
@@ -612,8 +610,7 @@ class Bombardier:
         """
         should_be_installed = []
         shouldnt_be_installed = []
-        pdat = get_progress_data(self.instance_name,
-                                                        False)
+        pdat = get_progress_data(self.instance_name, False)
         installed_pkns, _broken_pkns = get_installed(pdat)
         dependency_errors = self._get_dependency_errors(bom_pkns,
                                                        pdat)
