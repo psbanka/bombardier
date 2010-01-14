@@ -599,6 +599,20 @@ class Bombardier:
                                                                 installed_pkns)
         return del_pkd, uninstall_order
 
+    def _examine_dependencies(self, pkns):
+        """ We need to determine if there are packages installed which
+        have missing dependencies. If so, they should be added to the BOM.
+        pkns -- a list of package names to check
+        """
+        updated_pkns = pkns.copy()
+        for pkn in pkns:
+            pkg = self._get_new_pkg(pkn)
+            pkg.initialize()
+            updated_pkns.update(pkg.dependencies)
+        if updated_pkns.difference(pkns):
+            updated_pkns = self._examine_dependencies(updated_pkns)
+        return updated_pkns
+    
     def _check_bom(self, bom_pkns):
         """ Check through what should be installed on the system and what
         is installed on the system and determine what packages aren't
@@ -611,9 +625,14 @@ class Bombardier:
         should_be_installed = []
         shouldnt_be_installed = []
         pdat = get_progress_data(self.instance_name, False)
-        installed_pkns, _broken_pkns = get_installed(pdat)
-        dependency_errors = self._get_dependency_errors(bom_pkns,
-                                                       pdat)
+        installed_pkns, broken_pkns = get_installed(pdat)
+        
+        all_pkns = set(installed_pkns).union(broken_pkns)
+        all_plus_missing_pkns = self._examine_dependencies(all_pkns)
+        missing_pkns = list(all_plus_missing_pkns - all_pkns)
+        bom_pkns = bom_pkns + missing_pkns
+
+        dependency_errors = self._get_dependency_errors(bom_pkns, pdat)
         if dependency_errors:
             errmsg = "The following packages are installed as "\
                      "dependencies %s" % dependency_errors
@@ -693,20 +712,22 @@ class Bombardier:
         stable-state, this is a method we can use to verify that everything
         is still kosher
         '''
-        pkns = []
+        Logger.info("System-check starting...")
+        bom_pkns = self.config.get_bom_pkns()
         pdat = get_progress_data(self.instance_name)
         full_pdat = get_progress_data(self.instance_name, False)
         full_installed_pkns, _full_bpkns = get_installed(full_pdat)
         msg = "Packages that are installed: %s"
         Logger.info(msg % ' '.join(full_installed_pkns))
         installed_pkns, broken_pkns = get_installed(pdat)
-        should_be_installed, shouldnt_be_installed = self._check_bom(pkns)
+        should_be_installed, shouldnt_be_installed = self._check_bom(bom_pkns)
         # check the configuration for each installed package
-        pkg_info = {"ok":installed_pkns,
-                       "reconfigure": {},
-                       "not-installed": should_be_installed,
-                       "remove": shouldnt_be_installed,
-                       "broken": broken_pkns}
+        pkg_info = {"ok": installed_pkns,
+                    "reconfigure": {},
+                    "not-installed": should_be_installed,
+                    "remove": shouldnt_be_installed,
+                    "broken": broken_pkns,
+                   }
         for pkn in shouldnt_be_installed:
             pkg_info["ok"].remove(pkn)
         for pkn in installed_pkns:
@@ -715,6 +736,8 @@ class Bombardier:
                 if pkn in pkg_info["ok"]:
                     pkg_info["reconfigure"][pkn] = differences
                     pkg_info["ok"].remove(pkn)
+        for key in pkg_info:
+            Logger.info("%s: %s" % (key, pkg_info[key]))
         return pkg_info
 
     def use_pkg(self, pkn, action, script_name=''):
@@ -779,10 +802,18 @@ class Bombardier:
         compliance with its stated configuration and do it
         action -- DRY_RUN or RECONCILE
         '''
+
+        self.operation_status = OK
+        self.operation_output = []
         pkns = []
         dry_run = False
+
         if action == DRY_RUN:
+            Logger.info("Reconcile dry-run starting...")
             dry_run = True
+        else:
+            Logger.info("Reconcile starting...")
+
         add_pkd, del_pkd, uninstall_order = self._ck_inst_stat(pkns)
         Logger.info("uninstall_order: %s" % uninstall_order)
         status = self._uninstall_pkgs(del_pkd, uninstall_order,

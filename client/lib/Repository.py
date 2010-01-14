@@ -64,7 +64,7 @@ class Repository:
         name -- name of the package
         '''
         if not name in self.pkg_data:
-            msg = "Package not found in Definitive Software Library."
+            msg = "Not found in %s" % self.pkg_data.keys()
             raise Exceptions.BadPackage(name, msg)
         data = self.pkg_data.get(name)
         return MetaData.MetaData(data)

@@ -26,8 +26,8 @@ class BombardierTest(unittest.TestCase):
     def setUp(self):
         data = {"testokpackage1":{"install": {"fullName": None}, "package-version": 4}}
         self.repository = Repository.Repository(INSTANCE, data)
-        #self.repository = MockObjects.MockRepository(data)
-        #self.config = MockObjects.MockConfig()
+        install_progress = {"install-progress": {}}
+        _write_progress(install_progress)
         self.config = Config(INSTANCE, {})
         self.bombardier = BombardierClass.Bombardier(self.repository, self.config, INSTANCE)
 
@@ -40,8 +40,7 @@ class BombardierTest(unittest.TestCase):
         pkg1.priority = 200
         meta_data = MockObjects.MockMetaData({})
         pkg1.meta_data = meta_data
-        status = self.bombardier._check_configuration(pkg1)
-        assert status == OK, "System does not have proper configuration"
+        self.bombardier._check_configuration(pkg1)
 
         data = {"configuration":
                 {"section1": {"item1":"spam","item2":"eggs"},
@@ -49,27 +48,30 @@ class BombardierTest(unittest.TestCase):
                 }
         meta_data = MockObjects.MockMetaData(data)
         pkg1.meta_data = meta_data
-        status = self.bombardier._check_configuration(pkg1)
-        assert status == FAIL, "System does not know its configuration is wrong"
+        exception_caught = False
+        try:
+            self.bombardier._check_configuration(pkg1)
+        except Exceptions.BadPackage:
+            exception_caught = True
+        assert exception_caught == True, "System does not know its configuration is wrong"
 
         self.config.data = {"section1": {"item1": "foo", "item2": "bar", "item3": "baz"},
                             "section2": {"item1": 3},
                             "section3": {"item1": "cheeze"}}
-        status = self.bombardier._check_configuration(pkg1)
-        assert status == OK, "System does not know its configuration is correct"
+        self.bombardier._check_configuration(pkg1)
 
     def test_get_packages_to_remove_1(self):
         pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"},
                          "dependencies": ["pkg2"], "package-version": 4},
                     "pkg2": {"install": {"fullName":"pkg2-1"}, "package-version": 4}}
-        install_progress1 = {"install-progress":
+        install_progress = {"install-progress":
                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'},
                              "pkg2-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
-        _write_progress(install_progress1)
+        _write_progress(install_progress)
         repository = Repository.Repository(INSTANCE, pkg_data)
         self.config.repository = repository
         self.bombardier.repository = repository
@@ -81,14 +83,14 @@ class BombardierTest(unittest.TestCase):
         pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"}, "package-version": 4},
                     "pkg2": {"install": {"fullName":"pkg2-1"}, "package-version": 4},
                    }
-        install_progress1 = {"install-progress":
+        install_progress = {"install-progress":
                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'},
                              "pkg2-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
-        _write_progress(install_progress1)
+        _write_progress(install_progress)
         repository = Repository.Repository(INSTANCE, pkg_data)
         self.config.repository = repository
         self.bombardier.repository = repository
@@ -97,9 +99,14 @@ class BombardierTest(unittest.TestCase):
         assert packages == ["pkg1"], packages
 
     def test_get_vpn_from_pkn(self):
-        pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "virtualpackage":"anypackage"}, "package-version": 4,
-                    "pkg2": {"install": {"fullName":"pkg2-1"}, "package-version": 4}}
+        pkg_data = {"pkg1": {"install": {"fullName": "pkg1-1"},
+                             "virtualpackage": "anypackage",
+                             "package-version": 4,
+                            },
+                    "pkg2": {"install": {"fullName": "pkg2-1"},
+                             "package-version": 4,
+                            },
+                   }
         repository = Repository.Repository(INSTANCE, pkg_data)
         vp = BombardierClass.VirtualPackages(repository.pkg_data)
         vpn = vp.get_vpn_from_pkn("pkg1")
@@ -141,22 +148,22 @@ class BombardierTest(unittest.TestCase):
         packageName = vp.get_actual_pkn( "anypackage", ["pkg1", "pkg2"] )
         assert packageName == "pkg1", "Bad actual package name from "\
                "getActualPackageName: %s" % packageName
-        
+
     def test_remove_virtual_package(self):
         pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"},
                          "dependencies": ["anypackage"], "package-version": 4},
                     "pkg2": {"install": {"fullName":"pkg2-1"},
                              "virtualpackage":"anypackage",  "package-version": 4},
                    }
-        install_progress1 = {"install-progress":
+        repository = Repository.Repository(INSTANCE, pkg_data)
+        install_progress = {"install-progress":
                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'},
                              "pkg2-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
-        _write_progress(install_progress1)
-        repository = Repository.Repository(INSTANCE, pkg_data)
+        _write_progress(install_progress)
         self.config.repository = repository
         self.bombardier.repository = repository
         should_be_removed = set(["pkg1", "pkg2"])
@@ -166,24 +173,29 @@ class BombardierTest(unittest.TestCase):
                "failed. %s != %s" % (should_be_removed, set(packages))
 
     def test_check_bom(self):
-        install_progress_2 = {"install-progress":
-                                {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
+        pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"}, "package-version": 4},
+                    "pkg2": {"install": {"fullName":"pkg2-1"}, "package-version": 4},
+                   }
+        repository = Repository.Repository(INSTANCE, pkg_data)
+        self.bombardier.repository = repository
+        install_progress = {"install-progress": {
+                                 "pkg2-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                             "UNINSTALLED": 'NA',
-                                            "VERIFIED": 'Mon Apr 18 01:01:01 2005'},
-                                 "pkg3-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
-                                            "UNINSTALLED": 'NA',
-                                            "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
-        _write_progress(install_progress_2)
-        should_be_installed, shouldnt_be_installed = self.bombardier._check_bom(["pkg1", "pkg2"])
-        assert ["pkg2"] == should_be_installed, should_be_installed
-        assert ["pkg3"] == shouldnt_be_installed, shouldnt_be_installed
-        
+                                            "VERIFIED": 'Mon Apr 18 01:01:01 2005',
+                                           },
+                                },
+                             }
+        _write_progress(install_progress)
+        should_be_installed, shouldnt_be_installed = self.bombardier._check_bom(["pkg1"])
+        assert ["pkg1"] == should_be_installed, should_be_installed
+        assert ["pkg2"] == shouldnt_be_installed, shouldnt_be_installed
+
     def test_add_to_dependency_errors(self):
         pkg1 = MockObjects.MockPackage()
 
         pkg_chain = BombardierClass.PackageChain(100, "pkg1", {"pkg1": pkg1}, ["pkg3"],[],
                                                  self.repository, self.config, INSTANCE, False)
-                                                           
+
         status = pkg_chain._sync_dependencies("pkg1", "pkg2")
 
     def test_package_dep(self):
@@ -267,14 +279,14 @@ class BombardierTest(unittest.TestCase):
                          "dependencies": ["pkg5"], "package-version": 4},
                     "pkg5": {"install": {"fullName":"pkg5-1"}, "package-version": 4,
                          "dependencies": ["pkg6"]}}
-        install_progress_2 = {"install-progress":
+        install_progress = {"install-progress":
                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'},
                              "pkg3-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
-        _write_progress(install_progress_2)
+        _write_progress(install_progress)
         repository = Repository.Repository(INSTANCE, pkg_data)
         pkg1 = MockObjects.MockPackage()
         pkg1.dependencies = ["pkg5"]
@@ -294,17 +306,22 @@ class BombardierTest(unittest.TestCase):
 
     def test_find_install_order(self):
         pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                         "dependencies": ["pkg5"], "package-version": 4},
+                             "dependencies": ["pkg5"],
+                             "package-version": 4,
+                            },
                     "pkg5": {"install": {"fullName":"pkg5-1"},
-                         "dependencies": ["pkg6"], "package-version": 4}}
-        install_progress_2 = {"install-progress":
-                            {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
-                                        "UNINSTALLED": 'NA',
-                                        "VERIFIED": 'Mon Apr 18 01:01:01 2005'},
-                             "pkg3-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
-                                        "UNINSTALLED": 'NA',
-                                        "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
-        _write_progress(install_progress_2)
+                             "dependencies": ["pkg6"],
+                             "package-version": 4,
+                            },
+                   }
+        install_progress = {"install-progress":
+                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
+                                         "UNINSTALLED": 'NA',
+                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'},
+                              "pkg3-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
+                                         "UNINSTALLED": 'NA',
+                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
+        _write_progress(install_progress)
         repository = Repository.Repository(INSTANCE, pkg_data)
         self.config.repository = repository
         pkg1 = MockObjects.MockPackage()
@@ -315,14 +332,13 @@ class BombardierTest(unittest.TestCase):
         pkg6.priority = 300
         packages = {"pkg1": pkg1, "pkg5": pkg5, "pkg6": pkg6}
         install_order  = self.bombardier._find_install_order(packages)
-        assert install_order == ["pkg6", "pkg5", "pkg1"], "bad install order %s" % install_order
+        assert install_order == ["pkg6", "pkg5"], "bad install order %s" % install_order
 
     def test_install_pkgs(self):
         pkg1 = MockObjects.MockPackage()
         add_pkd = {"pkg1": pkg1}
         status = self.bombardier._install_pkgs(add_pkd)
         assert status == OK, "Perfectly good package failed to install"
-        assert self.repository.getAllCalls() == []
 
     def test_install_one_broken(self):
         pkg1 = MockObjects.MockPackage()
@@ -334,64 +350,118 @@ class BombardierTest(unittest.TestCase):
         assert status == OK, "Perfectly good package failed to install"
 
     def test_check_system_1(self):
-        pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                        "dependencies": ["pkg5"], "package-version": 4},
-                    "pkg2": {"install": {"fullName":"pkg2-1"},
-                        "dependencies": ["pkg6"], "package-version": 4}}
-        install_progress1 = {"install-progress":
+        install_progress = {"install-progress":
                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
-                                        "VERIFIED": 'Mon Apr 18 01:01:01 2005'},
+                                        "VERIFIED": 'Mon Apr 18 01:01:01 2005',
+                                       },
                              "pkg2-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
-                                        "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
+                                        "VERIFIED": 'Mon Apr 18 01:01:01 2005',
+                                       },
+                            },
+                           }
+        _write_progress(install_progress)
+        pkg_data = {"pkg1": {"install": {"fullName": "pkg1-1"},
+                             "dependencies": ["pkg2"],
+                             "package-version": 4,
+                            },
+                    "pkg2": {"install": {"fullName": "pkg2-1"},
+                             "dependencies": ["pkg3"],
+                             "package-version": 4,
+                            },
+                    "pkg3": {"install": {"fullName": "pkg3-1"},
+                             "package-version": 4,
+                            },
+                   }
+        self.config.data = {"packages": ["pkg1", "pkg2"]}
         repository = Repository.Repository(INSTANCE, pkg_data)
         self.config.repository = repository
-        base = os.path.join(os.getcwd(), "packages", "pkg1-1")
         self.bombardier.repository = repository
+        self.bombardier.config = self.config
         test_results = self.bombardier.check_system()
-        assert test_results.has_key("pkg1"), test_results
-        assert test_results['pkg1'] == OK, test_results
-        assert test_results['pkg2'] == FAIL, test_results
-        assert len(test_results.keys()) == 2, "Returned more than 2 results."
+        assert set(test_results["ok"]) == set(["pkg1", "pkg2"])
+        assert set(test_results["not-installed"]) == set(["pkg3"])
+        assert set(test_results["remove"]) == set()
+        assert set(test_results["broken"]) == set()
+        assert set(test_results["reconfigure"]) == set()
+
+    def test_reconfigure(self):
+        """
+        1. try to install with insufficient configs,
+        2. install with sufficient configs,
+        3. change the configs and see if the system notices
+        """
+        # STEP 1
+        pkg_data = {"TestPackage": {"install": {"fullName":"TestPackage-7"},
+                                    "package-version": 4,
+                                    "configuration": { "test": {"value": "abc123",
+                                                                "directory": "abc123",
+                                                               },
+                                                     },
+                                   },
+                   }
+        repository = Repository.Repository(INSTANCE, pkg_data)
+        self.bombardier.repository = repository
+        self.config.data = {"packages": ["TestPackage"]}
+        status = self.bombardier.reconcile_system(RECONCILE)
+        assert status == FAIL, status
+
+        # STEP 2
+        self.config.data = {"packages": ["TestPackage"],
+                            "test": {"value": 'abc', "directory": "/tmp"},
+                           }
+        self.bombardier.config = self.config
+        status = self.bombardier.reconcile_system(RECONCILE)
+        assert status == OK, status
+
+        # STEP 3
+        self.config.data = {"packages": ["TestPackage"],
+                            "test": {"value": 'DEF', "directory": "/tmp"},
+                           }
+        self.bombardier.config = self.config
+        test_results = self.bombardier.check_system()
+        assert set(test_results["ok"]) == set()
+        assert set(test_results["not-installed"]) == set()
+        assert set(test_results["remove"]) == set()
+        assert set(test_results["broken"]) == set()
+        assert set(test_results["reconfigure"]) == set(["TestPackage"])
 
     def test_check_system_2(self):
         install_progress = {"install-progress":
                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
-                                        "VERIFIED": 'Mon Apr 18 01:01:01 2005'},
+                                        "VERIFIED": 'Mon Apr 18 01:01:01 2005',
+                                       },
                              "pkg2-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
                                         "UNINSTALLED": 'NA',
-                                        "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
+                                        "VERIFIED": 'Mon Apr 18 01:01:01 2005',
+                                       },
+                            },
+                           }
+        _write_progress(install_progress)
         pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                                "dependencies": ["pkg5"], "package-version": 4},
-                       "pkg2": {"install": {"fullName":"pkg2-1"},
-                                "dependencies": ["pkg6"], "package-version": 4}}
+                             "package-version": 4,
+                            },
+                    "pkg2": {"install": {"fullName":"pkg2-1"},
+                             "package-version": 4,
+                            }
+                  }
         repository = Repository.Repository(INSTANCE, pkg_data)
-        self.config.repository = repository
-        base1 = os.path.join(os.getcwd(), "packages", "pkg1-1")
-        base2 = os.path.join(os.getcwd(), "packages", "pkg2-1")
-        self.bombardier.repository = repository
-        test_results = self.bombardier.check_system()
-        assert test_results == {"pkg1": OK, "pkg2":OK}, test_results
-
-    def test_verify_system_3(self): # it's not time for this package to be verified
-        pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                                "dependencies": ["pkg5"], "package-version": 4}}
-        install_progress_3 = {"install-progress":
-                           {"pkg1-1": {"INSTALLED": time.ctime(),
-                                       "UNINSTALLED": 'NA',
-                                       "VERIFIED": time.ctime()}}}
-        repository = Repository.Repository(INSTANCE, pkg_data)
+        self.config.data = {"packages": ["pkg1", "pkg2"]}
         self.config.repository = repository
         self.bombardier.repository = repository
         test_results = self.bombardier.check_system()
-        assert test_results == {}, `test_results`
+        assert set(test_results["ok"]) == set(["pkg1", "pkg2"])
+        assert set(test_results["not-installed"]) == set()
+        assert set(test_results["remove"]) == set()
+        assert set(test_results["broken"]) == set()
+        assert set(test_results["reconfigure"]) == set()
 
     def test_verify_system_4(self): # No packages installed, error in verify.
         pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"},
                                 "dependencies": ["pkg5"], "package-version": 4}}
-        install_progress_3 = {"install-progress":
+        install_progress = {"install-progress":
                            {"pkg1-1": {"INSTALLED": time.ctime(),
                                        "UNINSTALLED": 'NA',
                                        "VERIFIED": time.ctime()}}}
@@ -400,45 +470,55 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.repository = repository
 
         test_results = self.bombardier.check_system()
-        assert test_results == {}, `test_results`
+        expected_results = {'broken': [], 'ok': [], 'remove': [], 'reconfigure': {}, 'not-installed': []}
+        assert test_results == expected_results, `test_results`
 
     def test_reconcile_system1(self):
-        self.config.data = {"bom": ["base"], "packages": ["pkg3"]}
-        pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1", "priority":"100"}, "package-version": 4},
-                       "pkg2": {"install": {"fullName":"pkg2-1", "priority":"50"},
-                                "dependencies": [ "pkg1"], "package-version": 4},
-                       "pkg3": {"install": {"fullName":"pkg3-1", "priority":"3"}, "package-version": 4}}
+        self.config.data = {"packages": ["pkg3"]}
+        pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1", "priority":"100"},
+                             "package-version": 4,
+                            },
+                    "pkg2": {"install": {"fullName":"pkg2-1", "priority":"50"},
+                             "dependencies": [ "pkg1"],
+                             "package-version": 4,
+                            },
+                    "pkg3": {"install": {"fullName":"pkg3-1", "priority":"3"},
+                             "package-version": 4,
+                            },
+                   }
         repository = Repository.Repository(INSTANCE, pkg_data)
         self.config.repository = repository
-        base1 = os.path.join(os.getcwd(), "packages", "pkg1-1")
-        base2 = os.path.join(os.getcwd(), "packages", "pkg2-1")
-        base3 = os.path.join(os.getcwd(), "packages", "pkg3-1")
-
         self.bombardier.repository = repository
-        
+
         try:
             self.bombardier.reconcile_system(DRY_RUN)
         except SystemExit, e:
             assert e.code == OK
-        
+
     def test_reconcile_system_with_dependencies(self):
-        self.config.data = {"bom": ["base"]}
-        pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"}, "package-version": 4},
-                       "pkg2": {"install": {"fullName":"pkg2-1"}, "package-version": 4}}
+        self.config.data = {}
+        pkg_data = {"pkg1": {"install": {"fullName": "pkg1-1"},
+                             "package-version": 4,
+                            },
+                    "pkg2": {"install": {"fullName": "pkg2-1"},
+                             "package-version": 4,
+                            },
+                   }
         repository = Repository.Repository(INSTANCE, pkg_data)
         self.config.repository = repository
-        base1 = os.path.join(os.getcwd(), "packages", "pkg1-1")
         self.bombardier.repository = repository
 
-
-        self.config.data = {"bom": ["base"]}
-        pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"}, "package-version": 4},
-                       "pkg2": {"install": {"fullName":"pkg2-1"},
-                                "dependencies": [ "pkg1"], "package-version": 4}}
+        self.config.data = {}
+        pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"},
+                             "package-version": 4,
+                            },
+                    "pkg2": {"install": {"fullName":"pkg2-1"},
+                             "package-version": 4,
+                             "dependencies": [ "pkg1"],
+                            },
+                   }
         repository = Repository.Repository(INSTANCE, pkg_data)
         self.config.repository = repository
-        base1 = os.path.join(os.getcwd(), "packages", "pkg1-1")
-        base2 = os.path.join(os.getcwd(), "packages", "pkg2-1")
         self.bombardier.repository = repository
 
         try:
@@ -447,21 +527,20 @@ class BombardierTest(unittest.TestCase):
             assert e.code == OK
 
     def test_reconcile_system_bogus(self):
-        self.config.data = {"bom": ["base"]}
-        install_progress_3 = {"install-progress":
+        self.config.data = {}
+        install_progress = {"install-progress":
                                 {"TestPackage-7-1": {"INSTALLED": time.ctime(),
                                                     "UNINSTALLED": 'NA',
                                                     "VERIFIED": time.ctime(),
                                                    },
                                 },
                              }
-        _write_progress(install_progress_3)
+        _write_progress(install_progress)
         pkg_data = {"TestPackage-7": {"install": {"fullName":"TestPackage-7"},
                                       "package-version": 4},
                    }
         repository = Repository.Repository(INSTANCE, pkg_data)
         self.config.repository = repository
-        base1 = os.path.join(os.getcwd(), "packages", "TestPackage-7")
         self.bombardier.repository = repository
         try:
             self.bombardier.reconcile_system(DRY_RUN)
@@ -548,10 +627,14 @@ if __name__ == "__main__":
     #suite.addTest(BombardierTest("test_package_dep"))
     #suite.addTest(BombardierTest("test_reconcile_system1"))
     #suite.addTest(BombardierTest("test_reconcile_system_with_dependencies"))
-    suite.addTest(BombardierTest("test_get_packages_to_remove_1"))
+    #suite.addTest(BombardierTest("test_get_packages_to_remove_1"))
     #suite.addTest(BombardierTest("test_check_system_1"))
     #suite.addTest(BombardierTest("test_check_system_2"))
-    #suite.addTest(unittest.makeSuite(BombardierTest))
+    #suite.addTest(BombardierTest("test_reconfigure"))
+    #suite.addTest(BombardierTest("test_verify_system_4"))
+    #suite.addTest(BombardierTest("test_install_one_broken"))
+    #suite.addTest(BombardierTest("test_check_configuration"))
+    suite.addTest(unittest.makeSuite(BombardierTest))
     status = unittest.TextTestRunner(verbosity=2).run(suite)
     errors = len(status.errors) + len(status.failures)
     if not errors:

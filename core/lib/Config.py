@@ -124,11 +124,14 @@ class Config(dict):
         path -- the place to find the configuration hash that was used the
                 last time this package was configured or installed
         '''
-        file_handle = open(path, 'w')
-        hash_dict = hash_dictionary(self.data)
-        hash_yaml = yaml.dump(hash_dict)
-        file_handle.write(hash_yaml)
-        file_handle.close()
+        try:
+            file_handle = open(path, 'w')
+            hash_dict = hash_dictionary(self.data)
+            hash_yaml = yaml.dump(hash_dict)
+            file_handle.write(hash_yaml)
+            file_handle.close()
+        except IOError:
+            return FAIL
         return OK
 
     def check_hash(self, path):

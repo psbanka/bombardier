@@ -14,9 +14,13 @@ class MockPackage(mock.Mock):
         self.preboot = False
         self.processResults = OK
         self.fullName = ''
-    def process(self, installList):
-        mock.Mock.__getattr__(self, 'process')(installList)
+    def process(self, install_list):
+        mock.Mock.__getattr__(self, 'process')(install_list)
         return self.processResults
+    def get_configuration(self):
+        return self.meta_data.data.get("configuration", {})
+    def get_path(self):
+        return "no_path"
         
 class MockChain(mock.Mock):
     def __init__(self):
