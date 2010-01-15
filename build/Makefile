@@ -26,6 +26,10 @@ define sdist_target
 	cd $(target_dir) && make -f $(MAKE_FILE) sdist
 endef
 
+define remove_dist_files
+	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
+endef
+
 server:
 	$(check_target_dir)
 	$(sdist_target)
@@ -58,9 +62,9 @@ core_upload:
 	$(check_upload_dir)
 	$(upload_target)
 
-sdist: do_sdist clean_files
+sdist: do_sdist reclean_files
 
-upload:	official clean_dist dist_files version_dist
+upload:	official clean_dist dist_files version_dist reclean_files
 	python setup.py sdist upload
 
 version_dist:
@@ -86,7 +90,10 @@ not_modified:
 	@echo "not_modified ok"
 
 clean_files:
-	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
+	$(remove_dist_files)
+
+reclean_files:
+	$(remove_dist_files)
 
 dist_files: AUTHORS CHANGELOG README LICENSE INSTALL MANIFEST.in 
 
