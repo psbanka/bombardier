@@ -18,7 +18,7 @@ from bombardier_core.static_data import ACTION_DICT, RETURN_DICT
 from bombardier_core.mini_utility import update_dict
 from MachineStatus import MachineStatus, LOCAL_PACKAGES
 import random
-from bombardier_core import Cipher
+from bombardier_core.Cipher import Cipher
 
 from pexpect import EOF
 import tempfile
@@ -209,6 +209,7 @@ class BombardierMachineInterface(MachineInterface):
 
     def get_all_client_data(self):
         send_data = {"config_data": self.data, 
+                     "configData": self.data, # TO BE REMOVED
                      "package_data": {},
                     }
         package_names = self.machine_status.get_all_package_names(self.data.get("packages"))

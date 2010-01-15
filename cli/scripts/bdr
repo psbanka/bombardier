@@ -36,7 +36,7 @@ import os, sys
 sys.path.append('.')
 from bombardier_core.static_data import OK, FAIL
 from bombardier_core.Logger import Logger
-from bombardier_server.cli.Exceptions import ServerTracebackException
+from bombardier_cli.Exceptions import ServerTracebackException
 
 HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
 LOG_PATH = "%s/.bomsh_log" % os.environ['HOME']
@@ -76,9 +76,9 @@ test_modules()
 import syck
 import exceptions
 import sys, os, readline, signal
-import bombardier_server.cli.libUi as libUi
-import bombardier_server.cli.Slash as Slash
-from bombardier_server.cli.SystemStateSingleton import SystemState
+import bombardier_cli.libUi as libUi
+import bombardier_cli.Slash as Slash
+from bombardier_cli.SystemStateSingleton import SystemState
 import optparse
 
 # READLINE CONFIGS
@@ -167,7 +167,7 @@ if __name__ == "__main__":
 
     command_classes = []
     for command in COMMANDS:
-        module = __import__('bombardier_server.cli.%s' % command, globals(), locals(), [command])
+        module = __import__('bombardier_cli.%s' % command, globals(), locals(), [command])
         if not hasattr(module, command):
             print "%s is not a properly formatted module" % command
             continue

@@ -2,7 +2,7 @@
 "Used to encrypt configuration data"
 
 import base64, binascii
-from Cipher import AES
+from Crypto.Cipher import AES
 from static_data import CENSORED
 
 VALID_CHARS = [ chr(x) for x in range(ord(' '), ord('~')+1) ] + ['\n']

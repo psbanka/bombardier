@@ -1,4 +1,5 @@
 build_dir=../build
+staging_dir=../staging
 
 MAKE_FILE=$(build_dir)/Makefile
 
@@ -29,6 +30,20 @@ endef
 define remove_dist_files
 	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
 endef
+
+all:
+	make -f $(MAKE_FILE) server
+	make -f $(MAKE_FILE) client
+	make -f $(MAKE_FILE) cli
+	make -f $(MAKE_FILE) core
+
+staging: all
+	rm -rf $(staging_dir)
+	mkdir $(staging_dir)
+	mv ../server/dist/*.gz $(staging_dir)
+	mv ../client/dist/*.gz $(staging_dir)
+	mv ../cli/dist/*.gz $(staging_dir)
+	mv ../core/dist/*.gz $(staging_dir)
 
 server:
 	$(check_target_dir)
