@@ -211,16 +211,11 @@ class Package:
     def _eval_priority(self):
         'determine priority of this package'
         if not self.priority:
-            ermsg = "Package %s does not have a priority "\
-                    "(assuming %s)" % (self.name, AVERAGE)
-            Logger.warning(ermsg)
             self.priority = AVERAGE
         else:
             try:
                 self.priority = int(self.priority)
             except ValueError:
-                ermsg = "Package %s has an invalid priority value"\
-                        "(assuming %s)" % (self.name, AVERAGE)
                 Logger.warning(ermsg)
                 self.priority = AVERAGE
         

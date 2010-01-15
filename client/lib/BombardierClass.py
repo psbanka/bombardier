@@ -258,8 +258,6 @@ def find_differences(pkg_config, config_diff, differences=[], chain=[]):
     chain -- a package chain
     '''
     output = differences
-    Logger.info("package_config: %s" % pkg_config)
-    Logger.info("config_diff: %s" % config_diff)
     for key in pkg_config.keys():
         if type(pkg_config[key]) == type({}):
             if key not in config_diff:
@@ -674,8 +672,6 @@ class Bombardier:
         pkg = self._get_new_pkg(pkn)
         pkg_config = pkg.get_configuration()
         config_hash_path = os.path.join(pkg.get_path(), HASH_FILE)
-        msg = "The configuration for this package was saved here: %s"
-        Logger.info(msg % config_hash_path)
         config_diff = self.config.check_hash(config_hash_path)
         differences = find_differences(pkg_config, config_diff, [])
         return differences
