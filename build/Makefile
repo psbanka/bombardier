@@ -47,16 +47,16 @@ core:
 	$(sdist_target)
 
 server_upload:
-	$(check_target_dir)
-#	$(upload_target) 
+	$(check_upload_dir)
+	$(upload_target) 
 
 client_upload:
-	$(check_target_dir)
-#	$(upload_target) 
+	$(check_upload_dir)
+	$(upload_target) 
 
 cli_upload:
-	$(check_target_dir)
-#	$(upload_target) 
+	$(check_upload_dir)
+	$(upload_target) 
 
 core_upload:
 	$(check_upload_dir)
