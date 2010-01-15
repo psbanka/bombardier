@@ -11,3 +11,10 @@ lib/_version.py
 bombardier_core/dist
 lib/_version.py
 _version.py
+cmdb
+unit_test_config_info.yml
+server/lib/web/cnm/dispatcher_info.yml
+server/lib/web/cnm/cnmdb
+server/lib/web/cnm/testdb
+core/dist
+client/docs/.build

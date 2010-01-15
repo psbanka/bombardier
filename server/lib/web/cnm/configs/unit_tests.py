@@ -28,8 +28,17 @@ CONFIG_PASSWORD = "abc123"
 OLD_CLIENT_VERSION = "0.70-597"
 CLIENT_VERSION = "1.00-624"
 CORE_VERSION = "1.00-623"
+CONFIG_FILE = "unit_test_config_info.yml"
+if not os.path.isfile(CONFIG_FILE):
+    usage = """
+Build testing won't work unless you create a file named
+%s with the following sections:
 
-test_config = yaml.load(open("config.yml").read())
+svn_user: <svn_username>
+svn_password: <svn_password>
+"""
+    sys.exit(1)
+test_config = yaml.load(open(CONFIG_FILE).read())
 SVN_USER = test_config["svn_user"]
 SVN_PASSWORD = test_config["svn_password"]
 
