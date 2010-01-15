@@ -27,7 +27,7 @@ from bombardier_core.Cipher import Cipher
 from bombardier_core.Logger import Logger
 from bombardier_core.Config import Config
 from bombardier_client.Repository import Repository
-from bombardier_client.Exceptions import ServerUnavailable
+from bombardier_core.Exceptions import ConfigurationException
 from bombardier_client.PackageV4 import PackageV4
 from bombardier_client.PackageV5 import PackageV5
 from bombardier_client.BombardierClass import Bombardier
@@ -173,11 +173,11 @@ class BombardierEnvironment:
         try:
             input_data = yaml.load(yaml_data)
         except:
-            ermsg = "Received bad YAML: %s" % (repr(yaml_data))
-            raise ServerUnavailable, ("input_data", ermsg)
+            ermsg = "Configuration data not YAML-parseable: %s" % (repr(yaml_data))
+            raise ConfigurationException(ermsg)
         if type(input_data) == type("string"):
-            Logger.error("Invalid Yaml on server: %s" % input_data)
-            raise ServerUnavailable, ("input_data", "invalid yaml")
+            ermsg = "Configuration data not YAML-parseable: %s" % (repr(yaml_data))
+            raise ConfigurationException(ermsg)
         if type(input_data) != type({}) and type(input_data) != type([]):
             input_data = input_data.next()
         config_key = input_data.get("config_key", None)
@@ -185,7 +185,8 @@ class BombardierEnvironment:
             enc_yaml_file = os.path.join(get_spkg_path(), self.instance_name,
                                          'client.yml.enc')
             if not os.path.isfile(enc_yaml_file):
-                raise ServerUnavailable, ("input_data", "no %s" % enc_yaml_file)
+                msg = "%s file doesn't exist" % enc_yaml_file
+                raise ConfigurationException(msg)
             enc_data = open(enc_yaml_file).read()
             cipher = Cipher(config_key)
             plain_yaml_str = cipher.decrypt_string(enc_data)
@@ -193,12 +194,11 @@ class BombardierEnvironment:
                 input_data = yaml.load(plain_yaml_str)
             except:
                 ermsg = "Received bad YAML file: %s" % enc_yaml_file
-                raise ServerUnavailable, ("input_data", ermsg)
-                
+                raise ConfigurationException(ermsg)
+
         config_data  = input_data.get("config_data")
         if not config_data:
-            Logger.error("No configuration data received")
-            raise ServerUnavailable, ("config_data", "invalid yaml")
+            raise ConfigurationException("No configuration data received")
         package_data = input_data.get("package_data", {})
         self.config = Config(self.instance_name, config_data)
         self.repository = Repository(self.instance_name, package_data)

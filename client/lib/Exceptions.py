@@ -28,6 +28,16 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+class InvalidConfigData(Exception):
+    "Thrown if we are given bad configuration info."
+    def __init__(self, name):
+        Exception.__init__(self)
+        self.name = name
+    def __repr__(self):
+        return "Package %s requires a reboot. Stopping..." % self.name
+    def __str__(self):
+        return self.__repr__()
+
 class RebootRequiredException(Exception):
     "Thrown after a package is installed that notes a reboot is required."
     def __init__(self, name):
