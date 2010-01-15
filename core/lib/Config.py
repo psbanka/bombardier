@@ -144,16 +144,20 @@ class Config(dict):
                 last time this package was configured or installed
         '''
         old_config = {}
+        difference = {}
         try:
             yaml_string = open(path, 'r').read()
             old_config = yaml.load(yaml_string)
+            new_config = hash_dictionary(self.data)
+            difference = diff_dicts(old_config, new_config, check_values=True)
         except IOError:
             msg = "Could not load saved configuration data in %s" % path
             Logger.warning(msg)
+        except IndexError:
+            msg = "Could not compare configuration data in %s" % path
+            Logger.warning(msg)
         except:
             Logger.warning("Bad yaml in file %s" % path)
-        new_config = hash_dictionary(self.data)
-        difference =  diff_dicts(old_config, new_config, check_values=True)
         return difference
 
     def set(self, section, option, value):

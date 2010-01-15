@@ -180,7 +180,8 @@ class Package:
         # remove old history
         output_path = os.path.join(get_spkg_path(), self.instance_name,
                                   "output", "%s-output.yml" % script_name)
-        os.unlink(output_path)
+        if os.path.isfile(output_path):
+            os.unlink(output_path)
         message = "Executing (%s) inside package (%s)"
         Logger.info(message % (script_name, self.full_name))
 

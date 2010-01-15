@@ -506,6 +506,8 @@ def get_spkg_path():
     if sys.platform == "linux2" or sys.platform == "cygwin":
         config = get_linux_config()
         spkg_path = config.get("spkg_path")
+        if not spkg_path:
+            spkg_path = config.get("spkgPath")
     elif sys.platform == "win32":
         import _winreg as winreg
         key_name = r"Software\GE-IT\Bombardier"
