@@ -53,6 +53,7 @@ class LocalMachineInterface(AbstractMachineInterface):
         self.polling_log.info("CMD: --- %s" % cmd)
         self.server_log.info("cmd: (%s)" % cmd, self.machine_name)
         svn_conn = pexpect.spawn(cmd, timeout=30)
+        output = []
         while True:
             expect_list = [re.compile("Exported revision (\d+)"),
                            re.compile("Checked out revision (\d+)"),
@@ -74,6 +75,7 @@ class LocalMachineInterface(AbstractMachineInterface):
             elif select_index > 3:
                 for line in svn_conn.before.split('\n'):
                     self.polling_log.info("--- %s" % line)
+                    self.server_log.info("--- %s" % line, self.machine_name)
                 msg = "Could not execute SVN export (%s)" % select_index
                 raise CnmServerException(msg)
         svn_conn.close()

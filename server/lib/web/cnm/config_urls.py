@@ -38,7 +38,7 @@ class ConfigEntry(CnmResource):
         if os.path.isfile(file_path):
             output["command_output"] = "updated %s" % file_path
         else:
-            output["command_output"] = "created %d"  % file_path
+            output["command_output"] = "created %s"  % file_path
         try:
             data = yaml.load(yaml_string)
             nice_yaml_string = yaml.dump(data, default_flow_style=False)

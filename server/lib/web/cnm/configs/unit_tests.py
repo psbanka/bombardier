@@ -9,7 +9,7 @@ from django.core import serializers
 import django.utils.simplejson as json
 from bombardier_core.static_data import SERVER_CONFIG_FILE, OK, FAIL
 from Exceptions import InvalidServerHome
-from bombardier_core import libCipher
+from bombardier_core.Cipher import Cipher
 import time
 
 from settings import *
@@ -29,18 +29,29 @@ OLD_CLIENT_VERSION = "0.70-597"
 CLIENT_VERSION = "1.00-624"
 CORE_VERSION = "1.00-623"
 CONFIG_FILE = "unit_test_config_info.yml"
+
+SKIP_SVN_TESTS = False
 if not os.path.isfile(CONFIG_FILE):
     usage = """
-Build testing won't work unless you create a file named
+WARNING: Build testing won't work unless you create a file named
 %s with the following sections:
 
 svn_user: <svn_username>
 svn_password: <svn_password>
+package_name = <package_name>
 """
-    sys.exit(1)
-test_config = yaml.load(open(CONFIG_FILE).read())
-SVN_USER = test_config["svn_user"]
-SVN_PASSWORD = test_config["svn_password"]
+    print usage
+    SKIP_SVN_TESTS = True
+else:
+    test_config = yaml.load(open(CONFIG_FILE).read())
+    SVN_USER = test_config["svn_user"]
+    SVN_PASSWORD = test_config["svn_password"]
+    BUILD_PACKAGE_NAME = "TestPackageBuild"
+    BUILD_FILE = os.path.join('configs', 'fixtures', 'package',
+                           '%s.yml' % BUILD_PACKAGE_NAME)
+    if not os.path.isfile(BUILD_FILE):
+        print "\nThere needs to be a test package file here: %s" % BUILD_FILE
+        SKIP_SVN_TESTS = True
 
 class BasicTest:
     def setUp(self):
@@ -289,9 +300,10 @@ class CnmTests(unittest.TestCase, BasicTest):
         response = self.client.post(path=url, data={"yaml": yaml_string})
         content_dict = json.loads( response.content )
         assert content_dict["command_status"] == OK
-        assert content_dict["command_output"].startswith("updated")
+        assert content_dict["command_output"].startswith("updated"), content_dict
 
     def test_summary(self):
+        self.make_localhost_status()
         url = "/json/summary/name/localhost"
         response = self.client.get(url)
         content_dict = json.loads( response.content )
@@ -469,17 +481,16 @@ class PackageTests(unittest.TestCase, BasicTest):
         return release
 
     def test_package_build(self):
-        package_name = "TestPackageBuild"
-        current_release = self._get_release(package_name)
-        self._remove_paths(package_name)
-        url = '/json/package_build/%s' % package_name
+        current_release = self._get_release(BUILD_PACKAGE_NAME)
+        self._remove_paths(BUILD_PACKAGE_NAME)
+        url = '/json/package_build/%s' % BUILD_PACKAGE_NAME
         post_data = {"svn_user": SVN_USER,
                      "svn_password": SVN_PASSWORD,
                      "debug": False, "prepare": True
                     }
         status, output = self.run_job(url, data=post_data, timeout=60)
         assert status == OK
-        updated_release = self._get_release(package_name)
+        updated_release = self._get_release(BUILD_PACKAGE_NAME)
         assert updated_release == current_release + 1
 
     def test_package_actions(self):
@@ -546,7 +557,8 @@ class PackageTests(unittest.TestCase, BasicTest):
 
     def test_encrypted_ci(self):
         self.reset_packages()
-        cipher_text = libCipher.encrypt("/tmp/foogazi", CONFIG_PASSWORD)
+        cipher = Cipher(CONFIG_PASSWORD)
+        cipher_text = cipher.encrypt_string("/tmp/foogazi")
         package_config = {"test": {"value":"nowisthetimeforalldooment",
                                    "enc_directory": cipher_text},
                           "packages": ["TestPackageType4"],  
@@ -634,12 +646,13 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
+        suite.addTest(CnmTests("test_data_modification"))
         #suite.addTest(CnmTests("test_summary"))
         #suite.addTest(CnmTests("test_search"))
         #suite.addTest(DispatcherTests("test_kill_job"))
         #suite.addTest(PackageTests("test_encrypted_ci"))
         #suite.addTest(PackageTests("test_insufficient_config"))
-        suite.addTest(PackageTests("test_package_build"))
+        #suite.addTest(PackageTests("test_package_build"))
         #suite.addTest(PackageTests("test_type5_package_actions"))
         #suite.addTest(PackageTests("test_package_actions"))
 
