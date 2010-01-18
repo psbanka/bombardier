@@ -22,13 +22,27 @@ import time
 import unittest
 from django.test.client import Client
 
+import glob
 
+def get_version(base_name):
+    dist_dir = os.path.join("configs", "fixtures", "dist")
+    search_files = glob.glob(os.path.join(dist_dir, base_name+"*"))
+    if len(search_files) != 1:
+        msg = """There needs to be one (and only one) %stype file in %s 
+               for all the unit tests to complete"""
+        print msg % (base_name, dist_dir)
+    found_file = search_files[0]
+    version = found_file.rpartition(base_name)[-1].rpartition('.tar.gz')[0]
+    return version
+    
 TEST_PASSWORD = "testpass1234"
 CONFIG_PASSWORD = "abc123"
-OLD_CLIENT_VERSION = "0.70-597"
-CLIENT_VERSION = "1.00-624"
-CORE_VERSION = "1.00-623"
+OLD_CLIENT_VERSION = get_version("bombardier-")
+CLIENT_VERSION = get_version("bombardier_client-")
+CORE_VERSION = get_version("bombardier_core-")
 CONFIG_FILE = "unit_test_config_info.yml"
+
+print OLD_CLIENT_VERSION, CLIENT_VERSION, CORE_VERSION
 
 SKIP_SVN_TESTS = False
 if not os.path.isfile(CONFIG_FILE):
