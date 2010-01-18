@@ -33,7 +33,7 @@ is a design compomise because readline() requires it, really.'''
 
 
 import readline, socket, sys, os
-import yaml, syck
+import yaml
 from bombardier_core.static_data import OK, FAIL, USER, ADMIN, INFO, LOG_LEVEL_LOOKUP
 from bombardier_core.static_data import LOG_LEVEL_LOOKUP
 
@@ -126,7 +126,7 @@ class SystemState:
     def load_config(cls):
         '''Loads configuration options from the user's .bomsh_config file'''
         if os.path.isfile(PERSONAL_CONFIG_FILE):
-            config = syck.load(open(PERSONAL_CONFIG_FILE).read())
+            config = yaml.load(open(PERSONAL_CONFIG_FILE).read())
             if config.get("username"):
                 SystemState.__instance.username = config.get("username")
             if config.get("termwidth"):

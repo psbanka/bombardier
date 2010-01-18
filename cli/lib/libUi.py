@@ -88,7 +88,7 @@ def login(username, password=None):
 
 def motd():
     'Print out the message of the day after login'
-    from bombardier_server.cli.banner import banner
+    from banner import banner
     for line in banner:
         system_state.fp_out.write(line)
         system_state.fp_out.flush()

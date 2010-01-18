@@ -2,12 +2,11 @@
 
 import unittest, StringIO, sets, yaml, sys, os
 
-
+sys.path.insert(0, "../lib")
 
 import pexpect, sys, re
 PASSWORD = "abc123"
 USERNAME = "TESTY"
-DEBUG = True
 DEBUG = False
 PROMPT_CHARACTER = '\\$'
 PROMPT = '\(%s\)%s' % (USERNAME, PROMPT_CHARACTER)
@@ -15,22 +14,15 @@ PROMPT = '\(%s\)%s' % (USERNAME, PROMPT_CHARACTER)
 class CliUnitTest(unittest.TestCase):
 
     def setUp(self):
-        self.s = pexpect.spawn("bomsh -n -u %s" % USERNAME, timeout=5000)
+        os.environ["PYTHONPATH"] = '../lib'
+        self.s = pexpect.spawn("../scripts/bdr -n -u %s" % USERNAME, timeout=5000)
         if DEBUG:
             self.s.logfile = sys.stdout
-        #expected_values = [pexpect.TIMEOUT, '[pP]assword: ']
-        #i = self.s.expect(expected_values, timeout=30)
-        #assert i == 1, "Could not start the bomsh"
-        #print self.s.before
-        #self.s.sendline(PASSWORD)
-        #self.s.sendline('\n\r')
         self.get_prompt()
 
     def tearDown(self):
         output = self.run_command("\b" * 20)
-        #output = self.run_command("\n\r")
         output = self.run_command("exit\n\r")
-        #output = self.run_command("n\n\r")
         self.s.close(True)
 
     def get_prompt(self):
@@ -99,7 +91,9 @@ class CliHelpTest(CliUnitTest):
              'dispatcher     dispatcher control commands and status',
              'edit           modify components of the system', 
              'exit           exit current mode',
+             'job            job control commands and status',
              'machine        commands that operate on a given machine',
+             'package        commands that operate on a given package',
              'set            set a configuration value',
              'show           display components of the system',
              'ssh            ssh to another host',

@@ -34,7 +34,7 @@ __version__ = '1.0'
 
 import StringIO
 import urllib2, urlparse, os, time
-import yaml, syck
+import yaml
 import pycurl
 import urllib
 from bombardier_core.static_data import OK, FAIL
@@ -113,7 +113,7 @@ class Response:
         '''Assumes that the server attempted to respond with YAML(JSON).
         Verifies the content type and then converts the body'''
         if self.header.get_content_type() == "application/json":
-            output = syck.load(str(self.output))
+            output = yaml.load(str(self.output))
             if type(output) != type([]) and type(output) != type({}):
                 raise UnexpectedDataException("Not a list or dictionary")
             if output == None:

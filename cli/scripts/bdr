@@ -35,8 +35,12 @@ the PinshCmds in and creates an environment where commands can be executed
 import os, sys
 sys.path.append('.')
 from bombardier_core.static_data import OK, FAIL
-from bombardier_core.Logger import Logger
-from bombardier_cli.Exceptions import ServerTracebackException
+try:
+    from bombardier_cli.Exceptions import ServerTracebackException
+except ImportError:
+    # TO SUPPORT UNIT TESTING:
+    from Exceptions import ServerTracebackException
+    
 
 HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
 LOG_PATH = "%s/.bomsh_log" % os.environ['HOME']
@@ -62,7 +66,7 @@ def try_import(module):
 
 def test_modules():
     missing_modules = []
-    for module in ["yaml", "syck"]:
+    for module in ["yaml", "pycurl"]:
         if try_import(module) == FAIL:
             missing_modules.append(module)
     if missing_modules:
@@ -73,12 +77,18 @@ def test_modules():
 
 
 test_modules()
-import syck
 import exceptions
 import sys, os, readline, signal
-import bombardier_cli.libUi as libUi
-import bombardier_cli.Slash as Slash
-from bombardier_cli.SystemStateSingleton import SystemState
+try:
+    # UNIT TESTING
+    import bombardier_cli.libUi as libUi
+    import bombardier_cli.Slash as Slash
+    from bombardier_cli.SystemStateSingleton import SystemState
+except ImportError:
+    import libUi
+    import Slash
+    from SystemStateSingleton import SystemState
+
 import optparse
 
 # READLINE CONFIGS
@@ -167,7 +177,10 @@ if __name__ == "__main__":
 
     command_classes = []
     for command in COMMANDS:
-        module = __import__('bombardier_cli.%s' % command, globals(), locals(), [command])
+        try:
+            module = __import__('bombardier_cli.%s' % command, globals(), locals(), [command])
+        except ImportError:
+            module = __import__('%s' % command, globals(), locals(), [command])
         if not hasattr(module, command):
             print "%s is not a properly formatted module" % command
             continue
