@@ -81,5 +81,10 @@ package definition again::
 
 You'll notice that the build system added a "configuration" section to
 this package; that specifies the configuration values that are
-required when this package is associated with a machine. The build
-also added a number of entries to the "executables" section. 
+required when this package is associated with a machine.  The build
+process inspects the class that is responsible for the installation
+process and gathers all of the configuration entries that the class
+accesses.  The build also added a number of entries to the
+"executables" section; there will be more on executables later.
+
+

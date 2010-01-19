@@ -4,7 +4,10 @@
 Deploying your first package with Bombardier
 ============================================
 
-Let's learn by example.
+Let's learn by example.  Refer to the diagram below for what the
+network will look like in general.  If your network doesn't look
+exactly like this, that's okay.  Interpret the instructions for
+your environment.
 
 .. image:: .images/deployment.png
    :alt: Basic network configuration
@@ -13,10 +16,10 @@ In this example, we're going to take a network as shown above and
 configure all the servers on it for SNMP. Here's what you're going to
 need before you start this tutorial:
 
-  * A Linux or cygwin 1.5 or 1.7 computer that will act as the
-    Bombardier server
+  * A Redhat 5, Ubuntu Hardy, or cygwin 1.5 or 1.7 computer that will
+    act as the Bombardier server
 
-  * A Redhat 4 or CentOS 4 computer that you want to configure SNMP on
+  * A Redhat 5 or CentOS 5 computer that you want to configure SNMP on
     using a Bomabardier package.
 
 We'll assume you have :ref:`Bombardier installed <intro-install>`
@@ -28,8 +31,8 @@ installed.
 .. admonition:: Where to get help:
 
     If you're having trouble going through this tutorial, please post
-    a message to `bombardier-users`__ chat with other Bombardier users
-    who might be able to help.
+    a message to `bombardier-users`__ to interact with other
+    Bombardier users who might be able to help.
 
 __ http://groups.google.com/group/bombardier-users
 
@@ -39,4 +42,4 @@ Starting the server
 
 If this is your first time using Bomabardie, you'll have to take care of some
 initial setup. Namely, you'll need to set up the basic repository
-database and an SVN server.
+database and an SVN server. 

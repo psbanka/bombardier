@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+
+import sys, yaml, os
+from bombardier_core.static_data import OK
+
+def get_initial_user_input():
+    result = ''
+    prompt = "Perform initial Bombardier Server environment setup? (y/n): "
+    while result == '':
+        instr = raw_input(prompt)
+        if len(instr) == 0:
+            break
+        if instr.lower()[0] == 'y':
+            break
+        elif instr.lower()[0] == 'n':
+            print "%% Aborting automatic system setup."
+            print
+            sys.exit(1)
+    prompt = "Where do you want the root of your repository? [%s]: " % server_home_default
+    server_home = raw_input(prompt)
+    if server_home == '':
+        server_home = server_home_default
+    return server_home
+
+def create_if_needed(path):
+    if not os.path.isdir(path):
+        status = os.system("mkdir -p %s" % path)
+    if status != OK:
+        print "%%%% ABORTING: Unable to create path %s"
+        sys.exit(1)
+
+def create_directory_structure(server_home):
+    print "Creating directory structure in %s..." % server_home
+    create_if_needed(os.path.join(server_home, "admin")
+    create_if_needed(os.path.join(server_home, "dist")
+    create_if_needed(os.path.join(server_home, "cmdb")
+    create_if_needed(os.path.join(server_home, "status")
+    create_if_needed(os.path.join(server_home, "repos")
+
+def run_cmd(cmd):
+    status = os.system(cmd)
+    if status != OK:
+        print "%%%% ABORTING: Unable to run %s" % cmd
+        sys.exit(1)
+
+def create_repository(server_home):
+    cmdb_location = os.path.join(server_home, "cmdb")
+    print "Creating repository in %s..." % cmdb_location
+    run_cmd("bzr init %s" % cmdb_location)
+    run_cmd("bzr mkdir %s" % os.path.join(cmdb_location, "package"))
+    run_cmd("bzr mkdir %s" % os.path.join(cmdb_location, "machine"))
+    run_cmd("bzr mkdir %s" % os.path.join(cmdb_location, "bom"))
+    run_cmd("bzr mkdir %s" % os.path.join(cmdb_location, "include"))
+    run_cmd("bzr ci -m 'Initial setup' %s" % cmdb_location)
+
+
+if __name__ == "__main__":
+    server_home = get_initial_user_input()
+    create_directory_structure(server_home)
+    create_repository(server_home)
+    print "Writing configuration to /etc/bombardier.yml..."
+    config_data = {"server_home": server_home}
+    open("/etc/bombardier.yml", 'w').write(yaml.dump(config_data))

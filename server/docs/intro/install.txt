@@ -11,12 +11,29 @@ that'll work while you walk through the introduction.
 Install Python
 --------------
 
-Bombardier requires Python. Bombardier Server requires Python_ 2.5 or
-2.6. There is also a Bombardier Client, which can run on any version
-of Python from 2.4 through 2.6.
+Bombardier is built on top of Python.  There are several components to
+the Bombardier system: 
 
-Get Python at http://www.python.org. If you're running Linux, cygwin,
-or Mac OS X, you probably already have it installed.
+ * the Bombardier Server (bombardier_server)
+ * the Bombardier Client (bombardier_client)
+ * the Bombardier Command-line Interface (bombardier_cli)
+ * and the Bombardier shared components (bombardier_core)
+
+These will run under Python_ 2.5 or 2.6. The Bombardier Client, which
+can run on any version of Python from 2.4 through 2.6.
+
+.. admonition:: Platforms supported by Bombardier
+
+    Bombardier has been thoroughly tested and developed on Redhat
+    (Centos) Enterprise Linux 5 and Ubuntu Linux 8.10.  If you choose
+    to install Bombardier onto other flavors of Linux or Unix or other
+    POSIX operating systems, we can't guarantee it will work, but we'd
+    love to hear from you and help you work through any issues.  If
+    you need help with other platforms, send a message to
+    `bombardier-users`__.
+
+__ http://groups.google.com/group/bombardier-users
+
 
 You can verify that Python's installed by typing ``python`` from your
 shell; you should see something like::
@@ -30,36 +47,21 @@ Install Python Libraries
 ------------------------------------
 
 In addition, Bombardier Server requires several Python libraries to be
-installed as a pre-requisite. These libraries all come native on
-Ubuntu Hardy, which is the target platform for the Bombardier Server
-system. If you are using another distribution of Linux, you may have
-to download and build these libraries on your own. The libraries
-required are:
+installed as a pre-requisite. We recommend using `setuptools`_ to
+quickly and easily download Bombardier Server and the python
+pre-requisites that are required.:
 
-	* `PyCrypto 2.0.1`_
-	* `PExpect 2.1`_
-	* `PyYaml 3.08`_
-	* `Syck for Python 0.61`_
-	* `Django 1.0.4 Python web server`_
-	* `Pyro 3.9.1`_
-	
-.. _PyCrypto 2.0.1: http://www.amk.ca/python/code/crypto.html
-.. _PExpect 2.1: http://www.noah.org/wiki/Pexpect
-.. _PyYaml 3.08: http://pyyaml.org/
-.. _Syck for Python 0.61: http://freshmeat.net/projects/syck/
-.. _Django 1.0.4 Python web server: http://www.djangoproject.com/
-.. _Pyro 3.9.1: http://pyro.sourceforge.net/
+  easy_install bombardier_cli
+
+This will provide the Bombardier Server software, as well as all the
+dependencies it requires.
+
+.. _setuptools: http://pypi.python.org/pypi/setuptools
 
 
 Run the Bombardier Server quickstart
 ------------------------------------
     
-.. warning::
-
-    If do either of the first two steps, keep an eye out for parts of the
-    documentation marked **new in development version**. That phrase flags
-    features that are only available in development versions of Django; if you
-    try to use them with an official release they won't work.
 
 
 Start the web server
