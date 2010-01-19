@@ -47,7 +47,7 @@ At this point, the Bombardier Server is ready to be able to associate
 this package with a machine on your network to configure it.  When the
 Bombardier server examined the package, it added some information to
 the package configuration file.  To see what it added, show the
-package definition again:
+package definition again::
 
 
   peacemaker (admin)> sho pack SnmpConfigV5
