@@ -1,26 +1,66 @@
 #!/usr/bin/env python
 
-import sys, yaml, os
+import sys, yaml, os, getpass
 from bombardier_core.static_data import OK
+from bombardier_core.Cipher import Cipher
 
-def get_initial_user_input():
+def ask_yes_no(prompt):
     result = ''
-    prompt = "Perform initial Bombardier Server environment setup? (y/n): "
     while result == '':
         instr = raw_input(prompt)
         if len(instr) == 0:
-            break
+            result = True
         if instr.lower()[0] == 'y':
-            break
+            result = True
         elif instr.lower()[0] == 'n':
-            print "%% Aborting automatic system setup."
-            print
-            sys.exit(1)
+            result = False
+    return result
+
+def get_initial_user_input():
+    prompt = "Perform initial Bombardier Server environment setup? (y/n): "
+    result = ask_yes_no(prompt)
+    if result == False:
+        print "%% Aborting automatic system setup."
+        print
+        sys.exit(1)
     prompt = "Where do you want the root of your repository? [%s]: " % server_home_default
     server_home = raw_input(prompt)
     if server_home == '':
         server_home = server_home_default
     return server_home
+
+def set_password(server_home):
+    test_decrypt_file = os.path.join(server_home, 'admin',
+                                     'encryption_validation.yml')
+    if os.path.isfile(test_decrypt_file):
+        return
+
+    print "You will need to set your configuration key as part of the setup process."
+    print "This key will be used to encrypt sensitive configuration items."
+    password_1 = 'abc123'
+    password_2 = 'def456'
+    while password_1 != password_2:
+        password_1 = getpass.getpass("Please enter your configuration key: ")
+        password_2 = getpass.getpass("Please re-enter your configuration key: ")
+        if password_1 != password_2:
+            print "%%%% Configuration keys do not match. Please try again."
+
+    lazy_dog = "the_quick_brown_fox_jumped_over_the_lazy_dog\n"
+    cipher = Cipher(password_1)
+    enc_lazy = cipher.encrypt_string(lazy_dog)
+    enc_dict = { "enc_test" : enc_lazy }
+    open( test_decrypt_file, 'w' ).write(yaml.dump( enc_dict ))
+
+def copy_dsa_key(server_home):
+    admin_dir = os.path.join(server_home, "admin")
+    print "Bombardier Server requires the public SSH DSA key to be stored"
+    print "in the %s directory."
+    root_pub_key_path = os.path.join("/", "root", ".ssh", "id_pub.dsa")
+    if os.path.isfile(root_pub_key_path):
+        prompt = "Using the one in root's home directory..."
+        os.system("cp -f %s %s" % (root_pub_key_path, admin_dir))
+        return
+    print "%%%% ABORTING: %s does not exist. Please create it with ssh-keygen -t dsa"
 
 def create_if_needed(path):
     if not os.path.isdir(path):
@@ -31,11 +71,11 @@ def create_if_needed(path):
 
 def create_directory_structure(server_home):
     print "Creating directory structure in %s..." % server_home
-    create_if_needed(os.path.join(server_home, "admin")
-    create_if_needed(os.path.join(server_home, "dist")
-    create_if_needed(os.path.join(server_home, "cmdb")
-    create_if_needed(os.path.join(server_home, "status")
-    create_if_needed(os.path.join(server_home, "repos")
+    create_if_needed(os.path.join(server_home, "admin"))
+    create_if_needed(os.path.join(server_home, "dist"))
+    create_if_needed(os.path.join(server_home, "cmdb"))
+    create_if_needed(os.path.join(server_home, "status"))
+    create_if_needed(os.path.join(server_home, "repos"))
 
 def run_cmd(cmd):
     status = os.system(cmd)
@@ -53,11 +93,16 @@ def create_repository(server_home):
     run_cmd("bzr mkdir %s" % os.path.join(cmdb_location, "include"))
     run_cmd("bzr ci -m 'Initial setup' %s" % cmdb_location)
 
-
 if __name__ == "__main__":
     server_home = get_initial_user_input()
     create_directory_structure(server_home)
+    copy_dsa_key(server_home)
     create_repository(server_home)
+    set_password(server_home)
     print "Writing configuration to /etc/bombardier.yml..."
     config_data = {"server_home": server_home}
     open("/etc/bombardier.yml", 'w').write(yaml.dump(config_data))
+    print
+    print "Basic server setup complete."
+    print "Now configure your web server according to the instructions"
+    print "in your documentation."
