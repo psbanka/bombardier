@@ -37,9 +37,44 @@ installed.
 __ http://groups.google.com/group/bombardier-users
 
 
-Starting the server
-===================
+Setting up the server
+=====================
 
-If this is your first time using Bomabardie, you'll have to take care of some
-initial setup. Namely, you'll need to set up the basic repository
-database and an SVN server. 
+If this is your first time using Bomabardier, you'll have to take care
+of some initial setup.  Namely, you'll need to set up the basic
+repository database, directory structure, and configuration key.
+You'll do this using the bdr_server_quickstart script::
+
+
+  $ bdr_server_quickstart
+  Perform initial Bombardier Server environment setup? (y/n): y
+  Where do you want the root of your repository? [/var/deploy]:
+
+  Creating directory structure in /var/deploy...
+
+  Bombardier Server requires the public SSH DSA key to be stored
+  in the %s directory.
+  Using the one in root's home directory..."
+
+  Creating repository in /var/deploy/cmdb...
+  Created a standalone tree (format: 2a)
+  added /var/deploy/cmdb/package
+  added /var/deploy/cmdb/machine
+  added /var/deploy/cmdb/bom
+  added /var/deploy/cmdb/include
+  Committing to: /var/deploy/cmdb/
+  added bom
+  added include
+  added machine
+  added package
+  Committed revision 1.
+
+  You will need to set your configuration key as part of the setup process.
+  This key will be used to encrypt sensitive configuration items.
+  Please enter your configuration key:
+  Please re-enter your configuration key:
+  Writing configuration to /etc/bombardier.yml...
+
+  Basic server setup complete.
+  Now configure your web server according to the instructions
+  in your documentation.

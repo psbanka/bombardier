@@ -23,10 +23,10 @@ def get_initial_user_input():
         print "%% Aborting automatic system setup."
         print
         sys.exit(1)
-    prompt = "Where do you want the root of your repository? [%s]: " % server_home_default
+    prompt = "Where do you want the root of your repository? [/var/deploy]: "
     server_home = raw_input(prompt)
     if server_home == '':
-        server_home = server_home_default
+        server_home = "/var/deploy"
     return server_home
 
 def set_password(server_home):
@@ -35,7 +35,7 @@ def set_password(server_home):
     if os.path.isfile(test_decrypt_file):
         return
 
-    print "You will need to set your configuration key as part of the setup process."
+    print "\nYou will need to set your configuration key as part of the setup process."
     print "This key will be used to encrypt sensitive configuration items."
     password_1 = 'abc123'
     password_2 = 'def456'
@@ -53,7 +53,7 @@ def set_password(server_home):
 
 def copy_dsa_key(server_home):
     admin_dir = os.path.join(server_home, "admin")
-    print "Bombardier Server requires the public SSH DSA key to be stored"
+    print "\nBombardier Server requires the public SSH DSA key to be stored"
     print "in the %s directory."
     root_pub_key_path = os.path.join("/", "root", ".ssh", "id_pub.dsa")
     if os.path.isfile(root_pub_key_path):
@@ -61,6 +61,7 @@ def copy_dsa_key(server_home):
         os.system("cp -f %s %s" % (root_pub_key_path, admin_dir))
         return
     print "%%%% ABORTING: %s does not exist. Please create it with ssh-keygen -t dsa"
+        sys.exit(1)
 
 def create_if_needed(path):
     if not os.path.isdir(path):
@@ -70,7 +71,7 @@ def create_if_needed(path):
         sys.exit(1)
 
 def create_directory_structure(server_home):
-    print "Creating directory structure in %s..." % server_home
+    print "\nCreating directory structure in %s..." % server_home
     create_if_needed(os.path.join(server_home, "admin"))
     create_if_needed(os.path.join(server_home, "dist"))
     create_if_needed(os.path.join(server_home, "cmdb"))
@@ -85,7 +86,7 @@ def run_cmd(cmd):
 
 def create_repository(server_home):
     cmdb_location = os.path.join(server_home, "cmdb")
-    print "Creating repository in %s..." % cmdb_location
+    print "\nCreating repository in %s..." % cmdb_location
     run_cmd("bzr init %s" % cmdb_location)
     run_cmd("bzr mkdir %s" % os.path.join(cmdb_location, "package"))
     run_cmd("bzr mkdir %s" % os.path.join(cmdb_location, "machine"))
@@ -102,7 +103,6 @@ if __name__ == "__main__":
     print "Writing configuration to /etc/bombardier.yml..."
     config_data = {"server_home": server_home}
     open("/etc/bombardier.yml", 'w').write(yaml.dump(config_data))
-    print
-    print "Basic server setup complete."
+    print "\n\nBasic server setup complete."
     print "Now configure your web server according to the instructions"
     print "in your documentation."
