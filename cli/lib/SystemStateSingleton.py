@@ -37,7 +37,7 @@ import yaml
 from bombardier_core.static_data import OK, FAIL, USER, ADMIN, INFO, LOG_LEVEL_LOOKUP
 from bombardier_core.static_data import LOG_LEVEL_LOOKUP
 
-PERSONAL_CONFIG_FILE = "%s/.bomsh_config" % os.environ.get("HOME")
+PERSONAL_CONFIG_FILE = "%s/.bdr_config" % os.environ.get("HOME")
 
 NO_COLOR  = 'none'
 DARK      = "dark"
@@ -89,6 +89,7 @@ class SystemState:
             self.fp_out = sys.stdout
             self.fp_err = sys.stderr
             self.log_level = INFO
+            self.ask_to_disconnect = False
 
     __instance = None
 
@@ -127,6 +128,10 @@ class SystemState:
         '''Loads configuration options from the user's .bomsh_config file'''
         if os.path.isfile(PERSONAL_CONFIG_FILE):
             config = yaml.load(open(PERSONAL_CONFIG_FILE).read())
+            if config.get("ask_to_disconnect"):
+                if type(config.get("ask_to_disconnect")) == type(True):
+                    SystemState.__instance.ask_to_disconnect = \
+                        config.get("ask_to_disconnect")
             if config.get("username"):
                 SystemState.__instance.username = config.get("username")
             if config.get("termwidth"):

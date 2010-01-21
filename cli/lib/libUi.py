@@ -57,7 +57,11 @@ def login(username, password=None):
     if username:
         system_state.username = username
     if not system_state.username:
-        system_state.username = get_default("username", "root")
+        try:
+            system_state.username = get_default("username", "root")
+        except KeyboardInterrupt:
+            print "\n%% Aborted login"
+            sys.exit(1)
     else:
         print "Logging in as %s" % system_state.username
     system_state.cnm_connector = CnmConnector(system_state.cnm_url,

@@ -116,8 +116,13 @@ class Response:
             try:
                 output = yaml.load(str(self.output))
             except yaml.parser.ParserError:
-                msg = "can't convert to yaml (%s)" % self.output
-                raise UnexpectedDataException(msg)
+                # New Django JSON is not compatible with yaml. Massage it.
+                try:
+                    new_output = ''.join(str(self.output).split())
+                    output = yaml.load(new_output)
+                except yaml.parser.ParserError:
+                    msg = "can't convert to yaml (%s)" % self.output
+                    raise UnexpectedDataException(msg)
             if type(output) != type([]) and type(output) != type({}):
                 raise UnexpectedDataException("Not a list or dictionary")
             if output == None:
@@ -216,25 +221,9 @@ class CnmConnector:
         '''
         data = {"username": self.username, "password": password}
         response = self.post(LOGIN_PATH, data)
-
-        if response.header.get_content_type() == "application/json":
-            try:
-                data = yaml.load(str(response.output))
-            except yaml.parser.ParserError:
-                new_output = ''.join(str(response.output).split())
-                data = yaml.load(new_output)
-            if type(data) != type([]) and type(data) != type({}):
-                raise UnexpectedDataException("Not a list or dictionary")
-            if data == None:
-                raise UnexpectedDataException("Null value received")
-            if 'traceback' in data:
-                raise ServerTracebackException(data['traceback'])
-
-
-
-
+        return_data = response.convert_from_yaml()
         self.password = password
-        return data.get("super_user")
+        return return_data.get("super_user")
 
     def service_request(self, path, args=None,
                         put_data=None, post_data=None, timeout=None):

@@ -112,13 +112,14 @@ def run_scripts(scripts):
 
 def cleanup(system_state, slash):
     print
-    question = "Disconnect all clients"
-    cleanup = libUi.ask_yes_no(question, libUi.NO)
-    if cleanup:
-        libUi.info("cleaning up")
-        url = "json/machine/cleanup_connections"
-        data = system_state.cnm_connector.service_yaml_request(url, post_data={})
-    print
+    if system_state.ask_to_disconnect:
+        question = "Disconnect all clients"
+        cleanup = libUi.ask_yes_no(question, libUi.NO)
+        if cleanup:
+            libUi.info("cleaning up")
+            url = "json/machine/cleanup_connections"
+            data = system_state.cnm_connector.service_yaml_request(url, post_data={})
+        print
     while system_state.child_processes:
         os.kill(system_state.child_processes.pop(), signal.SIGTERM)
     readline.write_history_file(HISTORY_FILE)
@@ -130,6 +131,13 @@ def cleanup(system_state, slash):
 def initialize(system_state, slash):
     status, output = system_state.cnm_connector.dispatcher_control("status")
     if status == FAIL:
+        config_url = "/json/server/config"
+        config = system_state.cnm_connector.service_yaml_request(config_url)
+        if not config.get("server configuration", {}).get("server_home"):
+            prompt = "Server home is not set. Please enter the value"
+            server_home = libUi.get_default(prompt, "/var/deploy")
+            system_state.cnm_connector.sync_server_home(server_home)
+        
         question = "Dispatcher is offline; enter CI decryption password: "
         password = libUi.pwd_input(question)
         status, output = system_state.cnm_connector.dispatcher_control("start")
@@ -138,6 +146,7 @@ def initialize(system_state, slash):
             status, output = system_state.cnm_connector.set_password(password)
             libUi.user_output(output, status)
         except ServerTracebackException, ste:
+            print "HELLO, TRACEBACK"
             libUi.process_traceback(ste)
 
 def main_loop(system_state, slash):
@@ -168,12 +177,17 @@ if __name__ == "__main__":
     parser = optparse.OptionParser("usage: %prog <-u user-name> <-n> <bomsh-script>")
     parser.add_option("-n", "--no_login", dest="no_login", action="store_const", const=True,
                       help="do not log in to the cnm")
+    parser.add_option("-s", "--server", dest="server",
+                      help="set the Bombardier Server URL to connect to")
     parser.add_option("-u", "--user", dest="user",
                       help="set the username associated with this session")
     (options, scripts) = parser.parse_args()
     username = None
+    server   = None
     if options.user:
         username = options.user
+    if options.server:
+        system_state.cnm_url = options.server
 
     command_classes = []
     for command in COMMANDS:
