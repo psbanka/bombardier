@@ -1,32 +1,22 @@
 .. _intro-tutorial01:
 
-============================================
-Deploying your first package with Bombardier
-============================================
+====================================================
+Deploying your first package with Bombardier, part 1
+====================================================
 
 Let's learn by example.  Refer to the diagram below for what the
 network will look like in general.  If your network doesn't look
-exactly like this, that's okay.  Interpret the instructions for
+exactly like this, don't worry.  Interpret the instructions for
 your environment.
 
 .. image:: .images/deployment.png
    :alt: Basic network configuration
 
 In this example, we're going to take a network as shown above and
-configure all the servers on it for SNMP. Here's what you're going to
-need before you start this tutorial:
+configure all the servers on it for SNMP.
 
-  * A Redhat 5, Ubuntu Hardy, or cygwin 1.5 or 1.7 computer that will
-    act as the Bombardier server
-
-  * A Redhat 5 or CentOS 5 computer that you want to configure SNMP on
-    using a Bomabardier package.
-
-We'll assume you have :ref:`Bombardier installed <intro-install>`
-already. You can tell Bombardier is installed by running the
-interactive interpreter and typing ``import bombardier_server``. If
-that command runs successfully, with no errors, Bombardier server is
-installed.
+We'll assume you have :ref:`Bombardier installed <intro-install>` on
+the Bombardier Server already.
 
 .. admonition:: Where to get help:
 
@@ -37,44 +27,113 @@ installed.
 __ http://groups.google.com/group/bombardier-users
 
 
-Setting up the server
-=====================
+The Bombardier Package
+======================
 
-If this is your first time using Bomabardier, you'll have to take care
-of some initial setup.  Namely, you'll need to set up the basic
-repository database, directory structure, and configuration key.
-You'll do this using the bdr_server_quickstart script::
+The core of the Bombardier system is the Bombardier Package.  To do
+anything in Bombardier, you create a package.  So we'll create one to
+manage the SNMP configuration on a machine under our control.  In this
+example, this package will work on a Redhat Enterprise Linux 5 server
+or a Centos 5 server.  If you don't have one of these available, you
+may have to modify this package to fit your configuration.
+
+A package starts with a definition file, which is nothing more than a
+simple human-readable text file which lists the binary (installable)
+files with a set of instructions (scripts) that install, configure,
+verify, and uninstall those binary files onto a given machine. The
+format of this file is `yaml`_ (or `JSON`_), and should be pretty
+intuitive.  We chose this format over XML because, as the JSON site
+says, "it is easy for humans to read and write. It is easy for
+machines to parse and generate."
+
+.. _yaml: http://www.yaml.org/
+.. _JSON: http://www.json.org/
+
+In our SNMP setup example, we'll start with a package configuration
+file below::
+
+  class_name: SnmpConfigV5.SnmpConfigV5
+  injectors: {}
+  libs:
+    SnmpConfigV5: {
+      svn: 'http://www.bombardierinstaller.org/svn/pkg/SnmpConfigV5'
+    }
+    YumPackageInstaller: {
+      svn: 'http://www.bombardierinstaller.org/svn/pkg/YumPackageInstaller'
+    }
+  package-version: 5
+  release: 3
+
+The first step is to create this package definition on your Bombardier
+server using the bombardier command-line interface:
+
+  peacemaker (admin)> create package SnmpConfig
+
+at which point, the CLI will open a vim editor screen and allow you to
+paste in the configuration data shown above.  When you exit the
+editor, the CLI will upload the package definition to the Bombardier
+Server.
+
+class_name, libs, and a skeleton package class
+==============================================
+
+In this example, there are two major sections that we will concern
+ourselves with first: ``class_name`` and ``libs``.
+
+A package has to have to have at least one ``libs`` section and must
+specify one ``class_name`` entry.  In our example, this package
+specified two ``libs`` entries: SnmpCofigV5 and YumPackageInstaller.
+These are python libraries that will be shipped over to the machine
+that is going to have this package installed on it.  The Python class
+specified in class_name is going to be given control of the
+installation process.
+
+A skeleton Python class for a package must look like the
+following::
+
+  from bombardier_core.Spkg import SpkgV5
+  from bombardier_core.static_data import OK
+
+  class MiniPackage(SpkgV5):
+      def __init__(self, config):
+          SpkgV5.__init__(self, config)
+
+      def configure(self):
+          return OK
+
+      def install(self):
+      	  return OK
+
+      def uninstall(self):
+          return OK
+
+      def verify(self):
+          return OK
+
+Every package must extend the SpkgV5 class, must take a ``config``
+object in the constructor, and must define at least the public methods
+shown above.  For more information about creating a Python Spkg
+subclass, refer to ___.
+
+Our example package is only slightly more complicated than this, and
+can be viewed at this URL:
+http://www.bombardierinstaller.org/svn/pkg/SnmpConfigV5/SnmpConfigV5.py
 
 
-  $ bdr_server_quickstart
-  Perform initial Bombardier Server environment setup? (y/n): y
-  Where do you want the root of your repository? [/var/deploy]:
+injectors
+=========
 
-  Creating directory structure in /var/deploy...
+Before we continue, a word about injectors.  Most packages need to
+provide some kind of software to a machine as part of their
+activities.  For example, you may want to deliver a website to a web
+server, with all the .html, .jpg, .css, etc. files that such a site
+would require.  Any and all files that you would like to bundle with
+your package should be specified in the ``injectors`` section of the
+package configuration file.
 
-  Bombardier Server requires the public SSH DSA key to be stored
-  in the %s directory.
-  Using the one in root's home directory..."
+In our SNMP example, Redhat already provides the basic software for
+SNMP utilities, so there is no need to bundle binary files along with
+this package.  If you view the script for this package, you can see
+that it uses the YumPackageInstaller library to install and verify
+that the "net-snmp-utils" RPM is installed on the remote machine.
 
-  Creating repository in /var/deploy/cmdb...
-  Created a standalone tree (format: 2a)
-  added /var/deploy/cmdb/package
-  added /var/deploy/cmdb/machine
-  added /var/deploy/cmdb/bom
-  added /var/deploy/cmdb/include
-  Committing to: /var/deploy/cmdb/
-  added bom
-  added include
-  added machine
-  added package
-  Committed revision 1.
-
-  You will need to set your configuration key as part of the setup process.
-  This key will be used to encrypt sensitive configuration items.
-  Please enter your configuration key:
-  Please re-enter your configuration key:
-  Writing configuration to /etc/bombardier.yml...
-
-  Basic server setup complete.
-  Now configure your web server according to the instructions
-  in your documentation.

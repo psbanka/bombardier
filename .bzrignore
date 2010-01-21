@@ -30,3 +30,7 @@ server/lib/web/cnm/configs/fixtures/machine/localhost.yml
 server/lib/web/cnm/configs/fixtures/admin/encryption_validation.yml
 server/lib/web/cnm/configs/fixtures/repos/injectors
 server/lib/web/cnm/configs/fixtures/repos/libs
+server/docs/.build
+server/docs/.static
+server/docs/.templates
+server/docs/server

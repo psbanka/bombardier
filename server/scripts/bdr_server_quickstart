@@ -54,21 +54,28 @@ def set_password(server_home):
 def copy_dsa_key(server_home):
     admin_dir = os.path.join(server_home, "admin")
     print "\nBombardier Server requires the public SSH DSA key to be stored"
-    print "in the %s directory."
-    root_pub_key_path = os.path.join("/", "root", ".ssh", "id_pub.dsa")
-    if os.path.isfile(root_pub_key_path):
-        prompt = "Using the one in root's home directory..."
-        os.system("cp -f %s %s" % (root_pub_key_path, admin_dir))
-        return
-    print "%%%% ABORTING: %s does not exist. Please create it with ssh-keygen -t dsa"
+    print "in the %s directory." % admin_dir
+    home_directory = os.environ.get("HOME")
+    while not home_directory:
+        prompt = "What is your home directory? "
+        home_directory = raw_input(prompt)
+
+    root_pub_key_path = os.path.join(home_directory, ".ssh", "id_dsa.pub")
+    print "ROOT:",root_pub_key_path
+    if not os.path.isfile(root_pub_key_path):
+        print "%%%% ABORTING: %s does not exist. " % root_pub_key_path
+        print "   Please create it with ssh-keygen -t dsa"
         sys.exit(1)
+    prompt = "Using the one in root's home directory..."
+    os.system("cp -f %s %s" % (root_pub_key_path, admin_dir))
+    return
 
 def create_if_needed(path):
     if not os.path.isdir(path):
         status = os.system("mkdir -p %s" % path)
-    if status != OK:
-        print "%%%% ABORTING: Unable to create path %s"
-        sys.exit(1)
+        if status != OK:
+            print "%%%% ABORTING: Unable to create path %s"
+            sys.exit(1)
 
 def create_directory_structure(server_home):
     print "\nCreating directory structure in %s..." % server_home

@@ -1,9 +1,9 @@
-Bombardier.. _topic-packages:
+.. _intro-tutorial02:
 
 
-===================
-Bombardier Packages
-===================
+====================================================
+Deploying your first package with Bombardier, part 2
+====================================================
 
 Let's take an example where we'd like to create a package to manage
 the SNMP configuration on a machine under our control.  This package
@@ -33,6 +33,15 @@ file below::
   package-version: 5
   release: 3
 
+The first step is to create this package definition on your Bombardier
+server using the bombardier command-line interface:
+
+  peacemaker (admin)> create package SnmpConfig
+
+at which point, the CLI will open a vim editor screen and allow you to
+paste in the configuration data shown above.  When you exit the
+editor, the CLI will upload the package definition to the Bombardier
+Server.
 
 class_name, libs, and a skeleton package class
 ==============================================
@@ -83,28 +92,17 @@ http://www.bombardierinstaller.org/svn/pkg/SnmpConfigV5/SnmpConfigV5.py
 injectors
 =========
 
-Most packages need to provide some kind of software to a machine as
-part of their activities.  For example, you may want to deliver a
-website to a web server, with all the .html, .jpg, .css, etc. files
-that such a site would require.  Any and all files that you would like
-to bundle with your package should be specified in the ``injectors``
-section of the package configuration file.
+Before we continue, a word about injectors.  Most packages need to
+provide some kind of software to a machine as part of their
+activities.  For example, you may want to deliver a website to a web
+server, with all the .html, .jpg, .css, etc. files that such a site
+would require.  Any and all files that you would like to bundle with
+your package should be specified in the ``injectors`` section of the
+package configuration file.
 
 In our SNMP example, Redhat already provides the basic software for
 SNMP utilities, so there is no need to bundle binary files along with
 this package.  If you view the script for this package, you can see
 that it uses the YumPackageInstaller library to install and verify
 that the "net-snmp-utils" RPM is installed on the remote machine.
-
-====================
-Building the package
-====================
-
-You now have the basic ingredients for this example package, which
-are:
-
- 1. The package configuration file
-
- 2. The libraries that will be used to install and configure the
-    package
 

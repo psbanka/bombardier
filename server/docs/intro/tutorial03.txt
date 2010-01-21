@@ -1,7 +1,10 @@
-Bombardier.. _topic-packages:
+.. _intro-tutorial03:
 
 
-====================
+====================================================
+Deploying your first package with Bombardier, part 2
+====================================================
+
 Building the package
 ====================
 
