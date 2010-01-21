@@ -73,7 +73,8 @@ def login(username, password=None):
             else:
                 system_state.set_auth(USER)
             break
-        except UnexpectedDataException:
+        except UnexpectedDataException, ude:
+            print ude
             user_output(["Bad username or password."], FAIL)
             tries += 1
         except ServerException, sex:
