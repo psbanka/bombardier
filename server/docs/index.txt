@@ -11,7 +11,7 @@ Getting help
 
 * Try the :ref:`FAQ <faq-index>` -- it's got answers to many common questions.
 
-* Looking for specific information? Try the :ref:`genindex`, :ref:`modindex`
+* Looking for specific information? Try the :ref:`genindex`
 
 * Report bugs with Bombardier in our Launchpad site: https://launchpad.net/bombardier/+filebug
 
@@ -20,11 +20,7 @@ Getting help
 First steps
 ===========
 
-    * **From scratch:**
-
-      * :ref:`Overview <intro-overview>`
-      * :ref:`Installation <intro-install>`
-      * :ref:`Creating a package <intro-packages>`
+  * :ref:`Installation <intro-index>`
 
 Contents:
 
