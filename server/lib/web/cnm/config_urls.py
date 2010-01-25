@@ -293,7 +293,6 @@ class ServerConfigForm(forms.ModelForm):
         "Meta class for use by django to create form"
         model = ServerConfig
 
-
 urlpatterns = patterns('',
    url(r'^json/server/config',
        ServerConfigCollection(permitted_methods = ['POST', "GET"])),

@@ -146,7 +146,6 @@ def initialize(system_state, slash):
             status, output = system_state.cnm_connector.set_password(password)
             libUi.user_output(output, status)
         except ServerTracebackException, ste:
-            print "HELLO, TRACEBACK"
             libUi.process_traceback(ste)
 
 def main_loop(system_state, slash):
