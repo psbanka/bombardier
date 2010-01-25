@@ -28,8 +28,16 @@ define sdist_target
 endef
 
 define remove_dist_files
+	echo "$$PWD" | grep -v "build"
 	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
 endef
+
+help:
+	@echo "Please use \`make <target>' where <target> is one of"
+	@echo "  all       to make server, client, cli, and core"
+	@echo "  staging   to make all and create a staging directory"
+	@echo "  <component>  to make component (server, client, cli or core)"
+	@echo "  <component>_upload  to make component and upload to pypi"
 
 all:
 	make -f $(MAKE_FILE) server
