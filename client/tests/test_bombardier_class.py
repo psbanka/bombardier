@@ -526,6 +526,50 @@ class BombardierTest(unittest.TestCase):
         except SystemExit, e:
             assert e.code == OK
 
+    def test_reconcile_system_with_virtual_dependencies(self):
+        full_list = [ 'pkg3', 'pkg2', 'pkg1' ]
+
+        test_results = self._virtual_dependency_helper( full_list ) 
+        expected_results = { 'ok': ['pkg2', 'pkg1', 'pkg3'] }
+        self._check_virtual_dep_results(expected_results, test_results)
+
+        two_missing_list = [ 'pkg3', 'pkg1' ] 
+        test_results = self._virtual_dependency_helper( two_missing_list )
+        expected_results = {'ok': ['pkg1'], 'not-installed': ['pkg3']}
+
+        self._check_virtual_dep_results(expected_results, test_results)
+
+    def _check_virtual_dep_results(self, expected_results, test_results):
+        expected_template = {'broken': [], 'ok': [], 'remove': [],
+                            'reconfigure': {}, 'not-installed': []}
+        expected_template.update(expected_results)
+        for result in expected_results:
+            assert set(test_results[result]) == set(expected_results[result]),\
+                   test_results
+
+    def _virtual_dependency_helper(self, pkg_list):
+        self.config.data = {"packages" : pkg_list} 
+        pkg_data = {"pkg1": {"install": {"fullName": "pkg1-1"},
+                             "package-version": 4,
+                            },
+                    "pkg2": {"install": {"fullName": "pkg2-1"},
+                             "package-version": 4,
+                             "virtualpackage" : "pkg_two",
+                            },
+                    "pkg3": {"install": {"fullName": "pkg3-1"},
+                             "package-version": 4,
+                             "dependencies": ["pkg_two"]
+                            },
+                   }
+        install_progress = {"install-progress": {}}
+        _write_progress(install_progress)
+        repository = Repository.Repository(INSTANCE, pkg_data)
+        self.config.repository = repository
+        self.bombardier.repository = repository
+
+        self.bombardier.reconcile_system(RECONCILE)
+        return self.bombardier.check_system()
+
     def test_reconcile_system_bogus(self):
         self.config.data = {}
         install_progress = {"install-progress":
@@ -627,6 +671,7 @@ if __name__ == "__main__":
     #suite.addTest(BombardierTest("test_package_dep"))
     #suite.addTest(BombardierTest("test_reconcile_system1"))
     #suite.addTest(BombardierTest("test_reconcile_system_with_dependencies"))
+    #suite.addTest(BombardierTest("test_reconcile_system_with_virtual_dependencies"))
     #suite.addTest(BombardierTest("test_get_packages_to_remove_1"))
     #suite.addTest(BombardierTest("test_check_system_1"))
     #suite.addTest(BombardierTest("test_check_system_2"))

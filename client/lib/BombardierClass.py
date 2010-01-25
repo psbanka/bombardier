@@ -603,10 +603,14 @@ class Bombardier:
         pkns -- a list of package names to check
         """
         updated_pkns = pkns.copy()
+        vpkgs = VirtualPackages(self.repository.pkg_data)
+
         for pkn in pkns:
-            pkg = self._get_new_pkg(pkn)
+            apkn = vpkgs.get_actual_pkn(pkn, pkns)
+            pkg = self._get_new_pkg(apkn)
             pkg.initialize()
-            updated_pkns.update(pkg.dependencies)
+            for dep in pkg.dependencies:
+                updated_pkns.update([vpkgs.get_actual_pkn(dep, pkns)])
         if updated_pkns.difference(pkns):
             updated_pkns = self._examine_dependencies(updated_pkns)
         return updated_pkns
