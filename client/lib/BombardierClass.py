@@ -387,12 +387,12 @@ class Bombardier:
         while making_progress and pkns_left:
             making_progress = False
             install_order = self._find_install_order(add_pkd)
-            pkns_left = []
-            map(pkns_left.append, install_order)
+            pkns_left = list(install_order)
             for pkn in install_order:
                 msg = "Packages remaining to install (in order):"
-                for pkn in pkns_left:
-                    Logger.info("  +   %s" % pkn)
+                Logger.info(msg)
+                for tpkn in pkns_left:
+                    Logger.info("  +   %s" % tpkn)
                 pkns_left.remove(pkn)
                 pkg = add_pkd[pkn]
                 erstr = "Currently installing package priority %s [%s]"

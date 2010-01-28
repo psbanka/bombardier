@@ -306,33 +306,36 @@ class BombardierTest(unittest.TestCase):
 
     def test_find_install_order(self):
         pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"},
-                             "dependencies": ["pkg5"],
-                             "package-version": 4,
+                             "package-version": 5,
                             },
                     "pkg5": {"install": {"fullName":"pkg5-1"},
-                             "dependencies": ["pkg6"],
-                             "package-version": 4,
+                             "package-version": 5,
+                            },
+                    "pkg6": {"install": {"fullName":"pkg6-1"},
+                             "package-version": 5,
                             },
                    }
-        install_progress = {"install-progress":
-                             {"pkg1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
-                                         "UNINSTALLED": 'NA',
-                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'},
-                              "pkg3-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
-                                         "UNINSTALLED": 'NA',
-                                         "VERIFIED": 'Mon Apr 18 01:01:01 2005'}}}
-        _write_progress(install_progress)
+        _write_progress({})
         repository = Repository.Repository(INSTANCE, pkg_data)
         self.config.repository = repository
         pkg1 = MockObjects.MockPackage()
+        pkg1.priority = 400
         pkg1.dependencies = ["pkg5"]
-        pkg1.priority = 200
         pkg5 = MockObjects.MockPackage()
+        pkg5.priority = 100
         pkg6 = MockObjects.MockPackage()
         pkg6.priority = 300
         packages = {"pkg1": pkg1, "pkg5": pkg5, "pkg6": pkg6}
         install_order  = self.bombardier._find_install_order(packages)
-        assert install_order == ["pkg6", "pkg5"], "bad install order %s" % install_order
+        assert install_order == ["pkg5", "pkg1", "pkg6"], "bad install order %s" % install_order
+
+        pkg1.priority = 50
+        install_order  = self.bombardier._find_install_order(packages)
+        assert install_order == ["pkg6", "pkg5", "pkg1"], "bad install order %s" % install_order
+
+        pkg6.dependencies = ["pkg1"]
+        install_order  = self.bombardier._find_install_order(packages)
+        assert install_order == ["pkg5", "pkg1", "pkg6"], "bad install order %s" % install_order
 
     def test_install_pkgs(self):
         pkg1 = MockObjects.MockPackage()
@@ -526,6 +529,21 @@ class BombardierTest(unittest.TestCase):
         except SystemExit, e:
             assert e.code == OK
 
+
+    def NOtest_priority(self):
+        pkg_data = {"pkg1": {"install": {"fullName": "pkg1-1"},
+                             "package-version": 4,
+                             "priority": 100,
+                            },
+                    "pkg2": {"install": {"fullName": "pkg2-1"},
+                             "package-version": 4,
+                             "priority": 200,
+                            },
+                   }
+        self.config.data = {"packages" : ["pkg1", "pkg2"]} 
+        order = self.bombardier._find_install_order(pkg_data)
+        print "ORDER: ", order
+
     def test_reconcile_system_with_virtual_dependencies(self):
         full_list = [ 'pkg3', 'pkg2', 'pkg1' ]
 
@@ -555,12 +573,17 @@ class BombardierTest(unittest.TestCase):
                     "pkg2": {"install": {"fullName": "pkg2-1"},
                              "package-version": 4,
                              "virtualpackage" : "pkg_two",
+                             "priority": 200,
                             },
                     "pkg3": {"install": {"fullName": "pkg3-1"},
                              "package-version": 4,
-                             "dependencies": ["pkg_two"]
+                             "dependencies": ["pkg_two"],
+                             "priority": 100,
                             },
                    }
+        return self._check_install(pkg_data)
+
+    def _check_install(self, pkg_data):
         install_progress = {"install-progress": {}}
         _write_progress(install_progress)
         repository = Repository.Repository(INSTANCE, pkg_data)

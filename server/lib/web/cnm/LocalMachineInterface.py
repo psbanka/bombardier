@@ -45,12 +45,16 @@ class LocalMachineInterface(AbstractMachineInterface):
 
     def _svn_checkout(self, version, svn_user, svn_password,
                       svn_url, checkout_dir, debug):
+        "Check out some SVN code for building a package"
+        command = "export"
         if debug:
-            cmd = "svn co --no-auth-cache -r %s --username %s %s %s"
-        else:
-            cmd = "svn export --no-auth-cache -r %s --username %s %s %s"
-        cmd = cmd % (version, svn_user, svn_url, checkout_dir)
-        self.polling_log.info("CMD: --- %s" % cmd)
+            command = "co"
+        username_section = ''
+        if svn_user:
+            username_section = ' --username %s ' % svn_user
+        cmd = "svn %s --no-auth-cache -r %s %s %s %s %s"
+        cmd = cmd % (command, version, username_section, svn_url, checkout_dir)
+        #self.polling_log.info("CMD: --- %s" % cmd)
         self.server_log.info("cmd: (%s)" % cmd, self.machine_name)
         svn_conn = pexpect.spawn(cmd, timeout=30)
         output = []
@@ -148,10 +152,7 @@ class LocalMachineInterface(AbstractMachineInterface):
         config = MockConfig()
         exec ('object = %s.%s(config)' % ( rand_name, class_name.split('.')[0]))
 
-        if not hasattr(object, "metadata"):
-            msg = "Package does not contain any metadata"
-            self.polling_log.info(msg)
-        else:
+        if hasattr(object, "metadata"):
             metadata = object.metadata
         config_requests = config.get_requests()
         for item in config_requests:
