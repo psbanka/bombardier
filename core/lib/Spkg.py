@@ -22,12 +22,13 @@ class SpkgException( Exception ):
     "raised when a system call is made that fails"
     def __init__(self, err_msg=""):
         self.err_msg = str(err_msg)
+        self.cwd = os.getcwd()
         err = Exception()
         Exception.__init__(err)
     def __str__(self):
-        return self.err_msg
+        return "(in %s) %s " % (self.cwd, self.err_msg)
     def __repr__(self):
-        return self.err_msg
+        return self.__str__()
 
 def get_instance():
     "provides the name of the machine this is running on"

@@ -390,8 +390,9 @@ class Bombardier:
             pkns_left = []
             map(pkns_left.append, install_order)
             for pkn in install_order:
-                msg = "Packages remaining to install (in order): %s"
-                Logger.info(msg % pkns_left)
+                msg = "Packages remaining to install (in order):"
+                for pkn in pkns_left:
+                    Logger.info("  +   %s" % pkn)
                 pkns_left.remove(pkn)
                 pkg = add_pkd[pkn]
                 erstr = "Currently installing package priority %s [%s]"
@@ -692,7 +693,7 @@ class Bombardier:
         '''
         status = OK
         remove_full_pkns = []
-        Logger.info("UninstallOrder: %s" % uninstall_order)
+        #Logger.info("UninstallOrder: %s" % uninstall_order)
         for name in uninstall_order:
             if del_pkd[name].full_name:
                 name_str = del_pkd[name].full_name
@@ -815,7 +816,7 @@ class Bombardier:
             Logger.info("Reconcile starting...")
 
         add_pkd, del_pkd, uninstall_order = self._ck_inst_stat(pkns)
-        Logger.info("uninstall_order: %s" % uninstall_order)
+        #Logger.info("uninstall_order: %s" % uninstall_order)
         status = self._uninstall_pkgs(del_pkd, uninstall_order,
                                           dry_run)
         if status == FAIL:
