@@ -45,7 +45,7 @@ except ImportError:
 HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
 LOG_PATH = "%s/.bomsh_log" % os.environ['HOME']
 COMMANDS = ["Show", "Terminal", "Machine", "CliTest", "Package",
-            "Exit", "Set", "Dispatcher", "Edit", "Ssh", "Job"]
+            "Exit", "Set", "Dispatcher", "Edit", "Ssh", "Job", "Create"]
 
 
 ##########################################################################

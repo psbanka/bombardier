@@ -46,10 +46,27 @@ DIST = 7
 STATUS = 8
 SUMMARY = 9
 
+DEFAULT_MACHINE = """ip_address: 127.0.0.1
+default_user: root
+platform: rhel5
+"""
+
+DEFAULT_PACKAGE = """class_name: Module.Class
+dependencies: []
+injectors: {}
+libs: {}
+package-version: 5
+release: 0
+"""
+
+DEFAULT_BOM = """
+-
+"""
+
 class ConfigField(PinshCmd.PinshCmd):
     '''The server keeps track of several types of configuration data.
     This class can provide command-line completion for those data objects'''
-    def __init__(self, name = "configField", data_type=MERGED, strict=True):
+    def __init__(self, name = "configField", data_type=MERGED, strict=True, new=False):
         '''
         name -- Not used except in debugging
         data_type -- which type of configuration data is this object supposed
@@ -83,6 +100,7 @@ class ConfigField(PinshCmd.PinshCmd):
             self.directory = "status"
         elif data_type == SUMMARY:
             self.directory = "summary"
+        self.new = new
 
     def get_object_list(self):
         'returns a list of all self.data_type things'
@@ -140,14 +158,17 @@ class ConfigField(PinshCmd.PinshCmd):
     def post_specific_data(self, tokens, index, new_data):
         '''used with the edit command to upload data to server'''
         tokens[index] = tokens[index].replace('"', '')
-        try:
-            first_token_names, data = self.get_top_level_data(tokens, index)
-        except TypeError:
-            return FAIL, "Unable to read data from server"
-        if len(first_token_names) < 1:
-            msg = "%s was not found on the server to upload to" % tokens[index]
-            raise UnexpectedDataException(msg)
-        url = "json/%s/name/%s" % ( self.directory, first_token_names[0])
+        if not self.new:
+            try:
+                first_token_names, data = self.get_top_level_data(tokens, index)
+            except TypeError:
+                return FAIL, "Unable to read data from server"
+            if len(first_token_names) < 1:
+                msg = "%s was not found on the server to upload to" % tokens[index]
+                raise UnexpectedDataException(msg)
+            url = "json/%s/name/%s" % ( self.directory, first_token_names[0])
+        else:
+            url = "json/%s/name/%s" % ( self.directory, tokens[index])
         post_data = {"yaml": new_data}
         output_dict = system_state.cnm_connector.service_yaml_request(url,
                                                                post_data=post_data)
@@ -158,7 +179,6 @@ class ConfigField(PinshCmd.PinshCmd):
         than that which was typed in by the user. For example, 'sho mach localh'
         will return 'localhost' for the machine name if strict is off,
         otherwise, it will return 'localh'.
-
         '''
         #print "PN: begin self.string = ", self.strict
         tokens[index] = tokens[index].replace('"', '')
@@ -171,7 +191,14 @@ class ConfigField(PinshCmd.PinshCmd):
 
         #print "PN: first_token_names: ", first_token_names
         if len(first_token_names) == 0:
+            if self.new:
+                return tokens[index:]
             return []
+        if self.new:
+            if not tokens[index] in first_token_names:
+                return tokens[index:]
+            else:
+                return []
         if len(first_token_names) > 1:
             return first_token_names
         first_token_name = first_token_names[0]
@@ -186,3 +213,12 @@ class ConfigField(PinshCmd.PinshCmd):
         if len(possible_matches) > 1:
             return PARTIAL, 1
         return COMPLETE, 1
+
+    def get_default_data(self):
+        if self.data_type == MACHINE:
+            return DEFAULT_MACHINE
+        elif self.data_type == BOM:
+            return DEFAULT_BOM
+        elif self.data_type == PACKAGE:
+            return DEFAULT_PACKAGE
+        return ""
