@@ -69,7 +69,7 @@ use.
 
 .. _Definitive Software Library: http://en.wikipedia.org/wiki/Definitive_Software_Library
 .. _Configuration Items: http://en.wikipedia.org/wiki/Configuration_item
-.. _Incident: http://en.wikipedia.org/wiki/Incident_Management_%28ITSM%29
+.. _Incidents: http://en.wikipedia.org/wiki/Incident_Management_%28ITSM%29
 .. _Service Desk: http://en.wikipedia.org/wiki/Information_Technology_Infrastructure_Library#Service_Desk
 
 What does "Bombardier" mean, and how do you pronounce it?

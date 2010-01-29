@@ -16,6 +16,7 @@ Contents:
 
    intro/index
    faq/index
+   topics/index
    glossary
 
 Indices, glossary and tables
