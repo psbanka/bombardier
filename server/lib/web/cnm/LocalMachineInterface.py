@@ -52,7 +52,7 @@ class LocalMachineInterface(AbstractMachineInterface):
         username_section = ''
         if svn_user:
             username_section = ' --username %s ' % svn_user
-        cmd = "svn %s --no-auth-cache -r %s %s %s %s %s"
+        cmd = "svn %s --no-auth-cache -r %s %s %s %s"
         cmd = cmd % (command, version, username_section, svn_url, checkout_dir)
         #self.polling_log.info("CMD: --- %s" % cmd)
         self.server_log.info("cmd: (%s)" % cmd, self.machine_name)
