@@ -132,6 +132,14 @@ class SystemState:
                 if type(config.get("ask_to_disconnect")) == type(True):
                     SystemState.__instance.ask_to_disconnect = \
                         config.get("ask_to_disconnect")
+            if config.get("editor"):
+                editor = config.get("editor")
+                status = os.system("which %s" % editor)
+                if status == OK:
+                    SystemState.__instance.editor = editor
+                else:
+                    msg = "%% Editor %s cannot be found (using %s)."
+                    print msg % (editor, self.editor)
             if config.get("username"):
                 SystemState.__instance.username = config.get("username")
             if config.get("termwidth"):

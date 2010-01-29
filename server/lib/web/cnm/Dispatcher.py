@@ -98,7 +98,6 @@ class BombardierCommand(AbstractCommand):
         "Run bc command"
         return machine_interface.take_action(self.action, self.package_name,
                                              self.script_name, self.debug)
-                                         
 
 class Job(Thread):
     """Job class: Runs remote commands or copies files to a remote machine.
@@ -144,7 +143,7 @@ class Job(Thread):
         "Runs commands in command list and watches status"
         self.server_log.info("Starting...", self.name)
         self.start_time = time.time()
-            
+
         for command in self.commands:
             self.run_command(command)
         self.server_log.info("Finishing", self.name)

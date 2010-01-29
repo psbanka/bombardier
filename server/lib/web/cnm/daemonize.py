@@ -51,7 +51,7 @@ def daemonize():
     maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
     if (maxfd == resource.RLIM_INFINITY):
         maxfd = MAXFD
-  
+
     for file_descriptor in range(0, maxfd):
         try:
             os.close(file_descriptor)

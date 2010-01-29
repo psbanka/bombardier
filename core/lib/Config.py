@@ -263,7 +263,7 @@ class Config(dict):
         expected_type -- type we should return
         optional -- whether it must be implemented
         '''
-        value = self._parse_section(section_string, default, optional)        
+        value = self._parse_section(section_string, default, optional)
         if type(expected_type) == type("string"):
             if type(value) == type(1234) or type(value) == type(123.32):
                 value = str(value)
@@ -297,6 +297,15 @@ class Config(dict):
         2
         '''
         return self._getobj(section_string, default, 1, optional)
+
+    def boolean(self, section_string, default={}, optional=True):
+        '''Get a boolean object from the config'
+        >>> data = {"thing": True}
+        >>> config = Config("tester", data)
+        >>> config.boolean("section")
+        True
+        '''
+        return self._getobj(section_string, default, True, optional)
 
     def dictionary(self, section_string, default={}, optional=True):
         '''Get a dictionary object from the config'

@@ -260,27 +260,22 @@ process as well as the server-home value.
      Dispatcher is offline; enter CI decryption password:
        Dispatcher started
 
-                                                    .
-                            ..                    . -..
-                            .                    . .*
-                           .++.                    -m...
-                           +%##.                 .- #-.- .  . . . .
-                            .##*..              .-.*#+.. -..-- .-.-...
-                            *##%+-             .-m++#+-m-%.+m+ -*m%
-                           -m##*%+.           ...-+.*m% #%#*#*#%##m+.
-                          .-.###*m+*-.     .- m.+##m#% -###+--+-*%m-m
-                          .+m###+#+#%m+-  % -###.-++*m. *#%%m.-- --. .
-                          .++###m++%##m% -+%#*-.+%+-m+* *#-.-..  - * .
-                          .%m##+++-..+%##%%*#---...-m-% -#m-      .  .
-                           m*##..   -.-%##%#+--. -  #-+..#+.
-                           --##.-   +-m++#*-# . .+.#%-+.*#..
-                          +.*##.  .. ++++#%##.----.+#m.-.*--
-                         -+-*##.+-. +m.mm-%m##mm.#*+%--.m*.
-                           -%##*m**m%##*  ++%+%#%%-##mm -#- .
-                          ..-+#######+    . .m m+----.  --+.
-                          ..-++--m-%+.      ...-..m. .   +.
-                           .----.. .
-                              Bombardier Network Command Line
+                  `...``                       `...``
+                 `+dmmy:                      `+dNmy:
+                  -/yNN+                       -/yMm/
+                    /Nm/                         /Nm/
+                    /Nm: ./++/++-       -+++++/` /Nm/   ./++:. `:+++++:`
+                    /mNo-+dmddmds:.` `.:sdmddmh+-oNm/   :hmNNs-/ymddmms-
+                    /mMNdo......omd: :dm+...``-odNMd/    `:dMNms-.....`
+                    /mNs-`      +Nm/ /NN+      `-sNm/     -dMy:.
+                    /Nm/        +Nm/ /mN+        /NN/     :dNo
+                    /mMho-      +MN/ /NN/      :ohMm:     -dMo
+                  -/yNMmho//////oys- -syo//////ohmMNs/- .:sNMh//////-`
+                 `+dNmy:`/dmmmmdo.    `.sdmmmmh:`:hmNd+ /hmmdddddmmd+`
+                  `...`  `......`       `......`  `...` `...........`
+
+                         Bombardier Network Command Line
+
 
      peacemaker (admin)>
 
