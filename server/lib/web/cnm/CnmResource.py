@@ -81,7 +81,7 @@ class CnmResource(Resource):
         "Stop dispatcher and cleanup ServerConfig items"
         try:
             dispatcher = self.get_dispatcher()
-            dispatcher.cleanup_connections(username)
+            dispatcher.terminate(username)
         except DispatcherOffline:
             pass
         try:

@@ -42,7 +42,10 @@ CLIENT_VERSION = get_version("bombardier_client-")
 CORE_VERSION = get_version("bombardier_core-")
 CONFIG_FILE = "unit_test_config_info.yml"
 
-print OLD_CLIENT_VERSION, CLIENT_VERSION, CORE_VERSION
+print "Clients will be updated to the following:"
+print "0.70-client:", OLD_CLIENT_VERSION
+print "1.00-client:", CLIENT_VERSION
+print "1.00-core:", CORE_VERSION
 
 SKIP_SVN_TESTS = False
 if not os.path.isfile(CONFIG_FILE):
@@ -505,7 +508,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         status, output = self.run_job(url, data=post_data, timeout=60)
         assert status == OK
         updated_release = self._get_release(BUILD_PACKAGE_NAME)
-        assert updated_release == current_release + 1
+        assert updated_release == current_release + 1, "%s, %s" % (updated_release, current_release)
 
     def test_package_actions(self):
         self.reset_packages()
@@ -660,13 +663,13 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        suite.addTest(CnmTests("test_data_modification"))
+        #suite.addTest(CnmTests("test_data_modification"))
         #suite.addTest(CnmTests("test_summary"))
         #suite.addTest(CnmTests("test_search"))
         #suite.addTest(DispatcherTests("test_kill_job"))
         #suite.addTest(PackageTests("test_encrypted_ci"))
         #suite.addTest(PackageTests("test_insufficient_config"))
-        #suite.addTest(PackageTests("test_package_build"))
+        suite.addTest(PackageTests("test_package_build"))
         #suite.addTest(PackageTests("test_type5_package_actions"))
         #suite.addTest(PackageTests("test_package_actions"))
 

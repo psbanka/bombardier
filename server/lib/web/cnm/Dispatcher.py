@@ -13,7 +13,7 @@ import StringIO, traceback
 import ServerLogger
 
 from Exceptions import InvalidJobName, JoinTimeout
-from Exceptions import InvalidAction, MachineUnavailableException
+from Exceptions import InvalidAction
 from bombardier_core.static_data import ACTION_LOOKUP
 
 PENDING = 4
@@ -99,14 +99,16 @@ class BombardierCommand(AbstractCommand):
         return machine_interface.take_action(self.action, self.package_name,
                                              self.script_name, self.debug)
 
+
 class Job(Thread):
     """Job class: Runs remote commands or copies files to a remote machine.
      Watches status of job"""
     def __init__(self, name, machine_interface, copy_dict,
-                 commands, require_status):
+                 commands, require_status, predecessors=[]):
         self.name = name
         self.copy_dict = copy_dict
         self.commands = commands
+        self.require_status = require_status
         self.server_log = machine_interface.server_log
         self.machine_interface = machine_interface
         self.start_time = None
@@ -114,13 +116,37 @@ class Job(Thread):
         self.command_status = OK
         self.command_output = ''
         self.output_pointer = 0
+        self.predecessors = predecessors
         self.final_logs = []
         self.elapsed_time = 0
         Thread.__init__(self)
         self.complete_log = ''
-        self.machine_interface.freshen(name, require_status)
+        self.status = OK
+
+    def get_all_predecessors(self):
+        "find out all the possible jobs I'm dependent on"
+        all_predecessors = list(self.predecessors)
+        for i in self.predecessors:
+            all_predecessors += i.get_all_predecessors()
+        return all_predecessors
+
+    def __cmp__(self, other):
+        """Compare myself to another job to see if I should run first
+        or if the other job should run first"""
+        if other in self.get_all_predecessors():
+            return 1
+        elif self in other.get_all_predecessors():
+            return -1
+        else:
+            return 0
+
+    def __repr__(self):
+        "Representation of this class"
+        return self.name
 
     def kill(self, suggested_timeout):
+        "End a job that is currently running"
+        self.status = FAIL
         timeout = 5
         if type(suggested_timeout) == type(10):
             timeout = float(suggested_timeout)
@@ -141,11 +167,15 @@ class Job(Thread):
 
     def run(self):
         "Runs commands in command list and watches status"
+        self.machine_interface.freshen(self.name, self.require_status)
+        self.machine_interface.scp_dict(self.copy_dict)
         self.server_log.info("Starting...", self.name)
         self.start_time = time.time()
 
         for command in self.commands:
-            self.run_command(command)
+            status = self.run_command(command)
+            if status != OK:
+                self.status = FAIL
         self.server_log.info("Finishing", self.name)
         try:
             self.elapsed_time = time.time() - self.start_time
@@ -154,6 +184,7 @@ class Job(Thread):
             self.complete_log = polling_log.get_complete_log()
         except:
             self.server_log.info("EXCEPTION")
+            self.status = FAIL
         self.machine_interface.unset_job()
 
     def run_command(self, command):
@@ -164,6 +195,7 @@ class Job(Thread):
             status, output = command.execute(self.machine_interface)
             self.command_status = status
             self.command_output = output
+            return status
         except Exception:
             self.elapsed_time = time.time() - self.start_time
             msg = "Command %s: Failed to run %s"
@@ -179,20 +211,12 @@ class Job(Thread):
                 self.server_log.error(ermsg, self.name)
             self.command_status = FAIL
             self.command_output += "Exception in server. Check log for details"
+            return FAIL
 
-class Dispatcher(Pyro.core.ObjBase):
-    "Dispatcher class, manages jobs on remote machines"
+class ServerLogMixin:
     def __init__(self):
-        Pyro.core.ObjBase.__init__(self)
-        self.start_time = time.time()
-        self.password = None
-        self.server_home = None
-        self.jobs = {}
-        self.next_job = 1
         self.server_log = ServerLogger.ServerLogger("Dispatcher",
                                                     use_syslog=True)
-        #self.server_log.add_std_err()
-        self.machine_interface_pool = {}
 
     def dump_exception(self, username):
         """Pretty print an exception into the server_log,
@@ -208,6 +232,88 @@ class Dispatcher(Pyro.core.ObjBase):
             ermsg = "%% %s" % line
             self.server_log.error(ermsg, username)
         return {"command_status": FAIL, "traceback": traceback_data}
+
+
+class DispatchMonitor(Thread, ServerLogMixin):
+    """Watches the dispatcher's jobs and starts queued ones if necessary"""
+    def __init__(self, job_queue, active_jobs, broken_jobs, finished_jobs,
+                 server_log):
+        """
+        this class watches the job queue for runnable jobs and runs them. it
+        also watches the active jobs and puts them into the broken_jobs list
+        or the finished_jobs list.
+
+        """
+        Thread.__init__(self)
+        ServerLogMixin.__init__(self)
+        self.job_queue = job_queue
+        self.active_jobs = active_jobs
+        self.broken_jobs = broken_jobs
+        self.finished_jobs = finished_jobs
+        self.server_log = server_log
+        self.kill_switch = False
+
+    def clean_job_queue(self, broken_job):
+        "When a job breaks, remove all jobs that depended on it"
+        new_job_queue = []
+        for job in self.job_queue:
+            if broken_job in job.get_all_predecessors()
+                self.broken_jobs.append(job)
+            else:
+                new_job_queue.append(job)
+        self.job_queue = new_job_queue    
+
+    def is_runnable(self, job):
+        "We want to know if a job can be run"
+        for predecessor in job.get_all_predecessors():
+            if predecessor in self.broken_jobs:
+                return False
+            if predecessor in self.active_jobs:
+                return False
+            if predecessor in self.job_queue:
+                return False
+        return True
+
+    def run(self):
+        "Watchdog method for maintaining all queues"
+        while not self.kill_switch:
+            try:
+                self.job_queue.sort()
+                new_active_jobs = []
+                for job in self.active_jobs:
+                    if not job.isAlive():
+                        if job.status == OK:
+                            self.finished.jobs.append(job)
+                        else:
+                            self.broken_jobs.append(job)
+                            self.clean_job_queue(job)
+                    else:
+                        new_active_jobs.append(job)
+                self.active_jobs = new_active_jobs
+                self.job_queue.sort()
+
+                for job in self.job_queue:
+                    if self.is_runnable(job)
+                        job.start()
+            except Exception:
+                self.dump_exception("DispatchMonitor")
+
+class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
+    "Dispatcher class, manages jobs on remote machines"
+    def __init__(self):
+        Pyro.core.ObjBase.__init__(self)
+        ServerLogMixin.__init__(self)
+        self.start_time = time.time()
+        self.password = None
+        self.server_home = None
+        self.active_jobs = {}
+        self.job_queue = {}
+        self.next_job = 1
+        self.machine_interface_pool = {}
+        self.monitor = DispatchMonitor(self.job_queue, self.active_jobs,
+                                       self.broken_jobs, self.finished_jobs,
+                                       self.server_log)
+        monitor.start()
 
     def set_server_home(self, username, server_home):
         "Set server_home"
@@ -227,7 +333,6 @@ class Dispatcher(Pyro.core.ObjBase):
                                        self.server_home)
         machine_config.merge()
         if self.password:
-            # ^^^
             machine_config.decrypt_config()
         machine_interface = None
         if machine_name in self.machine_interface_pool:
@@ -242,26 +347,45 @@ class Dispatcher(Pyro.core.ObjBase):
                                                            self.server_log)
             self.machine_interface_pool[machine_name] = machine_interface
         return machine_interface 
+
+    def make_job(self, username, machine_interface, commands,
+                 copy_dict, require_status):
+        """Create a new job object, which will be used by either start_job
+        or queue_job"""
+        machine_name = machine_interface.machine_name
+        job_name = "%s@%s-%d" % (username, machine_name, self.next_job)
+        job = Job(job_name, machine_interface, copy_dict,
+                  commands, require_status)
+        self.next_job += 1
+        return job
+
+    def queue_job(self, job_predecessor, username, machine_interface, commands,
+                  copy_dict, require_status):
+        "When you want a job to run after another job is finished"
+        if not job_predecessor in self.job_queue.keys:
+            self.job_queue[job_predecessor] = []
+        job = self.make_job(username, machine_interface, commands, 
+                            copy_dict, require_status)
+        self.job_queue[job_predecessor].append(job)
+
+        output = {"command_status": OK,
+                  "command_output": "Job queued",
+                  "job_name": job.name,
+                 }
+        return output
     
     def start_job(self, username, machine_interface, commands,
                   copy_dict, require_status):
-        "Add a job into the jobs dictionary and start it"
+        "Add a job into the active_jobs dictionary and start it"
         output = {"command_status": OK}
         if not copy_dict:
             copy_dict = {}
         try:
-            machine_name = machine_interface.machine_name
-            job_name = "%s@%s-%d" % (username, machine_name, self.next_job)
-            job = Job(job_name, machine_interface, copy_dict,
-                      commands, require_status)
-            self.jobs[job_name] = job
-            self.next_job += 1
-            machine_interface.scp_dict(copy_dict)
+            job = self.make_job(username, machine_interface, commands,
+                                copy_dict, require_status)
+            self.active_jobs[job.name] = job
             job.start()
             output["job_name"] = job.name
-        except MachineUnavailableException, err:
-            output["command_output"] = str(err)
-            output["command_status"] = FAIL
         except Exception:
             output.update(self.dump_exception(username))
             output["command_status"] = FAIL
@@ -413,6 +537,18 @@ class Dispatcher(Pyro.core.ObjBase):
             return output
         return self.start_job(username, machine_interface, commands, {}, True)
 
+    def setup_machine(self, username, machine_name, password):
+        job1 = self.enable_job(username, machine_name, password)
+        job2 = self.dist_job(username, machine_name, "bombardier_core-1.00-722.tar.gz")
+        job2.predecessors = [job1]
+        job3 = self.dist_job(username, machine_name, "bombardier_client-1.00-722.tar.gz")
+        job3.predecessors = [job2]
+        job4 = self.init_job(username, machine_name)
+        job4.predecessors = [job3]
+        job5 = self.package_action_job(username, '', "check_status", machine_name)
+        job5.predecessors = [job4]
+        self.job_queue += [job1, job2, job3, job4, job5]
+
     def dist_job(self, username, machine_name, dist_name):
         "Job that unpacks and installs a distutils package"
         output = {"command_status": OK}
@@ -426,7 +562,7 @@ class Dispatcher(Pyro.core.ObjBase):
                               "~/%s" % dist_name)
             commands = [unpack, install]
             src_file = dist_name+".tar.gz"
-            copy_dict = {"dist": [os.path.join("dist",src_file), '.']}
+            copy_dict = {"dist": [os.path.join("dist", src_file), '.']}
         except Exception:
             output.update(self.dump_exception(username))
             output["command_status"] = FAIL
@@ -502,10 +638,11 @@ class Dispatcher(Pyro.core.ObjBase):
             return output
         return self.start_job(username, machine_interface, commands, {}, False)
 
-    def cleanup_connections(self, username):
+    def terminate(self, username):
         "Close connections for machine interfaces in interface pool"
         output = {"command_status": OK}
         try:
+            self.monitor.kill_switch = True
             for machine_name in self.machine_interface_pool:
                 machine_interface = self.machine_interface_pool[machine_name]
                 msg = "Requested connection termination to %s" % machine_name
@@ -521,7 +658,7 @@ class Dispatcher(Pyro.core.ObjBase):
         "Wait for a job to finish"
         output = {"command_status": OK}
         try:
-            job = self.jobs.get(job_name)
+            job = self.active_jobs.get(job_name)
             start_time = time.time()
             end_time = start_time + timeout
             if not job:
@@ -535,14 +672,14 @@ class Dispatcher(Pyro.core.ObjBase):
             output["complete_log"] = job.complete_log
         except Exception:
             output.update(self.dump_exception(username))
-        del self.jobs[job_name]
+        del self.active_jobs[job_name]
         return output
 
     def job_poll(self, username, job_name):
         "Poll a job for status info and log data"
         output = {"command_status": OK}
         try:
-            job = self.jobs.get(job_name)
+            job = self.active_jobs.get(job_name)
             if not job:
                 raise InvalidJobName(job_name)
             if job.isAlive():
@@ -565,7 +702,7 @@ class Dispatcher(Pyro.core.ObjBase):
         "Be mean to a job and get rid of it"
         output = {"command_status": OK}
         try:
-            job = self.jobs.get(job_name)
+            job = self.active_jobs.get(job_name)
             if not job:
                 raise InvalidJobName(job_name)
             self.server_log.info("Killing job %s..." % job_name)
@@ -577,14 +714,14 @@ class Dispatcher(Pyro.core.ObjBase):
                 output["command_output"] = "KILLED"
         except Exception:
             output.update(self.dump_exception(username))
-        del self.jobs[job_name]
+        del self.active_jobs[job_name]
         return output
 
     def check_status(self):
         "Return elapsed time"
         time_running = time.time() - self.start_time
         return { "uptime": time_running,
-                 "active_jobs": self.jobs.keys() } 
+                 "active_jobs": self.active_jobs.keys() } 
 
     def set_password(self, password):
         "Set password for configuration item encryption"
@@ -645,9 +782,9 @@ if __name__ == '__main__':
 #    daemon.useNameServer(ns)
 #
 #    #daemon=Pyro.core.Daemon()
-    uri = daemon.connect(Dispatcher(),"dispatcher")
-    print "The daemon runs on port:",daemon.port
-    print "The object's uri is:",uri
+    uri = daemon.connect(Dispatcher(), "dispatcher")
+    print "The daemon runs on port:", daemon.port
+    print "The object's uri is:", uri
 #
     print "Started server."
     daemon.requestLoop()
