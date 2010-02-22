@@ -107,7 +107,7 @@ class Repository:
             Logger.error(erstr)
             raise Exceptions.BadPackage(full_name, erstr)
         if sys.platform != 'win32':
-            cmd = "cd %s && tar -xzf %s.spkg" % (pkg_dir, full_name)
+            cmd = "cd %s && tar -mxzf %s.spkg" % (pkg_dir, full_name)
             Logger.info("Untarring with command: %s" %cmd)
             if not os.system(cmd) == OK:
                 raise Exceptions.BadPackage(full_name, "Could not unpack")
@@ -150,7 +150,7 @@ class Repository:
                 cmd = "mkdir -p %s" % tar_file_dir
                 status = os.system(cmd)
                 if status == OK:
-                    cmd = "cd %s && tar -xzf ../%s"
+                    cmd = "cd %s && tar -mxzf ../%s"
                     cmd = cmd % (tar_file_dir, tar_file_name)
                     if os.system(cmd) != OK:
                         msg = "could not untar %s" % (tar_file_name)
