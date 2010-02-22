@@ -23,7 +23,6 @@ be easily added, including cygwin"""
 
 import sys, optparse, StringIO, traceback, yaml, time, re
 
-from bombardier_core.Cipher import Cipher
 from bombardier_core.Logger import Logger
 from bombardier_core.Config import Config
 from bombardier_client.Repository import Repository
@@ -182,6 +181,11 @@ class BombardierEnvironment:
             input_data = input_data.next()
         config_key = input_data.get("config_key", None)
         if config_key:
+            try:
+                from bombardier_core.Cipher import Cipher
+            except ImportError:
+                msg = "This machine cannot accept an encrypted configuration"
+                raise ConfigurationException(msg)
             enc_yaml_file = os.path.join(get_spkg_path(), self.instance_name,
                                          'client.yml.enc')
             if not os.path.isfile(enc_yaml_file):
