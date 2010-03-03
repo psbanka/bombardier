@@ -10,7 +10,6 @@ import django.utils.simplejson as json
 from bombardier_core.static_data import SERVER_CONFIG_FILE, OK, FAIL
 from Exceptions import InvalidServerHome
 from bombardier_core.Cipher import Cipher
-import time
 
 from settings import *
 from django.contrib.auth.models import User
@@ -120,6 +119,7 @@ class BasicTest:
         response = self.client.get(url)
         try:
             content_dict = json.loads( response.content )
+            self.check_for_traceback(content_dict)
         except ValueError:
             self.fail("Did not receive any proper JSON from the server!")
         self.failUnlessEqual(response.status_code, expected_status_code)
@@ -142,11 +142,28 @@ class BasicTest:
         open("/opt/spkg/localhost/status.yml", 'w').write(yaml_str)
         open("configs/fixtures/status/localhost.yml", 'w').write(yaml_str)
 
+    def check_for_traceback(self, content_dict):
+        if "traceback" in content_dict:
+            print "EXCEPTION===================================="
+            print ''.join(content_dict["traceback"])
+            print "============================================="
+            
+        assert not "traceback" in content_dict
+
     def run_job(self, url, data={}, timeout=6, verbose=False):
         username = self.super_user.username
         
         response = self.client.post(path=url, data=data)
+        if verbose:
+            print "RESPONSE.CONTENT============================="
+            print response.content
+            print "============================================="
         content_dict = json.loads( response.content )
+        if verbose:
+            print "CONTENT_DICT================================="
+            print content_dict
+            print "============================================="
+
         try:
             job_name = content_dict["job_name"]
         except KeyError:
@@ -157,12 +174,19 @@ class BasicTest:
         timeout_counter = 0
         next_number = 1
         while timeout_counter < timeout:
-            url = '/json/job/poll/%s' % job_name
-            content_dict = self.get_content_dict(url)
-            assert "alive" in content_dict
+            job_names = { "job_names": [job_name] }
+            data = {'yaml': yaml.dump(job_names)} 
+            url = '/json/job/poll/'
+            response = self.client.post(path=url, data=data)
+            content_dict = json.loads( response.content )
+            time.sleep(0.1)
             if verbose:
-                print "NEW OUTPUT:", content_dict["new_output"], "ALIVE:", content_dict["alive"]
-            if not content_dict["alive"]:
+                print "NEW OUTPUT:", content_dict
+            job_content_dict = content_dict.get(job_name)
+            if job_content_dict["command_status"] == "QUEUED":
+                continue
+            assert "alive" in job_content_dict
+            if not job_content_dict["alive"]:
                 break
             time.sleep(1)
             timeout_counter += 1
@@ -174,7 +198,7 @@ class BasicTest:
         url = '/json/machine/cleanup'
         response = self.client.post(path=url, data={})
         if verbose:
-            print "FINAL OUTPUT: (%s) / (%s)" % (join_output["command_status"], join_output["complete_log"])
+            print "FINAL OUTPUT: %s" % join_output
         return join_output["command_status"], join_output["complete_log"]
 
     def make_localhost_config(self, additional_config={}):
@@ -393,6 +417,64 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         status, output = self.run_job(url, data={"dist": "test"}, timeout=60)
         assert status == OK
         assert "EMPTY_TEST-1.egg-info" in output, output
+
+    def test_stop_all_jobs(self):
+        url = '/json/machine/start_test/localhost'
+        response = self.client.post(path=url, data={"machine": "localhost"})
+        job_name1 = yaml.load(response.content)["job_name"]
+        response = self.client.post(path=url, data={"machine": "localhost"})
+        job_name2 = yaml.load(response.content)["job_name"]
+
+        url = "/json/dispatcher/status"
+        start_time = time.time()
+        while True:
+            response = self.client.get(url)
+            content_dict = json.loads( response.content )
+            if job_name1 in content_dict["active_jobs"]:
+                break
+            time.sleep(1)
+            assert (time.time() - start_time) < 5.0
+    
+        url = '/json/machine/stop-jobs/'
+        response = self.client.post(path=url, data={"machine": "localhost"})
+        content_dict = json.loads( response.content )
+        assert content_dict["command_status"] == OK, content_dict
+        test_str = "%s killed" % job_name1
+        output = content_dict["command_output"]
+        assert test_str in output, "%s not in %s" % (test_str, output)
+        assert "%s removed" % job_name2 in output
+
+        url = "/json/machine/show-jobs/localhost"
+        start_time = time.time()
+        found1 = False
+        found2 = False
+        while not (found1 and found2):
+            response = self.client.get(url)
+            content_dict = json.loads( response.content )
+            broken_job_info = content_dict["job_info"]["broken_jobs"]
+            for job_info in broken_job_info:
+                if job_name1 in job_info:
+                    found1 = True
+                elif job_name2 in job_info:
+                    found2 = True
+            time.sleep(1)
+            assert (time.time() - start_time) < 5.0
+    
+        url = '/json/machine/clear-broken-jobs/'
+        response = self.client.post(path=url, data={"machine": "localhost"})
+        content_dict = json.loads( response.content )
+        assert content_dict["command_status"] == OK, content_dict
+        output = content_dict["command_output"]
+        assert "%s cleared" % job_name1 in output, output
+        assert "%s cleared" % job_name2 in output, output
+
+        url = "/json/dispatcher/status"
+        response = self.client.get(url)
+        content_dict = json.loads( response.content )
+        broken_jobs = content_dict["broken_jobs"]
+
+        assert not job_name1 in content_dict["broken_jobs"], content_dict
+        assert not job_name2 in content_dict["broken_jobs"], content_dict
 
     def test_client_update(self):
         url = '/json/machine/dist/localhost'
@@ -656,6 +738,9 @@ if __name__ == '__main__':
     initialize_tests(client)
 
     full_suite = 1
+    if len(sys.argv) > 1:
+        full_suite = 0
+
     suite = unittest.TestSuite()
     if full_suite:
         suite.addTest(unittest.makeSuite(CnmTests))
@@ -666,10 +751,11 @@ if __name__ == '__main__':
         #suite.addTest(CnmTests("test_data_modification"))
         #suite.addTest(CnmTests("test_summary"))
         #suite.addTest(CnmTests("test_search"))
-        #suite.addTest(DispatcherTests("test_kill_job"))
+        #suite.addTest(DispatcherTests("test_client_update"))
+        suite.addTest(DispatcherTests("test_stop_all_jobs"))
         #suite.addTest(PackageTests("test_encrypted_ci"))
         #suite.addTest(PackageTests("test_insufficient_config"))
-        suite.addTest(PackageTests("test_package_build"))
+        #suite.addTest(PackageTests("test_package_build"))
         #suite.addTest(PackageTests("test_type5_package_actions"))
         #suite.addTest(PackageTests("test_package_actions"))
 

@@ -29,6 +29,20 @@ class InvalidAction(Exception):
     def __str__(self):
         return self.__repr__()
 
+class QueuedJob(ExceptionBase):
+    def __init__(self, job_name):
+        ExceptionBase.__init__(self)
+        self.job_name = job_name
+    def __repr__(self):
+        return self.job_name
+
+class CannotQueueJob(ExceptionBase):
+    def __init__(self, reason):
+        ExceptionBase.__init__(self)
+        self.reason = reason
+    def __repr__(self):
+        return self.reason
+
 class DispatcherAlreadyStarted(ExceptionBase):
     def __repr__(self):
         return ""

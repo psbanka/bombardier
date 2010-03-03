@@ -29,6 +29,12 @@ class AbstractMachineInterface:
         self.machine_name  = machine_config.machine_name
         self.server_home   = machine_config.server_home
 
+    def is_available(self):
+        "Whether or not we can run a job on this interface"
+        if self.job_name:
+            return False
+        return True
+
     def set_job(self, job_name):
         "Sets the job name / locks the object"
         if self.job_name:
@@ -41,10 +47,10 @@ class AbstractMachineInterface:
 
     def unset_job(self):
         "Un-Sets the job name / Un-locks the object"
-        self.job_name = None
-        self.polling_log = None
         msg = "UN-Binding interface %s to job %s"
         msg = msg % (self.machine_name, self.job_name)
+        self.job_name = None
+        self.polling_log = None
         self.server_log.info(msg, self.machine_name)
 
     def get_new_logs(self):

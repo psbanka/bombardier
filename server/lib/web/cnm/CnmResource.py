@@ -7,6 +7,7 @@ from Exceptions import InvalidServerHome, DispatcherOffline
 from Exceptions import DispatcherAlreadyStarted, DispatcherError
 from daemonize import daemonize
 
+from Pyro.util import getPyroTraceback
 from bombardier_core.static_data import OK, FAIL
 import Pyro.core
 import StringIO
@@ -60,7 +61,7 @@ class CnmResource(Resource):
     @classmethod
     def _check_dispatcher_stopped(cls, pid):
         "Check for running pid"
-        cmd = "lsof -p %s | wc -l" % pid
+        cmd = "lsof -p %s 2>/dev/null | wc -l" % pid
         _status, output = gso(cmd)
         if output.strip() == "0":
             return True
@@ -136,17 +137,18 @@ class CnmResource(Resource):
         raise DispatcherError("Cannot be started")
 
     @classmethod
-    def dump_exception(cls, request):
+    def dump_exception(cls, request, exception):
         "Pretty print an exception"
         exc = StringIO.StringIO()
         traceback.print_exc(file=exc)
         exc.seek(0)
         data = exc.read()
-        traceback_data = []
-        for line in data.split('\n'):
-            traceback_data.append(line)
-            ermsg = "%% %s" % line
-            print "%s : %s " % (request.user, ermsg)
+        #traceback_data = []
+        #for line in data.split('\n'):
+            #traceback_data.append(line)
+            #ermsg = "%% %s" % line
+            #print "%s : %s " % (request.user, ermsg)
+        traceback_data = getPyroTraceback(exception)
         return {"status": FAIL, "traceback": traceback_data}
 
     @classmethod

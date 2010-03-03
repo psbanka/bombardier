@@ -40,11 +40,13 @@ class PackageBuildEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.package_build_job(request.user, package_name,
-                                                  svn_user, svn_password, debug,
-                                                  prepare) 
-        except Exception:
-            output.update(self.dump_exception(request))
+            job_name = dispatcher.package_build_job(request.user, package_name,
+                                                    svn_user, svn_password, debug,
+                                                    prepare) 
+            dispatcher.queue_job(job_name)
+            output = dispatcher.get_job_status(job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -60,10 +62,12 @@ class PackageActionEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.package_action_job(request.user, package_name,
-                                                   action, machine_name) 
-        except Exception:
-            output.update(self.dump_exception(request))
+            job_name = dispatcher.package_action_job(request.user, package_name,
+                                                     action, machine_name) 
+            dispatcher.queue_job(job_name)
+            output = dispatcher.get_job_status(job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -81,9 +85,11 @@ class MachineEnableEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.enable_job(request.user, machine_name, password)
-        except Exception:
-            output.update(self.dump_exception(request))
+            job_name = dispatcher.enable_job(request.user, machine_name, password)
+            dispatcher.queue_job(job_name)
+            output = dispatcher.get_job_status(job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -97,9 +103,11 @@ class MachineDisableEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.disable_job(request.user, machine_name)
-        except Exception:
-            output.update(self.dump_exception(request))
+            job_name = dispatcher.disable_job(request.user, machine_name)
+            dispatcher.queue_job(job_name)
+            output = dispatcher.get_job_status(job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -113,9 +121,11 @@ class MachineStatusEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.check_status_job(request.user, machine_name)
-        except Exception:
-            output.update(self.dump_exception(request))
+            job_name = dispatcher.check_status_job(request.user, machine_name)
+            dispatcher.queue_job(job_name)
+            output = dispatcher.get_job_status(job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -140,9 +150,11 @@ class MachineStartReconcileEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.reconcile_job(request.user, machine_name)
-        except Exception:
-            output.update(self.dump_exception(request))
+            job_name = dispatcher.reconcile_job(request.user, machine_name)
+            dispatcher.queue_job(job_name)
+            output = dispatcher.get_job_status(job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -156,9 +168,11 @@ class MachineUnPushEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.unpush_job(request.user, machine_name)
-        except Exception:
-            output.update(self.dump_exception(request))
+            job_name = dispatcher.unpush_job(request.user, machine_name)
+            dispatcher.queue_job(job_name)
+            output = dispatcher.get_job_status(job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -172,9 +186,32 @@ class MachinePushEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.push_job(request.user, machine_name)
-        except Exception:
-            output.update(self.dump_exception(request))
+            job_name = dispatcher.push_job(request.user, machine_name)
+            dispatcher.queue_job(job_name)
+            output = dispatcher.get_job_status(job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
+class MachineStartSetupEntry(CnmResource):
+    "Initialize bombardier client class"
+    @login_required
+    def create(self, request, machine_name):
+        "Run a job to initialize bombardier client on a machine"
+        output = {"command_status": OK}
+        try:
+            post_dict = yaml.load(request.POST.get("yaml"))
+            password = post_dict.get('password')
+            if not password:
+                raise InvalidInput("Password needed")
+            dispatcher = self.get_dispatcher()
+            server_home = CnmResource.get_server_home()
+            dispatcher.set_server_home(request.user, server_home)
+            init_job_name = dispatcher.setup_machine(request.user, machine_name, password)
+            output = dispatcher.get_job_status(init_job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -188,9 +225,11 @@ class MachineStartInitEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.init_job(request.user, machine_name)
-        except Exception:
-            output.update(self.dump_exception(request))
+            job_name = dispatcher.init_job(request.user, machine_name)
+            dispatcher.queue_job(job_name)
+            output = dispatcher.get_job_status(job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -205,9 +244,11 @@ class MachineStartDistEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.dist_job(request.user, machine_name, dist_name)
-        except Exception:
-            output.update(self.dump_exception(request))
+            job_name = dispatcher.dist_job(request.user, machine_name, dist_name)
+            dispatcher.queue_job(job_name)
+            output = dispatcher.get_job_status(job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -221,9 +262,11 @@ class MachineStartTestEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             server_home = CnmResource.get_server_home()
             dispatcher.set_server_home(request.user, server_home)
-            output = dispatcher.test_job(request.user, machine_name)
-        except Exception:
-            output.update(self.dump_exception(request))
+            job_name = dispatcher.test_job(request.user, machine_name)
+            dispatcher.queue_job(job_name)
+            output = dispatcher.get_job_status(job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -238,8 +281,57 @@ class MachineCleanupEntry(CnmResource):
             output = dispatcher.cleanup_connections(request.user)
         except DispatcherOffline:
             output = {}
-        except Exception:
-            output.update(self.dump_exception(request))
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
+class MachineClearBrokenEntry(CnmResource):
+    "Clear out the broken job dictionary for a machine"
+    @login_required
+    def create(self, request):
+        "Clean up all machine connections in the dispatcher"
+        machine_name = request.POST.get("machine", None)
+        output = {"command_status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            output = dispatcher.clear_broken(request.user, machine_name)
+        except DispatcherOffline:
+            output = {}
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
+
+class MachineStopJobsEntry(CnmResource):
+    "Stop all running jobs and anything pending"
+    @login_required
+    def create(self, request):
+        "Clean up all machine connections in the dispatcher"
+        machine_name = request.POST.get("machine", None)
+        output = {"command_status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            output = dispatcher.stop_all_jobs(request.user, machine_name)
+        except DispatcherOffline:
+            output = {}
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
+class MachineShowJobsEntry(CnmResource):
+    "Show all the job information for a machine"
+    @login_required
+    def read(self, request, machine_name):
+        "Get machine job info"
+        output = {"command_status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            output = dispatcher.show_jobs(request.user, machine_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -252,22 +344,24 @@ class JobJoinEntry(CnmResource):
         try:
             dispatcher = self.get_dispatcher()
             output = dispatcher.job_join(request.user, job_name, 10)
-        except Exception:
-            output.update(self.dump_exception(request))
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
 class JobPollEntry(CnmResource):
     "Job polling class"
     @login_required
-    def read(self, request, job_name):
+    def create(self, request):
         "Ask dispatcher for output from a job"
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.job_poll(request.user, job_name)
-        except Exception:
-            output.update(self.dump_exception(request))
+            post_dict = yaml.load(request.POST.get("yaml"))
+            job_names = post_dict.get("job_names", [])
+            output = dispatcher.job_poll(request.user, job_names)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -281,8 +375,8 @@ class JobKillEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             timeout = request.POST.get("timeout", None)
             output = dispatcher.job_kill(request.user, job_name, timeout)
-        except Exception:
-            output.update(self.dump_exception(request))
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -303,8 +397,8 @@ class DispatcherControlEntry(CnmResource):
         except DispatcherOffline:
             output["command_status"] = FAIL
             output["command_output"] = "Dispatcher is offline."
-        except Exception:
-            output.update(self.dump_exception(request))
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -345,8 +439,8 @@ class DispatcherControlEntry(CnmResource):
             else:
                 print "INVALID ACTION %s" % action
                 raise InvalidDispatcherAction(action)
-        except Exception:
-            output.update(self.dump_exception(request))
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -369,6 +463,8 @@ urlpatterns = patterns('',
        MachineUnPushEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/push/(?P<machine_name>.*)',
        MachinePushEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/setup/(?P<machine_name>.*)',
+       MachineStartSetupEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/init/(?P<machine_name>.*)',
        MachineStartInitEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/dist/(?P<machine_name>.*)',
@@ -377,8 +473,15 @@ urlpatterns = patterns('',
        MachineStartTestEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/cleanup_connections',
        MachineCleanupEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/stop-jobs/', 
+        MachineStopJobsEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/clear-broken-jobs/', 
+        MachineClearBrokenEntry(permitted_methods = ['POST'])),
+   url(r'^json/machine/show-jobs/(?P<machine_name>.*)', 
+        MachineShowJobsEntry(permitted_methods = ['GET'])),
    url(r'^json/job/join/(?P<job_name>.*)', JobJoinEntry()),
-   url(r'^json/job/poll/(?P<job_name>.*)', JobPollEntry()),
+   url(r'^json/job/poll/',
+        JobPollEntry(permitted_methods = ['POST'])),
    url(r'^json/job/kill/(?P<job_name>.*)', 
         JobKillEntry(permitted_methods = ['POST'])),
    url(r'^json/dispatcher/(?P<action>.*)', 

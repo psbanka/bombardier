@@ -88,6 +88,7 @@ class CliHelpTest(CliUnitTest):
         expected_output = [
              '?',
              'cli            do not use this',
+             'create         create a new system component', 
              'dispatcher     dispatcher control commands and status',
              'edit           modify components of the system', 
              'exit           exit current mode',

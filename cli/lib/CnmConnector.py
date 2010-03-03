@@ -291,21 +291,36 @@ class CnmConnector:
         url = "json/machine/cleanup_connections"
         self.service_yaml_request(url, post_data={})
 
-    def watch_job(self, job_name):
-        libUi.info("Job name: %s" % job_name)
-        output = {"alive": 1}
-        while output.get("alive", 0):
+    def _is_any_alive(self, poll_output):
+        for job_name in poll_output:
+            if poll_output[job_name].get("alive", False):
+                return True
+        return False
+
+    def watch_jobs(self, job_names):
+        libUi.info("Job names: %s" % job_names)
+        summary_output = {}
+        while job_names:
             time.sleep(0.25)
-            url = "json/job/poll/%s" % job_name
-            output = system_state.cnm_connector.service_yaml_request(url)
-            if "traceback" in output:
-                raise MachineTraceback(url, output["traceback"])
-            new_output = output["new_output"]
-            if new_output:
-                libUi.process_cnm(new_output)
-        libUi.info("Joining...")
-        output = system_state.cnm_connector.join_job(job_name)
-        return output
+            url = "json/job/poll/"
+            post_data = {"yaml": yaml.dump({"job_names": job_names})}
+            output = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
+            for job_name in output:
+                job_output = output[job_name]
+                if "traceback" in job_output:
+                    print "TRACEBACK"
+                    raise MachineTraceback(url, job_output["traceback"]) #FIXME what happens here?
+                new_output = job_output.get("new_output", '')
+                if new_output:
+                    libUi.process_cnm(new_output)
+                if not job_output.get("alive", False):
+                    libUi.info("Joining %s..." % job_name)
+                    out = system_state.cnm_connector.join_job(job_name)
+                    summary_output[job_name] = out
+                    job_names +=  out.get("children", [])
+                    job_names.remove(job_name)
+                 
+        return summary_output
 
     def get_job(self, url, post_data):
         out = self.service_yaml_request(url, post_data=post_data)
@@ -334,9 +349,7 @@ class CnmConnector:
         if action == "status":
             output = self.service_yaml_request(dispatcher_url)
             if output.get('command_status') == OK:
-                return_list = [ "uptime: %7.2f" % float(output['uptime']),
-                                "active_jobs: %s" % output['active_jobs']]
-                return_status = OK
+                return OK, output
             else:
                 return_list = ["Dispatcher is offline."]
                 return_status = FAIL

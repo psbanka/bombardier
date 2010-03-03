@@ -99,7 +99,7 @@ class Create(PinshCmd.PinshCmd):
     '''Create a file'''
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "create")
-        self.help_text = "edit\tcreate a new system component"
+        self.help_text = "create\tcreate a new system component"
         machine = Machine()
         include = Include()
         package = Package()

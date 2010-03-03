@@ -41,6 +41,7 @@ from SystemStateSingleton import SystemState, ENABLE
 from PackageField import PackageField, FIX, PURGE, NOT_INSTALLED, INSTALLED
 import PackageActionField
 from Exceptions import MachineTraceback, CommandError
+from JobNameField import JobNameField
 import Integer
 from Ssh import Ssh
 from Show import Status, Summary
@@ -56,6 +57,7 @@ URL_LOOKUP = {'test': "json/machine/start_test/%s",
               'status': "json/machine/status/%s",
               'enable': "json/machine/enable/%s",
               'disable': "json/machine/disable/%s",
+              'setup': "json/machine/setup/%s",
              }
 
 def setup_test():
@@ -142,10 +144,13 @@ class Machine(PinshCmd.PinshCmd):
         edit = PinshCmd.PinshCmd("edit", "edit\tedit the configuration for this machine")
         push = PinshCmd.PinshCmd("push", "push\tsend cleartext configuration data to machine for troublehsooting")
         unpush = PinshCmd.PinshCmd("unpush", "unpush\tremove cleartext configuration data from machine")
+        setup = PinshCmd.PinshCmd("setup", "setup\tinstall bombardier core and client onto a machine with depedencies")
+        job = PinshCmd.PinshCmd("job", "job\toperations on the job queues")
         self.machine_field.children = [test, dist, init, enable, ssh, summary,
                                        disable, check_status, status, edit,
                                        reconcile, execute, install, uninstall,
-                                       configure, verify, push, unpush]
+                                       configure, verify, push, unpush, setup,
+                                       job]
 
         # Third-level commands
         dist_field = ConfigField(data_type=DIST)
@@ -162,11 +167,19 @@ class Machine(PinshCmd.PinshCmd):
         configure.children = [installed_package_field]
         execute.children = [executable_package_field]
 
+        clear_broken = PinshCmd.PinshCmd("clear-broken", "clear-broken-jobs\tclear the broken jobs")
+        stop = PinshCmd.PinshCmd("stop", "stop\timmediately kill all active and pending jobs")
+        show = PinshCmd.PinshCmd("show", "show\tshow active, pending, broken, and finished jobs")
+        view = PinshCmd.PinshCmd("view", "view\tview a running, finished, or broken job")
+        job.children = [clear_broken, stop, show, view]
+
         # Fourth-level commands
         fix.children = [PackageField(action_type=FIX)]
         purge.children = [PackageField(action_type=PURGE)]
         package_actions = PackageActionField.PackageActionField()
         executable_package_field.children = [package_actions]
+        job_name_field = JobNameField()
+        view.children = [job_name_field]
 
     def analyze_output(self, machine_name, tokens, output, post_data):
         command = tokens[2].lower()
@@ -181,22 +194,6 @@ class Machine(PinshCmd.PinshCmd):
             else:
                 return FAIL, ["%s FAILED to install %s" % (machine_name, post_data["dist"])]
         return output["command_status"], output["command_output"]
-
-    def watch_job(self, job_name):
-        libUi.info("Job name: %s" % job_name)
-        output = {"alive": 1}
-        while output.get("alive", 0):
-            time.sleep(0.25)
-            url = "json/job/poll/%s" % job_name
-            output = system_state.cnm_connector.service_yaml_request(url)
-            if "traceback" in output:
-                raise MachineTraceback(url, output["traceback"])
-            new_output = output["new_output"]
-            if new_output:
-                libUi.process_cnm(new_output)
-        libUi.info("Joining...")
-        output = system_state.cnm_connector.join_job(job_name)
-        return output
 
     def check_machine_name(self, tokens, no_flag):
         possible_machine_names = self.machine_field.preferred_names(tokens, 1)
@@ -218,7 +215,7 @@ class Machine(PinshCmd.PinshCmd):
         url = URL_LOOKUP[command] % machine_name
         if command == "dist":
             post_data = {"dist": tokens[-1]}
-        elif command == "enable":
+        elif command in [ "enable", "setup" ]:
             prompt = "%s administrative ssh password: " % machine_name
             password = libUi.pwd_input(prompt)
             yml_dict = yaml.dump( {"password" : password } )
@@ -265,13 +262,35 @@ class Machine(PinshCmd.PinshCmd):
             url = "/json/machine/push/%s" % machine_name
             post_data = {"machine": machine_name}
             job_name = system_state.cnm_connector.get_job(url, post_data)
-            return system_state.cnm_connector.watch_job(job_name)
+            return system_state.cnm_connector.watch_jobs([job_name])
 
         if command == "unpush":
             url = "/json/machine/unpush/%s" % machine_name
             post_data = {"machine": machine_name}
             job_name = system_state.cnm_connector.get_job(url, post_data)
-            return system_state.cnm_connector.watch_job(job_name)
+            return system_state.cnm_connector.watch_jobs([job_name])
+
+        if command == "job":
+            sub_command = "show"
+            if len(tokens) >= 4:
+                sub_command = tokens[3]
+            
+            post_data = None
+            if sub_command == "stop":
+                url = "/json/machine/stop-jobs/"
+                post_data = {"machine": machine_name}
+            elif sub_command == "clear-broken":
+                url = "/json/machine/clear-broken-jobs/"
+                post_data = {"machine": machine_name}
+            elif sub_command == "view":
+                job_name = tokens[4]
+                return system_state.cnm_connector.watch_jobs([job_name])
+            else:
+                url = "/json/machine/show-jobs/%s" % machine_name
+                output = system_state.cnm_connector.service_yaml_request(url)
+                return output["command_status"], output
+            output = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
+            return output["command_status"], output["command_output"]
 
         if command in ["install", "uninstall", "verify",
                        "configure", "execute"]:
@@ -292,8 +311,8 @@ class Machine(PinshCmd.PinshCmd):
 
         try:
             job_name = system_state.cnm_connector.get_job(url, post_data)
-            output = system_state.cnm_connector.watch_job(job_name)
-            return self.analyze_output(machine_name, tokens, output, post_data)
+            output = system_state.cnm_connector.watch_jobs([job_name])
+            return self.analyze_output(machine_name, tokens, output[job_name], post_data)
         except MachineTraceback, m_err:
             libUi.process_traceback(m_err)
             return FAIL,[]

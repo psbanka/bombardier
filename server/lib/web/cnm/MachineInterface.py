@@ -57,11 +57,15 @@ class MachineInterface(AbstractMachineInterface):
 
     def terminate(self):
         "Harshly disconnect from the remote system"
-        result = self.ssh_conn.terminate(force=True)
-        if result:
-            self.status = DISCONNECTED
-            return OK
-        return FAIL
+        status = OK
+        if self.ssh_conn:
+            result = self.ssh_conn.terminate(force=True)
+            if result:
+                self.status = DISCONNECTED
+            else:
+                status = FAIL
+        self.unset_job()
+        return status
 
     def connect(self):
         "Make a new connection to the remote system"
