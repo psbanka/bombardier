@@ -55,7 +55,7 @@ class EditType(PinshCmd.PinshCmd):
         fh = os.fdopen(fd, 'w+b')
         fh.write(conf_str)
         fh.close()
-        os.system("vim %s" % fn)
+        os.system("%s %s" % (system_state.editor, fn))
         post_data = yaml.load(open(fn).read())
         if post_data == current_dict:
             return FAIL, ['', "No changes made. Not submitting to server."]
@@ -89,6 +89,13 @@ class Package(EditType):
         self.config_field = ConfigField.ConfigField(data_type=ConfigField.PACKAGE)
         self.children = [self.config_field]
 
+class User(EditType):
+    'Edit user data from the server'
+    def __init__(self):
+        EditType.__init__(self, "user", "user\tedit a user")
+        self.config_field = ConfigField.ConfigField(data_type=ConfigField.USER)
+        self.children = [self.config_field]
+
 class Bom(EditType):
     'Displays bill-of-materials ("bom") data from the server'
     def __init__(self):
@@ -104,7 +111,8 @@ class Edit(PinshCmd.PinshCmd):
         machine = Machine()
         include = Include()
         package = Package()
+        user = User()
         bom = Bom()
-        self.children = [machine, include, bom, package]
+        self.children = [machine, include, bom, package, user]
         self.cmd_owner = 1
 

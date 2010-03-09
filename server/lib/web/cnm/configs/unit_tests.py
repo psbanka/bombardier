@@ -150,7 +150,7 @@ class BasicTest:
             
         assert not "traceback" in content_dict
 
-    def run_job(self, url, data={}, timeout=6, verbose=False):
+    def run_job(self, url, data={}, timeout=6, verbose=False, require_comment=None):
         username = self.super_user.username
         
         response = self.client.post(path=url, data=data)
@@ -193,7 +193,19 @@ class BasicTest:
 
         url = '/json/job/join/%s' % job_name
         join_output = self.get_content_dict(url)
+        if require_comment != None:
+            assert "jobs_requiring_comment" in join_output, join_output
+            found_job_name = False
+            for c_job_name, c_job_info in join_output["jobs_requiring_comment"]:
+                if job_name == c_job_name:
+                    found_job_name = True
+                    break
+            assert found_job_name == True, join_output["jobs_requiring_comment"]
         assert "command_status" in join_output, join_output
+        if verbose:
+            print "JOIN OUTPUT================================"
+            print join_output
+            print "==========================================="
 
         url = '/json/machine/cleanup'
         response = self.client.post(path=url, data={})
@@ -319,7 +331,7 @@ class CnmTests(unittest.TestCase, BasicTest):
 
         response = self.client.post('/json/user/name/delete_me', {"first_name": "Buffy"})
         content_dict = json.loads( response.content )
-        self.failUnlessEqual(content_dict["status"], OK)
+        self.failUnlessEqual(content_dict["command_status"], OK)
 
         content_dict = self.get_content_dict('/json/user/name/delete_me')
         self.failUnlessEqual(content_dict[u"first_name"], "Buffy")
@@ -492,11 +504,62 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         status,output = self.run_job(url, data={}, timeout=60)
         assert status == OK
 
-    def test_dist_update(self):
+    def acknowledge_everything(self):
+        url = '/json/job/comment/pending/'
+        response = self.client.get(url)
+        content_dict = json.loads( response.content )
+        job_names = []
+        for job_name, job_info in content_dict["job_info"]:
+            job_names.append(job_name)
+        data = {"job_names": job_names,
+                "comment": "test comment",
+                "publish": False,
+               }
+        post_data = {"yaml": yaml.dump(data)}
+        response = self.client.post(path=url, data=post_data)
+        content_dict = json.loads( response.content )
+
+    def test_dist_update_for_commenting(self):
+        self.acknowledge_everything()
+
         url = '/json/machine/dist/localhost'
-        status, output = self.run_job(url, data={"dist": "test"}, timeout=60)
+        status, output = self.run_job(url, data={"dist": "test"}, timeout=60, require_comment=True)
         assert status == OK
-        assert "EMPTY_TEST-1.egg-info" in output, output
+
+        url = '/json/job/comment/pending/'
+        response = self.client.get(url)
+        content_dict = json.loads( response.content )
+        found_job_name = None
+        for job_name, job_info in content_dict["job_info"]:
+            if job_info == "DIST: test":
+                found_job_name = job_name
+                break
+        assert found_job_name
+
+        data = {"job_names": [found_job_name],
+                "comment": "test comment",
+                "publish": True,
+               }
+        post_data = {"yaml": yaml.dump(data)}
+        response = self.client.post(path=url, data=post_data)
+        content_dict = json.loads( response.content )
+        assert found_job_name in content_dict, content_dict
+        assert content_dict[found_job_name] == 'comment applied.', content_dict
+
+        url = '/json/comments/'
+        response = self.client.get(url)
+        content_dict = json.loads( response.content )
+        assert content_dict["command_status"] == OK
+
+        url = '/json/job/comment/pending/'
+        response = self.client.get(url)
+        content_dict = json.loads( response.content )
+        found_job_name = None
+        for job_name, job_info in content_dict["job_info"]:
+            if job_info == "DIST: test":
+                found_job_name = job_name
+                break
+        assert not found_job_name, content_dict
 
     def test_dispatcher_status(self):
         url = "/json/dispatcher/status"
@@ -750,9 +813,10 @@ if __name__ == '__main__':
     else:
         #suite.addTest(CnmTests("test_data_modification"))
         #suite.addTest(CnmTests("test_summary"))
-        #suite.addTest(CnmTests("test_search"))
+        #suite.addTest(CnmTests("test_user"))
+        suite.addTest(DispatcherTests("test_dist_update_for_commenting"))
         #suite.addTest(DispatcherTests("test_client_update"))
-        suite.addTest(DispatcherTests("test_stop_all_jobs"))
+        #suite.addTest(DispatcherTests("test_stop_all_jobs"))
         #suite.addTest(PackageTests("test_encrypted_ci"))
         #suite.addTest(PackageTests("test_insufficient_config"))
         #suite.addTest(PackageTests("test_package_build"))

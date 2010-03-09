@@ -226,7 +226,8 @@ class CnmConnector:
         return return_data.get("super_user")
 
     def service_request(self, path, args=None,
-                        put_data=None, post_data=None, timeout=None):
+                        put_data=None, post_data=None,
+                        delete=False, timeout=None):
         '''Performs a GET or a POST or a PUT, depending on data provided
         and returns text data based on output
         path -- relative path
@@ -253,6 +254,8 @@ class CnmConnector:
             curl_obj.setopt(pycurl.READFUNCTION, out_data.read)
             if self.debug:
                 print "Setting PUT data"
+        if delete:
+            curl_obj.setopt(pycurl.CUSTOMREQUEST, "DELETE")
         if post_data != None:
             post_list = []
             for key in post_data:
@@ -273,7 +276,8 @@ class CnmConnector:
             raise UnexpectedDataException("server_home is set to %s" % new_path)
 
     def service_yaml_request(self, path, args=None,
-                             put_data=None, post_data=None, timeout=None):
+                             put_data=None, post_data=None,
+                             delete=False, timeout=None):
         '''same as service_request, but assumes that return data from the server
         is YAML(JSON) and converts it to return a python dictionary instead of text.'''
         try:
@@ -281,7 +285,7 @@ class CnmConnector:
                 if type(put_data) == type(["list"]) or \
                    type(put_data) == type({}):
                     put_data = yaml.dump(put_data)
-            response = self.service_request(path, args, put_data, post_data, timeout)
+            response = self.service_request(path, args, put_data, post_data, delete, timeout)
             return response.convert_from_yaml()
         except urllib2.HTTPError:
             print "Unable to connect to the service %s" % path
@@ -308,8 +312,7 @@ class CnmConnector:
             for job_name in output:
                 job_output = output[job_name]
                 if "traceback" in job_output:
-                    print "TRACEBACK"
-                    raise MachineTraceback(url, job_output["traceback"]) #FIXME what happens here?
+                    raise MachineTraceback(url, job_output["traceback"])
                 new_output = job_output.get("new_output", '')
                 if new_output:
                     libUi.process_cnm(new_output)
@@ -319,7 +322,9 @@ class CnmConnector:
                     summary_output[job_name] = out
                     job_names +=  out.get("children", [])
                     job_names.remove(job_name)
-                 
+                    comments = out.get("jobs_requiring_comment", 0)
+                    if comments:
+                        system_state.comment_counter = len(comments)
         return summary_output
 
     def get_job(self, url, post_data):
@@ -366,3 +371,21 @@ class CnmConnector:
                 else:
                     raise
         return output["command_status"], output["command_output"]
+
+    def get_uncommented_jobs(self):
+        "get a list of tuples of jobs that need commenting"
+        url = '/json/job/comment/pending/'
+        content_dict = self.service_yaml_request(url)
+        return content_dict["job_info"]
+
+    def post_comments(self, publish, job_names, comments):
+        "Attach comments to a list of job names"
+        data = {"job_names": job_names,
+                "comment": comments,
+                "publish": publish,
+               }
+        post_data = {"yaml": yaml.dump(data)}
+        url = '/json/job/comment/pending/'
+        content_dict = self.service_yaml_request(url, post_data=post_data)
+        return content_dict
+

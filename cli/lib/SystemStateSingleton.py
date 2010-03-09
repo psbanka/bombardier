@@ -73,7 +73,7 @@ class SystemState:
             self.full_prompt = ""
             self.username = None
             self.password = None
-            self.comment_commands = []
+            self.comment_counter = 0
             self.bom_connections = {}
             self.default_group = "root"
             self.debug = True
@@ -202,11 +202,16 @@ class SystemState:
         SystemState.__instance.state.append(new_tokens)
         cls.set_prompt()
 
+    def set_comment_counter(self):
+        'Set the number of comments I am tracking'
+        cnm_connector = SystemState.__instance.cnm_connector
+        SystemState.__instance.comment_counter = len(cnm_connector.get_uncommented_jobs())
+
     def get_prompt(cls):
         'used to find what the current prompt should look like'
         comment_string = ''
-        if SystemState.__instance.comment_commands:
-            comment_string = "(*)"
+        if SystemState.__instance.comment_counter:
+            comment_string = "(*%d) " % SystemState.__instance.comment_counter
         return comment_string+SystemState.__instance.full_prompt
 
     def pop_prompt(cls):

@@ -5,547 +5,38 @@ import re
 import glob
 import yaml
 import Pyro.naming
+
+from bombardier_core.static_data import OK, FAIL
+from bombardier_core.Cipher import Cipher, DecryptionException
+from bombardier_core.static_data import ACTION_LOOKUP
+
+from Exceptions import InvalidJobName, JoinTimeout
+from Exceptions import QueuedJob
+
 from MachineConfig import MachineConfig
 from BombardierMachineInterface import BombardierMachineInterface
 from LocalMachineInterface import LocalMachineInterface 
-from bombardier_core.static_data import OK, FAIL
-from bombardier_core.Cipher import Cipher, DecryptionException
-from threading import Thread
-import StringIO, traceback
-import ServerLogger
-
-from bombardier_core.static_data import ACTION_REVERSE_LOOKUP
-from Exceptions import InvalidJobName, JoinTimeout
-from Exceptions import InvalidAction, QueuedJob
-from bombardier_core.static_data import ACTION_LOOKUP
-
-PENDING = 4
+import Job
+import ServerLogMixin
+from Commands import BuildCommand, ShellCommand, BombardierCommand
+import DispatchMonitor
 
 LOCAL_MACHINE_NAME = "CNM_Server"
-KILL_TIMEOUT = 20
 
-class AbstractCommand:
-    "Abstract class for a dispatched command"
-    def __init__(self, name):
-        self.name = name
-        self.dump_config = False
-        self.status = PENDING
-
-    def execute(self, machine_interface):
-        "Virtual function for executing command"
-        pass
-
-    def info(self):
-        "Default info function"
-        return self.name
-
-
-class BuildCommand(AbstractCommand):
-    "Package build command"
-    def __init__(self, package_name, svn_user, svn_password,
-                 debug, prepare):
-        name = "Build-%s" % (package_name)
-        AbstractCommand.__init__(self, name)
-        self.package_name = package_name
-        self.svn_user = svn_user
-        self.svn_password = svn_password
-        self.debug = debug
-        self.prepare = prepare
-
-    def execute(self, machine_interface):
-        "Build the package"
-        return machine_interface.build_components(self.package_name,
-                                                  self.svn_user,
-                                                  self.svn_password,
-                                                  self.debug, self.prepare)
-
-    def info(self):
-        "Return command to be run on the remote machine"
-        return "Build package %s" % self.package_name
-
-class ShellCommand(AbstractCommand):
-    "Remote shell command"
-    def __init__(self, name, cmd, working_dir):
-        AbstractCommand.__init__(self, name)
-        self.working_dir = working_dir
-        self.cmd = cmd
-
-    def execute(self, machine_interface):
-        "Run the command on a remote machine"
-        machine_interface.chdir(self.working_dir)
-        return machine_interface.run_cmd(self.cmd)
-
-    def info(self):
-        "Return command to be run on the remote machine"
-        return self.cmd
-
-class BombardierCommand(AbstractCommand):
-    """Bombardier command is a command running bc.py for 
-       package or status actions"""
-    def __init__(self, action_string, package_name, script_name):
-        '''
-        action_string -- one of the following: uninstall, configure, install,
-                         verify, reconcile, check_status, execute, fix, purge,
-                         dry_run, or init
-        package_name -- the name of a package to act upon
-        script_name -- the name of a script to act upon
-        debug -- defunct, apparently
-        '''
-        action_const = ACTION_LOOKUP.get(action_string.lower().strip())
-        if action_const == None:
-            raise InvalidAction(package_name, action_string)
-        name = "Bombardier-%s-%s" % (action_string, package_name)
-        AbstractCommand.__init__(self, name)
-        self.action = action_const
-        self.package_name = package_name
-        self.script_name = script_name
-        self.debug = False
-
-    def execute(self, machine_interface):
-        "Run bc command"
-        return machine_interface.take_action(self.action, self.package_name,
-                                             self.script_name, self.debug)
-
-    def info(self):
-        "Return information about this bombardier command"
-        output = ACTION_REVERSE_LOOKUP[self.action]
-        if self.package_name:
-            output += ": %s" % self.package_name
-        if self.script_name:
-            output += " (%s)" % self.script_name
-        return output
-
-class ServerLogMixin:
-    def __init__(self):
-        self.server_log = ServerLogger.ServerLogger("Dispatcher",
-                                                    use_syslog=True)
-
-    def dump_exception(self, username):
-        """Pretty print an exception into the server_log,
-         and return traceback info"""
-        exc = StringIO.StringIO()
-        traceback.print_exc(file=exc)
-        exc.seek(0)
-        data = exc.read()
-        ermsg = ''
-        traceback_data = []
-        for line in data.split('\n'):
-            traceback_data.append(line)
-            ermsg = "%% %s" % line
-            self.server_log.error(ermsg, username)
-        return traceback_data
-
-
-class Job(Thread, ServerLogMixin):
-    """Job class: Runs remote commands or copies files to a remote machine.
-     Watches status of job"""
-    def __init__(self, username, machine_name, job_id):
-        ServerLogMixin.__init__(self)
-        self.name = "%s@%s-%d" % (username, machine_name, job_id)
-        self.username = username
-        self.machine_name = machine_name
-        self.copy_dict = {}
-        self.commands = []
-        self.require_status = True
-        self.machine_interface = None
-        self.start_time = None
-        self.end_time = None
-        self.command_status = OK
-        self.command_output = []
-        self.output_pointer = 0
-        self.predecessors = []
-        self.final_logs = []
-        Thread.__init__(self)
-        self.complete_log = ''
-        self.status = OK
-        self.kill_switch = False
-        self.acknowledged = False
-        self.description = None
-
-    def info(self):
-        "Tell me something about all your commands, job."
-        if self.description:
-            return self.description
-        output = []
-        for command in self.commands:
-            output.append(command.info())
-        return ": ".join(output)
-
-    def record_exception(self):
-        self.command_status = FAIL
-        self.command_output = self.dump_exception(self.username)
-
-    def setup(self, machine_interface, commands, copy_dict,
-              require_status, predecessors):
-        "Set the job up to be used"
-        self.copy_dict = copy_dict
-        self.commands = commands
-        self.require_status = require_status
-        self.machine_interface = machine_interface
-        self.predecessors = predecessors
-
-    def get_all_predecessors(self):
-        "find out all the possible jobs I'm dependent on"
-        all_predecessors = list(self.predecessors)
-        for job in self.predecessors:
-            all_predecessors += job.get_all_predecessors()
-        return all_predecessors
-
-    def __cmp__(self, other):
-        """Compare myself to another job to see if I should run first
-        or if the other job should run first"""
-        if other in self.get_all_predecessors():
-            return 1
-        elif self in other.get_all_predecessors():
-            return -1
-        else:
-            return 0
-
-    def __repr__(self):
-        "Representation of this class"
-        return self.name
-
-    def _get_elapsed_time(self):
-        if self.isAlive:
-            if self.start_time != None:
-                return time.time() - self.start_time 
-            else:
-                return 0
-        else:
-            return self.end_time - self.start_time
-
-    def get_status_dict(self):
-        "Returns the job's current status data"
-        output = {}
-        output["alive"] = self.isAlive()
-        output["command_status"] = self.command_status
-        output["job_name"] = self.name
-        output["elapsed_time"] = self._get_elapsed_time()
-        output["complete_log"] =  self.complete_log
-        output["command_output"] = self.command_output
-        if self.isAlive():
-            output["new_output"] = self.machine_interface.get_new_logs()
-        else:
-            output["new_output"] = self.final_logs
-        return output
-
-    def terminate(self):
-        "Be crusty about killing a job"
-        if self.isAlive():
-            self.machine_interface.terminate()
-        self.end_time = time.time()
-
-    def kill(self):
-        "Nicely end a job that is currently running"
-        self.machine_interface.control_c()
-        self.end_time = time.time()
-        self.status = FAIL
-
-    def run(self):
-        "Runs commands in command list and watches status"
-        self.start_time = time.time()
-        try:
-            self.machine_interface.freshen(self.name, self.require_status)
-            self.machine_interface.scp_dict(self.copy_dict)
-            self.server_log.info("Starting...", self.name)
-
-            for command in self.commands:
-                status = self.run_command(command)
-                if status != OK:
-                    self.status = FAIL
-                    break
-            self.server_log.info("Finishing", self.name)
-            self.final_logs = self.machine_interface.polling_log.get_final_logs()
-            polling_log = self.machine_interface.polling_log 
-            self.complete_log = polling_log.get_complete_log()
-        except Exception:
-            exc = StringIO.StringIO()
-            traceback.print_exc(file=exc)
-            exc.seek(0)
-            data = exc.read()
-            ermsg = ''
-            for line in data.split('\n'):
-                ermsg = "%% %s" % line
-                self.server_log.error(ermsg, self.name)
-            self.command_status = FAIL
-            self.command_output.append("Exception in server. Check log for details")
-            self.status = FAIL
-        self.machine_interface.unset_job()
-        self.end_time = time.time()
-
-    def run_command(self, command):
-        "Run a command and get its status"
-        try:
-            msg = "Processing command: %s" % command.name, self.name
-            self.server_log.info(msg)
-            status, output = command.execute(self.machine_interface)
-            self.command_status = status
-            self.command_output = output # FIXME
-            return status
-        except Exception:
-            msg = "Command %s: Failed to run %s"
-            msg = msg % (command.name, command.info())
-            self.server_log.error( msg, self.name)
-            self.command_status = FAIL
-            return FAIL
-
-def clutch_wrapper(func):
-    """This is a decorator to turn on the clutch attribute, which tells
-       the DispatchMonitor to not manipulate the queues if it is True"""
-    def wrapper(self, *args, **kwargs):
-        "Wrap a function, engaging the clutch before and disengaging after"
-        self.clutch = True
-        retval = func(self, *args, **kwargs)
-        self.clutch = False
-        return retval
-    return wrapper
-
-class DispatchMonitor(Thread, ServerLogMixin):
-    """Watches the dispatcher's jobs and starts queued ones if necessary"""
-    def __init__(self):
-        """
-        this class watches the job queue for runnable jobs and runs them. it
-        also watches the active jobs and puts them into the broken_jobs list
-        or the finished_jobs list.
-
-        job_queue -- list of job objects to be run
-        active_jobs -- dictionary of jobs that are currently running
-        broken_jobs -- dictionary of job_name/job that are failed
-        finished_jobs -- dictionary of job_name/job that have successfully run
-
-        """
-        Thread.__init__(self)
-        ServerLogMixin.__init__(self)
-        self.job_queue = []
-        self.active_jobs = {}
-        self.broken_jobs = {}
-        self.finished_jobs = {}
-        self.kill_switch = False
-        self.clutch = False
-
-    def kill_job(self, job_name, timeout):
-        "We have a job that needs killin'"
-        status = OK
-        job = self.active_jobs.get(job_name)
-        if job:
-            job.kill_switch = True
-            return OK
-        return FAIL
-
-    @clutch_wrapper
-    def clear_broken(self, machine_name):
-        "Clear all the broken jobs for a machine"
-        jobs_cleared = []
-
-        new_broken_jobs = {}
-        for job_name in self.broken_jobs:
-            broken_job = self.broken_jobs[job_name]
-            if broken_job.machine_name != machine_name:
-                new_broken_jobs[job_name] = broken_job
-            else:
-                jobs_cleared.append(job_name)
-        self.broken_jobs = new_broken_jobs
-        return jobs_cleared
-
-    @clutch_wrapper
-    def kill_jobs(self, machine_name):
-        "We want to get rid of all jobs for a given machine"
-        jobs_killed = []
-        jobs_removed = []
-
-        for job_name in self.active_jobs:
-            job = self.active_jobs[job_name]
-            if job.machine_name == machine_name:
-                job.terminate()
-                jobs_killed.append(job_name)
-
-        new_job_queue = []
-        for job in self.job_queue:
-            if job.machine_name == machine_name:
-                self.broken_jobs[job.name] = job
-                jobs_removed.append(job.name)
-            else:
-                new_job_queue.append(job)
-        self.job_queue = new_job_queue
-        return jobs_killed, jobs_removed
-
-    @clutch_wrapper
-    def show_job_info(self, machine_name):
-        """
-        Get me a whole bunch of descriptive information about all a
-        machine's jobs
-        """
-        self.server_log.info("show_job_info %s" % machine_name)
-        output = {"active_jobs": [],
-                  "pending_jobs": [],
-                  "broken_jobs": [],
-                  "finished_jobs": [],
-                 }
-        for job_name in self.active_jobs:
-            self.server_log.info("0 Checking %s." % job_name)
-            job = self.active_jobs[job_name]
-            job_str = "%s: %s" % (job_name, job.info())
-            output["active_jobs"].append(job_str)
-        for job_name in self.broken_jobs:
-            job = self.broken_jobs[job_name]
-            self.server_log.info("1 Checking %s." % job_name)
-            job_str = "%s: %s" % (job_name, job.info())
-            output["broken_jobs"].append(job_str)
-        for job_name in self.finished_jobs:
-            job = self.finished_jobs[job_name]
-            self.server_log.info("2 Checking %s." % job_name)
-            job_str = "%s: %s" % (job_name, job.info())
-            output["finished_jobs"].append(job_str)
-        for job in self.job_queue:
-            job_str = "%s: %s" % (job.name, job.info())
-            self.server_log.info("3 Checking %s." % job_name)
-            output["pending_jobs"].append(job_str)
-        return output
-
-    def get_job_children(self, job):
-        "Get all jobs which are waiting for this job to finish"
-        job_children = []
-        for job_name in self.active_jobs: 
-            active_job = self.active_jobs[job_name]
-            if job in active_job.get_all_predecessors():
-                job_children.append(active_job.name)
-
-        if job_children:
-            return job_children
-
-        for queued_job in self.job_queue:
-            if job in queued_job.get_all_predecessors():
-                job_children.append(queued_job.name)
-        return job_children
-
-    def clean_job_dependencies(self, broken_job):
-        "When a job breaks, remove all jobs that depended on it"
-        new_job_queue = []
-        for job in self.job_queue:
-            if broken_job in job.get_all_predecessors():
-                self.broken_jobs[job.name] = job
-            else:
-                new_job_queue.append(job)
-        self.job_queue = new_job_queue    
-
-    def is_runnable(self, job):
-        "We want to know if a job can be run"
-        #self.server_log.info("CHECKING if %s is RUNNABLE" % job)
-        if not job.machine_interface.is_available():
-            #self.server_log.info("Machine interface busy")
-            return False
-        for predecessor_job in job.get_all_predecessors():
-            if predecessor_job.name in self.broken_jobs:
-                self.server_log.info("BROKEN JOBS")
-                return False
-            if predecessor_job.name in self.active_jobs:
-                self.server_log.info("PRED. ACTIVE")
-                return False
-            if predecessor_job in self.job_queue:
-                self.server_log.info("PREDECESSORS QUEUED")
-                return False
-        #self.server_log.info("YES")
-        return True
-
-    def _process_active_jobs(self):
-        "Work with any jobs that are currently running"
-        new_active_jobs = {}
-        for job_name in self.active_jobs:
-            job = self.active_jobs[job_name]
-            if not job.isAlive():
-                self.server_log.info("Job %s is no longer alive" % job_name)
-                if job.status == OK:
-                    self.finished_jobs[job.name] = job
-                    self.server_log.info("it's finished")
-                else:
-                    self.server_log.info("it's broke")
-                    self.broken_jobs[job.name] = job
-                    self.clean_job_dependencies(job)
-            else: # Job is alive
-                if job.kill_switch:
-                    job.kill()
-                    self.broken_jobs[job_name] = job
-                    del self.active_jobs[job_name]
-                else:
-                    new_active_jobs[job_name] = job
-        self.active_jobs = new_active_jobs
-
-    def _process_job_queue(self):
-        "Starting runnable jobs"
-        self.job_queue.sort()
-
-        new_job_queue = []
-        for job in self.job_queue:
-            if self.is_runnable(job):
-                job.start()
-                self.active_jobs[job.name] = job
-            else:
-                new_job_queue.append(job)
-        self.job_queue = new_job_queue
-
-    def _process_broken_jobs(self):
-        "Perform last rites on broken jobs"
-        new_broken_jobs = {}
-        for job_name in self.broken_jobs:
-            job = self.broken_jobs[job_name]
-            if job.isAlive():
-                if (time.time() - job.end_time) > KILL_TIMEOUT:
-                    job.terminate()
-                    new_broken_jobs[job_name] = job
-            if not job.acknowledged:
-                new_broken_jobs[job_name] = job
-        if not self.job_queue and not self.active_jobs:
-            if self.broken_jobs:
-                self.broken_jobs = new_broken_jobs
-
-    def _process_finished_jobs(self):
-        "See if anyone has collected status on finished jobs"
-        new_finished_jobs = {}
-        for job_name in self.finished_jobs:
-            job = self.finished_jobs[job_name]
-            if not job.acknowledged:
-                new_finished_jobs[job_name] = job
-        self.finished_jobs = new_finished_jobs
-
-    def _log_queues(self):
-        "Spam out our queue information"
-        msg = ">> Queue: %s  /  active: %s  / broken: %s / finished: %s"
-        msg = msg % (self.job_queue, self.active_jobs, self.broken_jobs, self.finished_jobs)
-        self.server_log.info(msg)
-
-    def run(self):
-        "Watchdog method for maintaining all queues"
-        while not self.kill_switch:
-            try:
-                time.sleep(0.1)
-                if self.clutch:
-                    time.sleep(0.1)
-                    continue
-                self.job_queue.sort()
-                #self._log_queues()
-                self._process_active_jobs()
-                self._process_job_queue()
-                self._process_broken_jobs()
-                self._process_finished_jobs()
-
-            except Exception:
-                traceback_lines = self.dump_exception("DispatchMonitor")
-                for line in traceback_lines:
-                    self.server_log.error(line, "DISPATCHER_MONITOR")
-
-class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
+class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
     "Dispatcher class, manages jobs on remote machines"
     def __init__(self):
         Pyro.core.ObjBase.__init__(self)
-        ServerLogMixin.__init__(self)
+        ServerLogMixin.ServerLogMixin.__init__(self)
         self.start_time = time.time()
         self.password = None
         self.server_home = None
         self.next_job = 1
         self.machine_interface_pool = {}
-        self.monitor = DispatchMonitor()
+        self.monitor = DispatchMonitor.DispatchMonitor()
         self.new_jobs = {}
         self.monitor.start()
+        self.jobs_to_comment = {}
 
     def set_server_home(self, username, server_home):
         "Set server_home"
@@ -556,7 +47,6 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
         "Returns an interface to a machine, creating a new one if needed"
 
         if machine_name == LOCAL_MACHINE_NAME:
-            "Returns an interface to a machine, creating a new one if needed"
             machine_config = MachineConfig(LOCAL_MACHINE_NAME, self.password,
                                            self.server_home)
             machine_interface = LocalMachineInterface(machine_config,
@@ -584,7 +74,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
 
     def _create_next_job(self, username, machine_name):
         "Creates a job, keeping track of the master job number"
-        job = Job(username, machine_name, self.next_job)
+        job = Job.Job(username, machine_name, self.next_job)
         self.new_jobs[job.name] = job
         self.next_job += 1
         return job
@@ -623,6 +113,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
             self.server_log.info("BROKEN %s" % job_name)
 
     def get_job_status(self, job_name):
+        "Find out how the job is doing"
         job = self.new_jobs[job_name]
         return job.get_status_dict()
     
@@ -659,7 +150,9 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
             self._setup_job(job, [], copy_dict, False)
         except Exception:
             job.record_exception()
-        self.server_log.info("This is the job we're making: %s (%s)" % (job.name, len(job.name)))
+        msg = "This is the job we're making: %s (%s)"
+        msg = msg % (job.name, len(job.name))
+        self.server_log.info(msg)
         return job.name
 
     def init_job(self, username, machine_name):
@@ -685,6 +178,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
 
             commands = [set_spkg_config, bombardier_init]
             job.description = "INIT"
+            job.require_comment = True
             self._setup_job(job, commands, {}, False)
         except Exception:
             job.command_output = self.dump_exception(username)
@@ -695,6 +189,8 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
         "Run a bom level job on a machine"
         job = self._create_next_job(username, machine_name)
         try:
+            if action_string == 'reconcile':
+                job.require_comment = True
             bombardier_recon = BombardierCommand(action_string, None, None)
             commands = [bombardier_recon]
             self._setup_job(job, commands, {}, status_required)
@@ -745,6 +241,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
         machine_name -- name of the machine to run the job on
         '''
         job = self._create_next_job(username, machine_name)
+        job.require_comment = True
         script_name = ''
         if action_string not in ACTION_LOOKUP:
             script_name = action_string
@@ -768,6 +265,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
         "Job that unpacks and installs a distutils package"
         job = self._create_next_job(username, machine_name)
         job.description = "DIST: %s" % dist_name
+        job.require_comment = True
         try:
             unpack = ShellCommand("Unpacking %s on the client" % dist_name, 
                              "tar -xzf %s.tar.gz" % dist_name, "~")
@@ -849,7 +347,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
             job.command_status = FAIL
         return job.name
 
-    def terminate(self, username): # FIXME: go into the job queue and clean out all
+    def terminate(self, username):
         "Close connections for machine interfaces in interface pool"
         output = {"command_status": OK}
         try:
@@ -866,9 +364,23 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
             output.update(self.dump_exception(username))
         return output
 
+    def get_jobs_pending_comments(self, username):
+        "find all the jobs this user needs to comment on"
+        job_info = self.monitor.get_uncommented_job_info(username)
+        output = {"job_info": job_info}
+        return output
+
+    def get_machine_name(self, comment_job_name):
+        "get the name of a machine, based on job name"
+        return self.monitor.get_machine_name(comment_job_name)
+
+    def note_comment(self, job_name):
+        "record that the user is making a comment on a job"
+        self.monitor.note_comment(job_name)
+
     def job_join(self, username, job_name, timeout):
         "Wait for a job to finish"
-        output = {}
+        require_comment = False
         try:
             self.server_log.info("Attempting to join %s" % job_name)
             job = self.get_job(job_name)
@@ -886,13 +398,17 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
                     raise JoinTimeout(job_name, timeout)
                 time.sleep(1)
             job.acknowledged = True
+            if job.require_comment:
+                require_comment = True
             self.server_log.info("finishing join %s" % job_name)
         except Exception:
             self.server_log.info("exception in join %s" % job_name)
-            output["command_status"] = FAIL
-            output["command_output"] = self.dump_exception(username)
+            output = {"command_status": FAIL,
+                      "command_output": self.dump_exception(username),
+                     }
             return output
         output = job.get_status_dict()
+        output["jobs_requiring_comment"] = self.monitor.get_uncommented_job_info(username)
         output["children"] = self.monitor.get_job_children(job)
         return output
 
@@ -921,11 +437,12 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
                 job_status_dict[job_name] = {"command_status": "QUEUED"}
         return job_status_dict
 
-    def job_kill(self, username, job_name, timeout):
+    def job_kill(self, username, job_name):
         "Be mean to a job and get rid of it"
         status = FAIL
+        self.server_log.info("%s killing job %s" % (username, job_name))
         try:
-            status = self.monitor.kill_job(job_name, timeout)
+            status = self.monitor.kill_job(job_name)
         except Exception:
             return {"command_status": FAIL}
         return {"command_status": status}
@@ -1075,10 +592,12 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin):
         job5 = self.new_jobs[job5_name]
         job5.predecessors = [job4]
 
-        job6_name = self.package_action_job(username, '', "check_status", machine_name)
+        job6_name = self.package_action_job(username, '', "check_status",
+                                            machine_name)
         job6 = self.new_jobs[job6_name]
         job6.predecessors = [job5]
-        job_names = [job1_name, job2_name, job3_name, job4_name, job5_name, job6_name]
+        job_names = [job1_name, job2_name, job3_name, job4_name,
+                     job5_name, job6_name]
         for job_name in job_names:
             self.queue_job(job_name)
         return job1_name

@@ -81,6 +81,13 @@ class Include(CreateType):
         self.config_field = ConfigField.ConfigField(data_type=ConfigField.INCLUDE, new=True)
         self.children = [self.config_field]
 
+class User(CreateType):
+    'Create a package file'
+    def __init__(self):
+        CreateType.__init__(self, "user", "user\tcreate a new user to log in to Bombardier")
+        self.config_field = ConfigField.ConfigField(data_type=ConfigField.USER, new=True)
+        self.children = [self.config_field]
+
 class Package(CreateType):
     'Create a package file'
     def __init__(self):
@@ -103,6 +110,7 @@ class Create(PinshCmd.PinshCmd):
         machine = Machine()
         include = Include()
         package = Package()
+        user = User()
         bom = Bom()
-        self.children = [machine, include, bom, package]
+        self.children = [machine, include, bom, package, user]
         self.cmd_owner = 1

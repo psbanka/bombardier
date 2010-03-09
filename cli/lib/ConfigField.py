@@ -31,6 +31,7 @@
 Supports access to 'configurable items' on the bombardier web server'''
 
 import PinshCmd
+import random
 from bombardier_core.static_data import OK, FAIL, PARTIAL, COMPLETE, NO_MATCH
 from Exceptions import UnexpectedDataException
 from SystemStateSingleton import SystemState
@@ -61,6 +62,14 @@ release: 0
 
 DEFAULT_BOM = """
 -
+"""
+
+DEFAULT_USER = """email: user@example.com
+first_name: ''
+is_active: true
+is_superuser: false
+last_name: ''
+password: '%s'
 """
 
 class ConfigField(PinshCmd.PinshCmd):
@@ -217,6 +226,11 @@ class ConfigField(PinshCmd.PinshCmd):
     def get_default_data(self):
         if self.data_type == MACHINE:
             return DEFAULT_MACHINE
+        elif self.data_type == USER:
+            letters = [ chr( x ) for x in range(65, 91) ]
+            random.shuffle(letters)
+            default_user = DEFAULT_USER % ''.join(letters)
+            return default_user
         elif self.data_type == BOM:
             return DEFAULT_BOM
         elif self.data_type == PACKAGE:

@@ -53,43 +53,46 @@ NO = 0
 
 def login(username, password=None):
     'Prompt for a password and initialize connection to the server'
-    system_state.get_term_info()
-    if username:
-        system_state.username = username
-    if not system_state.username:
-        try:
-            system_state.username = get_default("username", "root")
-        except KeyboardInterrupt:
-            print "\n%% Aborted login"
+    try:
+        system_state.get_term_info()
+        if username:
+            system_state.username = username
+        if not system_state.username:
+            try:
+                system_state.username = get_default("username", "root")
+            except KeyboardInterrupt:
+                print "\n%% Aborted login"
+                sys.exit(1)
+        else:
+            print "Logging in as %s" % system_state.username
+        system_state.cnm_connector = CnmConnector(system_state.cnm_url,
+                                     system_state.username)
+        tries = 0
+        while tries < 3:
+            if not password:
+                password = pwd_input("password: ")
+            try:
+                superuser_status = system_state.cnm_connector.login(password)
+                if superuser_status:
+                    system_state.set_auth(ADMIN)
+                else:
+                    system_state.set_auth(USER)
+                break
+            except UnexpectedDataException, ude:
+                print ude
+                user_output(["Bad username or password."], FAIL)
+                tries += 1
+            except ServerException, sex:
+                user_output(["Server not accessible (%s)" % sex], FAIL)
+                sys.exit(1)
+            password = ''
+        if tries >= 3:
+            user_output(["Access denied."], FAIL)
             sys.exit(1)
-    else:
-        print "Logging in as %s" % system_state.username
-    system_state.cnm_connector = CnmConnector(system_state.cnm_url,
-                                 system_state.username)
-    tries = 0
-    while tries < 3:
-        if not password:
-            password = pwd_input("password: ")
-        try:
-            superuser_status = system_state.cnm_connector.login(password)
-            if superuser_status:
-                system_state.set_auth(ADMIN)
-            else:
-                system_state.set_auth(USER)
-            break
-        except UnexpectedDataException, ude:
-            print ude
-            user_output(["Bad username or password."], FAIL)
-            tries += 1
-        except ServerException, sex:
-            user_output(["Server not accessible (%s)" % sex], FAIL)
-            sys.exit(1)
-        password = ''
-    if tries >= 3:
-        user_output(["Access denied."], FAIL)
-        sys.exit(1)
-    system_state.prompt = ['>']
-    system_state.set_prompt()
+        system_state.prompt = ['>']
+        system_state.set_prompt()
+    except Exception, ste:
+        process_traceback(ste)
 
 def motd():
     'Print out the message of the day after login'

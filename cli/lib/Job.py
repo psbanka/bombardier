@@ -74,7 +74,7 @@ class Job(PinshCmd.PinshCmd):
             raise CommandError("Incomplete command")
         job_name = tokens[2]
         if tokens[1] == "kill":
-            post_data = {"timeout": "10"}
+            post_data = {"post_data": "hello"}
             url = "/json/job/kill/%s" % job_name
             output = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
             return output["command_status"], output["command_output"]

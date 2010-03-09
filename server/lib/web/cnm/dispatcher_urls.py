@@ -8,6 +8,8 @@ from Exceptions import DispatcherAlreadyStarted, DispatcherOffline
 from bombardier_core.static_data import OK, FAIL
 import os, yaml
 
+from configs.models import Comment, CommentedJob
+
 VALID_FILE_CHARS  = [ chr(x) for x in range(ord('a'), ord('z')+1) ]
 VALID_FILE_CHARS += [ chr(x) for x in range(ord('A'), ord('Z')+1) ]
 VALID_FILE_CHARS += [ chr(x) for x in range(ord('0'), ord('9')+1) ]
@@ -335,6 +337,73 @@ class MachineShowJobsEntry(CnmResource):
         responder = JsonDictResponder(output)
         return responder.element(request)
 
+class JobCommentCollection(CnmResource):
+    "Returns comments made"
+    @login_required
+    def read(self, request):
+        "Return all comments"
+        output = {"command_status": OK}
+        comment_lines = []
+        try:
+            comments = Comment.objects.all()
+            for comment in comments:
+                commented_jobs = CommentedJob.objects.filter(comment_id = comment)
+                job_name_list = []
+                [ job_name_list.append(commented_job.job_name) for commented_job in commented_jobs ]
+                str = "%s | %s | %s | %s"
+                str = str % (comment.time, comment.username, comment.text, ','.join(job_name_list))
+                comment_lines.append(str)
+            output["comments"] = comment_lines
+        except Exception, x:
+            output["command_status"] = FAIL
+            output.update(self.dump_exception(request, x))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
+class JobCommentPendingEntry(CnmResource):
+    "Finds jobs that needs comments and allows users to comment"
+    @login_required
+    def read(self, request):
+        "Give me a list of jobs that needs commenting for this user"
+        output = {"command_status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            output = dispatcher.get_jobs_pending_comments(request.user)
+        except Exception, x:
+            output["command_status"] = FAIL
+            output.update(self.dump_exception(request, x))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
+    @login_required
+    def create(self, request):
+        "Add some comments about a job that has run"
+        output = {"command_status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            post_dict = yaml.load(request.POST.get("yaml"))
+            job_names = post_dict.get("job_names", [])
+            comment_text = post_dict.get("comment", None)
+            publish_flag = post_dict.get("publish", False)
+            comment = Comment(text=comment_text, username=str(request.user),
+                              publish=publish_flag)
+            comment.save()
+            for job_name in job_names:
+                machine_name = dispatcher.get_machine_name(job_name)
+                commented_job = CommentedJob(comment_id=comment,
+                                             job_name=job_name,
+                                             username=str(request.user),
+                                             machine_name=machine_name,
+                                            )
+                commented_job.save()
+                output[job_name] = "comment applied."
+                dispatcher.note_comment(job_name)
+        except Exception, x:
+            output["command_status"] = FAIL
+            output.update(self.dump_exception(request, x))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
 class JobJoinEntry(CnmResource):
     "Job join class"
     @login_required
@@ -373,8 +442,7 @@ class JobKillEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            timeout = request.POST.get("timeout", None)
-            output = dispatcher.job_kill(request.user, job_name, timeout)
+            output = dispatcher.job_kill(request.user, job_name)
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
@@ -479,12 +547,16 @@ urlpatterns = patterns('',
         MachineClearBrokenEntry(permitted_methods = ['POST'])),
    url(r'^json/machine/show-jobs/(?P<machine_name>.*)', 
         MachineShowJobsEntry(permitted_methods = ['GET'])),
+   url(r'^json/job/comment/pending/', 
+        JobCommentPendingEntry(permitted_methods = ['GET', 'POST'])),
+   url(r'^json/comments/', 
+        JobCommentCollection(permitted_methods = ['GET'])),
    url(r'^json/job/join/(?P<job_name>.*)', JobJoinEntry()),
    url(r'^json/job/poll/',
         JobPollEntry(permitted_methods = ['POST'])),
    url(r'^json/job/kill/(?P<job_name>.*)', 
         JobKillEntry(permitted_methods = ['POST'])),
    url(r'^json/dispatcher/(?P<action>.*)', 
-       DispatcherControlEntry(permitted_methods = ['GET', 'POST'])),
+        DispatcherControlEntry(permitted_methods = ['GET', 'POST'])),
 )
 
