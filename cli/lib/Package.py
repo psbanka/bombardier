@@ -45,6 +45,7 @@ import Integer
 from Ssh import Ssh
 from Show import Status, Summary
 import Edit
+import Show
 system_state = SystemState()
 import libUi, time, yaml
 
@@ -74,9 +75,10 @@ class Package(PinshCmd.PinshCmd):
         self.package_field = ConfigField(data_type=PACKAGE)
         self.children = [self.package_field]
 
-        build = PinshCmd.PinshCmd("build", "build\tbuild a package from source control")
-        edit = PinshCmd.PinshCmd("edit", "edit\tedit the configuration for this package")
-        self.package_field.children = [build, edit]
+        build = PinshCmd.PinshCmd("build", "build a package from source control")
+        edit = PinshCmd.PinshCmd("edit", "edit the configuration for this package")
+        show = PinshCmd.PinshCmd("show", "display the configuration for this package")
+        self.package_field.children = [build, edit, show]
 
     def check_package_name(self, tokens, no_flag):
         possible_package_names = self.package_field.preferred_names(tokens, 1)
@@ -102,6 +104,9 @@ class Package(PinshCmd.PinshCmd):
             return OK,[]
 
         command = tokens[2].lower()
+
+        if command == "show":
+            return Show.Package().cmd(["show", "package", package_name], 0)
 
         if command == "edit":
             return Edit.Package().cmd(["edit", "package", package_name], 0)

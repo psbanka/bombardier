@@ -36,6 +36,8 @@ import StringIO
 import urllib2, urlparse, os, time
 import yaml
 import pycurl
+import exceptions
+import re
 import urllib
 from bombardier_core.static_data import OK, FAIL
 from Exceptions import UnexpectedDataException, ServerException
@@ -304,27 +306,50 @@ class CnmConnector:
     def watch_jobs(self, job_names):
         libUi.info("Job names: %s" % job_names)
         summary_output = {}
-        while job_names:
-            time.sleep(0.25)
-            url = "json/job/poll/"
-            post_data = {"yaml": yaml.dump({"job_names": job_names})}
-            output = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
-            for job_name in output:
-                job_output = output[job_name]
-                if "traceback" in job_output:
-                    raise MachineTraceback(url, job_output["traceback"])
-                new_output = job_output.get("new_output", '')
-                if new_output:
-                    libUi.process_cnm(new_output)
-                if not job_output.get("alive", False):
-                    libUi.info("Joining %s..." % job_name)
-                    out = system_state.cnm_connector.join_job(job_name)
-                    summary_output[job_name] = out
-                    job_names +=  out.get("children", [])
-                    job_names.remove(job_name)
-                    comments = out.get("jobs_requiring_comment", 0)
-                    if comments:
-                        system_state.comment_counter = len(comments)
+        try:
+            while job_names:
+                time.sleep(0.25)
+                url = "json/job/poll/"
+                post_data = {"yaml": yaml.dump({"job_names": job_names})}
+                output = self.service_yaml_request(url, post_data=post_data)
+                for job_name in output:
+                    job_output = output[job_name]
+                    if "traceback" in job_output:
+                        raise MachineTraceback(url, job_output["traceback"])
+                    new_output = job_output.get("new_output", '')
+                    if new_output:
+                        libUi.process_cnm(new_output)
+                    if not job_output.get("alive", False):
+                        libUi.info("Joining %s..." % job_name)
+                        out = system_state.cnm_connector.join_job(job_name)
+                        #print "OUT>>> ",out # FIXME: FIX sometimes removes spaces
+                        summary_output[job_name] = out
+                        job_names +=  out.get("children", [])
+                        job_names.remove(job_name)
+                        comments = out.get("jobs_requiring_comment", 0)
+                        if comments:
+                            system_state.comment_counter = len(comments)
+        except exceptions.KeyboardInterrupt:
+            term = libUi.ask_yes_no("Terminate job", libUi.YES)
+            if term == libUi.NO:
+                msg = ["Disconnected from %s" % job_names,
+                       "To re-connect, use 'job view'"]
+                return OK, msg
+            else:
+                matcher = re.compile("(\S+)@(\S+)\-(\d+)")
+                machine_names = set()
+                for job_name in job_names:
+                    _user, machine_name, _counter = matcher.findall(job_name)[0]
+                    machine_names.update([machine_name])
+                output = {}
+                for machine_name in machine_names:
+                    url = "/json/machine/stop-jobs/"
+                    post_data = {"machine": machine_name}
+                    print ">>> Halting all jobs on %s..." % machine_name
+                    output = self.service_yaml_request(url, post_data=post_data)
+                    libUi.user_output(output["command_output"], FAIL)
+                raise exceptions.KeyboardInterrupt
+
         return summary_output
 
     def get_job(self, url, post_data):

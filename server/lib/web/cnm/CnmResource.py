@@ -149,7 +149,8 @@ class CnmResource(Resource):
             #ermsg = "%% %s" % line
             #print "%s : %s " % (request.user, ermsg)
         traceback_data = getPyroTraceback(exception)
-        return {"status": FAIL, "traceback": traceback_data}
+        formatted_data = [ x.replace('\n', '') for x in traceback_data ]
+        return {"status": FAIL, "traceback": formatted_data}
 
     @classmethod
     def _form_update(cls, query_dict):
