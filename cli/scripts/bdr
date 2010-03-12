@@ -44,8 +44,8 @@ except ImportError:
 
 HISTORY_FILE = "%s/.bomsh_history" % os.environ['HOME']
 LOG_PATH = "%s/.bomsh_log" % os.environ['HOME']
-COMMANDS = ["Show", "Terminal", "Machine", "CliTest", "Package",
-            "Exit", "Set", "Dispatcher", "Edit", "Ssh", "Job", "Create",
+COMMANDS = ["Show", "Terminal", "Machine", "Package",
+            "Exit", "Dispatcher", "Edit", "Ssh", "Create",
             "User", "Comment",
            ]
 
@@ -196,6 +196,12 @@ if __name__ == "__main__":
     if options.server:
         system_state.cnm_url = options.server
 
+    if options.no_login:
+        COMMANDS.append("CliTest")
+        system_state.username = username
+        system_state.prompt = ['$']
+        system_state.set_prompt()
+
     command_classes = []
     for command in COMMANDS:
         try:
@@ -210,11 +216,7 @@ if __name__ == "__main__":
 
     slash = Slash.Slash(command_classes)
 
-    if options.no_login:
-        system_state.username = username
-        system_state.prompt = ['$']
-        system_state.set_prompt()
-    else:
+    if not options.no_login:
         libUi.login(username)
         initialize(system_state, slash)
         system_state.set_comment_counter()

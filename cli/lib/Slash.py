@@ -81,7 +81,9 @@ class Slash(PinshCmd.PinshCmd):
         except UnknownCommand, unk_err:
             return FAIL, [' ', str(unk_err)]
         except ServerTracebackException, trc:
-            return FAIL, ['Server traceback: ', [trc.traceback]]
+            for line in trc.traceback:
+                print "%%%% (%s)" % line.strip()
+            return FAIL, ['Server traceback']
         if return_value == None or len(return_value) != 2:
             return OK, []
         else:
@@ -96,6 +98,8 @@ class Slash(PinshCmd.PinshCmd):
 
     def process_command(self, command):
         'When somebody hits return in the shell, this method handles it.'
+        if command == "exit":
+            raise EOFError
         try:
             no_flag, help_flag, tokens, comment = libUi.process_input(command)
             if help_flag: # Process the [?] key first
@@ -124,6 +128,12 @@ class Slash(PinshCmd.PinshCmd):
             sys.exit(0)
         except CommandError, err:
             system_state.fp_out.write("\n %% %s\n\n" % err )
+        except ServerTracebackException, err:
+            msg = " %% There was a problem on the server:"
+            system_state.fp_err.write(msg)
+            for line in err.traceback:
+                system_state.fp_err.write("  %%%% %s" % line)
+                system_state.fp_err.write("\n")
         except Exception, err:
             msg = " %%%% Error detected in %s (%s)." % (command, err)
             system_state.fp_err.write( msg )

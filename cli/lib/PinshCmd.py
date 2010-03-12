@@ -273,9 +273,17 @@ class PinshCmd:
                 tokens[index+length-1] = new_name
                 self.dbg("NEW TOKEN: %s" % tokens[index])
                 if child.cmd_owner:
-                    return child.find_last_responsible_child(tokens,
+                    responsible = child.find_last_responsible_child(tokens,
                                                              index + length)
+                    self.dbg("%s IS RESPONSIBLE" % responsible)
+                    return responsible
                 else:
+                    responsible = child.find_last_responsible_child(tokens,
+                                                             index + length)
+                    if responsible.cmd_owner:
+                        self.dbg( "%s IS RESPONSIBLE" % responsible)
+                        return responsible
+                    self.dbg( "%s IS RESPONSIBLE" % self)
                     return self
         if len(owners) == 1:
             owner = owners[0]
@@ -304,13 +312,21 @@ class PinshCmd:
             if system_state.auth < child.auth:
                 continue
             if child.help_text.rfind('\n') != -1:
-                for help_line in child.help_text.split('\n'):
-                    cmd, doc = help_line.split('\t')
+                for line in child.help_text.split('\n'):
+                    if '\t' in line:
+                        cmd, doc = line.split('\t')
+                    else:
+                        cmd = child.my_name
+                        doc = line
                     help_text.append([cmd, doc])
                     if len(cmd) > max_len:
                         max_len = len(cmd)
             else:
-                cmd, doc = child.help_text.split('\t')
+                if '\t' in child.help_text:
+                    cmd, doc = child.help_text.split('\t')
+                else:
+                    cmd = child.my_name
+                    doc = child.help_text
                 help_text.append([cmd, doc])
             if len(cmd) > max_len:
                 max_len = len(cmd)

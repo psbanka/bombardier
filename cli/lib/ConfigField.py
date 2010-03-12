@@ -75,7 +75,8 @@ password: '%s'
 class ConfigField(PinshCmd.PinshCmd):
     '''The server keeps track of several types of configuration data.
     This class can provide command-line completion for those data objects'''
-    def __init__(self, name = "configField", data_type=MERGED, strict=True, new=False):
+    def __init__(self, name = "configField", data_type=MERGED, strict=True,
+                 new=False, machine_field=None):
         '''
         name -- Not used except in debugging
         data_type -- which type of configuration data is this object supposed
@@ -91,6 +92,7 @@ class ConfigField(PinshCmd.PinshCmd):
         self.data_type = data_type
         self.cmd_owner = 0
         self.strict = strict # take only exact matches
+        self.machine_field = machine_field
         if data_type == MACHINE:
             self.directory = "machine"
         elif data_type == MERGED:
@@ -189,7 +191,18 @@ class ConfigField(PinshCmd.PinshCmd):
         will return 'localhost' for the machine name if strict is off,
         otherwise, it will return 'localh'.
         '''
-        #print "PN: begin self.string = ", self.strict
+        if self.machine_field:
+            machine_name = tokens[self.machine_field]
+            url = "json/machine/name/%s" % machine_name
+            machine_config = system_state.cnm_connector.service_yaml_request(url)
+            possible_names = machine_config.get(self.directory, [])
+            output_names = []
+            for name in possible_names:
+                if name.lower().startswith(tokens[-1].lower()):
+                    output_names.append(name)
+            return output_names
+            
+        #print "PN: begin tokens, index = ", tokens, index
         tokens[index] = tokens[index].replace('"', '')
         if not self.strict:
             return tokens[index:]

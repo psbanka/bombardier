@@ -144,14 +144,19 @@ class DistEntry(ConfigEntry):
 class MergedEntry(CnmResource):
     """Merged Entry is a merged configuration based on machine and including
        based on the client configuration"""
+
     @login_required
     def read(self, request, machine_name):
         "Create machine config object, merge and return data as json"
-        server_home = self.get_server_home()
-        machine_config = MachineConfig.MachineConfig(machine_name, 
-                                                     "", server_home)
-        machine_config.merge()
-        responder = JsonDictResponder(machine_config.data)
+        try:
+            server_home = self.get_server_home()
+            machine_config = MachineConfig.MachineConfig(machine_name, 
+                                                         "", server_home)
+            machine_config.merge()
+            responder = JsonDictResponder(machine_config.data)
+        except Exception, x:
+            output = self.dump_exception(request, x)
+            responder = JsonDictResponder(output)
         return responder.element(request)
 
 #==================================
@@ -189,7 +194,7 @@ class MergedCollection(ConfigCollection):
     def read(self, request, machine_name):
         "Call superclass read method with collection type"
         sup = super(MergedCollection, self)
-        return sup.read(request, "merged", machine_name)
+        return sup.read(request, "machine", machine_name)
 
 class MachineCollection(ConfigCollection):
     "Machine config collection"

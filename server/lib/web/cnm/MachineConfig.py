@@ -55,11 +55,14 @@ class MachineConfig:
             yml_directory = "include"
         file_name = os.path.join(self.server_home, yml_directory,
                                  "%s.yml" % config_name)
+        if not os.path.isfile(file_name):
+            errmsg = "Error; %s does not exist." % file_name
+            raise MachineConfigurationException(self.machine_name, errmsg)
         new_data = syck.load( open(file_name, 'r').read() )
         if new_data == None:
             new_data = {}
         if type(new_data) != type({}):
-            errmsg = "Error parsing %s (syck did not get a dict)" % file_name
+            errmsg = "Error parsing %s (yaml did not get a dict)" % file_name
             raise MachineConfigurationException(self.machine_name, errmsg)
         self.data = add_dictionaries(self.data, new_data)
         new_includes = self.find_include_list(new_data)

@@ -35,32 +35,33 @@ __author__ =  'Peter Banka'
 __version__ = '1.0'
 
 import PinshCmd
-from ConfigField import ConfigField, MACHINE, DIST, PACKAGE
+import ConfigField
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState, ENABLE
 from PackageField import PackageField, FIX, PURGE, NOT_INSTALLED, INSTALLED
 import PackageActionField
 from Exceptions import MachineTraceback, CommandError
 from JobNameField import JobNameField
-import Integer
 from Ssh import Ssh
-from Show import Status, Summary
+import Show
 import Edit
 system_state = SystemState()
-import libUi, time, yaml
+import libUi, yaml
 
 URL_LOOKUP = {'test': "json/machine/start_test/%s",
               'dist': "json/machine/dist/%s",
               'init': "json/machine/init/%s",
               'reconcile': "json/machine/reconcile/%s",
               'check-status': "json/machine/check_status/%s",
-              'status': "json/machine/status/%s",
+              'fix': "json/machine/status/%s",
+              'purge': "json/machine/status/%s",
               'enable': "json/machine/enable/%s",
               'disable': "json/machine/disable/%s",
               'setup': "json/machine/setup/%s",
              }
 
 def setup_test():
+    "Used by integration test code"
     fresh_status_yaml = """ 
 client_version: 1.00-634
 core_version: 1.00-629
@@ -70,28 +71,182 @@ timestamp: 1251918530.6349609"""
     status_file = "/opt/spkg/localhost/status.yml"
     open(status_file, "w").write(fresh_status_yaml)
 
+def check_machine_name(tokens, no_flag):
+    "Verifies that the machine name entered is valid"
+    machine_field = ConfigField.ConfigField(data_type=ConfigField.MACHINE)
+    possible_machine_names = machine_field.preferred_names(tokens, 1)
+    machine_name = possible_machine_names[0]
+    if no_flag:
+        raise CommandError("NO cannot be used here")
+    if len(possible_machine_names) == 0:
+        raise CommandError("Unknown machine name: %s" % tokens[2])
+    if len(possible_machine_names) > 1:
+        raise CommandError("Ambiguous machine name: %s" % tokens[2])
+    return machine_name
+
+
+class EditCommand(PinshCmd.PinshCmd):
+    "Handles all 'machine <machine> edit x' operations"
+    def __init__(self):
+        "Set up the command"
+        PinshCmd.PinshCmd.__init__(self, "edit")
+        self.help_text = "commands that edit configuration data"
+        self.cmd_owner = 1
+        self.auth = ENABLE
+
+        bom = PinshCmd.PinshCmd("bom")
+        bom.help_text = "Edit a Bill of Materials for this machine"
+        include = PinshCmd.PinshCmd("include")
+        include.help_text = "Edit an include file for this machine"
+        config = PinshCmd.PinshCmd("config")
+        config.help_text = "Edit the base configuration for this machine"
+        self.children = [bom, include, config]
+        bom_config = ConfigField.ConfigField(data_type=ConfigField.BOM,
+                                             machine_field=1)
+        include_config = ConfigField.ConfigField(data_type=ConfigField.INCLUDE,
+                                                 machine_field=1)
+        bom.children = [bom_config]
+        include.children = [include_config]
+
+    def cmd(self, tokens, no_flag):
+        """
+        tokens -- all of the keywords passed in the command string, parsed
+        no_flag -- whether the 'no' keyword was used in the command string
+        """
+        machine_name = check_machine_name(tokens, no_flag)
+
+        if len(tokens) == 3 or tokens[3] == "config":
+            return Edit.Machine().cmd(["edit", "machine", machine_name], 0)
+
+        command = tokens[3]
+        if len(tokens) != 5:
+            msg = "Incomplete command; need to include %s name." % command
+            raise CommandError(msg)
+
+        object_name = tokens[4]
+
+        if command == "bom":
+            return Edit.Bom().cmd(["Edit", "bom", object_name], 0)
+        elif command == "include":
+            return Edit.Include().cmd(["Edit", "include", object_name], 0)
+
+        raise CommandError("Unknown command: %s" % command)
+
+class ShowCommand(PinshCmd.PinshCmd):
+    "Handles all 'machine <machine> show x' operations"
+    def __init__(self):
+        "Set up the command"
+        PinshCmd.PinshCmd.__init__(self, "show")
+        self.help_text = "commands that show data about this machine"
+        self.cmd_owner = 1
+        self.auth = ENABLE
+
+        status = PinshCmd.PinshCmd("status", "status reporting or manipulation")
+        summary = PinshCmd.PinshCmd("summary")
+        summary.help_text = "show the digested status information"
+        bom = PinshCmd.PinshCmd("bom")
+        bom.help_text = "Show the Bill of Materials for this machine"
+        include = PinshCmd.PinshCmd("include")
+        include.help_text = "Show an include file for this machine"
+        merged = PinshCmd.PinshCmd("merged")
+        merged.help_text = "Show the complete merged configuration for machine"
+        config = PinshCmd.PinshCmd("config")
+        config.help_text = "Show the basic configuration for machine"
+        self.children = [config, bom, include, merged, summary, status]
+        bom_config = ConfigField.ConfigField(data_type=ConfigField.BOM,
+                                             machine_field=1)
+        include_config = ConfigField.ConfigField(data_type=ConfigField.INCLUDE,
+                                                 machine_field=1)
+        bom.children = [bom_config]
+        include.children = [include_config]
+
+    def cmd(self, tokens, no_flag):
+        """
+        tokens -- all of the keywords passed in the command string, parsed
+        no_flag -- whether the 'no' keyword was used in the command string
+        """
+        machine_name = check_machine_name(tokens, no_flag)
+
+        if len(tokens) == 3 or tokens[3] == "config":
+            return Show.Machine().cmd(["Show", "machine", machine_name], 0)
+
+        command = tokens[3]
+        if command == "merged":
+            return Show.Merged().cmd(["Show", "merged", machine_name], 0)
+        elif command == "status":
+            return Show.Status().cmd(["show", "status", machine_name], 0)
+        elif command == "summary":
+            return Show.Summary().cmd(["show", "summary", machine_name], 0)
+
+        if len(tokens) != 5:
+            msg = "Incomplete command; need to include %s name." % command
+            raise CommandError(msg)
+
+        object_name = tokens[4]
+
+        if command == "bom":
+            return Show.Bom().cmd(["Show", "bom", object_name], 0)
+        elif command == "include":
+            return Show.Include().cmd(["Show", "include", object_name], 0)
+
+        raise CommandError("Unknown command: %s" % command)
+
+class JobCommand(PinshCmd.PinshCmd):
+    "Handles all 'machine <machine> job x' operations"
+    def __init__(self):
+        "Set up the command"
+        PinshCmd.PinshCmd.__init__(self, "job")
+        self.help_text = "operations on the job queues"
+        self.cmd_owner = 1
+        self.auth = ENABLE
+
+        clear_broken = PinshCmd.PinshCmd("clear-broken")
+        clear_broken.help_text = "clear the broken jobs"
+        stop = PinshCmd.PinshCmd("stop")
+        stop.help_text = "immediately kill all active and pending jobs"
+        show = PinshCmd.PinshCmd("show")
+        show.help_text = "show active, pending, broken, and finished jobs"
+        view = PinshCmd.PinshCmd("view")
+        view.help_text = "view a running, finished, or broken job"
+        self.children = [clear_broken, stop, show, view]
+
+        job_name_field = JobNameField()
+        view.children = [job_name_field]
+
+    def cmd(self, tokens, no_flag):
+        """
+        tokens -- all of the keywords passed in the command string, parsed
+        no_flag -- whether the 'no' keyword was used in the command string
+        """
+
+        machine_name = check_machine_name(tokens, no_flag)
+        sub_command = "show"
+
+        if len(tokens) >= 4:
+            sub_command = tokens[3]
+        
+        post_data = None
+        if sub_command == "stop":
+            url = "/json/machine/stop-jobs/"
+            post_data = {"machine": machine_name}
+        elif sub_command == "clear-broken":
+            url = "/json/machine/clear-broken-jobs/"
+            post_data = {"machine": machine_name}
+        elif sub_command == "view":
+            if len(tokens) < 5:
+                msg = "Incomplete command; need to include the job name."
+                raise CommandError(msg)
+            job_name = tokens[4]
+            return system_state.cnm_connector.watch_jobs([job_name])
+        else:
+            url = "/json/machine/show-jobs/%s" % machine_name
+            output = system_state.cnm_connector.service_yaml_request(url)
+            return output["command_status"], output
+        output = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
+        return output["command_status"], output["command_output"]
+
+
 class Machine(PinshCmd.PinshCmd):
-#    '''bomsh# package Testpackagetype4 install localhost 
-##       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7']]
-#    '''
-#       bomsh# package Testpackagetype4 install localhost 
-#       [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7', 'Finished install for TestPackageType4.']]
-#       bomsh# package TestPackagetype4 echo localhost 
-#       [OK, {'test file exists': 'True', 'contents of test file': 'The Quick Brown Fox Jumped over the Lazy Dog.'}]
-#    '''
-#       bomsh# package Testpackagetype4 uninstall localhost 
-#       [OK, ['uninstall OK: TestPackageType4-7']]
-#       bomsh# package bogusPackage install localhost 
-#       [FAIL, []]
-#    '''
-#       bomsh# machine localhost enable
-#       [OK, []]
-#       bomsh# machine localhost test
-#       [OK, ['Machine localhost is ready to take commands.']]
-#       bomsh# machine localhost dist test
-#       [OK, ['localhost updated with test']]
-#       bomsh# machine localhost init
-#       [OK, []]
     '''
        bomsh# machine localhost reconcile
        [OK, ['install OK: TestPackageType4-7', 'verify OK: TestPackageType4-7', 'Finished installing']]
@@ -104,60 +259,60 @@ class Machine(PinshCmd.PinshCmd):
        bomsh# machine localhost status purge TestPackageType4-7
        [OK, ['TestPackageType4-7 has been removed from localhost status']]
     '''
-#       bomsh# machine localhost disable
-#       [OK, []]
-#       bomsh# machine localhost enable
-#       [OK, []]
 
     def __init__(self):
         """Top-level object has a 'test' child: test the machine
         """
         PinshCmd.PinshCmd.__init__(self, "machine")
-        self.help_text = "machine\tcommands that operate on a given machine"
+        self.help_text = "commands that operate on a given machine"
         self.cmd_owner = 1
-        self.machine_field = None
-        self.children = []
-        self.build_children()
         self.auth = ENABLE
 
-    def build_children(self):
         # Top-level commands
-        self.machine_field = ConfigField(data_type=MACHINE)
+        self.machine_field = ConfigField.ConfigField(data_type=ConfigField.MACHINE)
         self.children = [self.machine_field]
 
         # Second-level commands
-        test = PinshCmd.PinshCmd("test", "test\ttest a machine connection")
-        dist = PinshCmd.PinshCmd("dist", "dist\tdeploy a library to a machine")
-        enable = PinshCmd.PinshCmd("enable", "enable\tshare ssh keys with a machine")
-        disable = PinshCmd.PinshCmd("disable", "disable\tremove ssh key from a machine")
-        init = PinshCmd.PinshCmd("init", "init\tintialize bombardier on a machine")
-        reconcile = PinshCmd.PinshCmd("reconcile", "reconcile\treconcile machine state to bill of materials")
-        check_status = PinshCmd.PinshCmd("check-status", "check-status\treview the current state of the system")
-        status = PinshCmd.PinshCmd("status", "status\tstatus reporting or manipulation")
-        summary = PinshCmd.PinshCmd("summary", "summary\tshow the digested status information")
-        install = PinshCmd.PinshCmd("install", "install\tinstall a package")
-        uninstall = PinshCmd.PinshCmd("uninstall", "uninstall\tremove a package")
-        configure = PinshCmd.PinshCmd("configure", "configure\tconfigure a package")
-        verify = PinshCmd.PinshCmd("verify", "verify\tverify a package")
-        execute = PinshCmd.PinshCmd("execute", "execute\trun an action on a package")
-        ssh = PinshCmd.PinshCmd("ssh", "ssh\tconnect directly to this machine from the cli")
-        edit = PinshCmd.PinshCmd("edit", "edit\tedit the configuration for this machine")
-        push = PinshCmd.PinshCmd("push", "push\tsend cleartext configuration data to machine for troublehsooting")
-        unpush = PinshCmd.PinshCmd("unpush", "unpush\tremove cleartext configuration data from machine")
-        setup = PinshCmd.PinshCmd("setup", "setup\tinstall bombardier core and client onto a machine with depedencies")
-        job = PinshCmd.PinshCmd("job", "job\toperations on the job queues")
-        self.machine_field.children = [test, dist, init, enable, ssh, summary,
-                                       disable, check_status, status, edit,
+        test = PinshCmd.PinshCmd("test", "test a machine connection")
+        dist = PinshCmd.PinshCmd("dist", "deploy a library to a machine")
+        enable = PinshCmd.PinshCmd("enable", "share ssh keys with a machine")
+        disable = PinshCmd.PinshCmd("disable", "remove ssh key from a machine")
+        init = PinshCmd.PinshCmd("init", "intialize bombardier on a machine")
+        reconcile = PinshCmd.PinshCmd("reconcile")
+        reconcile.help_text = "reconcile machine state to bill of materials"
+        check_status = PinshCmd.PinshCmd("check-status")
+        check_status.help_text = "review the current state of the system"
+        show = ShowCommand()
+        install = PinshCmd.PinshCmd("install", "install a package")
+        uninstall = PinshCmd.PinshCmd("uninstall", "remove a package")
+        configure = PinshCmd.PinshCmd("configure", "configure a package")
+        verify = PinshCmd.PinshCmd("verify", "verify a package")
+        execute = PinshCmd.PinshCmd("execute", "run an action on a package")
+        ssh = PinshCmd.PinshCmd("ssh")
+        ssh.help_text = "connect directly to this machine from the cli"
+        edit = EditCommand()
+        push = PinshCmd.PinshCmd("push")
+        push.help_text = "send cleartext configuration data to machine"
+        unpush = PinshCmd.PinshCmd("unpush")
+        unpush.help_text = "remove cleartext configuration data from machine"
+        setup = PinshCmd.PinshCmd("setup")
+        setup.help_text = "install bombardier software onto machine"
+        job = JobCommand()
+        fix = PinshCmd.PinshCmd("fix")
+        fix.help_text = "sets the state of a package to INSTALLED"
+        purge = PinshCmd.PinshCmd("purge")
+        purge.help_text = "removes a package from the machine's status data"
+        self.machine_field.children = [test, dist, init, enable, ssh, purge,
+                                       disable, check_status, edit, fix,
                                        reconcile, execute, install, uninstall,
                                        configure, verify, push, unpush, setup,
-                                       job]
+                                       job, show]
 
         # Third-level commands
-        dist_field = ConfigField(data_type=DIST)
+        dist_field = ConfigField.ConfigField(data_type=ConfigField.DIST)
         dist.children = [dist_field]
-        fix = PinshCmd.PinshCmd("fix", "fix\tsets the state of a package to INSTALLED")
-        purge = PinshCmd.PinshCmd("purge", "purge\tremoves a package from the status of a machine")
-        status.children = [fix, purge]
+        fix.children = [PackageField(action_type=FIX)]
+        purge.children = [PackageField(action_type=PURGE)]
         installed_package_field = PackageField(INSTALLED)
         not_installed_package_field = PackageField(NOT_INSTALLED)
         executable_package_field = PackageField(INSTALLED)
@@ -167,46 +322,43 @@ class Machine(PinshCmd.PinshCmd):
         configure.children = [installed_package_field]
         execute.children = [executable_package_field]
 
-        clear_broken = PinshCmd.PinshCmd("clear-broken", "clear-broken-jobs\tclear the broken jobs")
-        stop = PinshCmd.PinshCmd("stop", "stop\timmediately kill all active and pending jobs")
-        show = PinshCmd.PinshCmd("show", "show\tshow active, pending, broken, and finished jobs")
-        view = PinshCmd.PinshCmd("view", "view\tview a running, finished, or broken job")
+        clear_broken = PinshCmd.PinshCmd("clear-broken")
+        clear_broken.help_text = "clear the broken jobs"
+        stop = PinshCmd.PinshCmd("stop")
+        stop.help_text = "immediately kill all active and pending jobs"
+        show = PinshCmd.PinshCmd("show")
+        show.help_text = "show active, pending, broken, and finished jobs"
+        view = PinshCmd.PinshCmd("view")
+        view.help_text = "view a running, finished, or broken job"
         job.children = [clear_broken, stop, show, view]
 
+
         # Fourth-level commands
-        fix.children = [PackageField(action_type=FIX)]
-        purge.children = [PackageField(action_type=PURGE)]
         package_actions = PackageActionField.PackageActionField()
         executable_package_field.children = [package_actions]
         job_name_field = JobNameField()
         view.children = [job_name_field]
 
     def analyze_output(self, machine_name, tokens, output, post_data):
+        "If a package-type command is run, this looks at the output of it"
         command = tokens[2].lower()
         if command == "test":
-            for i in range(1,5):
+            for i in range(1, 5):
                 if "Testing %d/4" % i not in output["complete_log"]:
                     return FAIL, "Invalid output from server"
-                return OK, [ "Machine %s is ready to take commands." % machine_name ]
+                output =  "Machine %s is ready to take commands." % machine_name
+                return OK, [ output ]
         elif command == "dist":
             if output["command_status"] == OK:
-                return OK, ["%s updated with %s" % (machine_name, post_data["dist"])]
+                output = "%s updated with %s"
+                return OK, [output % (machine_name, post_data["dist"])]
             else:
-                return FAIL, ["%s FAILED to install %s" % (machine_name, post_data["dist"])]
+                output = "%s FAILED to install %s"
+                return FAIL, [output % (machine_name, post_data["dist"])]
         return output["command_status"], output["command_output"]
 
-    def check_machine_name(self, tokens, no_flag):
-        possible_machine_names = self.machine_field.preferred_names(tokens, 1)
-        machine_name = possible_machine_names[0]
-        if no_flag:
-            raise CommandError("NO cannot be used here")
-        if len(possible_machine_names) == 0:
-            raise CommandError("Unknown machine name: %s" % tokens[2])
-        if len(possible_machine_names) > 1:
-            raise CommandError("Ambiguous machine name: %s" % tokens[2])
-        return machine_name
-
     def get_url_and_post(self, machine_name, tokens):
+        "for package-type operations, looks up the URL and gets POST data"
         command = tokens[2].lower()
         if command not in URL_LOOKUP:
             raise CommandError("%s is not a valid command" % command)
@@ -220,16 +372,6 @@ class Machine(PinshCmd.PinshCmd):
             password = libUi.pwd_input(prompt)
             yml_dict = yaml.dump( {"password" : password } )
             post_data = {"yaml" : yml_dict}
-        elif command == "status":
-            if len(tokens) > 3:
-                if len(tokens) < 5:
-                    raise CommandError("Incomplete command")
-                sub_command = tokens[3].lower()
-                if sub_command not in ["fix", "purge"]:
-                    raise CommandError("%s is not a valid command" % sub_command)
-                post_data["action"] = sub_command
-                post_data["machine"] = machine_name
-                url = "/json/package_action/%s" % tokens[4]
         return url, post_data
 
     def cmd(self, tokens, no_flag):
@@ -239,24 +381,15 @@ class Machine(PinshCmd.PinshCmd):
         """
         if len(tokens) < 2:
             raise CommandError("Incomplete command.")
-        machine_name = self.check_machine_name(tokens, no_flag)
+        machine_name = check_machine_name(tokens, no_flag)
         if len(tokens) == 2:
             system_state.push_prompt(["machine", machine_name])
-            return OK,[]
+            return OK, []
 
         command = tokens[2].lower()
 
-        if command == "edit":
-            return Edit.Machine().cmd(["edit", "machine", machine_name], 0)
-
         if command == "ssh":
             return Ssh().cmd(["ssh", machine_name], 0)
-
-        if command == "status" and len(tokens) == 3:
-            return Status().cmd(["show", "status", machine_name], 0)
-
-        if command == "summary" and len(tokens) == 3:
-            return Summary().cmd(["show", "summary", machine_name], 0)
 
         if command == "push":
             url = "/json/machine/push/%s" % machine_name
@@ -270,36 +403,17 @@ class Machine(PinshCmd.PinshCmd):
             job_name = system_state.cnm_connector.get_job(url, post_data)
             return system_state.cnm_connector.watch_jobs([job_name])
 
-        if command == "job":
-            sub_command = "show"
-            if len(tokens) >= 4:
-                sub_command = tokens[3]
-            
-            post_data = None
-            if sub_command == "stop":
-                url = "/json/machine/stop-jobs/"
-                post_data = {"machine": machine_name}
-            elif sub_command == "clear-broken":
-                url = "/json/machine/clear-broken-jobs/"
-                post_data = {"machine": machine_name}
-            elif sub_command == "view":
-                job_name = tokens[4]
-                return system_state.cnm_connector.watch_jobs([job_name])
-            else:
-                url = "/json/machine/show-jobs/%s" % machine_name
-                output = system_state.cnm_connector.service_yaml_request(url)
-                return output["command_status"], output
-            output = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
-            return output["command_status"], output["command_output"]
-
         if command in ["install", "uninstall", "verify",
-                       "configure", "execute"]:
+                       "configure", "execute", "purge", "fix"]:
             if command == "execute":
                 if len(tokens) != 5:
-                    raise CommandError("Incomplete Command")
+                    msg = "Incomplete command; require a package name "\
+                          "and a command."
+                    raise CommandError(msg)
                 command = tokens[4]
-            if len(tokens) < 3:
-                raise CommandError("Incomplete command.")
+            if len(tokens) <= 3:
+                msg = "Incomplete command; require a package name."
+                raise CommandError(msg)
             package_name = tokens[3]
             machine_name = tokens[1]
 
@@ -307,13 +421,18 @@ class Machine(PinshCmd.PinshCmd):
             post_data = {"machine": machine_name,
                          "action": command}
         else:
+            if command == "dist":
+                if len(tokens) <= 3:
+                    msg = "Incomplete command; requires a dist file name."
+                    raise CommandError(msg)
             url, post_data = self.get_url_and_post(machine_name, tokens)
 
         try:
             job_name = system_state.cnm_connector.get_job(url, post_data)
             output = system_state.cnm_connector.watch_jobs([job_name])
-            return self.analyze_output(machine_name, tokens, output[job_name], post_data)
+            return self.analyze_output(machine_name, tokens, output[job_name],
+                                       post_data)
         except MachineTraceback, m_err:
             libUi.process_traceback(m_err)
-            return FAIL,[]
+            return FAIL, []
 
