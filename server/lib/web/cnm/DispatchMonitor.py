@@ -97,7 +97,7 @@ class DispatchMonitor(Thread, ServerLogMixin.ServerLogMixin):
         output = {"active_jobs": [],
                   "pending_jobs": [],
                   "broken_jobs": [],
-                  "jobs_needing_comments": [],
+                  "jobs_to_comment": [],
                   "finished_jobs": [],
                  }
         for job_name in self.active_jobs:
@@ -119,10 +119,10 @@ class DispatchMonitor(Thread, ServerLogMixin.ServerLogMixin):
             job_str = "%s: %s" % (job.name, job.info())
             self.server_log.info("3 Checking %s." % job.name)
             output["pending_jobs"].append(job_str)
-        for job in self.jobs_needing_comments:
+        for job in self.jobs_to_comment:
             self.server_log.info("4 Checking %s." % job.name)
             job_str = "%s: %s" % (job.name, job.info())
-            output["jobs_needing_comments"].append(job_str)
+            output["jobs_to_comment"].append(job_str)
         return output
 
     def note_comment(self, job_name):

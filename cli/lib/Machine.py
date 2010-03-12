@@ -35,7 +35,7 @@ __author__ =  'Peter Banka'
 __version__ = '1.0'
 
 import PinshCmd
-from ConfigField import ConfigField, MACHINE, DIST, PACKAGE
+import ConfigField
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState, ENABLE
 from PackageField import PackageField, FIX, PURGE, NOT_INSTALLED, INSTALLED
@@ -44,7 +44,7 @@ from Exceptions import MachineTraceback, CommandError
 from JobNameField import JobNameField
 import Integer
 from Ssh import Ssh
-from Show import Status, Summary
+import Show
 import Edit
 system_state = SystemState()
 import libUi, time, yaml
@@ -122,7 +122,7 @@ class Machine(PinshCmd.PinshCmd):
 
     def build_children(self):
         # Top-level commands
-        self.machine_field = ConfigField(data_type=MACHINE)
+        self.machine_field = ConfigField.ConfigField(data_type=ConfigField.MACHINE)
         self.children = [self.machine_field]
 
         # Second-level commands
@@ -133,8 +133,7 @@ class Machine(PinshCmd.PinshCmd):
         init = PinshCmd.PinshCmd("init", "init\tintialize bombardier on a machine")
         reconcile = PinshCmd.PinshCmd("reconcile", "reconcile\treconcile machine state to bill of materials")
         check_status = PinshCmd.PinshCmd("check-status", "check-status\treview the current state of the system")
-        status = PinshCmd.PinshCmd("status", "status\tstatus reporting or manipulation")
-        summary = PinshCmd.PinshCmd("summary", "summary\tshow the digested status information")
+        show = PinshCmd.PinshCmd("show", "show\tshow the configuration of the machine")
         install = PinshCmd.PinshCmd("install", "install\tinstall a package")
         uninstall = PinshCmd.PinshCmd("uninstall", "uninstall\tremove a package")
         configure = PinshCmd.PinshCmd("configure", "configure\tconfigure a package")
@@ -146,18 +145,25 @@ class Machine(PinshCmd.PinshCmd):
         unpush = PinshCmd.PinshCmd("unpush", "unpush\tremove cleartext configuration data from machine")
         setup = PinshCmd.PinshCmd("setup", "setup\tinstall bombardier core and client onto a machine with depedencies")
         job = PinshCmd.PinshCmd("job", "job\toperations on the job queues")
-        self.machine_field.children = [test, dist, init, enable, ssh, summary,
-                                       disable, check_status, status, edit,
-                                       reconcile, execute, install, uninstall,
-                                       configure, verify, push, unpush, setup,
-                                       job]
-
-        # Third-level commands
-        dist_field = ConfigField(data_type=DIST)
-        dist.children = [dist_field]
         fix = PinshCmd.PinshCmd("fix", "fix\tsets the state of a package to INSTALLED")
         purge = PinshCmd.PinshCmd("purge", "purge\tremoves a package from the status of a machine")
-        status.children = [fix, purge]
+        self.machine_field.children = [test, dist, init, enable, ssh, purge,
+                                       disable, check_status, edit, fix,
+                                       reconcile, execute, install, uninstall,
+                                       configure, verify, push, unpush, setup,
+                                       job, show]
+
+        # Third-level commands
+        dist_field = ConfigField.ConfigField(data_type=ConfigField.DIST)
+        dist.children = [dist_field]
+        fix.children = [PackageField(action_type=FIX)]
+        purge.children = [PackageField(action_type=PURGE)]
+        status = PinshCmd.PinshCmd("status", "status\tstatus reporting or manipulation")
+        summary = PinshCmd.PinshCmd("summary", "summary\tshow the digested status information")
+        bom = PinshCmd.PinshCmd("bom", "bom\tShow the Bill of Materials for this machine")
+        include = PinshCmd.PinshCmd("include", "include\tShow an include file for this machine")
+        merged = PinshCmd.PinshCmd("merged", "merged\tShow the complete merged configuration for machine")
+        show.children = [bom, include, merged, summary, status]
         installed_package_field = PackageField(INSTALLED)
         not_installed_package_field = PackageField(NOT_INSTALLED)
         executable_package_field = PackageField(INSTALLED)
@@ -173,9 +179,14 @@ class Machine(PinshCmd.PinshCmd):
         view = PinshCmd.PinshCmd("view", "view\tview a running, finished, or broken job")
         job.children = [clear_broken, stop, show, view]
 
+        bom_config = ConfigField.ConfigField(data_type=ConfigField.BOM,
+                                             machine_field=1)
+        include_config = ConfigField.ConfigField(data_type=ConfigField.INCLUDE,
+                                                 machine_field=1)
+        bom.children = [bom_config]
+        include.children = [include_config]
+
         # Fourth-level commands
-        fix.children = [PackageField(action_type=FIX)]
-        purge.children = [PackageField(action_type=PURGE)]
         package_actions = PackageActionField.PackageActionField()
         executable_package_field.children = [package_actions]
         job_name_field = JobNameField()
@@ -220,16 +231,10 @@ class Machine(PinshCmd.PinshCmd):
             password = libUi.pwd_input(prompt)
             yml_dict = yaml.dump( {"password" : password } )
             post_data = {"yaml" : yml_dict}
-        elif command == "status":
-            if len(tokens) > 3:
-                if len(tokens) < 5:
-                    raise CommandError("Incomplete command")
-                sub_command = tokens[3].lower()
-                if sub_command not in ["fix", "purge"]:
-                    raise CommandError("%s is not a valid command" % sub_command)
-                post_data["action"] = sub_command
-                post_data["machine"] = machine_name
-                url = "/json/package_action/%s" % tokens[4]
+        elif command in ["fix", "purge"]:
+            post_data["action"] = command
+            post_data["machine"] = machine_name
+            url = "/json/package_action/%s" % command
         return url, post_data
 
     def cmd(self, tokens, no_flag):
@@ -246,17 +251,32 @@ class Machine(PinshCmd.PinshCmd):
 
         command = tokens[2].lower()
 
+        if command == "show":
+            if len(tokens) == 3:
+                return Show.Machine().cmd(["Show", "machine", machine_name], 0)
+            sub_command = tokens[3]
+            if sub_command == "merged":
+                return Show.Merged().cmd(["Show", "merged", machine_name], 0)
+            elif command == "status":
+                return Show.Status().cmd(["show", "status", machine_name], 0)
+
+            elif command == "summary" and len(tokens) == 3:
+                return Show.Summary().cmd(["show", "summary", machine_name], 0)
+
+            if len(tokens) != 5:
+                raise CommandError("Incomplete Command")
+            object_name = tokens[4]
+            if sub_command == "bom":
+                return Show.Bom().cmd(["Show", "bom", object_name], 0)
+            elif sub_command == "include":
+                return Show.Include().cmd(["Show", "include", object_name], 0)
+            raise CommandError("Unknown command: %s" % sub_command)
+
         if command == "edit":
             return Edit.Machine().cmd(["edit", "machine", machine_name], 0)
 
         if command == "ssh":
             return Ssh().cmd(["ssh", machine_name], 0)
-
-        if command == "status" and len(tokens) == 3:
-            return Status().cmd(["show", "status", machine_name], 0)
-
-        if command == "summary" and len(tokens) == 3:
-            return Summary().cmd(["show", "summary", machine_name], 0)
 
         if command == "push":
             url = "/json/machine/push/%s" % machine_name

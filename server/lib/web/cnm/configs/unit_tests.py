@@ -463,6 +463,7 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         while not (found1 and found2):
             response = self.client.get(url)
             content_dict = json.loads( response.content )
+            assert "job_info" in content_dict, content_dict
             broken_job_info = content_dict["job_info"]["broken_jobs"]
             for job_info in broken_job_info:
                 if job_name1 in job_info:
@@ -814,10 +815,10 @@ if __name__ == '__main__':
         #suite.addTest(CnmTests("test_data_modification"))
         #suite.addTest(CnmTests("test_summary"))
         #suite.addTest(CnmTests("test_user"))
-        suite.addTest(DispatcherTests("test_dist_update_for_commenting"))
+        #suite.addTest(DispatcherTests("test_dist_update_for_commenting"))
         #suite.addTest(DispatcherTests("test_client_update"))
         #suite.addTest(DispatcherTests("test_stop_all_jobs"))
-        #suite.addTest(PackageTests("test_encrypted_ci"))
+        suite.addTest(PackageTests("test_encrypted_ci"))
         #suite.addTest(PackageTests("test_insufficient_config"))
         #suite.addTest(PackageTests("test_package_build"))
         #suite.addTest(PackageTests("test_type5_package_actions"))
