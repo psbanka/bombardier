@@ -80,8 +80,9 @@ class JobCommand(PinshCmd.PinshCmd):
             output = connector.service_yaml_request(url, post_data=post_data)
             return output["command_status"], output["command_output"]
         elif tokens[2] == "view":
-            output = system_state.cnm_connector.watch_jobs([job_name])
-            return output["command_status"], output["command_output"]
+            status, output = system_state.cnm_connector.watch_jobs([job_name])
+            return status, output
+            #return output["command_status"], output["command_output"]
         raise CommandError("Unknown command: %s" % tokens[1])
             
 class Dispatcher(PinshCmd.PinshCmd):
@@ -173,7 +174,7 @@ class Dispatcher(PinshCmd.PinshCmd):
                 raise CommandError("Incomplete command")
             post_data["uri"] = tokens[2]
 
-        elif action in ["start", "stop"]:
+        elif action in ["start", "stop", "status"]:
             return connector.dispatcher_control(action, post_data)
 
         raise CommandError("Unknown command")

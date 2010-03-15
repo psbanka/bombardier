@@ -285,11 +285,8 @@ def process_action(action, instance_name, pkn, method_name,
         if action == CHECK_STATUS:
             status_dict = bc_obj.check_system()
             if type(status_dict) == type({}):
-                if status_dict["broken"]:
-                    Logger.info("BROKEN PACKAGES:")
-                    for pkn in status_dict["broken"]:
-                        Logger.info("- %s" % pkn)
-                status = OK
+                if not status_dict["Packages that are BROKEN"]:
+                    status = OK
             else:
                 status = FAIL
         elif action in [ RECONCILE, DRY_RUN ]:

@@ -39,7 +39,7 @@ import pycurl
 import exceptions
 import re
 import urllib
-from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import OK, FAIL, WAIT
 from Exceptions import UnexpectedDataException, ServerException
 from Exceptions import MachineTraceback, ServerTracebackException
 from Exceptions import MachineUnavailableException
@@ -304,10 +304,13 @@ class CnmConnector:
         return False
 
     def watch_jobs(self, job_names):
-        libUi.info("Job names: %s" % job_names)
-        summary_output = {}
+        libUi.info("Watching job progress. Press ^C to abort or disconnect.")
+        summary_output = []
+        summary_status = OK
+        jobs = set(job_names)
         try:
             while job_names:
+                jobs = jobs.union(job_names)
                 time.sleep(0.25)
                 url = "json/job/poll/"
                 post_data = {"yaml": yaml.dump({"job_names": job_names})}
@@ -319,11 +322,17 @@ class CnmConnector:
                     new_output = job_output.get("new_output", '')
                     if new_output:
                         libUi.process_cnm(new_output)
-                    if not job_output.get("alive", False):
-                        libUi.info("Joining %s..." % job_name)
+                    alive = job_output.get("alive")
+                    if alive == None:
+                        print "UNEXPECTED RESULT: ",alive
+                        print "JOB OUTPUT:",job_output
+                    if alive == False:
                         out = system_state.cnm_connector.join_job(job_name)
                         #print "OUT>>> ",out # FIXME: FIX sometimes removes spaces
-                        summary_output[job_name] = out
+                        summary_output.append(out.get("command_output"))
+                        status = out.get("command_status", OK)
+                        if status != OK:
+                            summary_status = FAIL
                         job_names +=  out.get("children", [])
                         job_names.remove(job_name)
                         comments = out.get("jobs_requiring_comment", 0)
@@ -350,7 +359,8 @@ class CnmConnector:
                     libUi.user_output(output["command_output"], FAIL)
                 raise exceptions.KeyboardInterrupt
 
-        return summary_output
+        libUi.info("Finishing processing of %d jobs..." % len(jobs))
+        return summary_status, summary_output
 
     def get_job(self, url, post_data):
         out = self.service_yaml_request(url, post_data=post_data)

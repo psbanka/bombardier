@@ -339,24 +339,6 @@ class Machine(PinshCmd.PinshCmd):
         job_name_field = JobNameField()
         view.children = [job_name_field]
 
-    def analyze_output(self, machine_name, tokens, output, post_data):
-        "If a package-type command is run, this looks at the output of it"
-        command = tokens[2].lower()
-        if command == "test":
-            for i in range(1, 5):
-                if "Testing %d/4" % i not in output["complete_log"]:
-                    return FAIL, "Invalid output from server"
-                output =  "Machine %s is ready to take commands." % machine_name
-                return OK, [ output ]
-        elif command == "dist":
-            if output["command_status"] == OK:
-                output = "%s updated with %s"
-                return OK, [output % (machine_name, post_data["dist"])]
-            else:
-                output = "%s FAILED to install %s"
-                return FAIL, [output % (machine_name, post_data["dist"])]
-        return output["command_status"], output["command_output"]
-
     def get_url_and_post(self, machine_name, tokens):
         "for package-type operations, looks up the URL and gets POST data"
         command = tokens[2].lower()
@@ -429,9 +411,8 @@ class Machine(PinshCmd.PinshCmd):
 
         try:
             job_name = system_state.cnm_connector.get_job(url, post_data)
-            output = system_state.cnm_connector.watch_jobs([job_name])
-            return self.analyze_output(machine_name, tokens, output[job_name],
-                                       post_data)
+            status, output = system_state.cnm_connector.watch_jobs([job_name])
+            return status, output
         except MachineTraceback, m_err:
             libUi.process_traceback(m_err)
             return FAIL, []

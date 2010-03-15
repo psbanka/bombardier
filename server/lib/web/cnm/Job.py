@@ -47,7 +47,7 @@ class Job(Thread, ServerLogMixin.ServerLogMixin):
     def record_exception(self):
         "Called when an exception is trapped on a job"
         self.command_status = FAIL
-        self.command_output = self.dump_exception(self.username)
+        self.command_output.append( self.dump_exception(self.username) )
 
     def setup(self, machine_interface, commands, copy_dict,
               require_status, predecessors):

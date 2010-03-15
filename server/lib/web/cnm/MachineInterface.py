@@ -223,30 +223,14 @@ class MachineInterface(AbstractMachineInterface):
         "Use scp with a dictionary to copy files grouped by file type"
         self.connect()
         for file_desc in copy_dict:
-            self.polling_log.info("Sending %s..." % file_desc)        
             src, dst = copy_dict[file_desc]
             if not src.startswith('/'):
                 src = os.path.join(self.server_home, src)
             msg = "SOURCE_PATH: %s // DEST_DIR: %s"
             msg =  msg % (src, dst)
-            self.polling_log.info(msg)
+            self.polling_log.debug(msg)
             status = self.scp(src, dst)
 
-#        for file_type in copy_dict:
-#            if file_type == "dist" or file_type == 'admin':
-#                dest_dir = '.'
-#            else:
-#                dest_dir = os.path.join(self.spkg_dir, 
-#                                        self.machine_name, file_type)
-#            for source_file in copy_dict[file_type]:
-#                source_path = os.path.join(self.server_home, file_type,
-#                                           source_file)
-#                msg = "SOURCE_PATH: %s // DEST_DIR: %s"
-#                msg =  msg % (source_path, dest_dir)
-#                self.polling_log.info(msg)
-#                status = self.scp(source_path, dest_dir)
-#        return
-#    
     def chdir(self, path):
         "Change the current directory on a remote session"
         if not path:

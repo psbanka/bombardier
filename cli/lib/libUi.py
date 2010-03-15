@@ -432,6 +432,10 @@ def user_output(output, status, prepend = '', test = False):
     "Generic function for printing return values from a command"
     if output == []:
         return
+    if type(output) == type({}):
+        if "command_status" in output:
+            status = output["command_status"]
+            del output["command_status"]
     if prepend == '':
         if status == FAIL:
             prepend = '% '

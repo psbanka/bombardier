@@ -723,22 +723,22 @@ class Bombardier:
         installed_pkns, broken_pkns = get_installed(pdat)
         should_be_installed, shouldnt_be_installed = self._check_bom(bom_pkns)
         # check the configuration for each installed package
-        pkg_info = {"ok": installed_pkns,
-                    "reconfigure": {},
-                    "not-installed": should_be_installed,
-                    "remove": shouldnt_be_installed,
-                    "broken": broken_pkns,
+        pkg_info = {"Packages installed properly": installed_pkns,
+                    "Packages to be RECONFIGURED": [],
+                    "Packages to be INSTALLED": should_be_installed,
+                    "Packages to be REMOVED": shouldnt_be_installed,
+                    "Packages that are BROKEN": broken_pkns,
                    }
         for pkn in shouldnt_be_installed:
-            pkg_info["ok"].remove(pkn)
+            pkg_info["Packages installed properly"].remove(pkn)
         for pkn in installed_pkns:
             differences = self._check_configuration_hash(pkn)
             if differences:
-                if pkn in pkg_info["ok"]:
-                    pkg_info["reconfigure"][pkn] = differences
-                    pkg_info["ok"].remove(pkn)
+                if pkn in pkg_info["Packages installed properly"]:
+                    pkg_info["Packages to be RECONFIGURED"][pkn] = differences
+                    pkg_info["Packages installed properly"].remove(pkn)
         for key in pkg_info:
-            Logger.info("%s: %s" % (key, pkg_info[key]))
+            Logger.info("==OUTPUT==:%s: %s" % (key, pkg_info[key]))
         return pkg_info
 
     def use_pkg(self, pkn, action, script_name=''):

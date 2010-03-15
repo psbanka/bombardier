@@ -119,7 +119,7 @@ class Comment(PinshCmd.PinshCmd):
         job_names = []
         form_text = FORM_TEXT_HEADER
         for job_name, job_desc in job_info:
-            form_text += "\n[X]%20s: %50s" % (job_name, job_desc)
+            form_text += "\n[X] %20s: %50s" % (job_name, job_desc)
             job_names.append(job_name)
 
         if len(job_names) == 0:

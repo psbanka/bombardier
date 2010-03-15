@@ -152,7 +152,7 @@ class BombardierMachineInterface(MachineInterface):
     def get_output(self, output):
         "Add output to logging and action result"
         #self.server_log.info(output)
-        self.polling_log.info(output, self.machine_name)
+        #self.polling_log.info(output, self.machine_name)
         self.action_result.append(output)
 
     def get_exit_code(self, exit_code):
@@ -231,7 +231,7 @@ class BombardierMachineInterface(MachineInterface):
         if 'config_key' in self.data and action != INIT:
             self.scp_all_client_data(send_data)
         else:
-            self.polling_log.warning("Streaming configuration data...")
+            self.polling_log.info("Streaming configuration data...")
             self.stream_data(yaml.dump(send_data))
 
     def get_bc_command(self):

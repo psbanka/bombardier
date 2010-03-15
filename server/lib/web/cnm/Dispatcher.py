@@ -6,7 +6,7 @@ import glob
 import yaml
 import Pyro.naming
 
-from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import OK, FAIL, WAIT
 from bombardier_core.Cipher import Cipher, DecryptionException
 from bombardier_core.static_data import ACTION_LOOKUP
 
@@ -401,6 +401,10 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
             if job.require_comment:
                 require_comment = True
             self.server_log.info("finishing join %s" % job_name)
+        except QueuedJob:
+            output = {"command_status": WAIT,
+                     }
+            return output
         except Exception:
             self.server_log.info("exception in join %s" % job_name)
             output = {"command_status": FAIL,

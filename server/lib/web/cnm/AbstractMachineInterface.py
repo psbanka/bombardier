@@ -97,7 +97,7 @@ class AbstractMachineInterface:
         "Transfer full lines from queue into the polling log"
         while '\n' in output_queue:
             position = len(output_queue.split('\n')[0])
-            self.polling_log.info(output_queue[:position-1])
+            self.polling_log.debug(output_queue[:position-1])
             output_queue = output_queue[position+2:]
         return output_queue
 

@@ -152,10 +152,10 @@ class Config(dict):
             difference = diff_dicts(old_config, new_config, check_values=True)
         except IOError:
             msg = "Could not load saved configuration data in %s" % path
-            Logger.warning(msg)
+            Logger.debug(msg)
         except IndexError:
             msg = "Could not compare configuration data in %s" % path
-            Logger.warning(msg)
+            Logger.debug(msg)
         except:
             Logger.warning("Bad yaml in file %s" % path)
         return difference
