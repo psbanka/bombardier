@@ -1,0 +1,89 @@
+Command structure: 
+
+> machine <machine-name>
+	install
+	uninstall
+	exec
+	configure
+	verify
+	init
+	recon
+	check-status
+	test
+	purge
+	fix
+	enable
+	disable
+	ssh
+	push
+	unpush
+	edit
+		config [<cr>]
+		bom <bom-file>
+		include <include-file>
+	dist <arg>
+	job
+		clear-broken
+		show
+		stop
+		view
+	show
+		config [<cr>]
+		merged
+		bom <bom-file>
+		include <include-file>
+		summary
+		status
+> package <package-name>
+	build
+	edit
+	show
+	
+> user <user-name>
+	set-password
+	edit
+	delete
+	
+> create
+	bom
+	user
+	machine
+	include
+	package
+	
+> comment
+
+> ssh <machine-name>
+
+> show
+	machine
+	merged
+	bom
+	include
+	package
+	user
+	history
+	
+> edit
+	machine
+	bom
+	include
+	package
+	user
+	
+> dispatcher
+	start
+	stop
+	restart
+	attach <url>
+	job
+		view
+		kill
+	server-home
+	config-key
+	
+> terminal
+	log-level
+	color
+	width
+	clear

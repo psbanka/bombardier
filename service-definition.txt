@@ -1,0 +1,58 @@
+Services:
+
+/var/deploy/service/callahan
+================================================
+db:
+  members:
+  - callahan_oracle
+  packages:
+  - Oracle10g
+  - PythonOracle
+  - IC_TBL-install
+  - IC_TBL-patch-3.4.2-33
+
+web:
+  members:
+  - callahan_lb1
+  - callahan_lb2
+  packages:
+  - ICServiceController_3.4.1_r175
+  - IConnectServer_3.4.2.3-0-r605
+  dependencies:
+  - db
+  registered_plugins:
+  - nagios_peacemaker
+  - cisco_11500
+================================================
+
+
+/var/deploy/plugins/nagios_peacemaker
+================================================
+class NagiosPeacemaker(BombardierServicePlugin):
+	def __init__(self):
+		pass
+		
+	def quiesce(self, server_name, application_name):
+		# do some stuff
+
+
+================================================
+
+Use-case:
+1. Deploy configurations to more than one node at the same time:
+
+> service callahan
+>>> configure
+--> starting job shawn@callahan_oracle-1,2,3,4 (configures Oracle10g, PythonOracle, IC_TBL-install, IC_TBL-patch-3.4.2-33)
+[once all complete]
+--> starting job shawn@callahan_lb1-2
+--> starting job shawn@callahan_lb2-3
+[simultaneously]
+...
+
+> service callahan
+>>> member callahan_lb1 quiesce
+>>> member callahan_lb1 activate
+>>> member callahan_lb2 stop
+>>> member callahan_lb2 start
+
