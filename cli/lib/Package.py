@@ -123,8 +123,7 @@ class Package(PinshCmd.PinshCmd):
                          "prepare": True}
             try:
                 job_name = system_state.cnm_connector.get_job(url, post_data)
-                output = system_state.cnm_connector.watch_jobs([job_name])
-                return output["command_status"], output["command_output"]
+                return system_state.cnm_connector.watch_jobs([job_name])
             except MachineTraceback, m_err:
                 libUi.process_traceback(m_err)
                 return FAIL,[]

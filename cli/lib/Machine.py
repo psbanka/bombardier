@@ -34,9 +34,11 @@ managing machines in the network, and subclasses the [PinshCmd] module
 __author__ =  'Peter Banka'
 __version__ = '1.0'
 
+import tempfile, os
 import PinshCmd
 import ConfigField
 from bombardier_core.static_data import OK, FAIL
+from bombardier_core import mini_utility
 from SystemStateSingleton import SystemState, ENABLE
 from PackageField import PackageField, FIX, PURGE, NOT_INSTALLED, INSTALLED
 import PackageActionField
@@ -84,6 +86,70 @@ def check_machine_name(tokens, no_flag):
         raise CommandError("Ambiguous machine name: %s" % tokens[2])
     return machine_name
 
+def edit_config_file(conf_str, config_field, object_name):
+    "edit the configuration on the server"
+    fd,fn = tempfile.mkstemp(suffix=".yml", text=True)
+    fh = os.fdopen(fd, 'w+b')
+    fh.write(conf_str)
+    fh.close()
+    os.system("%s %s" % (system_state.editor, fn))
+    post_data = yaml.load(open(fn).read())
+    submit = libUi.ask_yes_no("Commit changes to server", libUi.YES)
+    if submit:
+        output = config_field.post_data(object_name, post_data)
+        os.unlink(fn)
+        return output["command_status"], output["command_output"]
+    else:
+        msg = "Discarded changes. Edits can be found here: %s" % fn
+        return OK, [msg]
+
+class AssignCommand(PinshCmd.PinshCmd):
+    "Handles all 'machine <machine> assign x' operations"
+    def __init__(self):
+        "Set up the command"
+        PinshCmd.PinshCmd.__init__(self, "assign")
+        self.help_text = "add a package to a machine"
+        self.cmd_owner = 1
+        self.auth = ENABLE
+        self.pkg_field = ConfigField.ConfigField(data_type=ConfigField.PACKAGE)
+        self.children = [self.pkg_field]
+
+    def assign_package(self, machine_name, package_name, missing_data):
+        "Modify the machine's configuration file to include a pacakge"
+        prefix = ''
+        if missing_data:
+            prefix = '---\n%s\n\n---\n' % yaml.dump(missing_data, default_flow_style=False)
+        machine_config = ConfigField.ConfigField(data_type=ConfigField.MACHINE)
+        machine_config_data = machine_config.get_data(machine_name)
+        package_list = machine_config_data.get("packages", [])
+        package_list.append(package_name)
+        machine_config_data["packages"] = package_list
+        conf_str = prefix + yaml.dump(machine_config_data, default_flow_style=False)
+        return edit_config_file(conf_str, machine_config, machine_name)
+        #output = machine_config.post_data(machine_name, machine_config_data)
+        return output["command_status"], output["command_output"]
+
+    def cmd(self, tokens, no_flag):
+        """
+        tokens -- all of the keywords passed in the command string, parsed
+        no_flag -- whether the 'no' keyword was used in the command string
+        """
+        machine_name = check_machine_name(tokens, no_flag)
+
+        if len(tokens) != 4:
+            msg = "Incomplete command; need to include package name."
+            raise CommandError(msg)
+
+        package_name = tokens[3]
+        pkg_data = self.pkg_field.get_specific_data(tokens, 3)
+        pkg_config_data = pkg_data.get("configuration", {})
+        merged_field = ConfigField.ConfigField(data_type=ConfigField.MERGED)
+        merged_data = merged_field.get_specific_data(tokens, 1)
+        missing_stuff = mini_utility.diff_dicts(pkg_config_data, merged_data)
+        if package_name in merged_data.get("packages", []) and not missing_stuff:
+            msg = "Package %s is already assigned and properly configured."
+            return OK, [msg % package_name]
+        return self.assign_package(machine_name, package_name, missing_stuff)
 
 class EditCommand(PinshCmd.PinshCmd):
     "Handles all 'machine <machine> edit x' operations"
@@ -283,6 +349,7 @@ class Machine(PinshCmd.PinshCmd):
         check_status = PinshCmd.PinshCmd("check-status")
         check_status.help_text = "review the current state of the system"
         show = ShowCommand()
+        assign = AssignCommand()
         install = PinshCmd.PinshCmd("install", "install a package")
         uninstall = PinshCmd.PinshCmd("uninstall", "remove a package")
         configure = PinshCmd.PinshCmd("configure", "configure a package")
@@ -306,10 +373,11 @@ class Machine(PinshCmd.PinshCmd):
                                        disable, check_status, edit, fix,
                                        reconcile, execute, install, uninstall,
                                        configure, verify, push, unpush, setup,
-                                       job, show]
+                                       job, show, assign]
 
         # Third-level commands
         dist_field = ConfigField.ConfigField(data_type=ConfigField.DIST)
+        
         dist.children = [dist_field]
         fix.children = [PackageField(action_type=FIX)]
         purge.children = [PackageField(action_type=PURGE)]

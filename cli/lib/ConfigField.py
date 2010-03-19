@@ -32,6 +32,7 @@ Supports access to 'configurable items' on the bombardier web server'''
 
 import PinshCmd
 import random
+import yaml
 from bombardier_core.static_data import OK, FAIL, PARTIAL, COMPLETE, NO_MATCH
 from Exceptions import UnexpectedDataException
 from SystemStateSingleton import SystemState
@@ -124,6 +125,13 @@ class ConfigField(PinshCmd.PinshCmd):
             object_list = [ x.get("fields").get("name") for x in data ]
         return object_list
 
+    def post_data(self, first_token_name, data):
+        'posts data to modify the object'
+        post_data = {"yaml": yaml.dump(data)}
+        url = "json/%s/name/%s" % (self.directory, first_token_name)
+        output = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
+        return output
+
     def get_data(self, first_token_name):
         'returns a list of all configuration objects of this type'
         url = "json/%s/name/%s" % (self.directory, first_token_name)
@@ -165,6 +173,7 @@ class ConfigField(PinshCmd.PinshCmd):
         if len(first_token_names) != 1:
             return '' # EXPERIMENTAL CHANGE from []
         return data
+
 
     def post_specific_data(self, tokens, index, new_data):
         '''used with the edit command to upload data to server'''
