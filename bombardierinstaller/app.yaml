@@ -1,0 +1,15 @@
+application: bombardierinstaller
+version: 1
+runtime: python
+api_version: 1
+
+handlers:
+- url: /favicon.ico
+  static_files: static/images/favicon.ico
+  upload: static/images/favicon.ico
+- url: /stylesheets
+  static_dir: stylesheets
+- url: /docs
+  static_dir: docs/server/
+- url: /.*
+  script: news.py

@@ -1,0 +1,31 @@
+{% extends "page_outline.html" %}
+
+{% block content %}
+  <div class="post">
+      <div class="header">
+          <h1>{{ news_item.title }}</h1>
+          {% if news_item.author %}
+                <h3>{{ news_item.author.nickname }}</h3>
+          {% else %}
+                <h3>Anonymous</h3>
+          {% endif %}
+          <div class="date">{{ news_item.date }}</div>
+      </div>
+      <div class="content">
+          <p>
+          {% if news_item.picture %}
+             <img src='img?img_id={{ news_item.key }}' class="picA floatleft" ></img>
+          {% endif %}
+          {{ news_item.content }}
+          </p>
+          {% if super_user %}
+              <div class="footer">
+                  <ul>
+                      <li class="readmore"><a href="edit?story_id={{ news_item.key }}">Edit</a></li>
+                      <li class="readmore"><a href="delete?story_id={{ news_item.key }}">Delete</a></li>
+                  </ul>
+              </div>
+          {% endif %}
+      </div>
+   </div>
+{% endblock %}

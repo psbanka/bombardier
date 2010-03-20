@@ -1,0 +1,70 @@
+{% include "header.html" %}
+            <div id="primarycontent">
+                {% for news_item in news_items %}
+                   <div class="post">
+                      <div class="header">
+                          <h1>{{ news_item.title }}</h1>
+                          {% if news_item.author %}
+                                <h3>{{ news_item.author.nickname }}</h3>
+                          {% else %}
+                                <h3>Anonymous</h3>
+                          {% endif %}
+                          <div class="date">{{ news_item.date }}</div>
+                      </div>
+                      <div class="content">
+                          <p>
+                          {% if news_item.picture %}
+                             <img src='img?img_id={{ news_item.key }}' class="picA floatleft" ></img>
+                          {% endif %}
+                   <!--   {{ news_item.content|escape }} -->
+                          {{ news_item.content|truncatewords_html:100 }}
+                   <!--   {{ news_item.content }} -->
+                          </p>
+                      </div>
+                      <div class="footer">
+                          <ul>
+                              <li class="readmore"><a href="story?story_id={{ news_item.key }}">Read more</a></li>
+                              <li class="comments"><a href="#">Comments (18)</a></li>
+                          </ul>
+                      </div>
+                   </div>
+                {% endfor %}
+            </div>
+
+            <div id="secondarycontent">
+                {% if user_name %}
+                    <p>You are logged in as <strong>{{ user_name }}</strong>
+                    <a href="{{ url }}">{{ url_linktext }}</a></p>
+                {% else %}
+                    <h3><a href="{{ url }}">Log in</a> if you want to post a comment</h3>
+                {% endif %}
+                <h3>Topics</h3>
+                <div class="content">
+                <ul>
+                {% for news_item in news_items %}
+                      <li>{{ news_item.title }}</li>
+                {% endfor %}
+                </ul>
+                </div>
+
+                <!-- secondary content end -->
+
+            </div>
+        
+            <div id="footer">
+            
+                &copy; 2010 Peter Banka. All rights reserved. Design by <a href="http://www.nodethirtythree.com/">NodeThirtyThree</a>.
+            
+            </div>
+
+        </div>
+      </div>
+
+
+
+
+
+
+  </body>
+</html>
+

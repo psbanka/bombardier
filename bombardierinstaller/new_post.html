@@ -1,0 +1,19 @@
+{% extends "page_outline.html" %}
+
+{% block content %}
+      <div class="post">
+          <div class="header"> <h1> Post a new item </h1> </div>
+
+          <div class="content">
+              <form action="/add_news" enctype="multipart/form-data" method="post">
+                <div><label>Title:</label></div>
+                <div><input type="text" name="title"/></div>
+                <div><label>Content:</label></div>
+                <div><textarea name="content" rows="10" cols="50"></textarea></div>
+                <div><label>Image:</label></div>
+                <div><input type="file" name="img"/></div>
+                <div><input type="submit" value="Post Item"></div>
+              </form>
+          </div>
+       </div>
+{% endblock %}

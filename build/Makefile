@@ -7,8 +7,20 @@ define upload_dir
 ../$(subst _upload,,$@)
 endef
 
+define doc_dir
+../$(subst _doc,,$@)
+endef
+
+define check_doc_dir
+	[ -e  $(doc_dir) ] || exit 1
+endef
+
 define check_upload_dir
 	[ -e  $(upload_dir) ] || exit 1
+endef
+
+define doc_target
+	cd $(doc_dir) && make -f $(MAKE_FILE) doc
 endef
 
 define upload_target
@@ -69,6 +81,10 @@ core:
 	$(check_target_dir)
 	$(sdist_target)
 
+server_doc:
+	$(check_doc_dir)
+	$(doc_target) 
+
 server_upload:
 	$(check_upload_dir)
 	$(upload_target) 
@@ -85,10 +101,18 @@ core_upload:
 	$(check_upload_dir)
 	$(upload_target)
 
+bombardierinstaller: server_doc
+	rm -rf $(build_dir)/../bombardierinstaller/docs
+	mkdir $(build_dir)/../bombardierinstaller/docs
+	cp -r $(build_dir)/../server/docs/.build/html $(build_dir)/../bombardierinstaller/docs/server
+
 sdist: do_sdist reclean_files
 
 upload:	official clean_dist dist_files version_dist reclean_files
 	python setup.py sdist upload
+
+doc:	clean_dist dist_files version_dist reclean_files
+	cd docs && make html
 
 version_dist:
 	bzr version-info --format python > lib/_version.py

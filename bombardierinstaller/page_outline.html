@@ -1,0 +1,83 @@
+<html>
+  <head>
+    <link type="text/css" rel="stylesheet" href="/stylesheets/terrafirma/default.css" />
+    <title>Bombardier Configuration Management Database</title>
+    <meta name="keywords" content="Bombardier,Configuration,Management" />
+    <meta name="description" content="Centralized, cross-platform package deployment, configuration and change management" />
+  </head>
+
+  <body>
+
+    <div id="outer">
+
+        <div id="upbg"></div>
+
+        <div id="inner">
+
+            <div id="header">
+                <h1>bom<span>bardier</span><sup>1.0</sup></h1>
+                <h2>configuration management database</h2>
+            </div>
+        
+            <div id="splash"></div>
+        
+            <div id="menu">
+                {% block topmenu %}
+                <ul>
+                    <li class="first"><a href="/">Home</a></li>
+                    <li><a href="docs/index.html">Documentation</a></li>
+                    <li><a href="https://launchpad.net/bombardier/+download">Download</a></li>
+                    <li><a href="https://answers.launchpad.net/bombardier">Ask a question</a></li>
+                    <li><a href="https://launchpad.net/bombardier/+filebug">Report a Bug</a></li>
+                </ul>
+                {% endblock %}
+
+            <div id="date">August 1, 2006</div>
+            </div>
+
+            <div id="primarycontent">
+                {% block content %}
+                    <h1>SOMEBODY IS STUPID</h1>
+                {% endblock %}
+            </div>
+
+            <div id="secondarycontent">
+                {% block sidebar %}
+                {% if user_name %}
+                    <p>You are logged in as <strong>{{ user_name }}</strong></p>
+                    <ul>
+                       <li><a href="{{ url }}">{{ url_linktext }}</a></li>
+                       {% if super_user %}
+                         <li><a href="/add_news">Add a story</a></li>
+                       {% endif %}
+                    </ul>
+                {% else %}
+                    <h3><a href="{{ url }}">Log in</a> if you want to post a comment</h3>
+                {% endif %}
+                <h3>Topics</h3>
+                <div class="content">
+                <ul>
+                {% for news_item in news_items %}
+                    <li><a href='story?story_id={{ news_item.key }}'>{{ news_item.title }}</a></li>
+                {% endfor %}
+                </ul>
+                </div>
+                {% endblock %}
+            </div>
+            </div>
+        
+        <div id="footer">
+            &copy; 2010 Peter Banka. All rights reserved. Design by <a href="http://www.nodethirtythree.com/">NodeThirtyThree</a>.
+        </div>
+
+    </div>
+  </div>
+
+
+
+
+
+
+  </body>
+</html>
+

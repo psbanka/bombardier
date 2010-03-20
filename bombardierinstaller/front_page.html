@@ -1,0 +1,33 @@
+{% extends "page_outline.html" %}
+
+{% block content %}
+    {% for news_item in news_items %}
+       <div class="post">
+          <div class="header">
+              <h1>{{ news_item.title }}</h1>
+              {% if news_item.author %}
+                    <h3>{{ news_item.author.nickname }}</h3>
+              {% else %}
+                    <h3>Anonymous</h3>
+              {% endif %}
+              <div class="date">{{ news_item.date|time }}</div>
+          </div>
+          <div class="content">
+              <p>
+              {% if news_item.picture %}
+                 <img src='img?img_id={{ news_item.key }}' class="picA floatleft" ></img>
+              {% endif %}
+       <!--   {{ news_item.content|escape }} -->
+              {{ news_item.content|truncatewords_html:100 }}
+       <!--   {{ news_item.content }} -->
+              </p>
+          </div>
+          <div class="footer">
+              <ul>
+                  <li class="readmore"><a href="story?story_id={{ news_item.key }}">Read more</a></li>
+                  <li class="comments"><a href="#">Comments (18)</a></li>
+              </ul>
+          </div>
+       </div>
+    {% endfor %}
+{% endblock %}
