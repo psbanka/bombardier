@@ -85,9 +85,9 @@ pygments_style = 'sphinx'
 # given in html_static_path.
 #html_theme = "bombardier"
 #html_style = 'default.css'
-html_theme = "bombardier_theme"
+#html_theme = "bombardier_theme"
 #html_theme = "sphinxdoc"
-html_theme_path = ["."]
+#html_theme_path = ["."]
 
 #html_theme_options = {
 #    "rightsidebar": "true",
