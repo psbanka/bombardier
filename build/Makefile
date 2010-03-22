@@ -1,5 +1,6 @@
-build_dir=../build
+build_dir=$(PWD)/../build
 staging_dir=../staging
+upload_docs_dir=../bombardierinstaller/docs
 
 MAKE_FILE=$(build_dir)/Makefile
 
@@ -9,6 +10,10 @@ endef
 
 define doc_dir
 ../$(subst _doc,,$@)
+endef
+
+define doc_type
+$(subst _doc,,$@)
 endef
 
 define check_doc_dir
@@ -21,6 +26,7 @@ endef
 
 define doc_target
 	cd $(doc_dir) && make -f $(MAKE_FILE) doc
+    cp -r $(doc_dir)/docs/.build/html $(upload_docs_dir)/$(doc_type)
 endef
 
 define upload_target
@@ -81,10 +87,6 @@ core:
 	$(check_target_dir)
 	$(sdist_target)
 
-server_doc:
-	$(check_doc_dir)
-	$(doc_target) 
-
 server_upload:
 	$(check_upload_dir)
 	$(upload_target) 
@@ -101,10 +103,28 @@ core_upload:
 	$(check_upload_dir)
 	$(upload_target)
 
-bombardierinstaller: server_doc
-	rm -rf $(build_dir)/../bombardierinstaller/docs
-	mkdir $(build_dir)/../bombardierinstaller/docs
-	cp -r $(build_dir)/../server/docs/.build/html $(build_dir)/../bombardierinstaller/docs/server
+server_doc:
+	$(check_doc_dir)
+	$(doc_target) 
+
+client_doc:
+	$(check_doc_dir)
+	$(doc_target) 
+
+cli_doc:
+	$(check_doc_dir)
+	$(doc_target) 
+
+core_doc:
+	$(check_doc_dir)
+	$(doc_target) 
+
+clean_docs:
+	rm -rf $(upload_docs_dir)
+	mkdir $(upload_docs_dir)
+
+bombardierinstaller: clean_docs server_doc client_doc cli_doc 
+	@echo "Doc build complete"
 
 sdist: do_sdist reclean_files
 
