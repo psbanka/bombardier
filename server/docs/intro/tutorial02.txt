@@ -10,11 +10,10 @@ Create a machine definintion
 
 It's time to get a machine working which we will deploy this new
 SNMP package to. The first thing to do is to create a machine object,
-using the ``create`` command again on the command-line interface:
-
-  .. code-block:: bash
+using the ``create`` command again on the command-line interface::
 
      peacemaker (admin)> create machine test_machine
+
 
 Again, the system will present you with a default system configuration
 in your favorite editor::
@@ -59,11 +58,9 @@ Initialize the remote machine for use with the server
 -----------------------------------------------------
 
 Now it's time to get the remote system talking to the server.  Let's
-go into machine sub-interface mode and use the ``setup`` command.
+go into machine sub-interface mode and use the ``setup`` command::
 
-.. code-block:: bash
-
-      peacemaker (admin)> machine test_machine
+     peacemaker (admin)> machine test_machine
      ( machine test_machine )> setup
      >>> Watching job progress. Press ^C to abort or disconnect.
 
@@ -115,18 +112,14 @@ machine you are currently viewing and compare it to the configuration
 parameters that are required by the package.  If your machine
 configuration is missing any parameters, Bombardier will open an
 editor screen to allow you to enter all the configuration data for
-that machine that you need.
-
-.. code-block:: bash
+that machine that you need::
 
      (*5) ( machine test_machine )> assign SnmpConfigV5
 
 The system will show the configuration data that you need (with
 example data) on the top of the editor, with your machine's
-configuration data at the bottom of the editor, as follows:
+configuration data at the bottom of the editor, as follows::
 
-
-.. code-block:: bash
 
     ---
     snmp:
@@ -142,9 +135,7 @@ configuration data at the bottom of the editor, as follows:
 
 
 It's your job to manually merge the two configurations into a single
-configuration file, for example:
-
-.. code-block:: bash
+configuration file, for example::
 
     snmp:
       community_string: s33kritp4ssw0rd
@@ -180,33 +171,34 @@ command, or with the ``reconcile`` command.
    companion to this command is ``check-status``, which will report to
    you everything that '''would''' be done if a reconcile were attempted.
 
-.. code-block:: bash
+Here is the output of that command::
 
-   ( machine test_machine )> check-status
-   >>> Watching job progress. Press ^C to abort or disconnect.
-     | admin@test_machine-2 | Syncing packages...
-     | admin@test_machine-2 | Streaming configuration data...
-     | admin@test_machine-2 | System-check starting...
-     | admin@test_machine-2 | Packages that are installed:
-   >>> Finishing processing of 1 jobs...
-      Packages that are BROKEN: []
-      Packages to be RECONFIGURED: []
-      Packages to be REMOVED: []
-      Packages to be INSTALLED: ['SnmpConfigV5']
-      Packages installed properly: []
+       ( machine test_machine )> check-status
+       >>> Watching job progress. Press ^C to abort or disconnect.
+         | admin@test_machine-2 | Syncing packages...
+         | admin@test_machine-2 | Streaming configuration data...
+         | admin@test_machine-2 | System-check starting...
+         | admin@test_machine-2 | Packages that are installed:
+       >>> Finishing processing of 1 jobs...
+          Packages that are BROKEN: []
+          Packages to be RECONFIGURED: []
+          Packages to be REMOVED: []
+          Packages to be INSTALLED: ['SnmpConfigV5']
+          Packages installed properly: []
 
-.. code-block:: bash
+        ( machine test_machine )> reconcile
+        >>> Watching job progress. Press ^C to abort or disconnect.
+          | admin@test_machine-3 | Syncing packages...
+          | admin@test_machine-3 | Streaming configuration data...
+          | admin@test_machine-3 | Reconcile starting...
+          | admin@test_machine-3 | Packages to remove: []
+          | admin@test_machine-3 | Packages remaining to install (in order):
+          | admin@test_machine-3 | +   SnmpConfigV5
+          | admin@test_machine-3 | Currently installing package priority 100 [SnmpConfigV5]
+          | admin@test_machine-3 | Exploding SnmpConfigV5-943...
+          | admin@test_machine-3 | Exploding YumPackageInstaller-943...
+          | admin@test_machine-3 | Making directory /opt/spkg/test_machine/packages/SnmpConfigV5-8
+          | admin@test_machine-3 | test_machine installing SnmpConfigV5-8
 
-    ( machine test_machine )> reconcile
-    >>> Watching job progress. Press ^C to abort or disconnect.
-      | admin@test_machine-3 | Syncing packages...
-      | admin@test_machine-3 | Streaming configuration data...
-      | admin@test_machine-3 | Reconcile starting...
-      | admin@test_machine-3 | Packages to remove: []
-      | admin@test_machine-3 | Packages remaining to install (in order):
-      | admin@test_machine-3 | +   SnmpConfigV5
-      | admin@test_machine-3 | Currently installing package priority 100 [SnmpConfigV5]
-      | admin@test_machine-3 | Exploding SnmpConfigV5-943...
-      | admin@test_machine-3 | Exploding YumPackageInstaller-943...
-      | admin@test_machine-3 | Making directory /opt/spkg/test_machine/packages/SnmpConfigV5-8
-      | admin@test_machine-3 | test_machine installing SnmpConfigV5-8
+
+Done.

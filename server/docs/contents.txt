@@ -1,28 +1,45 @@
+.. _index:
 .. _contents:
 
 =================================
 Bombardier documentation contents
 =================================
 
+Getting help
+============
+
+* Try the :ref:`FAQ <faq-index>` -- it's got answers to many common questions.
+
+* `Report bugs`_ with Bombardier
+
+* `Ask questions`_ from our development team
+
+.. _Report bugs:  https://bugs.launchpad.net/bombardier
+.. _Ask questions: https://answers.launchpad.net/bombardier
+
 First steps
 ===========
 
-  * :ref:`Installation <intro-index>`
+* :ref:`Overview <intro-index>`: High-level discussion of what the
+  Bomabrdier system is and how it works.
 
-Contents:
+* :ref:`Installation <intro-install>`: How to install the Bombardier
+  software into your network.
 
-.. toctree::
-   :maxdepth: 2
+* :ref:`Tutorial <intro-tutorial01>`: About fifteen minutes to get
+  useful work out of Bombardier for your network.
 
-   intro/index
-   faq/index
-   topics/index
-   glossary
-
-Indices, glossary and tables
-============================
+Indices and tables
+==================
 
 * :ref:`genindex`
 * :ref:`modindex`
-* :ref:`glossary`
+* :ref:`search`
 
+Modules
+==================
+
+.. toctree::
+  :maxdepth: 2
+
+  modules/Dispatcher

@@ -9,7 +9,7 @@ How do I get started?
     #. `Download the code`_.
     #. Install Bombardier Server (read the :ref:`installation guide <intro-install>`).
     #. Walk through the :ref:`tutorial <intro-tutorial01>`.
-    #. Check out the rest of the :ref:`documentation <index>`, and `ask questions`_ if you
+    #. Check out the rest of the documentation, and `ask questions`_ if you
        run into trouble.
 
 .. _`Download the code`: https://launchpad.net/bombardier/+download

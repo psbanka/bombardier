@@ -2,38 +2,21 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. _index:
-
-========================
-Bombardier documentation
-========================
-
-Getting help
-============
-
-* Try the :ref:`FAQ <faq-index>` -- it's got answers to many common questions.
-
-* Looking for specific information? Try the :ref:`genindex`
-
-* Report bugs with Bombardier in our Launchpad site: https://launchpad.net/bombardier/+filebug
-
-* Ask questions from our development team: https://answers.launchpad.net/bombardier
-
-First steps
-===========
-
-  * :ref:`Installation <intro-index>`
-  * :ref:`Topics <topics-index>`
-
-Contents:
+==============================
+Bombardier documentation Index
+==============================
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 3
 
-   contents
+    glossary.txt    
+    contents.txt
+    intro/index.txt
+    faq/index.txt
+    topics/index.txt
 
-Indices and tables
-==================
+General documentation
+=====================
 
 * :ref:`genindex`
 * :ref:`modindex`
@@ -45,4 +28,4 @@ Modules
 .. toctree::
   :maxdepth: 2
 
-  modules/Dispatcher
+  modules/Dispatcher.txt

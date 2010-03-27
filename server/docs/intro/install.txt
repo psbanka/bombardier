@@ -81,8 +81,6 @@ We recommend using `setuptools`_ to quickly and easily download the
 Bombardier Server component as well as the Python libraries that are
 required:
 
-   .. code-block:: bash
-
       $ easy_install bombardier_server
 
 .. _setuptools: http://pypi.python.org/pypi/setuptools
@@ -99,8 +97,6 @@ machines on your network.  Bombardier will connect as a particular
 user (in this example, it will run as root, but that is not
 necessary), and that user needs to have ssh key-pairs generated, as
 follows:
-
-   .. code-block:: bash
 
      $ ssh-keygen -t dsa
      Generating public/private dsa key pair.
@@ -126,8 +122,6 @@ Run the quickstart
 Next, you'll have to take care of setting up the basic repository
 database, directory structure, and configuration key.  You'll do this
 using the bdr_server_quickstart script:
-
-   .. code-block:: bash
 
        $ bdr_server_quickstart
        Perform initial Bombardier Server environment setup? (y/n): y
@@ -173,8 +167,6 @@ Use the manage.py script in the bombardier_server directory to create
 the database (which should look something like, but probably not
 identical to the following):
 
-   .. code-block:: bash
-
       $ cd /usr/lib/python2.5/site-packages/
       $ cd bombardier_server-1.00_702-py2.5.egg/bombardier_server/web/cnm
       $ python manage.py syncdb
@@ -216,8 +208,6 @@ described `here`_ .
 You'll use the manage.py script to start the web server process like
 this:
 
-   .. code-block:: bash
-
       $ python manage.py runserver
       Validating models...
       0 errors found
@@ -237,8 +227,6 @@ We will again use `setuptools`_ to quickly and easily download the
 Bombardier CLI component as well as the Python libraries that are
 required:
 
-   .. code-block:: bash
-
       $ easy_install bombardier_cli
 
 .. _setuptools: http://pypi.python.org/pypi/setuptools
@@ -249,16 +237,14 @@ Logging in to the server
 
 Now it's time to start the command-line interface. You'll need to
 enter the same configuration-key that you used in the quick-start
-process as well as the server-home value.
-
-  .. code-block:: bash
+process as well as the server-home value::
 
      root@peacemaker:~# bdr
      username [root]: admin
      password:
      Server home is not set. Please enter the value [/var/deploy]:
      Dispatcher is offline; enter CI decryption password:
-       Dispatcher started
+     Dispatcher started
 
                   `...``                       `...``
                  `+dmmy:                      `+dNmy:
@@ -275,7 +261,6 @@ process as well as the server-home value.
                   `...`  `......`       `......`  `...` `...........`
 
                          Bombardier Network Command Line
-
 
      peacemaker (admin)>
 

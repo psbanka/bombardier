@@ -1,0 +1,6 @@
+:mod:"bombardier_server.web.cnm.Dispatcher"
+===========================================
+
+.. automodule:: bombardier_server.web.cnm.Dispatcher
+
+
