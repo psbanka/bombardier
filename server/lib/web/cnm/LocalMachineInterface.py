@@ -142,15 +142,20 @@ class LocalMachineInterface(AbstractMachineInterface):
         metadata = {}
 
         class_name = pkg_data.get("class_name")
+        base_name  = class_name.split('.')[0]
 
         letters = [ chr( x ) for x in range(65, 91) ]
         random.shuffle(letters)
         rand_name = ''.join(letters)
         self.polling_log.info("My current directory: %s" % os.getcwd())
+        if base_name in sys.modules:
+            sys.modules.pop(base_name)
+        if class_name in sys.modules:
+            sys.modules.pop(class_name)
         cmd = "import %s as %s" % ( class_name, rand_name )
         exec(cmd)
         config = MockConfig()
-        exec ('object = %s.%s(config)' % ( rand_name, class_name.split('.')[0]))
+        exec ('object = %s.%s(config)' % ( rand_name, base_name))
 
         if hasattr(object, "metadata"):
             metadata = object.metadata
@@ -162,6 +167,8 @@ class LocalMachineInterface(AbstractMachineInterface):
             if callable(getattr(object, method)) and not method.startswith('_'):
                 public_methods.append(method)
 
+        if base_name in sys.modules:
+            sys.modules.pop(base_name)
         if class_name in sys.modules:
             sys.modules.pop(class_name)
         sys.path.remove(tmp_libs)
