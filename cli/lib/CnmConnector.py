@@ -305,6 +305,7 @@ class CnmConnector:
         return False
 
     def watch_jobs(self, job_names):
+        "Given a list of jobs, watch their progress."
         summary_output = []
         summary_status = OK
         jobs = set(job_names)
@@ -315,6 +316,10 @@ class CnmConnector:
                 url = "json/job/poll/"
                 post_data = {"yaml": yaml.dump({"job_names": job_names})}
                 output = self.service_yaml_request(url, post_data=post_data)
+                if type(output) != type({}):
+                    msg = "Request to %s returned and invalid type (%s)"
+                    libUi.error(msg % (url, output))
+                    return FAIL, output
                 for job_name in output:
                     job_output = output[job_name]
                     if "traceback" in job_output:
@@ -329,11 +334,8 @@ class CnmConnector:
                             msg = "%s is pending %s." % (job_name, pending_job)
                             libUi.warning(msg)
                             libUi.info("Watching %s..." % pending_job)
-                            status, output = self.watch_jobs([pending_job])
-                            if status == FAIL:
-                                return status, output
-                            continue
-                            #return FAIL, "Job queued behind %s" % queued_job
+                            job_names = [pending_job]
+                            break
                     if alive == False:
                         out = system_state.cnm_connector.join_job(job_name)
                         #print "OUT>>> ",out # FIXME: FIX sometimes removes spaces
