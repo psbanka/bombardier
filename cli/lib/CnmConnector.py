@@ -32,6 +32,7 @@ new core of the Bombardier server."""
 __author__ =  'Peter Banka'
 __version__ = '1.0'
 
+import BreakHandler
 import StringIO
 import urllib2, urlparse, os, time
 import yaml
@@ -39,12 +40,12 @@ import pycurl
 import exceptions
 import re
 import urllib
-from bombardier_core.static_data import OK, FAIL, WAIT
+from bombardier_core.static_data import OK, FAIL
 from Exceptions import UnexpectedDataException, ServerException
 from Exceptions import MachineTraceback, ServerTracebackException
 from Exceptions import MachineUnavailableException
 import libUi
-from SystemStateSingleton import SystemState, ENABLE
+from SystemStateSingleton import SystemState
 system_state = SystemState()
 
 LOGIN_PATH = "/accounts/login/"
@@ -145,6 +146,7 @@ class CnmConnector:
         '''
         address -- URL of the Bombardier web server
         username -- username for connecting to the server'''
+        self.break_handler = BreakHandler.BreakHandler()
         self.address = address
         self.username = username
         self.password = None
@@ -152,7 +154,8 @@ class CnmConnector:
         self.proxy_port = None
         self.debug = False
         self.session_id = None
-        self.cookie_file = os.path.join(os.environ.get("HOME"), '.bom_cookie.txt')
+        self.cookie_file = os.path.join(os.environ.get("HOME"),
+                                        '.bom_cookie.txt')
 
     def prepare_curl_object(self, url):
         '''prepares pycurl object that can be used to communicate to the
@@ -167,7 +170,7 @@ class CnmConnector:
         curl_obj.setopt(pycurl.COOKIEFILE, self.cookie_file)
         curl_obj.setopt(pycurl.COOKIEJAR, self.cookie_file)
         if self.debug:
-            print "CONNECTING TO: ",url
+            print "CONNECTING TO: ", url
         if self.username and self.password:
             auth_string = "%s:%s" % (self.username, self.password)
             curl_obj.setopt(pycurl.USERPWD, auth_string)
@@ -193,10 +196,11 @@ class CnmConnector:
         if self.debug:
             print "PERFORMING:", curl_obj
         try:
-            #FIXME: Bug 557478. Trap SIGINT
+            self.break_handler.enable()
             curl_obj.perform()
             http_code = curl_obj.getinfo(pycurl.HTTP_CODE)
             response.set_http_code(http_code)
+            self.break_handler.disable()
             return response
         except pycurl.error, curl_err:
             http_code = curl_obj.getinfo(pycurl.HTTP_CODE)
@@ -271,8 +275,9 @@ class CnmConnector:
         return self.perform_request(curl_obj, full_path)
 
     def sync_server_home(self, server_home_path):
+        "For setting the base location of all data on the CNM"
         url = '/json/server/config'
-        post_data={"server_home": server_home_path}
+        post_data = {"server_home": server_home_path}
         output = self.service_yaml_request(url, post_data=post_data)
         new_path = output["server_home"]
         if new_path != server_home_path:
@@ -282,23 +287,27 @@ class CnmConnector:
                              put_data=None, post_data=None,
                              delete=False, timeout=None):
         '''same as service_request, but assumes that return data from the server
-        is YAML(JSON) and converts it to return a python dictionary instead of text.'''
+        is YAML(JSON) and converts it to return a python dictionary instead of
+        text.'''
         try:
             if put_data != None:
                 if type(put_data) == type(["list"]) or \
                    type(put_data) == type({}):
                     put_data = yaml.dump(put_data)
-            response = self.service_request(path, args, put_data, post_data, delete, timeout)
+            response = self.service_request(path, args, put_data, post_data,
+                                            delete, timeout)
             return response.convert_from_yaml()
         except urllib2.HTTPError:
             print "Unable to connect to the service %s" % path
             return {}
 
     def cleanup_connections(self):
+        "Call the ReST interface for clearing connections no a machine"
         url = "json/machine/cleanup_connections"
         self.service_yaml_request(url, post_data={})
 
     def _is_any_alive(self, poll_output):
+        "Determine if anu jobs are alive from what the CNM told us"
         for job_name in poll_output:
             if poll_output[job_name].get("alive", False):
                 return True
@@ -338,7 +347,6 @@ class CnmConnector:
                             break
                     if alive == False:
                         out = system_state.cnm_connector.join_job(job_name)
-                        #print "OUT>>> ",out # FIXME: FIX sometimes removes spaces
                         summary_output.append(out.get("command_output"))
                         status = out.get("command_status", OK)
                         if status != OK:
@@ -373,6 +381,7 @@ class CnmConnector:
         return summary_status, summary_output
 
     def get_job(self, url, post_data):
+        "Given an action dictated by URL, get a job_name that we can track"
         out = self.service_yaml_request(url, post_data=post_data)
         if "traceback" in out:
             raise MachineTraceback(url, out["traceback"])
@@ -382,19 +391,22 @@ class CnmConnector:
         return job_name
 
     def join_job(self, job_name):
+        "We think a job's finished. Let's check in with the server"
         url = "json/job/join/%s" % job_name
         output = self.service_yaml_request(url)
         if "traceback" in output:
-            raise MachineTraceback(url, out["traceback"])
+            raise MachineTraceback(url, output["traceback"])
         return output
 
     def set_password(self, password):
+        "Set the configuration-key"
         url = "/json/dispatcher/set-password"
         post_data = {"password": password}
         output = self.service_yaml_request(url, post_data=post_data)
         return output["command_status"], output["command_output"]
 
     def dispatcher_control(self, action, post_data = {}):
+        "Performing actions on the dispatcher"
         dispatcher_url = "/json/dispatcher/%s" % action
         if action == "status":
             output = self.service_yaml_request(dispatcher_url)
