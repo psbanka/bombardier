@@ -426,7 +426,8 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                 if not job:
                     for job in self.monitor.job_queue:
                         if job_name == job.name:
-                            raise QueuedJob(job_name)
+                            predecessor = self.monitor.queue_reason(job)
+                            raise QueuedJob(predecessor)
                     raise InvalidJobName(job_name)
         return job
 
@@ -437,8 +438,9 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
             try:
                 job = self.get_job(job_name)
                 job_status_dict[job_name] = job.get_status_dict()
-            except QueuedJob:
-                job_status_dict[job_name] = {"command_status": "QUEUED"}
+            except QueuedJob, qj:
+                job_status_dict[job_name] = {"command_status": "QUEUED",
+                                             "pending_job": qj.job_name}
         return job_status_dict
 
     def job_kill(self, username, job_name):

@@ -479,6 +479,7 @@ class Machine(PinshCmd.PinshCmd):
 
         try:
             job_name = system_state.cnm_connector.get_job(url, post_data)
+            libUi.info("Watching job progress. Press ^C to abort or disconnect.")
             status, output = system_state.cnm_connector.watch_jobs([job_name])
             return status, output
         except MachineTraceback, m_err:

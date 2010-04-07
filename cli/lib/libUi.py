@@ -384,6 +384,9 @@ def debug(msg):
 
 def warning(msg):
     'logging function'
+    if system_state.termcolor != NO_COLOR:
+        color_code = STRONG_COLOR[system_state.termcolor]
+        msg = "\033%s%s\033[m" % (color_code, msg)
     system_state.fp_out.write(">>> WARNING: %s\n" % msg)
 
 def error(msg):

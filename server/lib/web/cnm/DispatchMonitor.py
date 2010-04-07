@@ -176,23 +176,23 @@ class DispatchMonitor(Thread, ServerLogMixin.ServerLogMixin):
                 new_job_queue.append(job)
         self.job_queue = new_job_queue    
 
-    def is_runnable(self, job):
-        "We want to know if a job can be run"
-        #self.server_log.info("CHECKING if %s is RUNNABLE" % job)
+    def queue_reason(self, job):
+        "A job is queued. What is it waiting on?"
         if not job.machine_interface.is_available():
-            #self.server_log.info("Machine interface busy")
-            return False
+            return job.machine_interface.job_name
         for predecessor_job in job.get_all_predecessors():
             if predecessor_job.name in self.broken_jobs:
-                self.server_log.info("BROKEN JOBS")
-                return False
+                return predecessor_job.name
             if predecessor_job.name in self.active_jobs:
-                self.server_log.info("PRED. ACTIVE")
-                return False
+                return predecessor_job.name
             if predecessor_job in self.job_queue:
-                self.server_log.info("PREDECESSORS QUEUED")
-                return False
-        #self.server_log.info("YES")
+                return predecessor_job.name
+        return None
+
+    def is_runnable(self, job):
+        "We want to know if a job can be run"
+        if self.queue_reason(job):
+            return False
         return True
 
     def _process_active_jobs(self):

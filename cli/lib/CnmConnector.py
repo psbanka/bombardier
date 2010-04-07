@@ -193,6 +193,7 @@ class CnmConnector:
         if self.debug:
             print "PERFORMING:", curl_obj
         try:
+            #FIXME: Bug 557478. Trap SIGINT
             curl_obj.perform()
             http_code = curl_obj.getinfo(pycurl.HTTP_CODE)
             response.set_http_code(http_code)
@@ -304,7 +305,6 @@ class CnmConnector:
         return False
 
     def watch_jobs(self, job_names):
-        libUi.info("Watching job progress. Press ^C to abort or disconnect.")
         summary_output = []
         summary_status = OK
         jobs = set(job_names)
@@ -324,8 +324,16 @@ class CnmConnector:
                         libUi.process_cnm(new_output)
                     alive = job_output.get("alive")
                     if alive == None:
-                        print "UNEXPECTED RESULT: ",alive
-                        print "JOB OUTPUT:",job_output
+                        if job_output.get("command_status") == "QUEUED":
+                            pending_job = job_output.get("pending_job")
+                            msg = "%s is pending %s." % (job_name, pending_job)
+                            libUi.warning(msg)
+                            libUi.info("Watching %s..." % pending_job)
+                            status, output = self.watch_jobs([pending_job])
+                            if status == FAIL:
+                                return status, output
+                            continue
+                            #return FAIL, "Job queued behind %s" % queued_job
                     if alive == False:
                         out = system_state.cnm_connector.join_job(job_name)
                         #print "OUT>>> ",out # FIXME: FIX sometimes removes spaces
