@@ -120,7 +120,7 @@ class Response:
             except yaml.parser.ParserError:
                 # New Django JSON is not compatible with yaml. Massage it.
                 try:
-                    new_output = ''.join(str(self.output).split())
+                    new_output = ''.join(str(self.output).split('\n'))
                     output = yaml.load(new_output)
                 except yaml.parser.ParserError:
                     msg = "can't convert to yaml (%s)" % self.output
