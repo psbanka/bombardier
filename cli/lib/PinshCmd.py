@@ -280,10 +280,11 @@ class PinshCmd:
                 else:
                     responsible = child.find_last_responsible_child(tokens,
                                                              index + length)
-                    if responsible:
-                        if responsible.cmd_owner:
-                            self.dbg( "%s IS RESPONSIBLE" % responsible)
-                            return responsible
+                    if not responsible:
+                        return None
+                    if responsible.cmd_owner:
+                        self.dbg( "%s IS RESPONSIBLE" % responsible)
+                        return responsible
                     self.dbg( "%s IS RESPONSIBLE" % self)
                     return self
         if len(owners) == 1:

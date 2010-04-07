@@ -110,8 +110,6 @@ class Slash(PinshCmd.PinshCmd):
                 return OK, []
             tokens = system_state.get_state_tokens(tokens)
             status, output = self.run(tokens, no_flag)
-            #if comment:
-                #makeComment(comment) # MISSING
             libUi.user_output(output, status)
             return status, output
         except ServerException, err:
