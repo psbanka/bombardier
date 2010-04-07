@@ -113,6 +113,10 @@ class Slash(PinshCmd.PinshCmd):
             libUi.user_output(output, status)
             return status, output
         except ServerException, err:
+            if err.http_code == 403:
+                msg = ["You are not authorized for this command."]
+                libUi.user_output(msg, FAIL)
+                return FAIL, msg
             output = ["ERROR: Cannot communicate with CNM Server"]
             output.append(str(err))
             libUi.user_output(output, FAIL)

@@ -75,6 +75,8 @@ class BreakHandler:
         '''
         if self._enabled:
             self._enabled = False
+            if not signal:
+                return
             signal.signal(signal.SIGINT, self._oldhandler)
             self._oldhandler = None
         return
