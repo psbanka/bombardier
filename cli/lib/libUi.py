@@ -247,9 +247,9 @@ def pwd_input(prompt):
                 sys.stdout.flush()
                 password += char
     except KeyboardInterrupt:
-        sys.exit(1)
-    finally:
         termios.tcsetattr(file_handle, termios.TCSADRAIN, old_settings)
+        sys.exit(1)
+    termios.tcsetattr(file_handle, termios.TCSADRAIN, old_settings)
     redaction = "\b" * len(password) + " " * len(password)
     sys.stdout.write(redaction)
     print
