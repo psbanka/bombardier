@@ -56,7 +56,8 @@ Bombardier Client can run on any version of Python from 2.4 through
 .. admonition:: Platforms supported by Bombardier
 
     Bombardier has been thoroughly tested and developed on Redhat
-    (Centos) Enterprise Linux 5 and Ubuntu Linux 8.10.  If you choose
+    Ubuntu Linux 8.10 and (to a much lesser degree) (Centos) Enterprise
+    Linux 5 and Redhat Enterprise Linux 5.  If you choose
     to install Bombardier onto other flavors of Linux or Unix or other
     POSIX operating systems, we can't guarantee it will work, but we'd
     love to hear from you and help you work through any issues.  If
@@ -73,6 +74,28 @@ shell; you should see something like::
     [GCC 4.0.1 (Apple Inc. build 5465)] on darwin
     Type "help", "copyright", "credits" or "license" for more information.
     >>>
+
+Other prerequisites
+-------------------
+
+Centos 5
+^^^^^^^^
+
+If you are going to install the server components onto Centos 5, you will
+need to install a number of optional packages with *yum* prior to beginning. 
+However, prior to even running *yum*, you'll want to obtain access to the 
+Fedora repository that is compatible with Centos/RHEL 5::
+
+ $ wget http://download.fedora.redhat.com/pub/epel/5/i386/epel-release-5-3.noarch.rpm
+ $ rpm -Uvh epel-release-5-3.noarch.rpm
+ warning: epel-release-5-3.noarch.rpm: Header V3 DSA signature: NOKEY, key ID 217521f6
+ Preparing...                ########################################### [100%]
+    1:epel-release           ########################################### [100%]
+
+Next, use yum to download and install the package dependencies you'll need::
+
+ $ yum install syck syck-devel gcc python-devel bzr bzrtools olive sqlite-devel
+
 
 Install Bombardier Server component and Python Dependencies
 -----------------------------------------------------------
@@ -216,12 +239,31 @@ this:
       Development server is running at http://127.0.0.1:8000/
       Quit the server with CONTROL-C.
 
+Leave this terminal running on the server and open a new connection to the server.
+If you want to be able to run the server process as a daemon, you will need to
+install Apache 2 as described on the `django website`_ .
 
 .. _here: http://docs.djangoproject.com/en/dev/howto/deployment/modpython/
+.. _django website: http://docs.djangoproject.com/en/dev/howto/deployment/modpython/
 
 
 Install Bombardier CLI component and Python Dependencies
 --------------------------------------------------------
+
+Prerequisites
+^^^^^^^^^^^^^
+
+For Centos/RHEL 5, you'll need to install a newer version of CuRL than the one that
+is supported on Centos 5/RHEL 5. At the time of this writing 7.20 was the latest
+version. You can get the latest URL for CuRL here: http://curl.haxx.se/download.html::
+
+ $ wget http://curl.haxx.se/download/curl-7.20.0.tar.gz
+
+You will need to *configure* and *make install* this component. Note that when
+configuring, use the **--prefix=/usr** flag so that pycurl will be able to use it.
+
+Installing the CLI
+^^^^^^^^^^^^^^^^^^
 
 We will again use `setuptools`_ to quickly and easily download the
 Bombardier CLI component as well as the Python libraries that are

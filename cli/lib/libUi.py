@@ -450,8 +450,9 @@ def user_output(output, status, prepend = '', test = False):
     return
 
 def process_traceback(machine_exception):
-    output = {"Exception": str(machine_exception),
-              "data": machine_exception.traceback}
+    output = {"Exception": str(machine_exception)}
+    if hasattr(machine_exception, "traceback"):
+        output["data"] = machine_exception.traceback
     user_output(output, FAIL)
 
 def user(string):
