@@ -128,7 +128,7 @@ bombardierinstaller: clean_docs server_doc client_doc cli_doc
 
 sdist: do_sdist reclean_files
 
-upload:	official clean_dist dist_files version_dist reclean_files
+upload:	official clean_dist dist_files version_dist
 	python setup.py sdist upload
 
 doc:	clean_dist dist_files version_dist reclean_files
