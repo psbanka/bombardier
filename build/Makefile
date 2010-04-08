@@ -50,8 +50,8 @@ define remove_dist_files
 	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
 endef
 
-define remove_target_dist_files
-	cd $(target_dir) && rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
+define remove_upload_dist_files
+	cd $(upload_dir) && rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
 endef
 
 help:
@@ -94,22 +94,22 @@ core:
 server_upload:
 	$(check_upload_dir)
 	$(upload_target) 
-	$(remove_target_dist_files)
+	$(remove_upload_dist_files)
 
 client_upload:
 	$(check_upload_dir)
 	$(upload_target) 
-	$(remove_target_dist_files)
+	$(remove_upload_dist_files)
 
 cli_upload:
 	$(check_upload_dir)
 	$(upload_target) 
-	$(remove_target_dist_files)
+	$(remove_upload_dist_files)
 
 core_upload:
 	$(check_upload_dir)
 	$(upload_target)
-	$(remove_target_dist_files)
+	$(remove_upload_dist_files)
 
 server_doc:
 	$(check_doc_dir)
