@@ -29,16 +29,16 @@ define doc_target
     cp -r $(doc_dir)/docs/.build/html $(upload_docs_dir)/$(doc_type)
 endef
 
-define upload_target
-	cd $(upload_dir) && make -f $(MAKE_FILE) upload
-endef
-
 define target_dir
 ../$@
 endef
 
 define check_target_dir
 	[ -e $(target_dir) ] || exit 1
+endef
+
+define upload_target
+	cd $(upload_dir) && make -f $(MAKE_FILE) upload
 endef
 
 define sdist_target
@@ -48,6 +48,10 @@ endef
 define remove_dist_files
 	echo "$$PWD" | grep -v "build"
 	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
+endef
+
+define remove_target_dist_files
+	cd $(target_dir) && rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
 endef
 
 help:
@@ -90,18 +94,22 @@ core:
 server_upload:
 	$(check_upload_dir)
 	$(upload_target) 
+	$(remove_target_dist_files)
 
 client_upload:
 	$(check_upload_dir)
 	$(upload_target) 
+	$(remove_target_dist_files)
 
 cli_upload:
 	$(check_upload_dir)
 	$(upload_target) 
+	$(remove_target_dist_files)
 
 core_upload:
 	$(check_upload_dir)
 	$(upload_target)
+	$(remove_target_dist_files)
 
 server_doc:
 	$(check_doc_dir)
