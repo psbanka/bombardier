@@ -135,45 +135,56 @@ class LocalMachineInterface(AbstractMachineInterface):
     def _inspect_libraries(self, tmp_path, pkg_data):
         """This will instantiate the Bombardier installer script and collect
         all of the configuration information that it requires"""
-        tmp_libs = os.path.join(tmp_path, "libs")
-        sys.path.append(tmp_libs)
+        start_path = os.getcwd()
+        injectors_path = os.path.join(tmp_path, "injectors")
+        if not os.path.isdir(injectors_path):
+            os.system("mkdir -p %s" % injectors_path)
+        os.chdir(injectors_path)
+        try:
+            tmp_libs = os.path.join(tmp_path, "libs")
+            sys.path.append(tmp_libs)
 
-        output = []
-        metadata = {}
+            output = []
+            metadata = {}
 
-        class_name = pkg_data.get("class_name")
-        base_name  = class_name.split('.')[0]
+            class_name = pkg_data.get("class_name")
+            base_name  = class_name.split('.')[0]
 
-        letters = [ chr( x ) for x in range(65, 91) ]
-        random.shuffle(letters)
-        rand_name = ''.join(letters)
-        self.polling_log.info("My current directory: %s" % os.getcwd())
-        if base_name in sys.modules:
-            sys.modules.pop(base_name)
-        if class_name in sys.modules:
-            sys.modules.pop(class_name)
-        cmd = "import %s as %s" % ( class_name, rand_name )
-        exec(cmd)
-        config = MockConfig()
-        exec ('object = %s.%s(config)' % ( rand_name, base_name))
+            letters = [ chr( x ) for x in range(65, 91) ]
+            random.shuffle(letters)
+            rand_name = ''.join(letters)
+            self.polling_log.info("My current directory: %s" % os.getcwd())
+            if base_name in sys.modules:
+                sys.modules.pop(base_name)
+            if class_name in sys.modules:
+                sys.modules.pop(class_name)
+            cmd = "import %s as %s" % ( class_name, rand_name )
+            exec(cmd)
+            config = MockConfig()
+            exec ('object = %s.%s(config)' % ( rand_name, base_name))
 
-        if hasattr(object, "metadata"):
-            metadata = object.metadata
-        config_requests = config.get_requests()
-        for item in config_requests:
-            self.polling_log.info("Configuration dictionary: %s" % item)
-        public_methods = []
-        for method in dir(object):
-            if callable(getattr(object, method)) and not method.startswith('_'):
-                public_methods.append(method)
+            if hasattr(object, "metadata"):
+                metadata = object.metadata
+            config_requests = config.get_requests()
+            for item in config_requests:
+                self.polling_log.info("Configuration dictionary: %s" % item)
+            public_methods = []
+            for method in dir(object):
+                if callable(getattr(object, method)) and not method.startswith('_'):
+                    public_methods.append(method)
 
-        if base_name in sys.modules:
-            sys.modules.pop(base_name)
-        if class_name in sys.modules:
-            sys.modules.pop(class_name)
-        sys.path.remove(tmp_libs)
-        exec('del %s' % rand_name)
+            if base_name in sys.modules:
+                sys.modules.pop(base_name)
+            if class_name in sys.modules:
+                sys.modules.pop(class_name)
+            sys.path.remove(tmp_libs)
+            exec('del %s' % rand_name)
+        except Exception, e:
+            os.chdir(start_path)
+            raise e
+        os.chdir(start_path)
         return config_requests, public_methods
+
         
     def build_components(self, package_name, svn_user, svn_password,
                          debug, prepare):

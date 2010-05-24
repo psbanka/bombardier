@@ -109,7 +109,9 @@ class MachineInterface(AbstractMachineInterface):
                       "%4.2f minutes. Reconnecting..."
                 msg = msg % (self.machine_name, connection_age / 60.0)
                 self.polling_log.warning(msg)
+                job_name = self.job_name
                 self.terminate()
+                self.set_job(job_name)
             if self.connect() != OK:
                 msg = "Unable to connect to %s." % self.machine_name
                 raise MachineUnavailableException(self.machine_name, msg)
@@ -127,7 +129,9 @@ class MachineInterface(AbstractMachineInterface):
             self.polling_log.warning(msg)
             self.server_log.warning(msg, self.machine_name)
             try:
+                job_name = self.job_name
                 self.terminate()
+                self.set_job(job_name)
             except:
                 pass
             if self.connect() != OK:

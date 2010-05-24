@@ -40,6 +40,7 @@ import pycurl
 import exceptions
 import re
 import urllib
+import tempfile
 from bombardier_core.static_data import OK, FAIL
 from Exceptions import UnexpectedDataException, ServerException
 from Exceptions import MachineTraceback, ServerTracebackException
@@ -127,7 +128,12 @@ class Response:
                     msg = "can't convert to yaml (%s)" % self.output
                     raise UnexpectedDataException(msg)
             if type(output) != type([]) and type(output) != type({}):
-                raise UnexpectedDataException("Not a list or dictionary")
+                fd, fn = tempfile.mkstemp(suffix=".yml", text=True)
+                fh = open(fn, 'w')
+                fh.write(str(self.output))
+                fh.close()
+                msg = "Not a list or dictionary (written to %s)" % fn
+                raise UnexpectedDataException(msg)
             if output == None:
                 raise UnexpectedDataException("Null value received")
             if 'traceback' in output:
