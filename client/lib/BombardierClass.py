@@ -724,7 +724,7 @@ class Bombardier:
         should_be_installed, shouldnt_be_installed = self._check_bom(bom_pkns)
         # check the configuration for each installed package
         pkg_info = {"Packages installed properly": installed_pkns,
-                    "Packages to be RECONFIGURED": [],
+                    "Packages to be RECONFIGURED": {},
                     "Packages to be INSTALLED": should_be_installed,
                     "Packages to be REMOVED": shouldnt_be_installed,
                     "Packages that are BROKEN": broken_pkns,
