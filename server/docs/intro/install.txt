@@ -102,7 +102,7 @@ Install Bombardier Server component and Python Dependencies
 
 We recommend using `setuptools`_ to quickly and easily download the
 Bombardier Server component as well as the Python libraries that are
-required:
+required::
 
       $ easy_install bombardier_server
 
@@ -119,7 +119,7 @@ in your firewall between your management servers and the rest of the
 machines on your network.  Bombardier will connect as a particular
 user (in this example, it will run as root, but that is not
 necessary), and that user needs to have ssh key-pairs generated, as
-follows:
+follows::
 
      $ ssh-keygen -t dsa
      Generating public/private dsa key pair.
@@ -144,7 +144,7 @@ Run the quickstart
 
 Next, you'll have to take care of setting up the basic repository
 database, directory structure, and configuration key.  You'll do this
-using the bdr_server_quickstart script:
+using the bdr_server_quickstart script::
 
        $ bdr_server_quickstart
        Perform initial Bombardier Server environment setup? (y/n): y
@@ -188,7 +188,7 @@ administrative users who have the right to log in.
 
 Use the manage.py script in the bombardier_server directory to create
 the database (which should look something like, but probably not
-identical to the following):
+identical to the following)::
 
       $ cd /usr/lib/python2.5/site-packages/
       $ cd bombardier_server-1.00_702-py2.5.egg/bombardier_server/web/cnm
@@ -229,7 +229,7 @@ Bombardier server under Apache, following rules similar to those
 described `here`_ .
 
 You'll use the manage.py script to start the web server process like
-this:
+this::
 
       $ python manage.py runserver
       Validating models...
@@ -267,7 +267,7 @@ Installing the CLI
 
 We will again use `setuptools`_ to quickly and easily download the
 Bombardier CLI component as well as the Python libraries that are
-required:
+required::
 
       $ easy_install bombardier_cli
 

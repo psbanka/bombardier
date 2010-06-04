@@ -15,7 +15,142 @@ How do I get started?
 .. _`Download the code`: https://launchpad.net/bombardier/+download
 .. _ask questions: https://answers.launchpad.net/bombardier
 
-Can I use Bombardier with Python 3?
------------------------------------
 
-No, This hasn't been tested at all.
+How do I evaluate the status of a machine configuration?
+--------------------------------------------------------
+
+There are a few sections that are mandatory::
+
+    ip_address: 
+    default_user:
+
+Are the basics. If you want to be able to deploy packages to this
+machine, you'll need a list of packages::
+
+     packages: []
+
+.. admonition:: Types in YAML
+
+    Make sure that you use an empty list, as shown above. ``packages: None``
+    is not the same as ``packages: []``. One will be interpreted as a
+    null value, the other as an empty list.
+
+Once you've got some packages to add, use the standard YAML list syntax:
+  packages:
+    - package_name_number_one
+    - package_name_number_two
+
+
+What do I do if I can't log in at the ``bdr`` prompt?
+-----------------------------------------------------
+
+#. Delete the database file and recreate it with python manage.py syncdb. This will prompt you for a new username and password. Deleting the db file is good just to make sure the password was set properly. The only things in the DB are the user/passwords and the logs for what changes were made on the system.
+#. Start the web server in another terminal using the python manage.py runserver command
+#. Verify that the server is running with the netstat command.
+#. Log into it using the bdr command
+
+
+What do I do if logging in via SSH to a remote machine is awfully slow?
+-----------------------------------------------------------------------
+
+Check the openssh FAQ_. You're likely going to need to turn DNS
+checking off at the remote machine.
+
+.. _FAQ:  http://www.openssh.org/faq.html#3.3
+
+
+What's the deal with packages?
+------------------------------
+
+  "I tried the command create package test and it created test.yml. The
+  question is: in the other .yml files there are references to libs,
+  references to svn, etc. How it is linked with these lib files and
+  injector files?"
+
+There is an injector and a libs section in a package.  The libs are all
+of the python libraries that are used to help install and manage the
+package and the injectors are all of the binary data that is shipped
+over with the package (that is typically installed) When you see a
+"path" underneath each of the libs (or injector), bombardier will look
+for the files there. If it's not fully qualified, in the case of
+Java_1_5_0_22_rpms.tar.gz, it will look in /var/deploy/repos
+(/injector or /libs, depending on what you're referencing.)
+
+If you are missing some of the files that make up this package, you
+may need to obtain them by building the package with the ``package
+<package_name> build`` command.  For this to work, your bombardier
+server needs to be able to access the SVN server itself. This may
+require setting a proxy server in the /root/.subversion/servers file.
+
+Where do the logs go?
+---------------------
+
+  "When we get errors that tell us to view the server log, where we will
+  get the log information, or how we will identify the issue?"
+
+Check /var/log/user.log
+
+How does package building work? What is a package, exactly?
+-----------------------------------------------------------
+
+A package is just this: a package.yml file which specifies the parts,
+and the various other files that the package.yml file points to.
+
+  "That means that when we are doing a ``package install``, the lib files
+  and injector files are taken from the source location?  From svn, in
+  our case?"
+
+Actually, no. This is perhaps confusing. It takes it from the "path"
+that is under the package lib (or injector) definition. The svn
+location is only used for building the package.
+
+  "Ok.. during building the packaged the files will be taken from svn
+  and place under repos/lib or /injector...during install it will take
+  from /repos"
+
+That is correct.
+
+What is that config command used for and what are the parameters?
+-----------------------------------------------------------------
+
+``edit config`` modifies the base machine configuration (this is the
+same as ``machine <machine-name> edit``)
+
+
+``reconcile`` will install the package or just sync with the packages specified in bom?
+---------------------------------------------------------------------------------------
+
+``reconcile`` does a lot. It makes sure that everything that's
+supposed to be installed is and nothing that isn't supposed to be
+install isn't.  It will therefore remove all packages that are
+installed that shouldn't be and then go through and install all
+packages that should be installed.
+
+How do we update the Bombardier Server?
+---------------------------------------
+
+Hmm. Unfortunately easy_install is not very good at upgrading.  I've
+only just completely uninstalled and then reinstalled..  Wish I had a
+better answer for you there. This is a pretty weak part of the
+system. Getting from launchpad is going to be your best bet.
+
+Sorry to ask the silly question, how to uninstall?
+--------------------------------------------------
+
+Well, to uninstall any python package, go to your python directory
+(for ubuntu 8.10, it's /usr/lib/python2.5/site-packages), and ``rm -rf bombardier_server*``
+
+How we can keep the web server running even after session closes?
+-----------------------------------------------------------------
+
+Well, the ideal way to do it is to run it under apache. There are
+instructions for how to run a django app under apache2, just google
+it. But the easy way is just to "Detach" from your screen session with
+control-a d
+
+Control-a d will stop the web server?
+-------------------------------------
+
+No, it will detach from screen, leaving the web server running. You
+can re-attach to it later by typing ``screen -Rx``
+
