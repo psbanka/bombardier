@@ -30,10 +30,10 @@ def upload_file(environment):
 
 def main():
     "This is all we're going to do"
-    environment = STAGING_SERVICE_ROOT
+    environment = EDGE_SERVICE_ROOT
     if len(sys.argv) > 1:
-        if sys.argv[1].lower().startswith('--p'):
-            environment = EDGE_SERVICE_ROOT
+        if sys.argv[1].lower().startswith('--s'):
+            environment = STAGING_SERVICE_ROOT
     upload_file(environment)
 
 if __name__ == "__main__":
