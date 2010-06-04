@@ -24,7 +24,7 @@ def upload_file(environment):
     file_content = open(os.path.join(filename), 'r').read()
     base_name = filename.split(os.path.sep)[-1]
     alpha.add_file(file_type="Code Release Tarball",
-                   filename = filename,
+                   filename = base_name,
                    content_type="application/x-gtar",
                    file_content=file_content)
 
