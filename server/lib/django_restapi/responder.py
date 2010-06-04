@@ -19,7 +19,7 @@ from django.utils import simplejson
 from django.utils.xmlutils import SimplerXMLGenerator
 from django.views.generic.simple import direct_to_template
 import os
-import syck
+import yaml
 
 class JsonDictResponder(object):
 
@@ -47,7 +47,7 @@ class YamlFileResponder(object):
         full_file_path = os.path.join(self.base_path, elem+".yml")
         data = open(full_file_path).read()
         response = HttpResponse(mimetype = "application/json")
-        response_dict = syck.load(data)
+        response_dict = yaml.load(data)
         simplejson.dump(response_dict, response)
         return response
 

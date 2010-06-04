@@ -44,4 +44,4 @@ class Exit(PinshCmd.PinshCmd):
         self.cmd_owner = 1
 
     def cmd(self, tokens, noFlag):
-        sys.exit(0)
+        raise EOFError

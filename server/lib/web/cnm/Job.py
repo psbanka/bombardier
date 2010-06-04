@@ -12,6 +12,7 @@ class Job(Thread, ServerLogMixin.ServerLogMixin):
     """Job class: Runs remote commands or copies files to a remote machine.
      Watches status of job"""
     def __init__(self, username, machine_name, job_id):
+        Thread.__init__(self)
         ServerLogMixin.ServerLogMixin.__init__(self)
         self.name = "%s@%s-%d" % (username, machine_name, job_id)
         self.username = username
@@ -27,7 +28,6 @@ class Job(Thread, ServerLogMixin.ServerLogMixin):
         self.output_pointer = 0
         self.predecessors = []
         self.final_logs = []
-        Thread.__init__(self)
         self.complete_log = ''
         self.status = OK
         self.kill_switch = False

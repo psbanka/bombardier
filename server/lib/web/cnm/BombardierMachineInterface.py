@@ -22,7 +22,6 @@ from bombardier_core.Cipher import Cipher
 
 from pexpect import EOF
 import tempfile
-import syck
 
 BLK_SIZE = 77
 TMP_FILE = "tmp.yml"
@@ -541,7 +540,7 @@ class BombardierMachineInterface(MachineInterface):
         status_yml = str(self.ssh_conn.before).split("======")[0]
         status_yml = status_yml.replace('\r','')
         try:
-            syck.load(status_yml)
+            yaml.load(status_yml)
         except:
             msg = "status.yml could not be parsed (writing to error.yml)"
             self.polling_log.error(msg)

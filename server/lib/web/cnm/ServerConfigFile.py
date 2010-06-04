@@ -2,7 +2,7 @@
 
 import sys, os
 import stat
-import yaml, syck
+import yaml
 from bombardier_core.static_data import SERVER_CONFIG_FILE
 
 
@@ -42,7 +42,7 @@ class ServerConfigFile:
             permission = stat.S_IMODE(mode)
             if mode & stat.S_IROTH:
                 raise ConfigFileException("Incorrect permissions %s, should be 660" %permission, SERVER_CONFIG_FILE)
-            self.global_config=syck.load(open(SERVER_CONFIG_FILE).read())
+            self.global_config=yaml.load(open(SERVER_CONFIG_FILE).read())
             if not self.global_config.has_key("tmp_path"):
                 self.global_config["tmp_path"] = "/tmp"
             self.tmp_path = self.global_config["tmp_path"]
@@ -50,8 +50,6 @@ class ServerConfigFile:
                 self.global_config["default_group"] = "root"
             self.default_group = self.global_config["default_group"]
             self.server_home = self.global_config.get("server_home")
-        except syck.error, e:
-            raise ConfigFileException(e[0], SERVER_CONFIG_FILE)
         except IOError, e: 
             raise ConfigFileException(e[0], SERVER_CONFIG_FILE)
 

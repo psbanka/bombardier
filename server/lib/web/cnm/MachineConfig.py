@@ -2,7 +2,7 @@
 #!/opt/python2.5/bin/python
 from bombardier_core.mini_utility import add_dictionaries
 import os
-import yaml, syck
+import yaml
 import getpass
 from bombardier_core.Cipher import Cipher
 from bombardier_core.static_data import OK, FAIL
@@ -58,7 +58,7 @@ class MachineConfig:
         if not os.path.isfile(file_name):
             errmsg = "Error; %s does not exist." % file_name
             raise MachineConfigurationException(self.machine_name, errmsg)
-        new_data = syck.load( open(file_name, 'r').read() )
+        new_data = yaml.load( open(file_name, 'r').read() )
         if new_data == None:
             new_data = {}
         if type(new_data) != type({}):
@@ -77,7 +77,7 @@ class MachineConfig:
             if not os.path.isfile(file_name):
                 errmsg = "%s does not exist" % file_name
                 raise MachineConfigurationException(self.machine_name, errmsg)
-            packages = packages.union(set(syck.load(open(file_name).read())))
+            packages = packages.union(set(yaml.load(open(file_name).read())))
         self.data["packages"] = list(packages)
         if self.data.get("bom"):
             del self.data["bom"]

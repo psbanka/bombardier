@@ -1,6 +1,7 @@
 build_dir=$(PWD)/../build
 staging_dir=../staging
 upload_docs_dir=../bombardierinstaller/docs
+launchpad_uploader=$(build_dir)/launchpad_uploader.py
 
 MAKE_FILE=$(build_dir)/Makefile
 
@@ -138,6 +139,7 @@ sdist: do_sdist reclean_files
 
 upload:	official clean_dist dist_files version_dist
 	python setup.py sdist upload
+	$(launchpad_uploader)
 
 doc:	clean_dist dist_files version_dist reclean_files
 	cd docs && make html

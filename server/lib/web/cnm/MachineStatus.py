@@ -2,7 +2,7 @@
 
 from bombardier_core.mini_utility import strip_version, get_installed_uninstalled_times
 from bombardier_core.static_data import OK, FAIL
-import syck, os
+import yaml, os
 from MachineConfig import MachineConfig
 from Exceptions import MachineStatusException, MachineConfigurationException
 PROGRESS = "install-progress"
@@ -23,7 +23,7 @@ class MachineStatus:
             msg = "Status file missing (%s)" % status_file
             raise MachineStatusException(msg)
         try:
-            self.status_data = syck.load(open(status_file).read())
+            self.status_data = yaml.load(open(status_file).read())
         except Exception, exc:
             if exc[0] == "syntax error":
                 self.status_data = ''
@@ -69,7 +69,7 @@ class MachineStatus:
         if not os.path.isfile(status_yml):
             msg = "Cannot retrieve status (NO FILE: %s)" % status_yml
             raise MachineStatusException(msg)
-        yml = syck.load( open(status_yml).read() )
+        yml = yaml.load( open(status_yml).read() )
         if yml == None:
             msg = "Cannot retrieve status (EMPTY FILE: %s)" % status_yml
             raise MachineStatusException(msg)
@@ -98,7 +98,7 @@ class MachineStatus:
             msg = msg % ( package_name, yml_path )
             raise MachineConfigurationException(self.machine_name, msg)
         else:
-            package_data = syck.load(open(yml_path).read())
+            package_data = yaml.load(open(yml_path).read())
         if type(package_data) != type({}):
             msg = "Invalid package data in %s: Not a dictionary." % yml_path
             raise MachineConfigurationException(self.machine_name, msg)
