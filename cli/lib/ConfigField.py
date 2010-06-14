@@ -116,7 +116,7 @@ class ConfigField(PinshCmd.PinshCmd):
 
     def get_object_list(self):
         'returns a list of all self.data_type things'
-        url = "json/%s/search/" % self.directory
+        url = CnmConnector.SEARCH_PATH % self.directory
         data = system_state.cnm_connector.service_yaml_request(url)
         #print "get_object_list: url: %s\ndata:%s\n" %(url, data)
         if self.directory == "user":
@@ -128,13 +128,13 @@ class ConfigField(PinshCmd.PinshCmd):
     def post_data(self, first_token_name, data):
         'posts data to modify the object'
         post_data = {"yaml": yaml.dump(data)}
-        url = "json/%s/name/%s" % (self.directory, first_token_name)
+        url = CnmConnector.NAME_PATH % (self.directory, first_token_name)
         output = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
         return output
 
     def get_data(self, first_token_name):
         'returns a list of all configuration objects of this type'
-        url = "json/%s/name/%s" % (self.directory, first_token_name)
+        url = CnmConnector.NAME_PATH % (self.directory, first_token_name)
         data = system_state.cnm_connector.service_yaml_request(url)
         return data
 
@@ -186,9 +186,9 @@ class ConfigField(PinshCmd.PinshCmd):
             if len(first_token_names) < 1:
                 msg = "%s was not found on the server to upload to" % tokens[index]
                 raise UnexpectedDataException(msg)
-            url = "json/%s/name/%s" % ( self.directory, first_token_names[0])
+            url = CnmConnector.NAME_PATH % (self.directory, first_token_names[0])
         else:
-            url = "json/%s/name/%s" % ( self.directory, tokens[index])
+            url = CnmConnector.NAME_PATH % (self.directory, tokens[index])
         post_data = {"yaml": new_data}
         output_dict = system_state.cnm_connector.service_yaml_request(url,
                                                                post_data=post_data)
@@ -202,7 +202,7 @@ class ConfigField(PinshCmd.PinshCmd):
         '''
         if self.machine_field:
             machine_name = tokens[self.machine_field]
-            url = "json/machine/name/%s" % machine_name
+            url = CnmConnector.MACHINE_PATH % machine_name
             machine_config = system_state.cnm_connector.service_yaml_request(url)
             possible_names = machine_config.get(self.directory, [])
             output_names = []

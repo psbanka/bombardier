@@ -75,12 +75,10 @@ class JobCommand(PinshCmd.PinshCmd):
             raise CommandError("Incomplete command")
         job_name = tokens[3]
         if tokens[2] == "kill":
-            post_data = {"post_data": "hello"}
-            url = "/json/job/kill/%s" % job_name
-            output = connector.service_yaml_request(url, post_data=post_data)
-            return output["command_status"], output["command_output"]
+            status, output = connector.kill_job(job_name)
+            return status, output
         elif tokens[2] == "view":
-            status, output = system_state.cnm_connector.watch_jobs([job_name])
+            status, output = connector.watch_jobs([job_name])
             return status, output
             #return output["command_status"], output["command_output"]
         raise CommandError("Unknown command: %s" % tokens[1])
@@ -162,10 +160,7 @@ class Dispatcher(PinshCmd.PinshCmd):
                 if status != OK:
                     return FAIL, output
 
-            url = "/json/dispatcher/set-password"
-            post_data = {"password": configuration_key}
-            cmd_output_dict = connector.service_yaml_request(url,
-                                                            post_data=post_data)
+            cmd_output_dict = connector.set_password(configuration_key)
             cmd_output.append(cmd_output_dict["command_output"])
             return cmd_output_dict["command_status"], cmd_output
             

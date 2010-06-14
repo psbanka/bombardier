@@ -195,6 +195,7 @@ if __name__ == "__main__":
         username = options.user
     if options.server:
         system_state.cnm_url = options.server
+        print "SET CNM_URL TO:", system_state.cnm_url
 
     if options.no_login:
         COMMANDS.append("CliTest")

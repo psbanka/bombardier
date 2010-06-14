@@ -88,7 +88,7 @@ def check_machine_name(tokens, no_flag):
 
 def edit_config_file(conf_str, config_field, object_name):
     "edit the configuration on the server"
-    fd,fn = tempfile.mkstemp(suffix=".yml", text=True)
+    fd, fn = tempfile.mkstemp(suffix=".yml", text=True)
     fh = os.fdopen(fd, 'w+b')
     fh.write(conf_str)
     fh.close()
@@ -126,8 +126,6 @@ class AssignCommand(PinshCmd.PinshCmd):
         machine_config_data["packages"] = package_list
         conf_str = prefix + yaml.dump(machine_config_data, default_flow_style=False)
         return edit_config_file(conf_str, machine_config, machine_name)
-        #output = machine_config.post_data(machine_name, machine_config_data)
-        return output["command_status"], output["command_output"]
 
     def cmd(self, tokens, no_flag):
         """
@@ -291,13 +289,10 @@ class JobCommand(PinshCmd.PinshCmd):
         if len(tokens) >= 4:
             sub_command = tokens[3]
         
-        post_data = None
         if sub_command == "stop":
-            url = "/json/machine/stop-jobs/"
-            post_data = {"machine": machine_name}
+            return system_state.cnm_connector.stop_jobs(machine_name)
         elif sub_command == "clear-broken":
-            url = "/json/machine/clear-broken-jobs/"
-            post_data = {"machine": machine_name}
+            return system_state.cnm_connector.clear_broken_jobs(machine_name)
         elif sub_command == "view":
             if len(tokens) < 5:
                 msg = "Incomplete command; need to include the job name."
@@ -305,12 +300,8 @@ class JobCommand(PinshCmd.PinshCmd):
             job_name = tokens[4]
             return system_state.cnm_connector.watch_jobs([job_name])
         else:
-            url = "/json/machine/show-jobs/%s" % machine_name
-            output = system_state.cnm_connector.service_yaml_request(url)
+            output = system_state.cnm_connector.show_jobs(machine_name)
             return output["command_status"], output
-        output = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
-        return output["command_status"], output["command_output"]
-
 
 class Machine(PinshCmd.PinshCmd):
     '''
@@ -442,16 +433,10 @@ class Machine(PinshCmd.PinshCmd):
             return Ssh().cmd(["ssh", machine_name], 0)
 
         if command == "push":
-            url = "/json/machine/push/%s" % machine_name
-            post_data = {"machine": machine_name}
-            job_name = system_state.cnm_connector.get_job(url, post_data)
-            return system_state.cnm_connector.watch_jobs([job_name])
+            return system_state.cnm_connector.push_machine_config(machine_name)
 
         if command == "unpush":
-            url = "/json/machine/unpush/%s" % machine_name
-            post_data = {"machine": machine_name}
-            job_name = system_state.cnm_connector.get_job(url, post_data)
-            return system_state.cnm_connector.watch_jobs([job_name])
+            return system_state.cnm_connector.unpush_machine_config(machine_name)
 
         if command in ["install", "uninstall", "verify",
                        "configure", "execute", "purge", "fix"]:

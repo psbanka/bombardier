@@ -65,6 +65,7 @@ def login(username, password=None):
                 sys.exit(1)
         else:
             print "Logging in as %s" % system_state.username
+        print "LOGIN: CNM_URL IS:",system_state.cnm_url
         system_state.cnm_connector = CnmConnector(system_state.cnm_url,
                                      system_state.username)
         tries = 0

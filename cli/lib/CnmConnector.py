@@ -49,7 +49,13 @@ import libUi
 from SystemStateSingleton import SystemState
 system_state = SystemState()
 
-LOGIN_PATH = "/accounts/login/"
+LOGIN_PATH = "accounts/login/"
+SEARCH_PATH = "json/%s/search"
+NAME_PATH = "json/%s/name/%s"
+MACHINE_PATH = "json/machine/name/%s"
+PACKAGE_SEARCH_PATH = "json/package/search/%s"
+PACKAGE_NAME_PATH = "json/package/name/%s"
+SUMMARY_NAME_PATH = "json/summary/name/%s"
 
 def make_query_string(args):
     """args -- a dictionary.
@@ -153,12 +159,16 @@ class CnmConnector:
         address -- URL of the Bombardier web server
         username -- username for connecting to the server'''
         self.break_handler = BreakHandler.BreakHandler()
+        if not address.endswith('/'):
+            address = "%s/" % address
+            #address = address[:-1]
         self.address = address
         self.username = username
         self.password = None
         self.proxy_address = None
         self.proxy_port = None
         self.debug = False
+        self.debug = True
         self.session_id = None
         self.cookie_file = os.path.join(os.environ.get("HOME"),
                                         '.bom_cookie.txt')
@@ -201,14 +211,16 @@ class CnmConnector:
         response = Response(header, output)
         if self.debug:
             print "PERFORMING:", curl_obj
-        try:
+        #try:
+        if 1 == 1:
             self.break_handler.enable()
             curl_obj.perform()
             http_code = curl_obj.getinfo(pycurl.HTTP_CODE)
             response.set_http_code(http_code)
             self.break_handler.disable()
             return response
-        except pycurl.error, curl_err:
+        else:
+        #except pycurl.error, curl_err:
             http_code = curl_obj.getinfo(pycurl.HTTP_CODE)
             raise ServerException(full_path, curl_err[1], http_code)
 
@@ -218,6 +230,10 @@ class CnmConnector:
         data -- dictionary of POST data
         '''
         full_path = urlparse.urljoin(self.address, path)
+        print "SELF.ADDRESS: %s" % self.address
+        print "PATH: %s" % path
+        print "FULL_PATH", full_path
+        #full_path = '/'.join(self.address, path)
         curl_obj = self.prepare_curl_object(full_path)
         post_data = []
         for key in data:
@@ -250,7 +266,13 @@ class CnmConnector:
         '''
         if not args:
             args = {}
+
         full_path = urlparse.urljoin(self.address, path)
+        print ">> SELF.ADDRESS: %s" % self.address
+        print ">> PATH: %s" % path
+        print ">> FULL_PATH", full_path
+        #full_path = '/'.join(self.address, path)
+
         query_string = make_query_string(args)
         url = urlparse.urljoin(full_path, query_string)
         if self.debug:
@@ -282,7 +304,8 @@ class CnmConnector:
 
     def sync_server_home(self, server_home_path):
         "For setting the base location of all data on the CNM"
-        url = '/json/server/config'
+        url = 'json/server/config'
+        print "SYNC SERVER HOM:",url
         post_data = {"server_home": server_home_path}
         output = self.service_yaml_request(url, post_data=post_data)
         new_path = output["server_home"]
@@ -300,12 +323,35 @@ class CnmConnector:
                 if type(put_data) == type(["list"]) or \
                    type(put_data) == type({}):
                     put_data = yaml.dump(put_data)
+            print "SERVICE_YAML_REQUEST:",path
             response = self.service_request(path, args, put_data, post_data,
                                             delete, timeout)
             return response.convert_from_yaml()
         except urllib2.HTTPError:
             print "Unable to connect to the service %s" % path
             return {}
+
+    def machine_command(self, url_base, machine_name):
+        "Perform a simple command on a remote machine"
+        url = url_base + "/" + machine_name
+        post_data = {"machine": machine_name}
+        job_name = self.get_job(url, post_data)
+        return self.watch_jobs([job_name])
+
+    def push_machine_config(self, machine_name):
+        "Push the configuration to a remote machine"
+        return self.machine_command("json/machine/push", machine_name)
+
+    def unpush_machine_config(self, machine_name):
+        "Remove the configuration on a remote machine"
+        return self.machine_command("json/machine/unpush", machine_name)
+
+    def clear_broken_jobs(self, machine_name):
+        "Remove all entries in the dispatcher that show broken jobs on a machine"
+        url = "json/machine/clear-broken-jobs/"
+        post_data = {"machine": machine_name}
+        output = self.service_yaml_request(url, post_data=post_data)
+        return output["command_status"], output["command_output"]
 
     def cleanup_connections(self):
         "Call the ReST interface for clearing connections no a machine"
@@ -318,6 +364,13 @@ class CnmConnector:
             if poll_output[job_name].get("alive", False):
                 return True
         return False
+
+    def kill_job(self, job_name):
+        "Kill a running job on the server or one yet to run"
+        post_data = {"post_data": "hello"}
+        url = "json/job/kill/%s" % job_name
+        output = self.service_yaml_request(url, post_data=post_data)
+        return output["command_status"], output["command_output"]
 
     def watch_jobs(self, job_names):
         "Given a list of jobs, watch their progress."
@@ -376,15 +429,20 @@ class CnmConnector:
                     machine_names.update([machine_name])
                 output = {}
                 for machine_name in machine_names:
-                    url = "/json/machine/stop-jobs/"
-                    post_data = {"machine": machine_name}
+                    _status, output = self.stop_jobs(machine_name)
                     print ">>> Halting all jobs on %s..." % machine_name
-                    output = self.service_yaml_request(url, post_data=post_data)
-                    libUi.user_output(output["command_output"], FAIL)
+                    libUi.user_output(output, FAIL)
                 raise exceptions.KeyboardInterrupt
 
         libUi.info("Finishing processing of %d jobs..." % len(jobs))
         return summary_status, summary_output
+
+    def stop_jobs(self, machine_name):
+        "Stop all the jobs on a machine"
+        url = "json/machine/stop-jobs/"
+        post_data = {"machine": machine_name}
+        output = self.service_yaml_request(url, post_data=post_data)
+        return output["command_status"], output["command_output"]
 
     def get_job(self, url, post_data):
         "Given an action dictated by URL, get a job_name that we can track"
@@ -404,16 +462,24 @@ class CnmConnector:
             raise MachineTraceback(url, output["traceback"])
         return output
 
+    def show_jobs(self, machine_name):
+        "Show what jobs are assigned to a given machine"
+        url = "json/machine/show-jobs/%s" % machine_name
+        output = self.service_yaml_request(url)
+        return output
+
     def set_password(self, password):
         "Set the configuration-key"
-        url = "/json/dispatcher/set-password"
+        url = "json/dispatcher/set-password"
         post_data = {"password": password}
         output = self.service_yaml_request(url, post_data=post_data)
         return output["command_status"], output["command_output"]
 
-    def dispatcher_control(self, action, post_data = {}):
+    def dispatcher_control(self, action, post_data = None):
         "Performing actions on the dispatcher"
-        dispatcher_url = "/json/dispatcher/%s" % action
+        if post_data == None:
+            post_data = {}
+        dispatcher_url = "json/dispatcher/%s" % action
         if action == "status":
             output = self.service_yaml_request(dispatcher_url)
             if output.get('command_status') == OK:
@@ -437,7 +503,7 @@ class CnmConnector:
 
     def get_uncommented_jobs(self):
         "get a list of tuples of jobs that need commenting"
-        url = '/json/job/comment/pending/'
+        url = 'json/job/comment/pending/'
         content_dict = self.service_yaml_request(url)
         return content_dict["job_info"]
 
@@ -448,7 +514,7 @@ class CnmConnector:
                 "publish": publish,
                }
         post_data = {"yaml": yaml.dump(data)}
-        url = '/json/job/comment/pending/'
+        url = 'json/job/comment/pending/'
         content_dict = self.service_yaml_request(url, post_data=post_data)
         return content_dict
 

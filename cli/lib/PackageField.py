@@ -32,16 +32,18 @@ For stuff in a machine's status field'''
 
 import PinshCmd
 from bombardier_core.static_data import PARTIAL, COMPLETE, NO_MATCH
+import CnmConnector
 from SystemStateSingleton import SystemState
 from Exceptions import MachineStatusException
 system_state = SystemState()
 
-FIX=1
-PURGE=2
-INSTALLED=3
-NOT_INSTALLED=4
+FIX = 1
+PURGE = 2
+INSTALLED = 3
+NOT_INSTALLED = 4
 
 def clean_version_numbers(installed_set):
+    "Remove the -version from a package name"
     output = set()
     for package_name in installed_set:
         fields = package_name.split('-')
@@ -67,7 +69,7 @@ class PackageField(PinshCmd.PinshCmd):
 
     def possible_names(self, machine_name):
         'returns a list of all self.data_type things'
-        url = "json/summary/name/%s" % (machine_name)
+        url = CnmConnector.SUMMARY_NAME_PATH % machine_name
         data = system_state.cnm_connector.service_yaml_request(url)
         #print "PN: data:" % data
         if data.get("command_status") == "FAIL":

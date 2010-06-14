@@ -32,8 +32,9 @@ Will be a basic package action or one that the package exposes'''
 
 
 import PinshCmd
-from bombardier_core.static_data import OK, FAIL, PARTIAL, COMPLETE, NO_MATCH
+from bombardier_core.static_data import PARTIAL, COMPLETE, NO_MATCH
 from SystemStateSingleton import SystemState
+import CnmConnector
 system_state = SystemState()
 
 class PackageActionField(PinshCmd.PinshCmd):
@@ -48,14 +49,14 @@ class PackageActionField(PinshCmd.PinshCmd):
 
     def get_package_name(self, package_name):
         'returns a list of all packages that might match'
-        url = "json/package/search/%s" % package_name
+        url = CnmConnector.PACKAGE_SEARCH_PATH % package_name
         data = system_state.cnm_connector.service_yaml_request(url)
         package_list = [ x.get("fields").get("name") for x in data ]
         return package_list
 
     def get_package_data(self, package_name):
         'returns a list of all configuration objects of this type'
-        url = "json/package/name/%s" % (package_name)
+        url = CnmConnector.PACKAGE_NAME_PATH % package_name
         data = system_state.cnm_connector.service_yaml_request(url)
         return data
 
