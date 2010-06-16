@@ -147,6 +147,6 @@ urlpatterns = patterns('',
        UsersEntry(permitted_methods=['POST', 'GET', 'DELETE'])),
    url(r'^accounts/login/$',  login),
    url(r'^accounts/logout/$', logout),
-   url(r'^accounts/profile/$', UserProfileEntry()),
+   url(r'^accounts/profile.*', UserProfileEntry()),
 )
 

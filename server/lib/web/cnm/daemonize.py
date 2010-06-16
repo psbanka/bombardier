@@ -3,7 +3,6 @@ import os, sys, time
 from django.core.management import setup_environ
 from Dispatcher import Dispatcher
 import settings, resource, yaml
-import Pyro.core
 from bombardier_core.static_data import OK
 MAXFD = 1024
 INFO_FILE = "dispatcher_info.yml"
@@ -22,6 +21,15 @@ def refork():
         os._exit(0)
     else:
         setup_environ(settings)
+        os.chdir(settings.SERVER_HOME)
+        os.environ["PYRO_STORAGE"] = settings.SERVER_HOME
+        import Pyro.core
+        import Pyro.configuration
+        #Pyro.configuration.PYRO_STORAGE = settings.SERVER_HOME
+        data = Pyro.configuration.Pyro.config.PYRO_STORAGE
+        Pyro.configuration.Pyro.config.PYRO_STORAGE = settings.SERVER_HOME
+
+        open("/tmp/daemon_info.txt",'a').write("%s\n" % data)
         Pyro.core.initServer()
         daemon = Pyro.core.Daemon()
         uri = daemon.connect(Dispatcher(),"dispatcher")
@@ -32,6 +40,8 @@ def refork():
 
 def daemonize():
     "Create a deamon process from Dispatcher"
+    os.chdir(settings.SERVER_HOME)
+    os.environ["PYRO_STORAGE"] = settings.SERVER_HOME
     if os.path.isfile(INFO_FILE):
         os.unlink(INFO_FILE)
     try:
@@ -64,5 +74,7 @@ def daemonize():
     return OK
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        settings.SERVER_HOME= sys.argv[1]
     sys.exit(daemonize())
 

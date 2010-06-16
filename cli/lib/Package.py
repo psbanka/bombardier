@@ -116,14 +116,10 @@ class Package(PinshCmd.PinshCmd):
             svn_user = libUi.get_default("svn user", '')
             if svn_user:
                 svn_password = libUi.pwd_input("svn password: ")
-            url = "/json/package_build/%s" % package_name
-            post_data = {"svn_user": svn_user,
-                         "svn_password": svn_password,
-                         "debug": True,
-                         "prepare": True}
             try:
-                job_name = system_state.cnm_connector.get_job(url, post_data)
-                return system_state.cnm_connector.watch_jobs([job_name])
+                cnm = system_state.cnm_connector
+                return cnm.package_build_job(package_name, svn_user,
+                                             svn_password)
             except MachineTraceback, m_err:
                 libUi.process_traceback(m_err)
                 return FAIL,[]

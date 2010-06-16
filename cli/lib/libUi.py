@@ -65,7 +65,6 @@ def login(username, password=None):
                 sys.exit(1)
         else:
             print "Logging in as %s" % system_state.username
-        print "LOGIN: CNM_URL IS:",system_state.cnm_url
         system_state.cnm_connector = CnmConnector(system_state.cnm_url,
                                      system_state.username)
         tries = 0
@@ -94,6 +93,7 @@ def login(username, password=None):
         system_state.set_prompt()
     except Exception, ste:
         process_traceback(ste)
+        sys.exit(1)
 
 def motd():
     'Print out the message of the day after login'

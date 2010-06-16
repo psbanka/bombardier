@@ -118,9 +118,7 @@ def cleanup(system_state, slash):
         question = "Disconnect all clients"
         cleanup = libUi.ask_yes_no(question, libUi.NO)
         if cleanup:
-            libUi.info("cleaning up")
-            url = "json/machine/cleanup_connections"
-            data = system_state.cnm_connector.service_yaml_request(url, post_data={})
+            return system_state.cnm_connector.cleanup_connections()
         print
     while system_state.child_processes:
         os.kill(system_state.child_processes.pop(), signal.SIGTERM)
@@ -136,10 +134,12 @@ def cleanup(system_state, slash):
     print
 
 def initialize(system_state, slash):
-    status, output = system_state.cnm_connector.dispatcher_control("status")
+    try:
+        status, output = system_state.cnm_connector.dispatcher_control("status")
+    except ServerTracebackException, ste:
+        libUi.process_traceback(ste)
     if status == FAIL:
-        config_url = "/json/server/config"
-        config = system_state.cnm_connector.service_yaml_request(config_url)
+        config = system_state.cnm_connector.get_server_config()
         if not config.get("server configuration", {}).get("server_home"):
             prompt = "Server home is not set. Please enter the value"
             server_home = libUi.get_default(prompt, "/var/deploy")
@@ -147,10 +147,10 @@ def initialize(system_state, slash):
         
         question = "Dispatcher is offline; enter CI decryption password: "
         password = libUi.pwd_input(question)
-        status, output = system_state.cnm_connector.dispatcher_control("start")
-        libUi.user_output(output, status)
         try:
-            status, output = system_state.cnm_connector.set_password(password)
+            status, output = system_state.cnm_connector.dispatcher_control("start")
+            libUi.user_output(output, status)
+            status, output = system_state.cnm_connector.set_configuration_key(password)
             libUi.user_output(output, status)
         except ServerTracebackException, ste:
             libUi.process_traceback(ste)

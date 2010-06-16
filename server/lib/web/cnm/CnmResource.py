@@ -15,6 +15,8 @@ import traceback
 from commands import getstatusoutput as gso
 from signal import SIGTERM
 
+DISPATCHER_INFO_FILE = "dispatcher_info.yml"
+
 class CnmResource(Resource):
     "Base resource class"
     def __init__(self, authentication=None, permitted_methods=None,
@@ -78,6 +80,13 @@ class CnmResource(Resource):
         time.sleep(1)
         return OK
 
+    def cleanup_dispatcher_uri(cls):
+        try:
+            dispatcher_uri = ServerConfig.objects.get(name="dispatcher_uri")
+            dispatcher_uri.delete()
+        except ServerConfig.DoesNotExist:
+            pass
+
     def stop_dispatcher(self, username):
         "Stop dispatcher and cleanup ServerConfig items"
         try:
@@ -85,23 +94,25 @@ class CnmResource(Resource):
             dispatcher.terminate(username)
         except DispatcherOffline:
             pass
+        status = OK
         try:
             pid = ServerConfig.objects.get(name="dispatcher_pid")
-            status = os.kill(int(pid.value), SIGTERM)
+            os.kill(int(pid.value), SIGTERM)
             dispatcher_pid = ServerConfig.objects.get(name="dispatcher_pid")
             status = self._wait_for_dispatcher(self._check_dispatcher_stopped,
                                                     dispatcher_pid.value)
             dispatcher_pid.delete()
         except ServerConfig.DoesNotExist:
             pass
-        try:
-            dispatcher_uri = ServerConfig.objects.get(name="dispatcher_uri")
-            dispatcher_uri.delete()
-            if status == FAIL:
-                return FAIL
-        except ServerConfig.DoesNotExist:
-            pass
-        return OK
+        self.cleanup_dispatcher_uri()
+        return status
+
+    def get_dispatcher_dict(self):
+        if not os.path.isfile(DISPATCHER_INFO_FILE):
+            return None
+        yaml_file = os.path.join(self.get_server_home(), DISPATCHER_INFO_FILE)
+        dispatcher_info = open(yaml_file).read()
+        return yaml.load(dispatcher_info)
 
     def attach_dispatcher(self, dispatcher_uri):
         "Connect to an already-running dispatcher"
@@ -109,8 +120,7 @@ class CnmResource(Resource):
             self.get_dispatcher(dispatcher_uri)
         except DispatcherOffline:
             raise DispatcherError("Dispatcher %s is not online")
-        dispatcher_info = open("dispatcher_info.yml").read()
-        dispatcher_dict = yaml.load(dispatcher_info)
+        dispatcher_dict = self.get_dispatcher_dict()
         dispatcher_dict["dispatcher_uri"] = dispatcher_uri
         self._standard_update(dispatcher_dict)
         server_co = ServerConfig.objects.get(name="dispatcher_uri")
@@ -124,12 +134,15 @@ class CnmResource(Resource):
             raise DispatcherAlreadyStarted()
         except DispatcherOffline:
             pass
+        os.system("rm -f %s" % DISPATCHER_INFO_FILE)
         status = daemonize()
         if status == OK:
             dispatcher_dict = None
             while not dispatcher_dict:
-                dispatcher_info = open("dispatcher_info.yml").read()
-                dispatcher_dict = yaml.load(dispatcher_info)
+                dispatcher_dict = self.get_dispatcher_dict()
+                if dispatcher_dict:
+                    break
+                time.sleep(.5)
             self._standard_update(dispatcher_dict)
             server_co = ServerConfig.objects.get(name="dispatcher_uri")
             return self._wait_for_dispatcher(self._check_dispatcher_running,

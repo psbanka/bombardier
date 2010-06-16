@@ -70,15 +70,15 @@ class JobCommand(PinshCmd.PinshCmd):
         tokens -- all of the keywords passed in the command string, parsed
         no_flag -- whether the 'no' keyword was used in the command string
         """
-        connector = system_state.cnm_connector
+        cnm = system_state.cnm_connector
         if len(tokens) < 4:
             raise CommandError("Incomplete command")
         job_name = tokens[3]
         if tokens[2] == "kill":
-            status, output = connector.kill_job(job_name)
+            status, output = cnm.kill_job(job_name)
             return status, output
         elif tokens[2] == "view":
-            status, output = connector.watch_jobs([job_name])
+            status, output = cnm.watch_jobs([job_name])
             return status, output
             #return output["command_status"], output["command_output"]
         raise CommandError("Unknown command: %s" % tokens[1])
@@ -129,7 +129,7 @@ class Dispatcher(PinshCmd.PinshCmd):
         tokens -- all of the keywords passed in the command string, parsed
         no_flag -- whether the 'no' keyword was used in the command string
         """
-        connector = system_state.cnm_connector
+        cnm = system_state.cnm_connector
         action = tokens[1].lower()
         post_data = {}
 
@@ -138,7 +138,7 @@ class Dispatcher(PinshCmd.PinshCmd):
                 raise CommandError("Incomplete command.")
             server_home = tokens[2]
             try:
-                connector.sync_server_home(server_home)
+                cnm.sync_server_home(server_home)
             except UnexpectedDataException, ude:
                 return FAIL, [str(ude)] 
             return OK, ["Server home set to %s" % server_home]
@@ -151,16 +151,14 @@ class Dispatcher(PinshCmd.PinshCmd):
             else:
                 configuration_key = tokens[2]
             if action == "restart":
-                _status, output = connector.dispatcher_control("stop",
-                                                                   post_data)
+                _status, output = cnm.dispatcher_control("stop", post_data)
                 cmd_output.append(output)
-                status, output = connector.dispatcher_control("start",
-                                                                  post_data)
+                status, output = cnm.dispatcher_control("start", post_data)
                 cmd_output.append(output)
                 if status != OK:
                     return FAIL, output
 
-            cmd_output_dict = connector.set_password(configuration_key)
+            cmd_output_dict = cnm.set_configuration_key(configuration_key)
             cmd_output.append(cmd_output_dict["command_output"])
             return cmd_output_dict["command_status"], cmd_output
             
@@ -170,7 +168,7 @@ class Dispatcher(PinshCmd.PinshCmd):
             post_data["uri"] = tokens[2]
 
         elif action in ["start", "stop", "status"]:
-            return connector.dispatcher_control(action, post_data)
+            return cnm.dispatcher_control(action, post_data)
 
         raise CommandError("Unknown command")
 

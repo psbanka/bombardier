@@ -95,10 +95,8 @@ class User(PinshCmd.PinshCmd):
 
         elif command == "set-password":
             password = libUi.pwd_input("password for %s: " % user_name)
-            url = "/json/user/name/%s" % user_name
-            post_data = { "password": password }
             try:
-                output = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
+                return system_state.cnm_connector.set_password(user_name, password)
                 return output["command_status"], output["command_output"]
             except MachineTraceback, m_err:
                 libUi.process_traceback(m_err)
@@ -107,13 +105,11 @@ class User(PinshCmd.PinshCmd):
         elif command == "delete":
             if system_state.username == user_name:
                 return FAIL, ["Cannot delete your own user object."]
-            url = "/json/user/name/%s" % user_name
             prompt = 'Delete user "%s" -- are you sure' % user_name
             if libUi.ask_yes_no(prompt, libUi.NO) == libUi.NO:
                 return FAIL, ["Aborted"]
             try:
-                output = system_state.cnm_connector.service_yaml_request(url, delete=True)
-                return output["command_status"], output["command_output"]
+                return system_state.cnm_connector.delete_user(user_name)
             except MachineTraceback, m_err:
                 libUi.process_traceback(m_err)
                 return FAIL,[]

@@ -4,8 +4,10 @@ import ServerLogMixin
 from threading import Thread
 from bombardier_core.static_data import OK, FAIL
 import time
+import os
 
 KILL_TIMEOUT = 20
+APACHE_PID_FILE = "/var/run/apache2.pid"
 
 def clutch_wrapper(func):
     """This is a decorator to turn on the clutch attribute, which tells
@@ -18,9 +20,10 @@ def clutch_wrapper(func):
         return retval
     return wrapper
 
+
 class DispatchMonitor(Thread, ServerLogMixin.ServerLogMixin):
     """Watches the dispatcher's jobs and starts queued ones if necessary"""
-    def __init__(self):
+    def __init__(self, apache_run_file = None):
         """
         this class watches the job queue for runnable jobs and runs them. it
         also watches the active jobs and puts them into the broken_jobs list
@@ -41,6 +44,22 @@ class DispatchMonitor(Thread, ServerLogMixin.ServerLogMixin):
         self.kill_switch = False
         self.clutch = False
         self.jobs_to_comment = []
+        self.apache_pid = None
+        self.apache_run_file = APACHE_PID_FILE
+        if apache_run_file:
+            self.apache_run_file = apache_run_file
+
+    def check_apache_pid(self):
+        "See if apache is running or not"
+        if not os.path.isfile(self.apache_run_file):
+            return False
+        pid = open(self.apache_run_file).read().strip()
+        self.server_log.info("PID: %s / my_PID: %s" % (pid, self.apache_pid))
+        if self.apache_pid == None:
+            self.apache_pid = pid
+        if pid != self.apache_pid:
+            return False
+        return True
 
     def kill_job(self, job_name):
         "We have a job that needs killin'"
@@ -278,10 +297,16 @@ class DispatchMonitor(Thread, ServerLogMixin.ServerLogMixin):
                 self._process_job_queue()
                 self._process_broken_jobs()
                 self._process_finished_jobs()
+                if not self.check_apache_pid():
+                    my_pid = os.getpid()
+                    self.server_log.info("Dispatcher SHOULD exit... killing %s" % my_pid)
+                    os.system("kill %s" % my_pid) 
+                    break
 
             except Exception:
                 traceback_lines = self.dump_exception("DispatchMonitor")
                 for line in traceback_lines:
                     self.server_log.error(line, "DISPATCHER_MONITOR")
 
+        self.server_log.info("Dispatcher exiting...")
 

@@ -50,18 +50,6 @@ import Edit
 system_state = SystemState()
 import libUi, yaml
 
-URL_LOOKUP = {'test': "json/machine/start_test/%s",
-              'dist': "json/machine/dist/%s",
-              'init': "json/machine/init/%s",
-              'reconcile': "json/machine/reconcile/%s",
-              'check-status': "json/machine/check_status/%s",
-              'fix': "json/machine/status/%s",
-              'purge': "json/machine/status/%s",
-              'enable': "json/machine/enable/%s",
-              'disable': "json/machine/disable/%s",
-              'setup': "json/machine/setup/%s",
-             }
-
 def setup_test():
     "Used by integration test code"
     fresh_status_yaml = """ 
@@ -88,19 +76,19 @@ def check_machine_name(tokens, no_flag):
 
 def edit_config_file(conf_str, config_field, object_name):
     "edit the configuration on the server"
-    fd, fn = tempfile.mkstemp(suffix=".yml", text=True)
-    fh = os.fdopen(fd, 'w+b')
-    fh.write(conf_str)
-    fh.close()
-    os.system("%s %s" % (system_state.editor, fn))
-    post_data = yaml.load(open(fn).read())
+    descriptor, file_name = tempfile.mkstemp(suffix=".yml", text=True)
+    handle = os.fdopen(descriptor, 'w+b')
+    handle.write(conf_str)
+    handle.close()
+    os.system("%s %s" % (system_state.editor, file_name))
+    post_data = yaml.load(open(file_name).read())
     submit = libUi.ask_yes_no("Commit changes to server", libUi.YES)
     if submit:
         output = config_field.post_data(object_name, post_data)
-        os.unlink(fn)
+        os.unlink(file_name)
         return output["command_status"], output["command_output"]
     else:
-        msg = "Discarded changes. Edits can be found here: %s" % fn
+        msg = "Discarded changes. Edits can be found here: %s" % file_name
         return OK, [msg]
 
 class AssignCommand(PinshCmd.PinshCmd):
@@ -398,23 +386,6 @@ class Machine(PinshCmd.PinshCmd):
         job_name_field = JobNameField()
         view.children = [job_name_field]
 
-    def get_url_and_post(self, machine_name, tokens):
-        "for package-type operations, looks up the URL and gets POST data"
-        command = tokens[2].lower()
-        if command not in URL_LOOKUP:
-            raise CommandError("%s is not a valid command" % command)
-
-        post_data = {}
-        url = URL_LOOKUP[command] % machine_name
-        if command == "dist":
-            post_data = {"dist": tokens[-1]}
-        elif command in [ "enable", "setup" ]:
-            prompt = "%s administrative ssh password: " % machine_name
-            password = libUi.pwd_input(prompt)
-            yml_dict = yaml.dump( {"password" : password } )
-            post_data = {"yaml" : yml_dict}
-        return url, post_data
-
     def cmd(self, tokens, no_flag):
         """
         tokens -- all of the keywords passed in the command string, parsed
@@ -429,44 +400,45 @@ class Machine(PinshCmd.PinshCmd):
 
         command = tokens[2].lower()
 
-        if command == "ssh":
-            return Ssh().cmd(["ssh", machine_name], 0)
-
-        if command == "push":
-            return system_state.cnm_connector.push_machine_config(machine_name)
-
-        if command == "unpush":
-            return system_state.cnm_connector.unpush_machine_config(machine_name)
-
-        if command in ["install", "uninstall", "verify",
-                       "configure", "execute", "purge", "fix"]:
-            if command == "execute":
-                if len(tokens) != 5:
-                    msg = "Incomplete command; require a package name "\
-                          "and a command."
+        cnm = system_state.cnm_connector
+        try:
+            if command == "ssh":
+                return Ssh().cmd(["ssh", machine_name], 0)
+            elif command == "push":
+                return cnm.push_machine_config(machine_name)
+            elif command == "unpush":
+                return cnm.unpush_machine_config(machine_name)
+            elif command in ["install", "uninstall", "verify",
+                             "configure", "execute", "purge", "fix"]:
+                if command == "execute":
+                    if len(tokens) != 5:
+                        msg = "Incomplete command; require a package name "\
+                              "and a command."
+                        raise CommandError(msg)
+                    command = tokens[4]
+                if len(tokens) <= 3:
+                    msg = "Incomplete command; require a package name."
                     raise CommandError(msg)
-                command = tokens[4]
-            if len(tokens) <= 3:
-                msg = "Incomplete command; require a package name."
-                raise CommandError(msg)
-            package_name = tokens[3]
-            machine_name = tokens[1]
-
-            url = "/json/package_action/%s" % package_name
-            post_data = {"machine": machine_name,
-                         "action": command}
-        else:
-            if command == "dist":
+                package_name = tokens[3]
+                return cnm.package_command(command, machine_name, package_name)
+            elif command in [ "enable", "setup" ]:
+                prompt = "%s administrative ssh password: " % machine_name
+                password = libUi.pwd_input(prompt)
+                if command == "enable":
+                    return cnm.enable_command(machine_name, password)
+                else:
+                    return cnm.setup_command(machine_name, password)
+            elif command == "dist":
                 if len(tokens) <= 3:
                     msg = "Incomplete command; requires a dist file name."
                     raise CommandError(msg)
-            url, post_data = self.get_url_and_post(machine_name, tokens)
-
-        try:
-            job_name = system_state.cnm_connector.get_job(url, post_data)
-            libUi.info("Watching job progress. Press ^C to abort or disconnect.")
-            status, output = system_state.cnm_connector.watch_jobs([job_name])
-            return status, output
+                dist_name = tokens[-1]
+                return cnm.dist_command(machine_name, dist_name)
+            elif command in ['test', 'init', 'reconcile',
+                             'check-status', 'disable']:
+                return cnm.machine_job(machine_name, command)
+            else:
+                raise CommandError("%s is not a valid command" % command)
         except MachineTraceback, m_err:
             libUi.process_traceback(m_err)
             return FAIL, []
