@@ -109,7 +109,10 @@ class UnexpectedDataException(Exception):
     def __init__(self, reason):
         Exception.__init__(self)
         self.reason = reason
+        self.url = None
     def __repr__(self):
+        if self.url:
+            return "Got unexpected data from %s (%s)" % (self.url, self.reason)
         return "Got unexpected data from the server (%s)" % self.reason
     def __str__(self):
         return self.__repr__()

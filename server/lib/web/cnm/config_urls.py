@@ -17,15 +17,25 @@ from django.http import HttpResponseForbidden
 import yaml
 from Exceptions import MachineStatusException, MachineConfigurationException
 
+bad_characters = ['/', '%', '\\', ' ', '$', '(', ')', '!', '#', '@',
+                  '&', '*', '[', ';', '?', '|', '<', '>']
+
+def sanitize(input_data):
+    output = []
+    for character in input_data:
+        if character not in bad_characters:
+            output.append(character)
+    return ''.join(output)
+
 class ConfigEntry(CnmResource):
     "ConfigEntry base class"
     @login_required
     def read(self, request, config_type, config_name):
         "Default read method for ConfigEntry"
         server_home = self.get_server_home()
-        config_file = os.path.join(server_home, config_type)
-        responder = YamlFileResponder(config_file)
-        return responder.element(request, config_name)
+        config_path = os.path.join(server_home, config_type)
+        responder = YamlFileResponder(config_path)
+        return responder.element(request, sanitize(config_name))
 
     @login_required
     def create(self, request, config_type, config_name):
@@ -33,7 +43,7 @@ class ConfigEntry(CnmResource):
         yaml_string = request.POST["yaml"]
         server_home = self.get_server_home()
         file_path = os.path.join(server_home, config_type,
-                                 "%s.yml" % config_name)
+                                 "%s.yml" % sanitize(config_name))
         output = {"command_status": OK}
         if os.path.isfile(file_path):
             output["command_output"] = "updated %s" % file_path
@@ -172,7 +182,7 @@ class ConfigCollection(CnmResource):
         "Default read method for ConfigCollection"
         server_home = self.get_server_home()
         search_string = os.path.join(server_home, config_type,
-                                     "%s*.yml" % config_name)
+                                     "%s*.yml" % sanitize(config_name))
         filenames = glob.glob(search_string)
         output = []
         for filename in filenames:

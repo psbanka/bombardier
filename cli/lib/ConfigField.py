@@ -36,6 +36,7 @@ import yaml
 from bombardier_core.static_data import OK, FAIL, PARTIAL, COMPLETE, NO_MATCH
 from Exceptions import UnexpectedDataException
 from SystemStateSingleton import SystemState
+import CnmConnector
 system_state = SystemState()
 
 MERGED = 1

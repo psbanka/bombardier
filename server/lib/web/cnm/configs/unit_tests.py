@@ -84,8 +84,8 @@ class BasicTest:
         self.login_super()
         # set the server home
         cwd = os.getcwd()
-        config_url = 'json/server/config'
-        self.test_server_home = os.path.join(cwd, 'configs', 'fixtures')
+        config_url = '/json/server/config'
+        self.test_server_home = os.path.join(cwd)
         response = self.client.post(path=config_url,
                                     data={"server_home": self.test_server_home})
         content_dict = json.loads( response.content )
@@ -97,7 +97,7 @@ class BasicTest:
 
     def set_config_password(self, password):
         # set the configuration string
-        url = 'json/dispatcher/set-password'
+        url = '/json/dispatcher/set-password'
         response = self.client.post(url, {"password": password})
         content_dict = json.loads( response.content )
         return content_dict
@@ -126,7 +126,7 @@ class BasicTest:
         return content_dict
 
     def yml_file_search_test(self, config_type, search_term, expected_list):
-        url = 'json/%s/search/%s' % ( config_type, search_term )
+        url = '/json/%s/search/%s' % ( config_type, search_term )
         expected = set(expected_list)
         content_dict = self.get_content_dict(url)
         name_set = self.get_field_value_set( content_dict, "name" )
@@ -140,7 +140,7 @@ class BasicTest:
     def set_status(self, status_dict):
         yaml_str = yaml.dump(status_dict)
         open("/opt/spkg/localhost/status.yml", 'w').write(yaml_str)
-        open("configs/fixtures/status/localhost.yml", 'w').write(yaml_str)
+        open("status/localhost.yml", 'w').write(yaml_str)
 
     def check_for_traceback(self, content_dict):
         if "traceback" in content_dict:
@@ -176,7 +176,7 @@ class BasicTest:
         while timeout_counter < timeout:
             job_names = { "job_names": [job_name] }
             data = {'yaml': yaml.dump(job_names)} 
-            url = 'json/job/poll/'
+            url = '/json/job/poll/'
             response = self.client.post(path=url, data=data)
             content_dict = json.loads( response.content )
             time.sleep(0.1)
@@ -191,7 +191,7 @@ class BasicTest:
             time.sleep(1)
             timeout_counter += 1
 
-        url = 'json/job/join/%s' % job_name
+        url = '/json/job/join/%s' % job_name
         join_output = self.get_content_dict(url)
         if require_comment != None:
             assert "jobs_requiring_comment" in join_output, join_output
@@ -207,7 +207,7 @@ class BasicTest:
             print join_output
             print "==========================================="
 
-        url = 'json/machine/cleanup'
+        url = '/json/machine/cleanup'
         response = self.client.post(path=url, data={})
         if verbose:
             print "FINAL OUTPUT: %s" % join_output
@@ -260,7 +260,7 @@ class CnmTests(unittest.TestCase, BasicTest):
                 self.yml_file_search_test( section, search_term, expected )
 
     def test_get_server_home(self):
-        url = 'json/server/config'
+        url = '/json/server/config'
 
         content_dict = self.get_content_dict(url)
         self.failUnlessEqual(content_dict["server configuration"]["server_home"],
@@ -268,17 +268,13 @@ class CnmTests(unittest.TestCase, BasicTest):
 
     def test_merged(self):
         self.login(self.super_user)
-        url = 'json/server/config'
-        test_home = os.path.join(os.getcwd(), "configs", "fixtures")
-        response = self.client.post(path=url, data={"server_home": test_home})
-        self.failUnlessEqual(response.status_code, 200)
         machine_name = "tester1"
-        url = 'json/merged/name/%s' % machine_name
+        url = '/json/merged/name/%s' % machine_name
         content_dict = self.get_content_dict(url)
-        expected = {"ip_address": u"127.0.0.1",
-                    "include": [u"otherapp", u"app1"],
+        expected = {"ip_address": "127.0.0.1",
+                    "include": ["otherapp", "app1"],
                     "stuff": 127,
-                    "packages": [u"apache2.2.1", u"bomp"]}
+                    "packages": ["apache2.2.1", "bomp"]}
         for key in expected:
             self.failUnlessEqual(type(expected[key]), type(content_dict[key]))
             if type(expected[key]) != type([]):
@@ -289,7 +285,7 @@ class CnmTests(unittest.TestCase, BasicTest):
     def test_authentication(self):
         self.client.logout()
 
-        url = 'json/check_authentication'
+        url = '/json/check_authentication'
         content_dict = self.get_content_dict(url, 403)
         self.failUnlessEqual(content_dict["status"], "NOT_AUTHENTICATED")
 
@@ -302,14 +298,14 @@ class CnmTests(unittest.TestCase, BasicTest):
         result = self.client.login(username=self.staff_user.username, password=TEST_PASSWORD)
         self.failUnless(result)
 
-        url = 'json/check_authentication'
+        url = '/json/check_authentication'
         content_dict = self.get_content_dict(url)
         self.failUnlessEqual(content_dict["status"], "OK")
 
     def test_user(self):
         self.login(self.super_user)
-        search_url = 'json/user/search/'
-        specific_url = 'json/user/name/'
+        search_url = '/json/user/search/'
+        specific_url = '/json/user/name/'
 
         content_dict = self.get_content_dict(search_url)
         user0 = content_dict[0].get("fields",{})
@@ -324,21 +320,21 @@ class CnmTests(unittest.TestCase, BasicTest):
                          "admin": True}
         self.client.post(specific_url+'delete_me', new_user_data)
 
-        content_dict = self.get_content_dict('json/user/name/delete_me')
+        content_dict = self.get_content_dict('/json/user/name/delete_me')
         self.failUnlessEqual(content_dict["username"], "delete_me")
         self.failUnlessEqual(content_dict[u"first_name"], "delete")
 
 
-        response = self.client.post('json/user/name/delete_me', {"first_name": "Buffy"})
+        response = self.client.post('/json/user/name/delete_me', {"first_name": "Buffy"})
         content_dict = json.loads( response.content )
         self.failUnlessEqual(content_dict["command_status"], OK)
 
-        content_dict = self.get_content_dict('json/user/name/delete_me')
+        content_dict = self.get_content_dict('/json/user/name/delete_me')
         self.failUnlessEqual(content_dict[u"first_name"], "Buffy")
 
     def test_set_bad_password(self):
         self.login(self.super_user)
-        url = 'json/dispatcher/set_password'
+        url = '/json/dispatcher/set_password'
         content_dict = self.set_config_password("F8t3Babb1%tz")
         self.failUnlessEqual( content_dict[ u"command_status" ], FAIL)
         self.failUnlessEqual( content_dict[ u"command_output" ], ["Invalid configuration key."])
@@ -393,17 +389,17 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         BasicTest.setUp(self)
 
     def test_push_config(self):
-        url = 'json/machine/push/localhost'
+        url = '/json/machine/push/localhost'
         status, output = self.run_job(url)
         assert status == OK
         assert os.path.isfile("/opt/spkg/localhost/config.yml")
-        url = 'json/machine/unpush/localhost'
+        url = '/json/machine/unpush/localhost'
         status, output = self.run_job(url)
         assert status == OK
         assert os.path.isfile("/opt/spkg/localhost/config.yml") == False
 
     def test_kill_job(self):
-        url = 'json/machine/start_test/localhost'
+        url = '/json/machine/start_test/localhost'
         username = self.super_user.username
         
         response = self.client.post(path=url)
@@ -414,24 +410,24 @@ class DispatcherTests(unittest.TestCase, BasicTest):
             print "CONT========", content_dict
             assert False
 
-        url = 'json/job/kill/%s' % job_name
+        url = '/json/job/kill/%s' % job_name
         response = self.client.post(path=url, data={"timeout": 1})
         content_dict = json.loads( response.content )
         assert "command_status" in content_dict, content_dict
 
     def test_run_check_job(self):
-        url = 'json/machine/start_test/localhost'
+        url = '/json/machine/start_test/localhost'
         status, output = self.run_job(url)
         assert "1" in output, output
 
     def test_dist_update(self):
-        url = 'json/machine/dist/localhost'
+        url = '/json/machine/dist/localhost'
         status, output = self.run_job(url, data={"dist": "test"}, timeout=60)
         assert status == OK
         assert "EMPTY_TEST-1.egg-info" in output, output
 
     def test_stop_all_jobs(self):
-        url = 'json/machine/start_test/localhost'
+        url = '/json/machine/start_test/localhost'
         response = self.client.post(path=url, data={"machine": "localhost"})
         job_name1 = yaml.load(response.content)["job_name"]
         response = self.client.post(path=url, data={"machine": "localhost"})
@@ -447,7 +443,7 @@ class DispatcherTests(unittest.TestCase, BasicTest):
             time.sleep(1)
             assert (time.time() - start_time) < 5.0
     
-        url = 'json/machine/stop-jobs/'
+        url = '/json/machine/stop-jobs/'
         response = self.client.post(path=url, data={"machine": "localhost"})
         content_dict = json.loads( response.content )
         assert content_dict["command_status"] == OK, content_dict
@@ -473,7 +469,7 @@ class DispatcherTests(unittest.TestCase, BasicTest):
             time.sleep(1)
             assert (time.time() - start_time) < 5.0
     
-        url = 'json/machine/clear-broken-jobs/'
+        url = '/json/machine/clear-broken-jobs/'
         response = self.client.post(path=url, data={"machine": "localhost"})
         content_dict = json.loads( response.content )
         assert content_dict["command_status"] == OK, content_dict
@@ -490,7 +486,7 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         assert not job_name2 in content_dict["broken_jobs"], content_dict
 
     def test_client_update(self):
-        url = 'json/machine/dist/localhost'
+        url = '/json/machine/dist/localhost'
         old_client_dist = "bombardier-%s" % OLD_CLIENT_VERSION
         client_dist = "bombardier_client-%s" % CLIENT_VERSION
         core_dist = "bombardier_core-%s" % CORE_VERSION
@@ -501,12 +497,12 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         status, output = self.run_job(url, data={"dist": client_dist}, timeout=60, verbose=False)
         assert client_dist in output, output
 
-        url = 'json/machine/init/localhost'
+        url = '/json/machine/init/localhost'
         status,output = self.run_job(url, data={}, timeout=60)
         assert status == OK
 
     def acknowledge_everything(self):
-        url = 'json/job/comment/pending/'
+        url = '/json/job/comment/pending/'
         response = self.client.get(url)
         content_dict = json.loads( response.content )
         job_names = []
@@ -523,11 +519,11 @@ class DispatcherTests(unittest.TestCase, BasicTest):
     def test_dist_update_for_commenting(self):
         self.acknowledge_everything()
 
-        url = 'json/machine/dist/localhost'
+        url = '/json/machine/dist/localhost'
         status, output = self.run_job(url, data={"dist": "test"}, timeout=60, require_comment=True)
         assert status == OK
 
-        url = 'json/job/comment/pending/'
+        url = '/json/job/comment/pending/'
         response = self.client.get(url)
         content_dict = json.loads( response.content )
         found_job_name = None
@@ -547,12 +543,12 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         assert found_job_name in content_dict, content_dict
         assert content_dict[found_job_name] == 'comment applied.', content_dict
 
-        url = 'json/comments/'
+        url = '/json/comments/'
         response = self.client.get(url)
         content_dict = json.loads( response.content )
         assert content_dict["command_status"] == OK
 
-        url = 'json/job/comment/pending/'
+        url = '/json/job/comment/pending/'
         response = self.client.get(url)
         content_dict = json.loads( response.content )
         found_job_name = None
@@ -575,7 +571,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         BasicTest.setUp(self)
 
     def package_action(self, action, package_name):
-        url = 'json/package_action/%s' % package_name
+        url = '/json/package_action/%s' % package_name
         package_config = {"test": {"value":"nowisthetimeforalldooment",
                                    "directory": "/tmp/foogazi"},
                           "packages": [package_name],  
@@ -613,7 +609,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         package_name = "TestPackageType5"
         status, output = self.package_action("install", package_name)
         assert status == OK
-        url = 'json/status/name/localhost'
+        url = '/json/status/name/localhost'
         status_data = self.get_content_dict(url)
         progress_data = status_data["install-progress"]["TestPackageType5-23"]
         assert "INSTALLED" in progress_data
@@ -629,7 +625,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         return file_names
 
     def _remove_paths(self, package_name):
-        url = 'json/package/name/%s' % package_name
+        url = '/json/package/name/%s' % package_name
         status_data = self.get_content_dict(url)
         for section in ["injectors", "libs"]:
             file_names = self._get_file_names(status_data[section], [])
@@ -638,7 +634,7 @@ class PackageTests(unittest.TestCase, BasicTest):
                     os.unlink(file_name)
 
     def _get_release(self, package_name):
-        url = 'json/package/name/%s' % package_name
+        url = '/json/package/name/%s' % package_name
         status_data = self.get_content_dict(url)
         release = status_data["release"]
         return release
@@ -646,7 +642,7 @@ class PackageTests(unittest.TestCase, BasicTest):
     def test_package_build(self):
         current_release = self._get_release(BUILD_PACKAGE_NAME)
         self._remove_paths(BUILD_PACKAGE_NAME)
-        url = 'json/package_build/%s' % BUILD_PACKAGE_NAME
+        url = '/json/package_build/%s' % BUILD_PACKAGE_NAME
         post_data = {"svn_user": SVN_USER,
                      "svn_password": SVN_PASSWORD,
                      "debug": False, "prepare": True
@@ -661,7 +657,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         package_name = "TestPackageType4"
         status, output = self.package_action("install", package_name)
         assert status == OK
-        url = 'json/status/name/localhost'
+        url = '/json/status/name/localhost'
         status_data = self.get_content_dict(url)
         progress_data = status_data["install-progress"]["TestPackageType4-7"]
         assert "INSTALLED" in progress_data
@@ -687,10 +683,10 @@ class PackageTests(unittest.TestCase, BasicTest):
                          }
         self.make_localhost_config(additional_config=package_config)
 
-        url = 'json/machine/status/localhost'
+        url = '/json/machine/status/localhost'
         status, output = self.run_job(url, data={}, timeout=60)
         assert status == OK
-        url = 'json/machine/reconcile/localhost'
+        url = '/json/machine/reconcile/localhost'
         status, output = self.run_job(url, data={}, timeout=60)
         assert status == OK
 
@@ -712,7 +708,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         self.make_localhost_config(additional_config=package_config)
 
         self.reset_packages()
-        url = 'json/machine/reconcile/localhost'
+        url = '/json/machine/reconcile/localhost'
         status, output = self.run_job(url, data={}, timeout=60)
         #print "OUTPUT:",output
         #print "STATUS",status
@@ -733,7 +729,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         self.failUnlessEqual( content_dict[ u"command_status" ], OK)
         self.failUnlessEqual( content_dict[ u"command_output" ], ['Configuration key set.'])
 
-        url = 'json/machine/reconcile/localhost'
+        url = '/json/machine/reconcile/localhost'
         status, output = self.run_job(url, data={}, timeout=60)
         assert status == OK, output
 
@@ -797,7 +793,7 @@ def initialize_tests(client):
     assert content_dict["command_status"] == OK
 
 def tear_down_dispatcher(client):
-    url = 'json/dispatcher/stop'
+    url = '/json/dispatcher/stop'
     response = client.post(url, {})
     content_dict = json.loads( response.content )
     assert content_dict["command_status"] == OK, content_dict
@@ -817,15 +813,15 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        suite.addTest(CnmTests("test_search"))
+        #suite.addTest(CnmTests("test_merged"))
         #suite.addTest(CnmTests("test_summary"))
         #suite.addTest(CnmTests("test_user"))
         #suite.addTest(DispatcherTests("test_dist_update_for_commenting"))
         #suite.addTest(DispatcherTests("test_client_update"))
-        #suite.addTest(DispatcherTests("test_stop_all_jobs"))
+        suite.addTest(DispatcherTests("test_stop_all_jobs"))
         #suite.addTest(PackageTests("test_encrypted_ci"))
         #suite.addTest(PackageTests("test_insufficient_config"))
-        #suite.addTest(PackageTests("test_package_build"))
+        #suite.addTest(PackageTests("test_package_error"))
         #suite.addTest(PackageTests("test_type5_package_actions"))
         #suite.addTest(PackageTests("test_package_actions"))
 

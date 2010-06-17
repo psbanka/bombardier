@@ -50,7 +50,7 @@ from SystemStateSingleton import SystemState
 system_state = SystemState()
 
 LOGIN_PATH = "accounts/login/"
-SEARCH_PATH = "json/%s/search"
+SEARCH_PATH = "json/%s/search/"
 NAME_PATH = "json/%s/name/%s"
 MACHINE_PATH = "json/machine/name/%s"
 PACKAGE_SEARCH_PATH = "json/package/search/%s"
@@ -368,7 +368,11 @@ class CnmConnector:
                     put_data = yaml.dump(put_data)
             response = self.service_request(path, args, put_data, post_data,
                                             delete, timeout)
-            return response.convert_from_yaml()
+            try:
+                return response.convert_from_yaml()
+            except UnexpectedDataException, err:
+                err.url = path
+                raise err
         except urllib2.HTTPError:
             print "Unable to connect to the service %s" % path
             return {}
@@ -456,7 +460,6 @@ class CnmConnector:
         summary_output = []
         summary_status = OK
         jobs = set(job_names)
-        libUi.info("Watching job progress. Press ^C to abort or disconnect.")
         try:
             while job_names:
                 jobs = jobs.union(job_names)

@@ -108,9 +108,9 @@ class CnmResource(Resource):
         return status
 
     def get_dispatcher_dict(self):
-        if not os.path.isfile(DISPATCHER_INFO_FILE):
-            return None
         yaml_file = os.path.join(self.get_server_home(), DISPATCHER_INFO_FILE)
+        if not os.path.isfile(yaml_file):
+            return None
         dispatcher_info = open(yaml_file).read()
         return yaml.load(dispatcher_info)
 
@@ -134,8 +134,9 @@ class CnmResource(Resource):
             raise DispatcherAlreadyStarted()
         except DispatcherOffline:
             pass
-        os.system("rm -f %s" % DISPATCHER_INFO_FILE)
-        status = daemonize()
+        yaml_file = os.path.join(self.get_server_home(), DISPATCHER_INFO_FILE)
+        os.system("rm -f %s" % yaml_file)
+        status = daemonize(self.get_server_home())
         if status == OK:
             dispatcher_dict = None
             while not dispatcher_dict:

@@ -25,7 +25,7 @@ LOCAL_MACHINE_NAME = "CNM_Server"
 
 class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
     "Dispatcher class, manages jobs on remote machines"
-    def __init__(self):
+    def __init__(self, parent_pid):
         Pyro.core.ObjBase.__init__(self)
         ServerLogMixin.ServerLogMixin.__init__(self)
         self.start_time = time.time()
@@ -33,7 +33,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         self.server_home = None
         self.next_job = 1
         self.machine_interface_pool = {}
-        self.monitor = DispatchMonitor.DispatchMonitor()
+        self.monitor = DispatchMonitor.DispatchMonitor(parent_pid)
         self.new_jobs = {}
         self.monitor.start()
         self.jobs_to_comment = {}
@@ -619,7 +619,8 @@ if __name__ == '__main__':
 #    daemon.useNameServer(ns)
 #
 #    #daemon=Pyro.core.Daemon()
-    uri = daemon.connect(Dispatcher(), "dispatcher")
+    pid = os.getpid()
+    uri = daemon.connect(Dispatcher(pid), "dispatcher")
     print "The daemon runs on port:", daemon.port
     print "The object's uri is:", uri
 #

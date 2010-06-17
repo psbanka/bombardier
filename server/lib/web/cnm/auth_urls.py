@@ -145,8 +145,8 @@ urlpatterns = patterns('',
    url(r'^json/user/search/(?P<username>.*)', UsersCollection()),
    url(r'^json/user/name/(?P<username>.*)',
        UsersEntry(permitted_methods=['POST', 'GET', 'DELETE'])),
-   url(r'^accounts/login/$',  login),
-   url(r'^accounts/logout/$', logout),
+   url(r'^accounts/login.*',  login),
+   url(r'^accounts/logout.*', logout),
    url(r'^accounts/profile.*', UserProfileEntry()),
 )
 

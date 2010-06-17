@@ -35,6 +35,7 @@ import yaml
 import PinshCmd, ConfigField, Integer
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState
+from Exceptions import UnexpectedDataException
 system_state = SystemState()
 
 TERM_OVERCOUNT = 8 # For some reason, the term width seems too long...
@@ -52,7 +53,10 @@ class ShowType(PinshCmd.PinshCmd):
             return FAIL, []
         if len(tokens) < 3:
             return FAIL, ["Incomplete command."]
-        current_dict = self.config_field.get_specific_data(tokens, 2)
+        try:
+            current_dict = self.config_field.get_specific_data(tokens, 2)
+        except UnexpectedDataException, err:
+            return FAIL, ["Data appears to be corrupt. Check the server (%s)" % err.url]
         return OK, yaml.dump(current_dict, default_flow_style=False).split('\n')
 
 class Merged(ShowType):
