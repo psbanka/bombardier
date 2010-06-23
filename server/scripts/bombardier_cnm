@@ -1,0 +1,125 @@
+#!/usr/bin/env python
+"Script to run dispatcher as a daemon"
+import os, sys, time
+import optparse
+import getpass
+from bombardier_server.cnm.Dispatcher import Dispatcher
+import resource, yaml
+from bombardier_core.static_data import OK
+from signal import SIGTERM
+MAXFD = 1024
+INFO_FILE = "dispatcher_info.yml"
+os.environ["DJANGO_SETTINGS_MODULE"] = 'bombardier_server.web.rest_api.settings'
+
+def refork(server_home, encryption_key):
+    "Inner fork, sets up Dispatcher"
+    yaml_file = os.path.join(server_home, INFO_FILE)
+    os.setsid()
+    try:
+        pid = os.fork()
+    except OSError, err:
+        raise Exception, "%s [%d]" % (err.strerror, err.errno)
+
+    if (pid != 0):
+        while not os.path.isfile(yaml_file):
+            time.sleep(1)
+        os._exit(0)
+    else:
+        os.chdir(server_home)
+        os.environ["PYRO_STORAGE"] = server_home
+        import Pyro.core
+        import Pyro.configuration
+        #Pyro.configuration.PYRO_STORAGE = server_home
+        data = Pyro.configuration.Pyro.config.PYRO_STORAGE
+        Pyro.configuration.Pyro.config.PYRO_STORAGE = server_home
+        Pyro.configuration.Pyro.config.PYRO_DETAILED_TRACEBACK = 1
+
+        Pyro.core.initServer()
+        daemon = Pyro.core.Daemon()
+        uri = daemon.connect(Dispatcher(server_home, encryption_key), "dispatcher")
+        pid = os.getpid()
+        info_dict = { "dispatcher_uri": str(uri), "dispatcher_pid": pid }
+        open(yaml_file, 'w').write( yaml.dump(info_dict) )
+        daemon.requestLoop()
+
+def daemonize(server_home, encryption_key):
+    "Create a deamon process from Dispatcher"
+    os.chdir(server_home)
+    yaml_file = os.path.join(server_home, INFO_FILE)
+    os.environ["PYRO_STORAGE"] = server_home
+    print "Starting..."
+    if os.path.isfile(yaml_file):
+        os.unlink(yaml_file)
+    try:
+        pid = os.fork()
+    except OSError, err:
+        raise Exception, "%s [%d]" % (err.strerror, err.errno)
+
+    if (pid == 0):
+        refork(server_home, encryption_key)
+    else:
+        while not os.path.isfile(yaml_file):
+            time.sleep(1)
+        return OK
+
+    while not os.path.isfile(yaml_file):
+        time.sleep(1)
+    maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
+    if (maxfd == resource.RLIM_INFINITY):
+        maxfd = MAXFD
+
+    for file_descriptor in range(0, maxfd):
+        try:
+            os.close(file_descriptor)
+        except OSError:
+            pass
+
+    os.dup2(0, 1)
+    os.dup2(0, 2)
+
+    return OK
+
+def stop(server_home):
+    "Stop the dispathcer"
+    yaml_file = os.path.join(server_home, INFO_FILE)
+    info_dict = yaml.load(open(yaml_file, 'r').read())
+    pid = info_dict["dispatcher_pid"]
+    print "Stopping %s..." % pid
+    return os.kill(pid, SIGTERM)
+
+def usage(inputted):
+    print "Action %s unknown. Please choose 'start' or 'stop'" % inputted
+    parser.print_help()
+    sys.exit(1)
+
+if __name__ == "__main__":
+    parser = optparse.OptionParser("usage: %prog <-h server-home> [start | stop]")
+    parser.add_option("-d", "--decryption-key", dest="decryption_key",
+                      help="Set the password for decrypting server configs")
+    parser.add_option("-s", "--server-home", dest="server_home",
+                      help="Set the server home directory (default /var/deploy)")
+
+    (options, actions) = parser.parse_args()
+    server_home = "/var/deploy"
+    decryption_key = None
+    if options.server_home:
+        server_home = options.server_home
+    if options.decryption_key:
+        decryption_key = options.decryption_key
+
+    if len(actions) != 1:
+        usage(actions)
+
+    action = actions[0]
+
+    print ">>> ACTION:", action
+
+    if action == "start":
+        if decryption_key == None:
+            decryption_key = getpass.getpass("Enter decryption key:")
+        sys.exit(daemonize(server_home, decryption_key))
+    elif action == "stop":
+        sys.exit(stop(server_home))
+    else:
+        usage(action)
+

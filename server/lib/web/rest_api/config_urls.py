@@ -10,12 +10,13 @@ from CnmResource import CnmResource
 from configs.models import ServerConfig
 from bombardier_core.static_data import OK, FAIL
 import os, glob
-import MachineConfig
-from MachineStatus import MachineStatus
+from bombardier_server.cnm.MachineConfig import MachineConfig
+from bombardier_server.cnm.MachineStatus import MachineStatus
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 import yaml
-from Exceptions import MachineStatusException, MachineConfigurationException
+from bombardier_server.cnm.Exceptions import MachineConfigurationException
+from bombardier_server.cnm.Exceptions import MachineStatusException
 
 bad_characters = ['/', '%', '\\', ' ', '$', '(', ')', '!', '#', '@',
                   '&', '*', '[', ';', '?', '|', '<', '>']
@@ -160,8 +161,7 @@ class MergedEntry(CnmResource):
         "Create machine config object, merge and return data as json"
         try:
             server_home = self.get_server_home()
-            machine_config = MachineConfig.MachineConfig(machine_name, 
-                                                         "", server_home)
+            machine_config = MachineConfig(machine_name, "", server_home)
             machine_config.merge()
             responder = JsonDictResponder(machine_config.data)
         except Exception, x:

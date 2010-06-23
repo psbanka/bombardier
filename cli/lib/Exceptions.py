@@ -83,6 +83,12 @@ class MachineUnavailableException(ExceptionBase):
     def __repr__(self):
         return "Machine is not available: %s" % self.msg
 
+class HelpNeededException(ExceptionBase):
+    def __init__(self):
+        pass
+    def __repr__(self):
+        return ""
+
 class MachineStatusException(ExceptionBase):
     def __init__(self, msg):
         self.msg = msg

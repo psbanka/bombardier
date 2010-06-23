@@ -25,15 +25,15 @@ LOCAL_MACHINE_NAME = "CNM_Server"
 
 class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
     "Dispatcher class, manages jobs on remote machines"
-    def __init__(self, parent_pid):
+    def __init__(self, server_home, encryption_key):
         Pyro.core.ObjBase.__init__(self)
         ServerLogMixin.ServerLogMixin.__init__(self)
         self.start_time = time.time()
-        self.password = None
-        self.server_home = None
+        self.password = encryption_key
+        self.server_home = server_home
         self.next_job = 1
         self.machine_interface_pool = {}
-        self.monitor = DispatchMonitor.DispatchMonitor(parent_pid)
+        self.monitor = DispatchMonitor.DispatchMonitor()
         self.new_jobs = {}
         self.monitor.start()
         self.jobs_to_comment = {}
@@ -610,8 +610,6 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
 
 if __name__ == '__main__':
     from django.core.management import setup_environ
-    import settings
-    setup_environ(settings)
 
     Pyro.core.initServer()
     daemon = Pyro.core.Daemon()

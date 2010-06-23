@@ -12,14 +12,14 @@ INSTALLED_APPS = (
     'django.contrib.auth',
     'django.contrib.sessions',
     'django.contrib.sites',
-    'bombardier_server.web.cnm.configs',
+    'bombardier_server.web.rest_api.configs',
 )
 SITE_ID=1
-ROOT_URLCONF = 'bombardier_server.web.cnm.urls'
+ROOT_URLCONF = 'bombardier_server.web.rest_api.urls'
 
 DATABASE_NAME = os.path.join(SERVER_HOME, 'admin', 'cnmdb')
 DATABASE_ENGINE = 'sqlite3'
-TEMPLATE_DIRS = [os.path.join(SERVER_HOME, 'cnm', 'templates')]
+TEMPLATE_DIRS = [os.path.join(SERVER_HOME, 'rest_api', 'templates')]
 TEST_DATABASE_NAME = 'testdb'
 DATABASE_SUPPORTS_TRANSACTIONS = False
 DATABASE_OPTIONS = {'timeout': 30}

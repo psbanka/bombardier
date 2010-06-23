@@ -3,9 +3,8 @@ from django_restapi.resource import Resource
 from configs.models import ServerConfig
 import os, time
 import yaml
-from Exceptions import InvalidServerHome, DispatcherOffline
-from Exceptions import DispatcherAlreadyStarted, DispatcherError
-from daemonize import daemonize
+from bombardier_server.cnm.Exceptions import InvalidServerHome, DispatcherOffline
+from bombardier_server.cnm.Exceptions import DispatcherError
 
 from Pyro.util import getPyroTraceback
 from bombardier_core.static_data import OK, FAIL
@@ -35,6 +34,22 @@ class CnmResource(Resource):
         return server_home
 
     @classmethod
+    def get_dispatcher_info(cls):
+        "read the file that the dispatcher creates when it's started"
+        dispatcher_info = {}
+        server_home = cls.get_server_home()
+        config_file_path = os.path.join(server_home, "dispatcher_info.yml")
+        if not os.path.isfile(config_file_path):
+            msg = "Could not read %s (is the dispatcher started?)"
+            raise CnmServerException(msg % config_file_path)
+        try:
+            dispatcher_info = yaml.load(open(config_file_path).read())
+        except:
+            msg = "Invalid data in %s (is the dispatcher started?)"
+            raise CnmServerException(msg % config_file_path)
+        return dispatcher_info
+
+    @classmethod
     def get_dispatcher(cls, dispatcher_uri = None):
         "Create and return a dispatcher"
         try:
@@ -61,15 +76,6 @@ class CnmResource(Resource):
         return False
 
     @classmethod
-    def _check_dispatcher_stopped(cls, pid):
-        "Check for running pid"
-        cmd = "lsof -p %s 2>/dev/null | wc -l" % pid
-        _status, output = gso(cmd)
-        if output.strip() == "0":
-            return True
-        return False
-
-    @classmethod
     def _wait_for_dispatcher(cls, check_func, arg, timeout=10.0):
         "Use check_func to check for desired dispatcher state"
         start_time = time.time()
@@ -79,33 +85,6 @@ class CnmResource(Resource):
             time.sleep(0.25)
         time.sleep(1)
         return OK
-
-    def cleanup_dispatcher_uri(cls):
-        try:
-            dispatcher_uri = ServerConfig.objects.get(name="dispatcher_uri")
-            dispatcher_uri.delete()
-        except ServerConfig.DoesNotExist:
-            pass
-
-    def stop_dispatcher(self, username):
-        "Stop dispatcher and cleanup ServerConfig items"
-        try:
-            dispatcher = self.get_dispatcher()
-            dispatcher.terminate(username)
-        except DispatcherOffline:
-            pass
-        status = OK
-        try:
-            pid = ServerConfig.objects.get(name="dispatcher_pid")
-            os.kill(int(pid.value), SIGTERM)
-            dispatcher_pid = ServerConfig.objects.get(name="dispatcher_pid")
-            status = self._wait_for_dispatcher(self._check_dispatcher_stopped,
-                                                    dispatcher_pid.value)
-            dispatcher_pid.delete()
-        except ServerConfig.DoesNotExist:
-            pass
-        self.cleanup_dispatcher_uri()
-        return status
 
     def get_dispatcher_dict(self):
         yaml_file = os.path.join(self.get_server_home(), DISPATCHER_INFO_FILE)
@@ -124,31 +103,8 @@ class CnmResource(Resource):
         dispatcher_dict["dispatcher_uri"] = dispatcher_uri
         self._standard_update(dispatcher_dict)
         server_co = ServerConfig.objects.get(name="dispatcher_uri")
-        return self._wait_for_dispatcher(self._check_dispatcher_running,
-                                              server_co.value)
-
-    def start_dispatcher(self):
-        "Start dispatcher if it's not running"
-        try:
-            self.get_dispatcher()
-            raise DispatcherAlreadyStarted()
-        except DispatcherOffline:
-            pass
-        yaml_file = os.path.join(self.get_server_home(), DISPATCHER_INFO_FILE)
-        os.system("rm -f %s" % yaml_file)
-        status = daemonize(self.get_server_home())
-        if status == OK:
-            dispatcher_dict = None
-            while not dispatcher_dict:
-                dispatcher_dict = self.get_dispatcher_dict()
-                if dispatcher_dict:
-                    break
-                time.sleep(.5)
-            self._standard_update(dispatcher_dict)
-            server_co = ServerConfig.objects.get(name="dispatcher_uri")
-            return self._wait_for_dispatcher(self._check_dispatcher_running,
-                                                  server_co.value)
-        raise DispatcherError("Cannot be started")
+        return OK
+        #return self._wait_for_dispatcher(self._check_dispatcher_running, server_co.value)
 
     @classmethod
     def dump_exception(cls, request, exception):

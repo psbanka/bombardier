@@ -115,6 +115,29 @@ class ConfigField(PinshCmd.PinshCmd):
             self.directory = "summary"
         self.new = new
 
+    def get_help_text(self, tokens):
+        'produced customized help-text based on input'
+        field_type = tokens[-2]
+        if field_type.startswith('b'):
+            return '[bom]\tthe name of a bill-of-materials file'
+        elif field_type.startswith('ma'):
+            return '[machine]\tthe name of a machine managed by this system'
+        elif field_type.startswith('me'):
+            return '[machine]\tthe name of a machine managed by this system'
+        elif field_type.startswith('in'):
+            return '[include]\tthe name of an include file'
+        elif field_type.startswith('pa'):
+            return '[package]\tthe name of a package'
+        elif field_type.startswith('u'):
+            return '[user]\tthe name of an administrative user'
+        elif field_type.startswith('d'):
+            return '[dist]\tthe name of a distribution file'
+        elif field_type.startswith('st'):
+            return '[machine]\tthe name of a machine managed by this system'
+        elif field_type.startswith('su'):
+            return '[machine]\tthe name of a machine managed by this system'
+        return ''
+
     def get_object_list(self):
         'returns a list of all self.data_type things'
         url = CnmConnector.SEARCH_PATH % self.directory

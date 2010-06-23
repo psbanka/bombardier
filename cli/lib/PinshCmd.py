@@ -32,8 +32,12 @@ or commands'''
 
 from bombardier_core.static_data import PARTIAL, COMPLETE, INCOMPLETE
 from bombardier_core.static_data import NO_MATCH
-from Exceptions import AmbiguousCommand, UnknownCommand
+from Exceptions import AmbiguousCommand, UnknownCommand, HelpNeededException
+from Exceptions import CommandError
 from SystemStateSingleton import SystemState, ENABLE
+import readline
+import sys
+
 system_state = SystemState()
 
 DEBUGGING = False
@@ -73,6 +77,10 @@ class PinshCmd:
 
     def __repr__(self):
         return self.my_name
+
+    def get_help_text(self, tokens):
+        "Dynamically return help text to the user"
+        return self.help_text
 
     def find_one_child(self, tokens, index):
         '''Sometimes it's handy to be able to locate one of your
@@ -166,15 +174,18 @@ class PinshCmd:
                 break
         return completion_objects, incomplete_objects, match_len
 
-    def find_completions(self, tokens, index):
+    def find_completions(self, tokens, index, help_flag):
         '''This is called by complete. When complete is calling this it wants
         a list of objects that could be completions for the final token.'''
+        #print "HELP FLAG:", help_flag, "TOKENS:", tokens, "INDEX:",index
+        #print "LINE BUFFER:",readline.get_line_buffer()
         return_error = 1
         d_tmp = "find_completions: self.my_name: %s tokens: %s (%d)"
         self.dbg(d_tmp % (self.my_name, tokens, len(tokens)))
         if len(tokens[index:]) == 0: # no tokens left, I must be who you want!
             self.dbg("find_completions: FOUND at TOP")
             return [self], index
+
         if tokens[index] == '':
             if len(self.children) > 0:
                 output = []
@@ -191,7 +202,7 @@ class PinshCmd:
             new_child = completion_objects[0]
             if index+match_len >= len(tokens):
                 return [new_child], index+1
-            return new_child.find_completions(tokens, index+match_len)
+            return new_child.find_completions(tokens, index+match_len, help_flag)
         elif len(completion_objects) == 0: # No matches: go away.
             if len(incomplete_objects) > 0:
                 print
@@ -221,29 +232,38 @@ class PinshCmd:
         # no tokens left, I must be who you want!
         if len(tokens[index:]) == 0 or tokens[index] == '':
             self.dbg("my_name: %s" % self.my_name)
-            self.help()
+            self.help(tokens)
             return
         match_len = 0
         completion_objects = []
+        best_match_value = NO_MATCH
         for child in self.children:
             match_value, length = child.match(tokens, index)
-            self.dbg("child: %s / %s / %s" % (child, match_value, length))
+            self.dbg("child: %s / %s / %s / %s" % (child, match_value, length, best_match_value))
             if match_value == PARTIAL:
+                best_match_value = PARTIAL
                 if length > match_len:
                     match_len = length
                 completion_objects.append(child)
             elif match_value == COMPLETE:
+                best_match_value = COMPLETE
                 completion_objects = [child]
                 match_len = length
                 break
+        self.dbg("best_match_value: %s" % best_match_value)
+        self.dbg("len(completion_objects): %s" % len(completion_objects))
         if len(completion_objects) == 1:
-            return completion_objects[0].find_help(tokens, index + match_len)
-        elif len(completion_objects) == 0:
-            self.print_error_msg(tokens, index)
-            return
-        else:
-            self.print_error_msg(tokens, index, "Ambiguous command")
-            return
+            self.dbg("index: %s / len(tokens): %s" % (index, len(tokens)))
+            if (index + 1) < len(tokens):
+                self.dbg("PROVIDING HELP: %s" % completion_objects[0].my_name)
+                return completion_objects[0].find_help(tokens, index + match_len)
+        if len(completion_objects) > 0:
+            if best_match_value == PARTIAL or best_match_value == COMPLETE:
+                self.dbg("PROVIDING HELP: %s" % self.my_name)
+                self.help(tokens, tokens[index])
+                return
+        self.print_error_msg(tokens, index)
+        return
 
     def find_last_responsible_child(self, tokens, index):
         '''Run is calling this method to find the last object in the chain
@@ -302,10 +322,14 @@ class PinshCmd:
             self.print_error_msg(tokens, index, "Ambiguous command")
             return None
 
-    def help(self):
+    def cmd(self, tokens, no_flag):
+        raise CommandError("Incomplete command.")
+
+    def help(self, tokens, match_text = ''):
         'pretty-print the help strings of all my children'
         help_text = []
         max_len = 0
+        self.dbg("MATCH_TEXT: %s" % match_text)
         if len(self.children) == 0:
             print "<cr>\n"
             return
@@ -313,8 +337,10 @@ class PinshCmd:
         for child in self.children:
             if system_state.auth < child.auth:
                 continue
-            if child.help_text.rfind('\n') != -1:
-                for line in child.help_text.split('\n'):
+            if not child.my_name.startswith(match_text):
+                continue
+            if child.get_help_text(tokens).rfind('\n') != -1:
+                for line in child.get_help_text(tokens).split('\n'):
                     if '\t' in line:
                         cmd, doc = line.split('\t')
                     else:
@@ -324,19 +350,21 @@ class PinshCmd:
                     if len(cmd) > max_len:
                         max_len = len(cmd)
             else:
-                if '\t' in child.help_text:
-                    cmd, doc = child.help_text.split('\t')
+                if '\t' in child.get_help_text(tokens):
+                    cmd, doc = child.get_help_text(tokens).split('\t')
                 else:
                     cmd = child.my_name
-                    doc = child.help_text
+                    doc = child.get_help_text(tokens)
                 help_text.append([cmd, doc])
             if len(cmd) > max_len:
                 max_len = len(cmd)
 
         help_text.sort()
 
+        print
         for help_line in help_text:
             cmd = help_line[0]
             text = help_line[1]
             spaces = max_len - len(cmd) + 5
             print "  ", cmd + ' ' * spaces + text
+

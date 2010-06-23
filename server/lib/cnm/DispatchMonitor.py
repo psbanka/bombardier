@@ -24,7 +24,7 @@ def clutch_wrapper(func):
 
 class DispatchMonitor(Thread, ServerLogMixin.ServerLogMixin):
     """Watches the dispatcher's jobs and starts queued ones if necessary"""
-    def __init__(self, parent_pid):
+    def __init__(self):
         """
         this class watches the job queue for runnable jobs and runs them. it
         also watches the active jobs and puts them into the broken_jobs list
@@ -45,17 +45,6 @@ class DispatchMonitor(Thread, ServerLogMixin.ServerLogMixin):
         self.kill_switch = False
         self.clutch = False
         self.jobs_to_comment = []
-        self.parent_pid = parent_pid
-        #self.apache_run_file = APACHE_PID_FILE
-        #if apache_run_file:
-            #self.apache_run_file = apache_run_file
-
-    def check_parent_pid(self):
-        "See if our parent is still running"
-        if self.parent_pid in psutil.get_pid_list():
-            return True
-        self.server_log.info("parent_PID: %s has stopped..." % (self.parent_pid))
-        return False
 
     def kill_job(self, job_name):
         "We have a job that needs killin'"
@@ -293,11 +282,6 @@ class DispatchMonitor(Thread, ServerLogMixin.ServerLogMixin):
                 self._process_job_queue()
                 self._process_broken_jobs()
                 self._process_finished_jobs()
-                if not self.check_parent_pid():
-                    my_pid = os.getpid()
-                    self.server_log.info("Dispatcher SHOULD exit... killing %s" % my_pid)
-                    os.system("kill %s" % my_pid) 
-                    break
 
             except Exception:
                 traceback_lines = self.dump_exception("DispatchMonitor")

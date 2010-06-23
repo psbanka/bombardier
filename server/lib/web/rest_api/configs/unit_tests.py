@@ -1,14 +1,14 @@
 import os, sys, yaml
 sys.path.append('.')
 sys.path.append('..')
-os.environ["DJANGO_SETTINGS_MODULE"] = 'cnm.settings'
+os.environ["DJANGO_SETTINGS_MODULE"] = 'bombardier_server.web.rest_api.settings'
 
 from binascii import b2a_base64
 from datetime import datetime
 from django.core import serializers
 import django.utils.simplejson as json
 from bombardier_core.static_data import SERVER_CONFIG_FILE, OK, FAIL
-from Exceptions import InvalidServerHome
+from bombardier_server.cnm.Exceptions import InvalidServerHome
 from bombardier_core.Cipher import Cipher
 
 from settings import *
@@ -82,23 +82,19 @@ class BasicTest:
         self.super_user.save()
 
         self.login_super()
-        # set the server home
         cwd = os.getcwd()
-        config_url = '/json/server/config'
-        self.test_server_home = os.path.join(cwd)
-        response = self.client.post(path=config_url,
-                                    data={"server_home": self.test_server_home})
-        content_dict = json.loads( response.content )
+        self.test_server_home = os.path.join(cwd, "configs", "fixtures")
 
-        # set the configuration string
-        content_dict = self.set_config_password(CONFIG_PASSWORD)
+        dispatcher_info = yaml.load(open(os.path.join(self.test_server_home, "dispatcher_info.yml")).read())
+        uri = dispatcher_info["dispatcher_uri"]
+        content_dict = self.attach_dispatcher(uri)
         self.failUnlessEqual( content_dict[ u"command_status" ], OK)
-        self.failUnlessEqual( content_dict[ u"command_output" ], ['Configuration key set.'])
+        assert content_dict[ u"command_output" ][0].startswith("Attached to dispatcher")
 
-    def set_config_password(self, password):
+    def attach_dispatcher(self, uri):
         # set the configuration string
-        url = '/json/dispatcher/set-password'
-        response = self.client.post(url, {"password": password})
+        url = '/json/dispatcher/attach'
+        response = self.client.post(url, {"uri": uri})
         content_dict = json.loads( response.content )
         return content_dict
 
@@ -140,7 +136,7 @@ class BasicTest:
     def set_status(self, status_dict):
         yaml_str = yaml.dump(status_dict)
         open("/opt/spkg/localhost/status.yml", 'w').write(yaml_str)
-        open("status/localhost.yml", 'w').write(yaml_str)
+        open("configs/fixtures/status/localhost.yml", 'w').write(yaml_str)
 
     def check_for_traceback(self, content_dict):
         if "traceback" in content_dict:
@@ -167,7 +163,9 @@ class BasicTest:
         try:
             job_name = content_dict["job_name"]
         except KeyError:
-            print "CONT========", content_dict
+            print "CONT========"
+            for line in content_dict['traceback']:
+                print "> %s" % (line)
             assert False
         #assert job_name.startswith("%s@localhost" % (self.super_user.username))
 
@@ -332,12 +330,12 @@ class CnmTests(unittest.TestCase, BasicTest):
         content_dict = self.get_content_dict('/json/user/name/delete_me')
         self.failUnlessEqual(content_dict[u"first_name"], "Buffy")
 
-    def test_set_bad_password(self):
-        self.login(self.super_user)
-        url = '/json/dispatcher/set_password'
-        content_dict = self.set_config_password("F8t3Babb1%tz")
-        self.failUnlessEqual( content_dict[ u"command_status" ], FAIL)
-        self.failUnlessEqual( content_dict[ u"command_output" ], ["Invalid configuration key."])
+    #def test_set_bad_password(self):
+        #self.login(self.super_user)
+        #url = '/json/dispatcher/set_password'
+        #content_dict = self.set_config_password("F8t3Babb1%tz")
+        #self.failUnlessEqual( content_dict[ u"command_status" ], FAIL)
+        #self.failUnlessEqual( content_dict[ u"command_output" ], ["Invalid configuration key."])
 
     def test_data_modification(self):
         url = "/json/machine/name/tester"
@@ -438,10 +436,15 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         while True:
             response = self.client.get(url)
             content_dict = json.loads( response.content )
+            print "CONTENT_DICT:", content_dict
             if job_name1 in content_dict["active_jobs"]:
                 break
             time.sleep(1)
             assert (time.time() - start_time) < 5.0
+
+        data = yaml.dump({"jobs": [job_name2]})
+        response = self.client.post("/json/job/poll/", data={"yaml": data})
+        print ">>>>", json.loads( response.content )
     
         url = '/json/machine/stop-jobs/'
         response = self.client.post(path=url, data={"machine": "localhost"})
@@ -450,7 +453,7 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         test_str = "%s killed" % job_name1
         output = content_dict["command_output"]
         assert test_str in output, "%s not in %s" % (test_str, output)
-        assert "%s removed" % job_name2 in output
+        assert "%s removed" % job_name2 in output, output
 
         url = "/json/machine/show-jobs/localhost"
         start_time = time.time()
@@ -725,9 +728,6 @@ class PackageTests(unittest.TestCase, BasicTest):
         self.make_localhost_config(additional_config=package_config)
 
         self.reset_packages()
-        content_dict = self.set_config_password(CONFIG_PASSWORD)
-        self.failUnlessEqual( content_dict[ u"command_status" ], OK)
-        self.failUnlessEqual( content_dict[ u"command_output" ], ['Configuration key set.'])
 
         url = '/json/machine/reconcile/localhost'
         status, output = self.run_job(url, data={}, timeout=60)
@@ -779,24 +779,16 @@ def initialize_tests(client):
     cwd = os.getcwd()
     url = '/json/server/config'
     test_server_home = os.path.join(cwd, 'configs', 'fixtures')
-    print "test_server_home", test_server_home
     response = client.post(url, data={"server_home": test_server_home})
 
-    url = '/json/dispatcher/start'
-    response = client.post(url, {})
-    try:
-        content_dict = json.loads( response.content )
-    except ValueError:
-        print response.content
-        print "SERVER CONFIGURATION ERROR"
-        sys.exit(1)
-    assert content_dict["command_status"] == OK
+    cmd = "bombardier_cnm -s %s -d %s start" % (test_server_home, CONFIG_PASSWORD)
+    os.system(cmd)
 
 def tear_down_dispatcher(client):
-    url = '/json/dispatcher/stop'
-    response = client.post(url, {})
-    content_dict = json.loads( response.content )
-    assert content_dict["command_status"] == OK, content_dict
+    cwd = os.getcwd()
+    test_server_home = os.path.join(cwd, 'configs', 'fixtures')
+    cmd = "bombardier_cnm -s %s stop" % (test_server_home)
+    os.system(cmd)
 
 if __name__ == '__main__':
     client = Client()
@@ -813,7 +805,7 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        #suite.addTest(CnmTests("test_merged"))
+        #suite.addTest(CnmTests("test_encrypted_ci"))
         #suite.addTest(CnmTests("test_summary"))
         #suite.addTest(CnmTests("test_user"))
         #suite.addTest(DispatcherTests("test_dist_update_for_commenting"))

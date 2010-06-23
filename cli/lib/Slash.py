@@ -55,7 +55,7 @@ class Slash(PinshCmd.PinshCmd):
         current_tokens = []
         for token in tokens:
             current_tokens.append(token)
-            names, token_delimeter = self.get_names_and_token_delimeter(current_tokens)
+            names, token_delimeter = self.get_names_and_token_delimeter(current_tokens, 0)
             if not names:
                 raise UnknownCommand(' '.join(current_tokens))
             if token in names:
@@ -186,12 +186,12 @@ class Slash(PinshCmd.PinshCmd):
                 names = names + new_name
         return names
 
-    def get_names_and_token_delimeter(self, tokens):
+    def get_names_and_token_delimeter(self, tokens, help_flag):
         index = 0
         if tokens == []:
             completion_objects = self.children
         else:
-            completion_objects, index = self.find_completions(tokens, 0)
+            completion_objects, index = self.find_completions(tokens, 0, help_flag)
         if len(completion_objects) == 0:
             return None, ' '
         token_delimeter = completion_objects[0].token_delimeter
@@ -199,8 +199,7 @@ class Slash(PinshCmd.PinshCmd):
         return names, token_delimeter
 
     def complete(self, _text, status):
-        '''Command line completer, called with [tab]
-        or [?] (if we could bind it)
+        '''Command line completer, called with [tab] or [?]
         _text -- text that readline sends as what the user enters
         status -- the index into the completion list'''
         try:
@@ -209,12 +208,15 @@ class Slash(PinshCmd.PinshCmd):
                     return None
                 return self.names[status]
             else:
-                _no_flag, _help_flag, tokens, _comment = \
+                _no_flag, help_flag, tokens, _comment = \
                     libUi.process_input(readline.get_line_buffer())
                 tokens = system_state.get_state_tokens(tokens)
-                # this is where we would process help if
-                # we could bind the '?' key properly
-                names, token_delimeter = self.get_names_and_token_delimeter(tokens)
+                if help_flag: # Process the [?] key first
+                    self.find_help(tokens, 0)
+                    sys.stdout.write("%s%s" % (system_state.get_prompt(), readline.get_line_buffer()))
+                    sys.stdout.flush()
+                    return []
+                names, token_delimeter = self.get_names_and_token_delimeter(tokens, help_flag)
                 self.names = names
                 if not self.names:
                     return []

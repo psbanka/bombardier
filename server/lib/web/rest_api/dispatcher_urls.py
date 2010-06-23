@@ -3,11 +3,11 @@ from django.conf.urls.defaults import patterns, url
 from django.contrib.auth.decorators import login_required
 from django_restapi.responder import JsonDictResponder
 from CnmResource import CnmResource
-from Exceptions import InvalidInput, InvalidDispatcherAction
-from Exceptions import DispatcherAlreadyStarted, DispatcherOffline
+from bombardier_server.cnm.Exceptions import InvalidInput, InvalidDispatcherAction
+from bombardier_server.cnm.Exceptions import DispatcherAlreadyStarted, DispatcherOffline
+from bombardier_server.cnm.Exceptions import CnmServerException
 from bombardier_core.static_data import OK, FAIL
 import os, yaml
-
 from configs.models import Comment, CommentedJob
 
 VALID_FILE_CHARS  = [ chr(x) for x in range(ord('a'), ord('z')+1) ]
@@ -40,8 +40,6 @@ class PackageBuildEntry(CnmResource):
             debug = safe_get(request, "debug")
             prepare = safe_get(request, "prepare")
             dispatcher = self.get_dispatcher()
-            server_home = CnmResource.get_server_home()
-            dispatcher.set_server_home(request.user, server_home)
             job_name = dispatcher.package_build_job(request.user, package_name,
                                                     svn_user, svn_password, debug,
                                                     prepare) 
@@ -62,8 +60,6 @@ class PackageActionEntry(CnmResource):
             action = safe_get(request, "action")
             machine_name = safe_get(request, "machine")
             dispatcher = self.get_dispatcher()
-            server_home = CnmResource.get_server_home()
-            dispatcher.set_server_home(request.user, server_home)
             job_name = dispatcher.package_action_job(request.user, package_name,
                                                      action, machine_name) 
             dispatcher.queue_job(job_name)
@@ -85,8 +81,6 @@ class MachineEnableEntry(CnmResource):
             if not password:
                 raise InvalidInput("Password needed")
             dispatcher = self.get_dispatcher()
-            server_home = CnmResource.get_server_home()
-            dispatcher.set_server_home(request.user, server_home)
             job_name = dispatcher.enable_job(request.user, machine_name, password)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
@@ -103,8 +97,6 @@ class MachineDisableEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            server_home = CnmResource.get_server_home()
-            dispatcher.set_server_home(request.user, server_home)
             job_name = dispatcher.disable_job(request.user, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
@@ -121,8 +113,6 @@ class MachineStatusEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            server_home = CnmResource.get_server_home()
-            dispatcher.set_server_home(request.user, server_home)
             job_name = dispatcher.check_status_job(request.user, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
@@ -148,14 +138,15 @@ class MachineStartReconcileEntry(CnmResource):
     def create(self, request, machine_name):
         "Start a reconcile job on a machine"
         output = {"command_status": OK}
-        try:
+        if 1 == 1:
+        #try:
             dispatcher = self.get_dispatcher()
-            server_home = CnmResource.get_server_home()
-            dispatcher.set_server_home(request.user, server_home)
+            data = dispatcher.check_status()
             job_name = dispatcher.reconcile_job(request.user, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
-        except Exception, x:
+        else:
+        #except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
@@ -168,8 +159,6 @@ class MachineUnPushEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            server_home = CnmResource.get_server_home()
-            dispatcher.set_server_home(request.user, server_home)
             job_name = dispatcher.unpush_job(request.user, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
@@ -186,8 +175,6 @@ class MachinePushEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            server_home = CnmResource.get_server_home()
-            dispatcher.set_server_home(request.user, server_home)
             job_name = dispatcher.push_job(request.user, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
@@ -208,8 +195,6 @@ class MachineStartSetupEntry(CnmResource):
             if not password:
                 raise InvalidInput("Password needed")
             dispatcher = self.get_dispatcher()
-            server_home = CnmResource.get_server_home()
-            dispatcher.set_server_home(request.user, server_home)
             init_job_name = dispatcher.setup_machine(request.user, machine_name, password)
             output = dispatcher.get_job_status(init_job_name)
         except Exception, x:
@@ -225,8 +210,6 @@ class MachineStartInitEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            server_home = CnmResource.get_server_home()
-            dispatcher.set_server_home(request.user, server_home)
             job_name = dispatcher.init_job(request.user, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
@@ -244,8 +227,6 @@ class MachineStartDistEntry(CnmResource):
         try:
             dist_name = safe_get(request, "dist")
             dispatcher = self.get_dispatcher()
-            server_home = CnmResource.get_server_home()
-            dispatcher.set_server_home(request.user, server_home)
             job_name = dispatcher.dist_job(request.user, machine_name, dist_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
@@ -262,8 +243,6 @@ class MachineStartTestEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            server_home = CnmResource.get_server_home()
-            dispatcher.set_server_home(request.user, server_home)
             job_name = dispatcher.test_job(request.user, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
@@ -451,17 +430,14 @@ class JobKillEntry(CnmResource):
 class DispatcherControlEntry(CnmResource):
     "Dispatcher control handler"
     @login_required
-    def read(self, request, action):
+    def read(self, request):
         "Check dispatcher status, time and running jobs"
         output = {"command_status" : OK,
                   "command_output" : '',
                  }
         try:
             dispatcher = self.get_dispatcher()
-            if action == "status":
-                output.update( dispatcher.check_status() )
-            else:
-                raise InvalidDispatcherAction(action)
+            output.update( dispatcher.check_status() )
         except DispatcherOffline:
             output["command_status"] = FAIL
             output["command_output"] = "Dispatcher is offline."
@@ -471,42 +447,21 @@ class DispatcherControlEntry(CnmResource):
         return responder.element(request)
 
     @login_required
-    def create(self, request, action):
+    def create(self, request):
         "Set password on the dispatcher from request"
         output = {"command_status" : OK}
         try:
-            if action == "set-password":
-                dispatcher = self.get_dispatcher()
-                server_home = CnmResource.get_server_home()
-                dispatcher.set_server_home(request.user, server_home)
-                password = request.POST.get("password", "")
-                output = dispatcher.set_password(password)
-            elif action == "attach":
-                try:
-                    uri = request.POST.get("uri", "")
-                    status = self.attach_dispatcher(uri)
-                    output["command_status"] = status
-                    msg = "Attached to dispatcher %s" % uri
-                    output["command_output"] = [msg]
-                except DispatcherOffline:
-                    msg = "Dispatcher %s is offline / cannot attach" % uri
-                    output["command_output"] = [msg]
-            elif action == "start":
-                try:
-                    status = self.start_dispatcher()
-                    output["command_status"] = status
-                    output["command_output"] = ["Dispatcher started"]
-                except DispatcherAlreadyStarted:
-                    output["command_output"] = ["Dispatcher already started"]
-
-            elif action == "stop":
-                status = self.stop_dispatcher(request.user)
-                output["command_status"] = status
-                output["command_output"] = ["Dispatcher stopped"]
-
-            else:
-                print "INVALID ACTION %s" % action
-                raise InvalidDispatcherAction(action)
+            try:
+                uri = request.POST.get("uri", "")
+                if not uri:
+                    server_home = self.get_server_home()
+                    uri = self.get_dispatcher_info().get("dispatcher_uri", '')
+                status = self.attach_dispatcher(uri)
+                msg = "Attached to dispatcher %s" % uri
+                output["command_output"] = [msg]
+            except DispatcherOffline:
+                msg = "Dispatcher %s is offline / cannot attach" % uri
+                output["command_output"] = [msg]
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
@@ -556,7 +511,7 @@ urlpatterns = patterns('',
         JobPollEntry(permitted_methods = ['POST'])),
    url(r'^json/job/kill/(?P<job_name>.*)', 
         JobKillEntry(permitted_methods = ['POST'])),
-   url(r'^json/dispatcher/(?P<action>.*)', 
+   url(r'^json/dispatcher/', 
         DispatcherControlEntry(permitted_methods = ['GET', 'POST'])),
 )
 

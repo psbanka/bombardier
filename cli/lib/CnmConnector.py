@@ -49,6 +49,7 @@ import libUi
 from SystemStateSingleton import SystemState
 system_state = SystemState()
 
+NULL_POST = {"spam": "eggs"}
 LOGIN_PATH = "accounts/login/"
 SEARCH_PATH = "json/%s/search/"
 NAME_PATH = "json/%s/name/%s"
@@ -211,12 +212,6 @@ class CnmConnector:
             if self.proxy_port != None:
                 curl_obj.setopt(pycurl.PROXYPORT, self.proxy_port)
         return curl_obj
-
-
-
-
-
-
 
     def perform_request(self, curl_obj, full_path):
         '''Connects to the web server and prepares returns a response
@@ -558,30 +553,21 @@ class CnmConnector:
         output = self.service_yaml_request(url, post_data=post_data)
         return output["command_status"], output["command_output"]
 
-    def dispatcher_control(self, action, post_data = None):
-        "Performing actions on the dispatcher"
-        if post_data == None:
-            post_data = {}
-        dispatcher_url = "json/dispatcher/%s" % action
-        if action == "status":
-            output = self.service_yaml_request(dispatcher_url)
-            if output.get('command_status') == OK:
-                return OK, output
-            else:
-                return_list = ["Dispatcher is offline."]
-                return_status = FAIL
-            return return_status, return_list
-        else:
-            try:
-                output = self.service_yaml_request(dispatcher_url, 
-                                                   post_data = post_data,
-                                                   timeout=5)
-            except ServerException:
-                if action == "start":
-                    output = {"command_status": OK,
-                              "command_output": ['Dispatcher started']}
-                else:
-                    raise
+    def dispatcher_status(self):
+        "Find out how the dispatcher's doing"
+        dispatcher_url = "json/dispatcher/"
+        output = self.service_yaml_request(dispatcher_url)
+        if output.get('command_status') == OK:
+            return OK, output
+        return FAIL, ["Dispatcher is offline."]
+
+    def dispatcher_attach(self):
+        "Attach to a running dispatcher"
+        post_data = NULL_POST
+        dispatcher_url = "json/dispatcher/"
+        output = self.service_yaml_request(dispatcher_url, 
+                                           post_data = post_data,
+                                           timeout=5)
         return output["command_status"], output["command_output"]
 
     def get_uncommented_jobs(self):

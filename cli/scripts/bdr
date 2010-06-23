@@ -96,7 +96,7 @@ import optparse
 # READLINE CONFIGS
 readline.parse_and_bind('tab: complete')
 readline.parse_and_bind('C-z: "end\n"')
-#readline.parse_and_bind('?: "\C-v?\t\d"')
+readline.parse_and_bind('?: "\C-v?\t\b"')
 readline.parse_and_bind('set bell-style none')
 readline.set_completer_delims(' ')
 
@@ -135,25 +135,29 @@ def cleanup(system_state, slash):
 
 def initialize(system_state, slash):
     try:
-        status, output = system_state.cnm_connector.dispatcher_control("status")
+        status, output = system_state.cnm_connector.dispatcher_status()
     except ServerTracebackException, ste:
         libUi.process_traceback(ste)
     if status == FAIL:
-        config = system_state.cnm_connector.get_server_config()
-        if not config.get("server configuration", {}).get("server_home"):
-            prompt = "Server home is not set. Please enter the value"
-            server_home = libUi.get_default(prompt, "/var/deploy")
-            system_state.cnm_connector.sync_server_home(server_home)
-        
-        question = "Dispatcher is offline; enter CI decryption password: "
-        password = libUi.pwd_input(question)
         try:
-            status, output = system_state.cnm_connector.dispatcher_control("start")
-            libUi.user_output(output, status)
-            status, output = system_state.cnm_connector.set_configuration_key(password)
-            libUi.user_output(output, status)
+            status, output = system_state.cnm_connector.dispatcher_attach()
+            print "DISPATCHER STATUS:", status
+            print "DISPATHER OUTPUT:", output
         except ServerTracebackException, ste:
             libUi.process_traceback(ste)
+            status = FAIL
+        if status == FAIL:
+            print "Dispatcher is offline; It needs to be started on the server."
+            sys.exit(1)
+    try:
+        system_state.set_comment_counter()
+    except ServerTracebackException, ste:
+        libUi.process_traceback(ste)
+        status = FAIL
+    if status == FAIL:
+        print "Error communicating to dispatcher: comments unavailable."
+        sys.exit(1)
+    print "MOVING ON..."
 
 def main_loop(system_state, slash):
     clean = False
@@ -162,7 +166,11 @@ def main_loop(system_state, slash):
             system_state.set_prompt()
             readline.set_completer(slash.complete)
             if clean:
-                command = raw_input(system_state.get_prompt())
+                #prompt = system_state.get_prompt() + readline.get_line_buffer()
+                prompt = system_state.get_prompt()
+                sys.stdout.write(prompt)
+                sys.stdout.flush()
+                command = raw_input()
                 clean = False
             else:
                 command = raw_input(system_state.get_prompt() + readline.get_line_buffer())
@@ -220,7 +228,6 @@ if __name__ == "__main__":
     if not options.no_login:
         libUi.login(username)
         initialize(system_state, slash)
-        system_state.set_comment_counter()
 
     if scripts:
         status = run_scripts(scripts)
