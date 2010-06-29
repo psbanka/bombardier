@@ -116,6 +116,10 @@ class Job(Thread, ServerLogMixin.ServerLogMixin):
         self.end_time = time.time()
         self.status = FAIL
 
+    def set_job(self):
+        "Tell my machine interface that I'm running"
+        self.machine_interface.set_job(self.name)
+
     def run(self):
         "Runs commands in command list and watches status"
         self.start_time = time.time()

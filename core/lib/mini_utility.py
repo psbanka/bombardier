@@ -19,7 +19,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, re, time, random, yaml, md5, shutil
+import os, re, time, random, yaml, hashlib, shutil
 import sys
 from static_data import OK, FAIL
 from static_data import PACKAGES, STATUS_FILE, SERVER_CONFIG_FILE
@@ -140,9 +140,9 @@ def hash_list(listobj):
         elif type(value) == type([]):
             output.append(hash_list(value))
         elif type(value) == type('string'):
-            output.append(md5.new(value).hexdigest())
+            output.append(hashlib.md5(value).hexdigest())
         elif  type(value) == type(1):
-            output.append(md5.new(`value`).hexdigest())
+            output.append(hashlib.md5(str(value)).hexdigest())
     return output
 
 def hash_dictionary(dictionary):
@@ -161,9 +161,9 @@ def hash_dictionary(dictionary):
         elif type(value) == type([]):
             output[key] = hash_list(value)
         elif type(value) == type('string'):
-            output[key] = md5.new(value).hexdigest()
+            output[key] = hashlib.md5(value).hexdigest()
         elif type(value) == type(1):
-            output[key] = md5.new(`value`).hexdigest()
+            output[key] = hashlib.md5(str(value)).hexdigest()
     return output
 
 def diff_lists(sub_list, super_list, check_values=False):

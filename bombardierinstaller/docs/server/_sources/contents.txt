@@ -1,0 +1,28 @@
+.. _contents:
+
+=================================
+Bombardier documentation contents
+=================================
+
+First steps
+===========
+
+  * :ref:`Installation <intro-index>`
+
+Contents:
+
+.. toctree::
+   :maxdepth: 2
+
+   intro/index
+   faq/index
+   topics/index
+   glossary
+
+Indices, glossary and tables
+============================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`glossary`
+

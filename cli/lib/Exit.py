@@ -32,8 +32,6 @@
 __author__ =  'Peter Banka'
 __version__ = '1.0'
 
-import sys
-
 import PinshCmd
 
 class Exit(PinshCmd.PinshCmd):
@@ -43,5 +41,6 @@ class Exit(PinshCmd.PinshCmd):
         self.help_text = "exit\texit current mode"
         self.cmd_owner = 1
 
-    def cmd(self, tokens, noFlag):
+    def cmd(self, command_line):
+        "What happens if someone types 'exit'"
         raise EOFError

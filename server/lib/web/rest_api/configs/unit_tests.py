@@ -23,6 +23,8 @@ from django.test.client import Client
 
 import glob
 
+DEBUG = False
+
 def get_version(base_name):
     dist_dir = os.path.join("configs", "fixtures", "dist")
     search_files = glob.glob(os.path.join(dist_dir, base_name+"*"))
@@ -87,16 +89,23 @@ class BasicTest:
 
         dispatcher_info = yaml.load(open(os.path.join(self.test_server_home, "dispatcher_info.yml")).read())
         uri = dispatcher_info["dispatcher_uri"]
-        content_dict = self.attach_dispatcher(uri)
-        self.failUnlessEqual( content_dict[ u"command_status" ], OK)
-        assert content_dict[ u"command_output" ][0].startswith("Attached to dispatcher")
+        self.attach_dispatcher(uri)
 
     def attach_dispatcher(self, uri):
         # set the configuration string
         url = '/json/dispatcher/attach'
         response = self.client.post(url, {"uri": uri})
         content_dict = json.loads( response.content )
-        return content_dict
+        self.failUnlessEqual( content_dict[ u"command_status" ], OK)
+        assert content_dict[ u"command_output" ][0].startswith("Attached to dispatcher")
+        url = '/json/dispatcher/status'
+        response = self.client.get(url)
+        content_dict = json.loads( response.content )
+        if DEBUG:
+            msg = "DISPATCHER BEING TESTED: %s (%s)" % (uri, content_dict["uptime"])
+            print "=" * len(msg)
+            print msg
+            print "=" * len(msg)
 
     def login(self, user=None):
         if not user:
@@ -427,16 +436,18 @@ class DispatcherTests(unittest.TestCase, BasicTest):
     def test_stop_all_jobs(self):
         url = '/json/machine/start_test/localhost'
         response = self.client.post(path=url, data={"machine": "localhost"})
-        job_name1 = yaml.load(response.content)["job_name"]
+        content_dict = yaml.load(response.content)
+        job_name1 = content_dict["job_name"]
+
         response = self.client.post(path=url, data={"machine": "localhost"})
-        job_name2 = yaml.load(response.content)["job_name"]
+        content_dict = yaml.load(response.content)
+        job_name2 = content_dict["job_name"]
 
         url = "/json/dispatcher/status"
         start_time = time.time()
         while True:
             response = self.client.get(url)
             content_dict = json.loads( response.content )
-            print "CONTENT_DICT:", content_dict
             if job_name1 in content_dict["active_jobs"]:
                 break
             time.sleep(1)
@@ -444,7 +455,6 @@ class DispatcherTests(unittest.TestCase, BasicTest):
 
         data = yaml.dump({"jobs": [job_name2]})
         response = self.client.post("/json/job/poll/", data={"yaml": data})
-        print ">>>>", json.loads( response.content )
     
         url = '/json/machine/stop-jobs/'
         response = self.client.post(path=url, data={"machine": "localhost"})
@@ -453,7 +463,8 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         test_str = "%s killed" % job_name1
         output = content_dict["command_output"]
         assert test_str in output, "%s not in %s" % (test_str, output)
-        assert "%s removed" % job_name2 in output, output
+        test_str = "%s removed" % job_name2
+        assert "%s removed" % job_name2 in output, "%s not in %s" % (test_str, output)
 
         url = "/json/machine/show-jobs/localhost"
         start_time = time.time()
@@ -805,7 +816,6 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        #suite.addTest(CnmTests("test_encrypted_ci"))
         #suite.addTest(CnmTests("test_summary"))
         #suite.addTest(CnmTests("test_user"))
         #suite.addTest(DispatcherTests("test_dist_update_for_commenting"))

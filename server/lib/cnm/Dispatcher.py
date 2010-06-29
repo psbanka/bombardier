@@ -82,10 +82,13 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
     def _setup_job(self, job, commands, copy_dict, require_status,
                   job_predecessors = []):
         "When you want a job to run after another job is finished"
+        open("/tmp/POOP.txt", 'a').write("SETUP_JOB 0\n")
         machine_interface = self.get_machine_interface(job.username,
                                                        job.machine_name)
+        open("/tmp/POOP.txt", 'a').write("SETUP_JOB 1\n")
         job.setup(machine_interface, commands, copy_dict, require_status,
                  job_predecessors)
+        open("/tmp/POOP.txt", 'a').write("SETUP_JOB 2\n")
 
     def queue_job(self, job_name): 
         "Take a job and get it ready to be run"
@@ -336,11 +339,15 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
 
     def test_job(self, username, machine_name):
         "Simple test job"
+        fp = open("/tmp/POOP.txt", 'a')
+        fp.write("TEST_JOB 0\n")
+        fp.flush()
         job = self._create_next_job(username, machine_name)
         job.description = "Self-test"
         try:
             cmd = 'for i in 1 2 3 4; do sleep 1; echo "Testing $i/4"; done'
             commands = [ShellCommand("self_test", cmd, '.')]
+            open("/tmp/POOP.txt", 'a').write("TEST_JOB 1, %s\n" % commands)
             self._setup_job(job, commands, {}, False)
         except Exception:
             job.command_output = self.dump_exception(username)

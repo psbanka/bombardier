@@ -38,6 +38,7 @@ import PinshCmd, libUi
 from Exceptions import AmbiguousCommand, UnknownCommand, ServerException
 from Exceptions import CommandError, ServerTracebackException
 from Exceptions import MachineStatusException
+import CommandLine
 from SystemStateSingleton import SystemState
 system_state = SystemState()
 from bombardier_core.static_data import FAIL, OK
@@ -50,32 +51,32 @@ class Slash(PinshCmd.PinshCmd):
         self.cmd_owner = 1
         self.help_text = ''
 
-    def complete_tokens(self, tokens):
+    def complete_tokens(self, command_line):
+        "Go through all the tokens in the current command line and expand them"
         completed_tokens = []
-        current_tokens = []
-        for token in tokens:
-            current_tokens.append(token)
-            names, token_delimeter = self.get_names_and_token_delimeter(current_tokens, 0)
+        current_command_line = CommandLine.CommandLine()
+        for token in command_line:
+            current_command_line.append(token)
+            names, _token_delimeter = self.get_names_and_token_delimeter(current_command_line)
             if not names:
-                raise UnknownCommand(' '.join(current_tokens))
+                raise UnknownCommand(' '.join(current_command_line))
             if token in names:
                 completed_tokens.append(token)
             else:
                 if len(names) > 1:
-                    raise AmbiguousCommand(current_tokens[-1], names)
+                    raise AmbiguousCommand(current_command_line[-1], names)
                 completed_tokens.append(names[0])
         return completed_tokens
 
-    def run(self, tokens, no_flag):
+    def run(self, command_line):
         'finds the correct object and runs a command'
-        if tokens[-1] == '':
-            tokens = tokens[:-1]
-        owner = self.find_last_responsible_child(tokens, 0)
+        command_line.clean_last_token()
+        owner = self.find_last_responsible_child(command_line, 0)
         if not owner:
             return FAIL, []
         try:
-            tokens = self.complete_tokens(tokens)
-            return_value = owner.cmd(tokens, no_flag)
+            command_line.tokens = self.complete_tokens(command_line)
+            return_value = owner.cmd(command_line)
         except AmbiguousCommand, amb_err:
             return FAIL, [str(amb_err)]
         except UnknownCommand, unk_err:
@@ -96,20 +97,19 @@ class Slash(PinshCmd.PinshCmd):
             system_state.globals["status"] = status
             return status, output
 
-    def process_command(self, command):
+    def process_command(self, command_string):
         'When somebody hits return in the shell, this method handles it.'
-        if command == "exit":
+        if command_string == "exit":
             raise EOFError
         try:
-            no_flag, help_flag, tokens, comment = libUi.process_input(command)
-            if help_flag: # Process the [?] key first
-                self.find_help(tokens, 0)
-                return None
-            if len(tokens) == 0:
+            #no_flag, help_flag, tokens, comment = libUi.process_input(command_string)
+            # FIXME: nobody cares about the comment
+            command_line = CommandLine.process_input(command_string)
+            if command_line.is_empty():
                 # somebody just pressed return for no reason
                 return OK, []
-            tokens = system_state.get_state_tokens(tokens)
-            status, output = self.run(tokens, no_flag)
+            command_line.update_system_tokens()
+            status, output = self.run(command_line)
             libUi.user_output(output, status)
             return status, output
         except ServerException, err:
@@ -137,7 +137,7 @@ class Slash(PinshCmd.PinshCmd):
                 system_state.fp_err.write("  %%%% %s" % line)
                 system_state.fp_err.write("\n")
         except Exception, err:
-            msg = " %%%% Error detected in %s (%s)." % (command, err)
+            msg = " %%%% Error detected in %s (%s)." % (command_string, err)
             system_state.fp_err.write( msg )
             tb_str = StringIO.StringIO()
             traceback.print_exc(file=tb_str)
@@ -151,7 +151,7 @@ class Slash(PinshCmd.PinshCmd):
         return FAIL, ["process_command Excepted"]
 
     @classmethod
-    def get_names(cls, objects, tokens, index):
+    def get_names(cls, objects, command_line, index):
         """
         There is a tree of objects, such as:
          slash:
@@ -179,23 +179,23 @@ class Slash(PinshCmd.PinshCmd):
         """
         names = []
         for obj in objects:
-            new_name = obj.preferred_names(tokens, index)
+            new_name = obj.preferred_names(command_line, index)
             if type(new_name) == type("string"):
                 names.append(new_name)
             else:
                 names = names + new_name
         return names
 
-    def get_names_and_token_delimeter(self, tokens, help_flag):
+    def get_names_and_token_delimeter(self, command_line):
         index = 0
-        if tokens == []:
+        if command_line.is_empty():
             completion_objects = self.children
         else:
-            completion_objects, index = self.find_completions(tokens, 0, help_flag)
+            completion_objects, index = self.find_completions(command_line, 0)
         if len(completion_objects) == 0:
             return None, ' '
         token_delimeter = completion_objects[0].token_delimeter
-        names = self.get_names(completion_objects, tokens, index-1)
+        names = self.get_names(completion_objects, command_line, index-1)
         return names, token_delimeter
 
     def complete(self, _text, status):
@@ -208,15 +208,15 @@ class Slash(PinshCmd.PinshCmd):
                     return None
                 return self.names[status]
             else:
-                _no_flag, help_flag, tokens, _comment = \
-                    libUi.process_input(readline.get_line_buffer())
-                tokens = system_state.get_state_tokens(tokens)
-                if help_flag: # Process the [?] key first
-                    self.find_help(tokens, 0)
+                #_no_flag, help_flag, tokens, _comment = \
+                command_line = CommandLine.process_input(readline.get_line_buffer())
+                command_line.update_system_tokens()
+                if command_line.help_flag: # Process the [?] key first
+                    self.find_help(command_line, 0)
                     sys.stdout.write("%s%s" % (system_state.get_prompt(), readline.get_line_buffer()))
                     sys.stdout.flush()
                     return []
-                names, token_delimeter = self.get_names_and_token_delimeter(tokens, help_flag)
+                names, token_delimeter = self.get_names_and_token_delimeter(command_line)
                 self.names = names
                 if not self.names:
                     return []

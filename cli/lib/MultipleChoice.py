@@ -52,23 +52,23 @@ class MultipleChoice(PinshCmd.PinshCmd):
         self.help_text = self.help_text[:-1]
         self.cmd_owner = 0
 
-    def match(self, tokens, index):
+    def match(self, command_line, index):
         '''determines if the user typed in an option that the system
         recognizes'''
-        possible_choices = self.preferred_names(tokens, index)
+        possible_choices = self.preferred_names(command_line, index)
         if len(possible_choices) == 0:
             return NO_MATCH, 1
         if len(possible_choices) == 1:
             return COMPLETE, 1
         return PARTIAL, 1
 
-    def preferred_names(self, tokens, index):
+    def preferred_names(self, command_line, index):
         '''provides the full name of the choice if a partial one
         was given.'''
         possible_choices = []
-        if tokens[index] == '':
+        if command_line[index] == '':
             return self.choices
         for choice in self.choices:
-            if choice.find(tokens[index]) == 0:
+            if choice.find(command_line[index]) == 0:
                 possible_choices.append(choice)
         return possible_choices

@@ -71,6 +71,7 @@ URL_LOOKUP = {'test': "json/machine/start_test/%s",
 
 
 def curl_debug(debug_type, debug_msg):
+    "Interface for debugging curl commands"
     print "debug(%d): %s" % (debug_type, debug_msg.strip())
 
 def make_query_string(args):
@@ -274,21 +275,25 @@ class CnmConnector:
         password -- cleartext password to use to authenticate
         '''
         data = {"username": self.username, "password": password}
+        msg = "Logging in as %s to %s"
+        msg = msg  % (self.username, self.address)
+        print msg
         response = self.post(LOGIN_PATH, data)
         return_data = response.convert_from_yaml()
         self.password = password
         return return_data.get("super_user")
 
-    def package_build_job(self, package_name, svn_user, svn_password):
+    def package_build_job(self, package_name, svn_user, svn_password, bg_flag):
         "start a package-building job and watch its progress"
         url = "json/package_build/%s" % package_name
         post_data = {"svn_user": svn_user,
                      "svn_password": svn_password,
                      "debug": True,
                      "prepare": True}
-        job_name = self.cnm_connector.get_job(url, post_data)
-        return self.cnm_connector.watch_jobs([job_name])
-
+        job_name = self.get_job(url, post_data)
+        if bg_flag:
+            return OK, ["Started job: %s" % job_name]
+        return self.watch_jobs([job_name])
 
     def service_request(self, path, args=None,
                         put_data=None, post_data=None,
@@ -374,52 +379,59 @@ class CnmConnector:
 
     # MACHINE stuff:
 
-    def machine_job(self, machine_name, command, post_data = None):
+    def machine_job(self, machine_name, command, bg_flag, post_data = None):
         "Run a non-package job on a remote machine"
         if post_data == None:
             post_data = {}
         url = URL_LOOKUP[command] % machine_name
         job_name = self.get_job(url, post_data)
+        if bg_flag:
+            return OK, ["Started job: %s" % job_name]
         libUi.info("Watching job progress. Press ^C to abort or disconnect.")
         return self.watch_jobs([job_name])
 
-    def setup_command(self, machine_name, password):
+    def setup_command(self, machine_name, password, bg_flag):
         "Set a machine up"
         post_data = {"yaml": yaml.dump( {"password" : password } )}
-        return self.machine_job(machine_name, "setup", post_data)
+        return self.machine_job(machine_name, "setup", bg_flag, post_data)
 
-    def enable_command(self, machine_name, password):
+    def enable_command(self, machine_name, password, bg_flag):
         "Transfer ssh keys"
         post_data = {"yaml": yaml.dump( {"password" : password } )}
-        return self.machine_job(machine_name, "enable", post_data)
+        return self.machine_job(machine_name, "enable", bg_flag, post_data)
 
-    def dist_command(self, machine_name, dist_name):
+    def dist_command(self, machine_name, dist_name, bg_flag):
         "Set up a dist on a remote machine"
         post_data = {"dist": dist_name}
-        return self.machine_job(machine_name, "dist", post_data)
+        return self.machine_job(machine_name, "dist", bg_flag, post_data)
 
-    def package_command(self, command, machine_name, package_name):
+    def package_command(self, command, machine_name, package_name, bg_flag):
         "Watch a package-job run on a machine"
         url = "json/package_action/%s" % package_name
         post_data = {"machine": machine_name,
                      "action": command}
         job_name = self.get_job(url, post_data)
+        if bg_flag:
+            return OK, ["Started job: %s" % job_name]
         return self.watch_jobs([job_name])
 
-    def machine_command(self, url_base, machine_name):
+    def machine_command(self, url_base, machine_name, bg_flag):
         "Perform a simple command on a remote machine"
         url = url_base + "/" + machine_name
         post_data = {"machine": machine_name}
         job_name = self.get_job(url, post_data)
+        if bg_flag:
+            return OK, ["Started job: %s" % job_name]
         return self.watch_jobs([job_name])
 
-    def push_machine_config(self, machine_name):
+    def push_machine_config(self, machine_name, bg_flag):
         "Push the configuration to a remote machine"
-        return self.machine_command("json/machine/push", machine_name)
+        return self.machine_command("json/machine/push", machine_name, bg_flag)
 
-    def unpush_machine_config(self, machine_name):
+    def unpush_machine_config(self, machine_name, bg_flag):
         "Remove the configuration on a remote machine"
-        return self.machine_command("json/machine/unpush", machine_name)
+        return self.machine_command("json/machine/unpush",
+                                    machine_name, bg_flag)
 
     # END OF MACHINE STUFF
 

@@ -45,6 +45,7 @@ import PackageActionField
 from Exceptions import MachineTraceback, CommandError
 from JobNameField import JobNameField
 from Ssh import Ssh
+import CommandLine
 import Show
 import Edit
 system_state = SystemState()
@@ -61,17 +62,17 @@ timestamp: 1251918530.6349609"""
     status_file = "/opt/spkg/localhost/status.yml"
     open(status_file, "w").write(fresh_status_yaml)
 
-def check_machine_name(tokens, no_flag):
+def check_machine_name(command_line):
     "Verifies that the machine name entered is valid"
     machine_field = ConfigField.ConfigField(data_type=ConfigField.MACHINE)
-    possible_machine_names = machine_field.preferred_names(tokens, 1)
+    possible_machine_names = machine_field.preferred_names(command_line, 1)
     machine_name = possible_machine_names[0]
-    if no_flag:
+    if command_line.no_flag:
         raise CommandError("NO cannot be used here")
     if len(possible_machine_names) == 0:
-        raise CommandError("Unknown machine name: %s" % tokens[2])
+        raise CommandError("Unknown machine name: %s" % command_line[2])
     if len(possible_machine_names) > 1:
-        raise CommandError("Ambiguous machine name: %s" % tokens[2])
+        raise CommandError("Ambiguous machine name: %s" % command_line[2])
     return machine_name
 
 def edit_config_file(conf_str, config_field, object_name):
@@ -115,22 +116,21 @@ class AssignCommand(PinshCmd.PinshCmd):
         conf_str = prefix + yaml.dump(machine_config_data, default_flow_style=False)
         return edit_config_file(conf_str, machine_config, machine_name)
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         """
-        tokens -- all of the keywords passed in the command string, parsed
-        no_flag -- whether the 'no' keyword was used in the command string
+        command_line -- all of the keywords passed in the command string, parsed
         """
-        machine_name = check_machine_name(tokens, no_flag)
+        machine_name = check_machine_name(command_line)
 
-        if len(tokens) != 4:
+        if len(command_line) != 4:
             msg = "Incomplete command; need to include package name."
             raise CommandError(msg)
 
-        package_name = tokens[3]
-        pkg_data = self.pkg_field.get_specific_data(tokens, 3)
+        package_name = command_line[3]
+        pkg_data = self.pkg_field.get_specific_data(command_line, 3)
         pkg_config_data = pkg_data.get("configuration", {})
         merged_field = ConfigField.ConfigField(data_type=ConfigField.MERGED)
-        merged_data = merged_field.get_specific_data(tokens, 1)
+        merged_data = merged_field.get_specific_data(command_line, 1)
         missing_stuff = mini_utility.diff_dicts(pkg_config_data, merged_data)
         if package_name in merged_data.get("packages", []) and not missing_stuff:
             msg = "Package %s is already assigned and properly configured."
@@ -160,27 +160,32 @@ class EditCommand(PinshCmd.PinshCmd):
         bom.children = [bom_config]
         include.children = [include_config]
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         """
-        tokens -- all of the keywords passed in the command string, parsed
-        no_flag -- whether the 'no' keyword was used in the command string
+        command_line -- all of the keywords passed in the command string, parsed
         """
-        machine_name = check_machine_name(tokens, no_flag)
+        machine_name = check_machine_name(command_line)
 
-        if len(tokens) == 3 or tokens[3] == "config":
-            return Edit.Machine().cmd(["edit", "machine", machine_name], 0)
+        if len(command_line) == 3 or command_line[3] == "config":
+            command_string = "edit machine %s" % machine_name
+            command_line = CommandLine.process_input(command_string)
+            return Edit.Machine().cmd(command_line)
 
-        command = tokens[3]
-        if len(tokens) != 5:
+        command = command_line[3]
+        if len(command_line) != 5:
             msg = "Incomplete command; need to include %s name." % command
             raise CommandError(msg)
 
-        object_name = tokens[4]
+        object_name = command_line[4]
 
         if command == "bom":
-            return Edit.Bom().cmd(["Edit", "bom", object_name], 0)
+            command_string = "edit bom %s" % object_name
+            command_line = CommandLine.process_input(command_string)
+            return Edit.Bom().cmd(command_line)
         elif command == "include":
-            return Edit.Include().cmd(["Edit", "include", object_name], 0)
+            command_string = "edit include %s" % object_name
+            command_line = CommandLine.process_input(command_string)
+            return Edit.Include().cmd(command_line)
 
         raise CommandError("Unknown command: %s" % command)
 
@@ -212,34 +217,45 @@ class ShowCommand(PinshCmd.PinshCmd):
         bom.children = [bom_config]
         include.children = [include_config]
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         """
-        tokens -- all of the keywords passed in the command string, parsed
-        no_flag -- whether the 'no' keyword was used in the command string
+        command_line -- all of the keywords passed in the command string, parsed
         """
-        machine_name = check_machine_name(tokens, no_flag)
+        machine_name = check_machine_name(command_line)
 
-        if len(tokens) == 3 or tokens[3] == "config":
-            return Show.Machine().cmd(["Show", "machine", machine_name], 0)
+        if len(command_line) == 3 or command_line[3] == "config":
+            command_string = "show machine %s" % machine_name
+            command_line = CommandLine.process_input(command_string)
+            return Show.Machine().cmd(command_line)
 
-        command = tokens[3]
+        command = command_line[3]
         if command == "merged":
-            return Show.Merged().cmd(["Show", "merged", machine_name], 0)
+            command_string = "show merged %s" % machine_name
+            command_line = CommandLine.process_input(command_string)
+            return Show.Merged().cmd(command_line)
         elif command == "status":
-            return Show.Status().cmd(["show", "status", machine_name], 0)
+            command_string = "show status %s" % machine_name
+            command_line = CommandLine.process_input(command_string)
+            return Show.Status().cmd(command_line)
         elif command == "summary":
-            return Show.Summary().cmd(["show", "summary", machine_name], 0)
+            command_string = "show summary %s" % machine_name
+            command_line = CommandLine.process_input(command_string)
+            return Show.Status().cmd(command_line)
 
-        if len(tokens) != 5:
+        if len(command_line) != 5:
             msg = "Incomplete command; need to include %s name." % command
             raise CommandError(msg)
 
-        object_name = tokens[4]
+        object_name = command_line[4]
 
         if command == "bom":
-            return Show.Bom().cmd(["Show", "bom", object_name], 0)
+            command_string = "show bom %s" % object_name
+            command_line = CommandLine.process_input(command_string)
+            return Show.Bom().cmd(command_line)
         elif command == "include":
-            return Show.Include().cmd(["Show", "include", object_name], 0)
+            command_string = "show include %s" % object_name
+            command_line = CommandLine.process_input(command_string)
+            return Show.Include().cmd(command_line)
 
         raise CommandError("Unknown command: %s" % command)
 
@@ -265,27 +281,26 @@ class JobCommand(PinshCmd.PinshCmd):
         job_name_field = JobNameField()
         view.children = [job_name_field]
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         """
-        tokens -- all of the keywords passed in the command string, parsed
-        no_flag -- whether the 'no' keyword was used in the command string
+        command_line -- all of the keywords passed in the command string, parsed
         """
 
-        machine_name = check_machine_name(tokens, no_flag)
+        machine_name = check_machine_name(command_line)
         sub_command = "show"
 
-        if len(tokens) >= 4:
-            sub_command = tokens[3]
+        if len(command_line) >= 4:
+            sub_command = command_line[3]
         
         if sub_command == "stop":
             return system_state.cnm_connector.stop_jobs(machine_name)
         elif sub_command == "clear-broken":
             return system_state.cnm_connector.clear_broken_jobs(machine_name)
         elif sub_command == "view":
-            if len(tokens) < 5:
+            if len(command_line) < 5:
                 msg = "Incomplete command; need to include the job name."
                 raise CommandError(msg)
-            job_name = tokens[4]
+            job_name = command_line[4]
             return system_state.cnm_connector.watch_jobs([job_name])
         else:
             output = system_state.cnm_connector.show_jobs(machine_name)
@@ -386,57 +401,59 @@ class Machine(PinshCmd.PinshCmd):
         job_name_field = JobNameField()
         view.children = [job_name_field]
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         """
-        tokens -- all of the keywords passed in the command string, parsed
-        no_flag -- whether the 'no' keyword was used in the command string
+        command_line -- all of the keywords passed in the command string, parsed
         """
-        if len(tokens) < 2:
+        if len(command_line) < 2:
             raise CommandError("Incomplete command.")
-        machine_name = check_machine_name(tokens, no_flag)
-        if len(tokens) == 2:
+        machine_name = check_machine_name(command_line)
+        if len(command_line) == 2:
             system_state.push_prompt(["machine", machine_name])
             return OK, []
 
-        command = tokens[2].lower()
+        command = command_line[2].lower()
+        bg_flag = command_line.bg_flag
 
         cnm = system_state.cnm_connector
         try:
             if command == "ssh":
-                return Ssh().cmd(["ssh", machine_name], 0)
+                command_string = "ssh %s" % machine_name
+                command_line = CommandLine.process_input(command_string)
+                return Ssh().cmd(command_line)
             elif command == "push":
-                return cnm.push_machine_config(machine_name)
+                return cnm.push_machine_config(machine_name, bg_flag)
             elif command == "unpush":
-                return cnm.unpush_machine_config(machine_name)
+                return cnm.unpush_machine_config(machine_name, bg_flag)
             elif command in ["install", "uninstall", "verify",
                              "configure", "execute", "purge", "fix"]:
                 if command == "execute":
-                    if len(tokens) != 5:
+                    if len(command_line) != 5:
                         msg = "Incomplete command; require a package name "\
                               "and a command."
                         raise CommandError(msg)
-                    command = tokens[4]
-                if len(tokens) <= 3:
+                    command = command_line[4]
+                if len(command_line) <= 3:
                     msg = "Incomplete command; require a package name."
                     raise CommandError(msg)
-                package_name = tokens[3]
-                return cnm.package_command(command, machine_name, package_name)
+                package_name = command_line[3]
+                return cnm.package_command(command, machine_name, package_name, bg_flag)
             elif command in [ "enable", "setup" ]:
                 prompt = "%s administrative ssh password: " % machine_name
                 password = libUi.pwd_input(prompt)
                 if command == "enable":
-                    return cnm.enable_command(machine_name, password)
+                    return cnm.enable_command(machine_name, password, bg_flag)
                 else:
-                    return cnm.setup_command(machine_name, password)
+                    return cnm.setup_command(machine_name, password, bg_flag)
             elif command == "dist":
-                if len(tokens) <= 3:
+                if len(command_line) <= 3:
                     msg = "Incomplete command; requires a dist file name."
                     raise CommandError(msg)
-                dist_name = tokens[-1]
-                return cnm.dist_command(machine_name, dist_name)
+                dist_name = command_line[-1]
+                return cnm.dist_command(machine_name, dist_name, bg_flag)
             elif command in ['test', 'init', 'reconcile',
                              'check-status', 'disable']:
-                return cnm.machine_job(machine_name, command)
+                return cnm.machine_job(machine_name, command, bg_flag)
             else:
                 raise CommandError("%s is not a valid command" % command)
         except MachineTraceback, m_err:

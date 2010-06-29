@@ -1,10 +1,17 @@
 import os
+from bombardier_core.static_data import SERVER_CONFIG_FILE
+SERVER_CONFIG = {}
+if os.path.isfile(SERVER_CONFIG_FILE):
+    import yaml
+    SERVER_CONFIG = yaml.load(open(SERVER_CONFIG_FILE).read())
 
-DEBUG = True
-TEMPLATE_DEBUG = True
-SERVER_HOME = "/var/deploy"
-LOGIN_URL="/bdr/accounts/login"
-LOGIN_REDIRECT_URL="/bdr/accounts/profile"
+DEBUG = SERVER_CONFIG.get("debug", True)
+TEMPLATE_DEBUG = SERVER_CONFIG.get("debug", True)
+
+SERVER_HOME = SERVER_CONFIG.get("home_directory", "/var/deploy")
+SERVER_ROOT = SERVER_CONFIG.get("server_root", '')
+LOGIN_URL="%s/accounts/login" % SERVER_ROOT
+LOGIN_REDIRECT_URL="%s/accounts/profile" % SERVER_ROOT
 
 INSTALLED_APPS = (
     'django.contrib.contenttypes',

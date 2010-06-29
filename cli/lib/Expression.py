@@ -34,16 +34,19 @@ import PinshCmd
 from bombardier_core.static_data import PARTIAL
 
 class Expression(PinshCmd.PinshCmd):
+    "A PinshCmd that can look like anything"
     def __init__(self, name = "expression"):
         PinshCmd.PinshCmd.__init__(self, name)
         self.help_text = name+"\tan arbitrary expression"
         self.level = 99
         self.cmd_owner = 0
 
-    def match(self, tokens, index):
-        #print "exp-match %s\n" % ( len(tokens) - index )
-        return PARTIAL, len(tokens) - index
+    def match(self, command_line, index):
+        "PinshCmd interface"
+        #print "exp-match %s\n" % ( len(command_line) - index )
+        return PARTIAL, len(command_line) - index
 
-    def preferred_names(self, tokens, index):
-        #print tokens[-1],'\n'
-        return [tokens[-1], tokens[-1]]
+    def preferred_names(self, command_line, _index):
+        "PinshCmd interface"
+        #print command_line[-1],'\n'
+        return [command_line[-1], command_line[-1]]

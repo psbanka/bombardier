@@ -20,7 +20,7 @@
 # MA  02110-1301, USA.
 
 import yaml, os
-import md5
+import hashlib
 
 class FileManifest:
     """File manifest creation and verification class"""
@@ -64,7 +64,7 @@ class FileManifest:
                 if inode.split('.')[-1].lower() in self.md5_extensions:
                     handle = open( full_path, 'rb' )
                     data = handle.read()
-                    work_dict[relative_path] = md5.new( data ).hexdigest()
+                    work_dict[relative_path] = hashlib.md5( data ).hexdigest()
                     handle.close()
                 else:
                     work_dict[relative_path] = ''
@@ -109,7 +109,7 @@ class FileManifest:
                 err_string = "missing file"
                 error_list.append((filepath, err_string))
             elif md5sum != '':
-                computed = md5.new(open(filepath, 'rb').read()).hexdigest()
+                computed = hashlib.md5(open(filepath, 'rb').read()).hexdigest()
                 if md5sum != computed:
                     err_string = "invalid checksum: Actual: %s Expected %s" \
                                  % (computed, md5sum)

@@ -1,0 +1,234 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>FAQ: General &mdash; Bombardier v1.00 documentation</title>
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.00',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Bombardier v1.00 documentation" href="../index.html" />
+    <link rel="up" title="Bombardier FAQ" href="index.html" />
+    <link rel="next" title="FAQ: Installation" href="install.html" />
+    <link rel="prev" title="Bombardier FAQ" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="install.html" title="FAQ: Installation"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Bombardier FAQ"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Bombardier v1.00 documentation</a> &raquo;</li>
+          <li><a href="../contents.html" >Bombardier documentation contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Bombardier FAQ</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="faq-general">
+<span id="id1"></span><h1>FAQ: General<a class="headerlink" href="#faq-general" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="why-does-this-project-exist">
+<h2>Why does this project exist?<a class="headerlink" href="#why-does-this-project-exist" title="Permalink to this headline">¶</a></h2>
+<p>Bombardier grew from a company that provided key-control products to
+Real Estate Agents (these are in the form of little boxes that hang on
+people&#8217;s doors when they want to sell their houses and keys that all
+Real Estate Agents hold to access the key housed in the little
+box). One of the features of these key-control products was that it
+was possible to get information about what boxes a given Real-estate
+agent opened. In addition, it was possible to turn off a key quickly
+so that a Real Estate Agent who was not longer in good standing
+couldn&#8217;t open the boxes and gain access to the houses being sold.</p>
+<p>To facilitate some of these features, the key-control products
+required a datacenter back-end which communicated with the keys to
+find out and report what boxes were opened and which could authorize
+keys to access key-boxes for the next day. In addition, there were a
+large variety of other network-based software services: web-based
+portals, interactive voice-response, TCP-based socket servers,
+client-server applications fronted by VPN components; as well as
+numerous infrastructure components to make everything work: DNS,
+email, load balancing, and database backend.</p>
+<p>Because this datacenter infrastructure was part of a product that
+provided people with access to a large number of homes in various
+geographic areas, it was critical that the datacenter infrastructure
+be deployed properly each and every time to large numbers of
+servers. Furthermore, there was a large software development group
+which was constantly releasing improvements and patches to the backend
+software, and so this datacenter had to be able to accomodate change
+quickly as well.</p>
+<p>Bombardier was developed to manage this infrastructure: to get a
+concrete idea of what software was being deployed on what servers in a
+single <a class="reference external" href="http://en.wikipedia.org/wiki/Definitive_Software_Library">Definitive Software Library</a> , to centralize all software
+<a class="reference external" href="http://en.wikipedia.org/wiki/Configuration_item">Configuration Items</a>, and to be able to deploy software correctly
+every time. Implementing Bombardier in this environment decreased the
+<a class="reference external" href="http://en.wikipedia.org/wiki/Incident_Management_%28ITSM%29">Incidents</a> to the <a class="reference external" href="http://en.wikipedia.org/wiki/Information_Technology_Infrastructure_Library#Service_Desk">Service Desk</a> by 90% and increased speed of
+deployment by 90%.</p>
+<p>After the success of the team in managing software releases in the
+Real Estate field, the same IT team was assigned in 2006 to a new
+product which dealt with identifying and tracking any tampering to
+shipping containers coming into and out of the United States. This
+product also had a substantial back-end datacenter with even higher
+security requirements. We tried to find any products that were at all
+similar to the Bombardier that could be used instead of writing our
+own software, but could find nothing that came close. Therefore
+Bombardier was extended and enhanced, providing it with much more of a
+Linux focus, a streamlined command-line interface, locked-down
+security protocols, and other features. All these features rolled into
+the 0.70 release, which was released to open source under the GPLv2
+license.</p>
+<p>This venture was audited by several large companies, including
+undergoing a successful abbreviated ISO 17799 audit by Siemens CERT,
+which deemed that the system &#8220;...provides an appropriate and
+acceptable level of IT security.&#8221;</p>
+<p>Since then, the software has been used on other products within the
+company, gradually becoming more secure, more modular, and easier to
+use.</p>
+</div>
+<div class="section" id="what-does-bombardier-mean-and-how-do-you-pronounce-it">
+<h2>What does &#8220;Bombardier&#8221; mean, and how do you pronounce it?<a class="headerlink" href="#what-does-bombardier-mean-and-how-do-you-pronounce-it" title="Permalink to this headline">¶</a></h2>
+<p>One of the goals of Bombardier was to apply some concepts of
+Manufacturing Engineering to Software as a Service. On a factory line,
+every product has a <a class="reference external" href="http://en.wikipedia.org/wiki/Bill_of_materials">Bill of Materials</a>, which &#8220;is a list of the raw
+materials, sub-assemblies, intermediate assemblies, sub-components,
+components, parts and the quantities of each needed to manufacture an
+end item.&#8221; And we thought to ourselves, &#8220;Why should servers in a
+datacenter be any different? This software is just as critical to our
+customers as the widgets that they purchase, and yet we manage
+software deployment and changes in a much different way.&#8221; We therefore
+had the belief that every server should have a Bill of Materials or
+&#8220;BOM.&#8221; Hence, the name &#8220;Bombardier&#8221; comes from this term: it&#8217;s the
+software that ensures that all servers comply with their BOMs.</p>
+<p>Furthermore, many datacenter administrators treat their work like
+ground warfare: send in a platoon of system administrators to pore
+over each and every configuration option and setting within those
+systems to make sure they&#8217;re correct. Whereas our viewpoint is that
+system administrators should hardly ever log on to an individual
+server, and should <strong>never</strong> make any changes to a server ad-hoc. All
+changes to servers should be done with packages so that the changes
+are well-documented and reversible. Therefore, managing a datacenter
+chagne using Bombardier is much more like strategic air-strikes: from
+a centralized console, pick your packages and deploy them to (usually
+large amounts of) servers, and sit back and watch things happen.</p>
+<p>We&#8217;re American English speakers, so we pronounce Bombardier as
+bom-buh-<strong>DEER</strong>. If you&#8217;re a French feller and want to pronounce it
+bom-bahr-<strong>DYEY</strong>, then that&#8217;s up to you.</p>
+<p>There&#8217;s also an <a class="reference external" href="http://cache.lexico.com/dictionary/audio/lunaWAV/B04/B0477000.wav">audio clip of the pronunciation</a>.</p>
+</div>
+<div class="section" id="what-platforms-does-bombardier-run-on">
+<h2>What platforms does Bombardier run on?<a class="headerlink" href="#what-platforms-does-bombardier-run-on" title="Permalink to this headline">¶</a></h2>
+<p>Bombardier runs on Linux (specifically tested with Ubuntu Hardy,
+RedHat Enterprise Linux 4, and Centos 4). It will probably run on
+cygwin without much difficulty and other flavors of Linux, but we
+haven&#8217;t had much need to test this in the past year or two. Anyone
+interested in testing Bombardier on other platforms and flavors of
+Linux is welcome to do so, and we&#8217;ll gladly help you iron out any
+issues that may arise.</p>
+<p>Bombardier uses SSH to communicate between the centralized server
+system and the individual machines that it manages. Therefore the
+remote boxes have to be capable of at least running ssh and providing
+a bash prompt.</p>
+</div>
+<div class="section" id="is-bombardier-stable">
+<h2>Is Bombardier stable?<a class="headerlink" href="#is-bombardier-stable" title="Permalink to this headline">¶</a></h2>
+<p>Mostly.</p>
+</div>
+<div class="section" id="who-s-behind-this">
+<h2>Who&#8217;s behind this?<a class="headerlink" href="#who-s-behind-this" title="Permalink to this headline">¶</a></h2>
+<p>Bombardier was originally developed at a Very Large Corporation that
+wishes to remain anonymous. However, the current maintainers are Peter
+Banka and Shawn Sherwood. We welcome additional contributors.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference external" href="">FAQ: General</a><ul>
+<li><a class="reference external" href="#why-does-this-project-exist">Why does this project exist?</a></li>
+<li><a class="reference external" href="#what-does-bombardier-mean-and-how-do-you-pronounce-it">What does &#8220;Bombardier&#8221; mean, and how do you pronounce it?</a></li>
+<li><a class="reference external" href="#what-platforms-does-bombardier-run-on">What platforms does Bombardier run on?</a></li>
+<li><a class="reference external" href="#is-bombardier-stable">Is Bombardier stable?</a></li>
+<li><a class="reference external" href="#who-s-behind-this">Who&#8217;s behind this?</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="index.html"
+                                  title="previous chapter">Bombardier FAQ</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="install.html"
+                                  title="next chapter">FAQ: Installation</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="../_sources/faq/general.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="../search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="install.html" title="FAQ: Installation"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Bombardier FAQ"
+             >previous</a> |</li>
+        <li><a href="../index.html">Bombardier v1.00 documentation</a> &raquo;</li>
+          <li><a href="../contents.html" >Bombardier documentation contents</a> &raquo;</li>
+          <li><a href="index.html" >Bombardier FAQ</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2009, Peter Banka, Shawn Sherwood.
+      Last updated on Mar 22, 2010.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.3.
+    </div>
+  </body>
+</html>

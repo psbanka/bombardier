@@ -2,7 +2,7 @@
 compression, and splitting on files with full MD5 support to ensure
 operational integrity."""
 
-import md5, time, yaml, sys, os, glob
+import hashlib, time, yaml, sys, os, glob
 
 ###### Constants #############################################################
 
@@ -75,7 +75,7 @@ class Md5Validation:
         #print "UPDATE: %s || file_name: %s || len(data) %d" % (self, self.file_name, len(data))
         key = strip_directory(self.file_name)
         if not key in self.computed_md5_data:
-            self.computed_md5_data[key] = md5.new()
+            self.computed_md5_data[key] = hashlib.md5()
         if not data:
             return
         self.computed_md5_data[key].update(data)

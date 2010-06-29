@@ -1,0 +1,212 @@
+.. _intro-tutorial02:
+
+
+====================================================
+Deploying your first package with Bombardier, part 2
+====================================================
+
+Create a machine definintion
+----------------------------
+
+It's time to get a machine working which we will deploy this new
+SNMP package to. The first thing to do is to create a machine object,
+using the ``create`` command again on the command-line interface:
+
+  .. code-block:: bash
+
+     peacemaker (admin)> create machine test_machine
+
+Again, the system will present you with a default system configuration
+in your favorite editor::
+
+    ip_address: 127.0.0.1
+    default_user: root
+    platform: rhel5
+    ~
+    ~
+
+Fill in the ``ip_address`` value with the one of the server that you
+want to configure this package onto.  For the purposes of this
+tutorial, if you don't have another computer, you can use
+``127.0.0.1`` to install onto the server system itself.
+
+The ``default_user`` option defines what user object Bombardier will
+connect to this remote system as when performing administrative
+actions.  If this is going to be something other than ``root``, make
+sure that the remove user account has the rights to perform all the
+actions that it needs to.
+
+The ``platform`` option provides Bombardier some information about
+what kind of operating-system the remote machine is running.  Some
+packages can only be installed on certain platforms, and this value
+will be checked by some packages before installing.  Some packages can
+be installed on a number of different platforms and may take different
+actions, depending on what this value is. Current options are:
+
+:``rhel5``: 
+  Redhad Linux 5
+:``centos5``: 
+  CentOS Linux 5 (a Redhat Linux clone)
+:``ubuntu-hardy``:
+  Ubuntu Linux 8.04 (a.k.a. "Hardy Heron")
+:``cygwin``:
+  Windows Cygwin 1.7
+
+In addition, you can feel free to fill any value in this field that
+you want, as it is primarily used by packages.
+
+Initialize the remote machine for use with the server
+-----------------------------------------------------
+
+Now it's time to get the remote system talking to the server.  Let's
+go into machine sub-interface mode and use the ``setup`` command.
+
+.. code-block:: bash
+
+      peacemaker (admin)> machine test_machine
+     ( machine test_machine )> setup
+     >>> Watching job progress. Press ^C to abort or disconnect.
+
+       | admin@test_machine-73 | Sending /var/deploy/admin/id_dsa.pub to test_machine:.
+       | admin@test_machine-74 | Sending /var/deploy/dist/bombardier_core-1.00-732.tar.gz to test_machine:.
+       | admin@test_machine-75 | Sending /var/deploy/dist/bombardier_client-1.00-732.tar.gz to test_machine:.
+       | admin@test_machine-76 | Sending /var/deploy/dist/PyYAML-3.08.tar.gz to test_machine:.
+       | admin@test_machine-77 | Streaming configuration data...
+       | admin@test_machine-78 | Syncing packages...
+       | admin@test_machine-78 | Streaming configuration data...
+       | admin@test_machine-78 | System-check starting...
+       | admin@test_machine-78 | Packages that are installed:
+     >>> Finishing processing of 6 jobs...
+        Packages that are BROKEN: []
+        Packages to be RECONFIGURED: []
+        Packages to be REMOVED: []
+        Packages to be INSTALLED: []
+        Packages installed properly: []
+
+     (*5) ( machine test_machine )>
+
+
+This command will perform the following actions on the remote system:
+
+ * Add the Bombardier Server's SSH key to the remote machine's
+   .ssh/authorized_keys for the ``default_user`` specified in the
+   configuration file.
+
+ * Copy and install necessary Python libraries to the remote machine
+   (i.e. PyYaml, Bombardier Core, and Bombardier Client).
+
+ * Initialize the Bombardier Client code on the remote machine
+   (i.e. set up some directories and initialize some configuration
+   files)
+
+ * Run a ``check-status`` command on the remote system, showing on the
+   last few lines what packages are to be installed, removed,
+   etc. from the remote system (in our example, there are no pending
+   package actions).
+
+
+Assign a package to a remote machine
+------------------------------------
+We are now ready to assign a package to a machine. This is done with
+the ``assign`` command.  Since Bombardier keeps track of the
+configuration settings that each package requires, when you issue the
+``assign`` command, Bombardier will examine the configuration of the
+machine you are currently viewing and compare it to the configuration
+parameters that are required by the package.  If your machine
+configuration is missing any parameters, Bombardier will open an
+editor screen to allow you to enter all the configuration data for
+that machine that you need.
+
+.. code-block:: bash
+
+     (*5) ( machine test_machine )> assign SnmpConfigV5
+
+The system will show the configuration data that you need (with
+example data) on the top of the editor, with your machine's
+configuration data at the bottom of the editor, as follows:
+
+
+.. code-block:: bash
+
+    ---
+    snmp:
+      community_string: public
+      contact: janitor@noreply.com
+      location: the basement
+
+    ---
+    default_user: root
+    ip_address: 127.0.0.1
+    packages:
+    - SnmpConfigV5
+
+
+It's your job to manually merge the two configurations into a single
+configuration file, for example:
+
+.. code-block:: bash
+
+    snmp:
+      community_string: s33kritp4ssw0rd
+      contact: joe@abc-company.com
+      location: 3532 Southeast Watson Dr., Norfolk, VA
+    default_user: root
+    platform: ubuntu-hardy
+    ip_address: 127.0.0.1
+    packages:
+    - SnmpConfigV5
+
+Once you've saved the configuration data and exited the editor,
+Bombardier will validate the configuration data and upload it to the
+server. At this point you're ready to deploy the new package.
+
+Deploy a package to a machine
+-----------------------------
+
+At this point, you're ready to deploy the package to the remote
+machine.  This can be done in one of two ways, with the ``install``
+command, or with the ``reconcile`` command.  
+
+ * The ``install`` command will take one package that is configured to
+   be installed on a remote machine and install / configure / verify
+   it for you.
+
+ * The ``reconcile`` command is potentially a little more dangerous:
+   it will examine the configuration on the server for all the
+   packages that are supposed to be on the remote machine. Any
+   packages that do not belong on the remote machine will be
+   uninstalled, and any packages that have not been installed yet will
+   be installed.  Because this command is potentially dangerous, the
+   companion to this command is ``check-status``, which will report to
+   you everything that '''would''' be done if a reconcile were attempted.
+
+.. code-block:: bash
+
+   ( machine test_machine )> check-status
+   >>> Watching job progress. Press ^C to abort or disconnect.
+     | admin@test_machine-2 | Syncing packages...
+     | admin@test_machine-2 | Streaming configuration data...
+     | admin@test_machine-2 | System-check starting...
+     | admin@test_machine-2 | Packages that are installed:
+   >>> Finishing processing of 1 jobs...
+      Packages that are BROKEN: []
+      Packages to be RECONFIGURED: []
+      Packages to be REMOVED: []
+      Packages to be INSTALLED: ['SnmpConfigV5']
+      Packages installed properly: []
+
+.. code-block:: bash
+
+    ( machine test_machine )> reconcile
+    >>> Watching job progress. Press ^C to abort or disconnect.
+      | admin@test_machine-3 | Syncing packages...
+      | admin@test_machine-3 | Streaming configuration data...
+      | admin@test_machine-3 | Reconcile starting...
+      | admin@test_machine-3 | Packages to remove: []
+      | admin@test_machine-3 | Packages remaining to install (in order):
+      | admin@test_machine-3 | +   SnmpConfigV5
+      | admin@test_machine-3 | Currently installing package priority 100 [SnmpConfigV5]
+      | admin@test_machine-3 | Exploding SnmpConfigV5-943...
+      | admin@test_machine-3 | Exploding YumPackageInstaller-943...
+      | admin@test_machine-3 | Making directory /opt/spkg/test_machine/packages/SnmpConfigV5-8
+      | admin@test_machine-3 | test_machine installing SnmpConfigV5-8

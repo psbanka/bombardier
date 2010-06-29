@@ -35,20 +35,16 @@ __author__ =  'Peter Banka'
 __version__ = '1.0'
 
 import PinshCmd
-from ConfigField import ConfigField, MACHINE, DIST, PACKAGE, USER
+from ConfigField import ConfigField, USER
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState, ENABLE
-from PackageField import PackageField, FIX, PURGE, NOT_INSTALLED, INSTALLED
-import PackageActionField
 from Exceptions import MachineTraceback, CommandError
-import Integer
-from Ssh import Ssh
-from Show import Status, Summary
 import Edit
 system_state = SystemState()
-import libUi, time, yaml
+import libUi
 
 class User(PinshCmd.PinshCmd):
+    "Command-line object for modifying administrative users"
 
     def __init__(self):
         'Top-level object'
@@ -65,54 +61,61 @@ class User(PinshCmd.PinshCmd):
         set_password = PinshCmd.PinshCmd("set-password", "set-password\tset the password for this user")
         self.user_field.children = [delete, edit, set_password]
 
-    def check_user_name(self, tokens, no_flag):
-        possible_user_names = self.user_field.preferred_names(tokens, 1)
+    def check_user_name(self, command_line):
+        "look in command line for valid user name, assuming field 1"
+        possible_user_names = self.user_field.preferred_names(command_line, 1)
         user_name = possible_user_names[0]
-        if no_flag:
+        if command_line.no_flag:
             raise CommandError("NO cannot be used here")
         if len(possible_user_names) == 0:
-            raise CommandError("Unknown user name: %s" % tokens[2])
+            raise CommandError("Unknown user name: %s" % command_line[2])
         if len(possible_user_names) > 1:
-            raise CommandError("Ambiguous user name: %s" % tokens[2])
+            raise CommandError("Ambiguous user name: %s" % command_line[2])
         return user_name
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         """
-        tokens -- all of the keywords passed in the command string, parsed
-        no_flag -- whether the 'no' keyword was used in the command string
+        command_line -- all of the keywords passed in the command string, parsed
         """
-        if len(tokens) < 2:
+        status = OK
+        output = []
+
+        if len(command_line) < 2:
             raise CommandError("Incomplete command.")
-        user_name = self.check_user_name(tokens, no_flag)
-        if len(tokens) == 2:
+        user_name = self.check_user_name(command_line)
+        if len(command_line) == 2:
             system_state.push_prompt(["user", user_name])
-            return OK,[]
+        else:
+            command = command_line[2].lower()
 
-        command = tokens[2].lower()
+            if command == "edit":
+                status, output = Edit.User().cmd(["edit", "user", user_name], 0)
 
-        if command == "edit":
-            return Edit.User().cmd(["edit", "user", user_name], 0)
+            elif command == "set-password":
+                password = libUi.pwd_input("password for %s: " % user_name)
+                try:
+                    status, output = system_state.cnm_connector.set_password(user_name, password)
+                except MachineTraceback, m_err:
+                    libUi.process_traceback(m_err)
+                    status = FAIL
 
-        elif command == "set-password":
-            password = libUi.pwd_input("password for %s: " % user_name)
-            try:
-                return system_state.cnm_connector.set_password(user_name, password)
-                return output["command_status"], output["command_output"]
-            except MachineTraceback, m_err:
-                libUi.process_traceback(m_err)
-                return FAIL,[]
+            elif command == "delete":
+                if system_state.username == user_name:
+                    status = FAIL
+                    output = ["Cannot delete your own user object."]
+                else:
+                    prompt = 'Delete user "%s" -- are you sure' % user_name
+                    if libUi.ask_yes_no(prompt, libUi.NO) == libUi.NO:
+                        status = FAIL
+                        output = ["Aborted"]
+                    try:
+                        return system_state.cnm_connector.delete_user(user_name)
+                    except MachineTraceback, m_err:
+                        libUi.process_traceback(m_err)
+                        status = FAIL
 
-        elif command == "delete":
-            if system_state.username == user_name:
-                return FAIL, ["Cannot delete your own user object."]
-            prompt = 'Delete user "%s" -- are you sure' % user_name
-            if libUi.ask_yes_no(prompt, libUi.NO) == libUi.NO:
-                return FAIL, ["Aborted"]
-            try:
-                return system_state.cnm_connector.delete_user(user_name)
-            except MachineTraceback, m_err:
-                libUi.process_traceback(m_err)
-                return FAIL,[]
+            else: # edit is default
+                status, output = Edit.User().cmd(["edit", "user", user_name], 0)
 
-            return Edit.User().cmd(["edit", "user", user_name], 0)
+        return status, output
 

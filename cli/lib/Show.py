@@ -47,14 +47,14 @@ class ShowType(PinshCmd.PinshCmd):
         self.config_field = None
         self.cmd_owner = 1
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         '''Show the thing that the user is interested in'''
-        if no_flag:
+        if command_line.no_flag:
             return FAIL, []
-        if len(tokens) < 3:
+        if len(command_line) < 3:
             return FAIL, ["Incomplete command."]
         try:
-            current_dict = self.config_field.get_specific_data(tokens, 2)
+            current_dict = self.config_field.get_specific_data(command_line, 2)
         except UnexpectedDataException, err:
             return FAIL, ["Data appears to be corrupt. Check the server (%s)" % err.url]
         return OK, yaml.dump(current_dict, default_flow_style=False).split('\n')
@@ -132,15 +132,15 @@ class History(PinshCmd.PinshCmd):
         self.children = [self.integer]
         self.cmd_owner = 1
 
-    def cmd(self, tokens, _no_flag):
+    def cmd(self, command_line):
         "Shows the history for this user's bomsh session and before"
-        if len(tokens) == 2 or tokens[-1].strip()=='':
+        if len(command_line) == 2 or command_line[-1].strip()=='':
             number = 20
         else:
             try:
-                number = int(tokens[2])
+                number = int(command_line[2])
             except ValueError:
-                return FAIL, ["%s is not a number." % tokens[2]]
+                return FAIL, ["%s is not a number." % command_line[2]]
         hlen = readline.get_current_history_length()
         if hlen < number:
             number = hlen

@@ -1,0 +1,61 @@
+peacemaker (admin)> machine localhost <enter>
+(machine localhost)> [tab][tab]
+install uninstall verify configure exec disable  dist  enable  init  reconcile  status  test
+
+(machine localhost)> install { pkg_name }
+(machine localhost)> uninstall { pkg_name }
+(machine localhost)> execute { pkg_name } { action }
+(machine localhost)> status { purge | fix } { full_pkg_name }
+
+completed commands:
+
+package {pkg_name} { install | configure | uninstall | verify } {machine_name}
+package {pkg_name} action {machine_name}
+machine {machine_name} status {fix} {pkg_name}
+machine {machine_name} status {purge} {full_pkg_name}
+
+
+
+peacemaker (admin)> application hondo <enter>
+(application hond)> [tab][tab]
+start stop status
+
+(application hond)> start
+--> Checking Oracle...
+--> Checking Tomcat...
+
+
+
+
+
+
+/var/deploy/service/hondo.yml:
+
+Apache:
+    package_name: ICServiceController_3.4.1_r175
+    evaluate: #** Optionally could be defined in package metadata
+        - current_apache_status
+    start:
+        - command: start_apache
+    stop:
+        - command: stop_apache
+    dependencies: [Tomcat]
+    machines: [callahan_lb2, callahan_lb1]
+            
+Tomcat:
+    package_name: ICServiceController_3.4.1_r175
+    evaluate:
+        - current_tomcat_status
+    start:
+        - command: start_tomcat
+    stop:
+        - command: stop_tomcat
+    dependencies: [Oracle]
+    machines: [callahan_lb2, callahan_lb1]
+
+Oracle:
+    package_name: OracleController
+    evaluate:
+       - lsnr_status
+       - oracle_status
+    machines: [mloracle2]

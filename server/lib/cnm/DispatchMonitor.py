@@ -229,6 +229,7 @@ class DispatchMonitor(Thread, ServerLogMixin.ServerLogMixin):
         new_job_queue = []
         for job in self.job_queue:
             if self.is_runnable(job):
+                job.set_job()
                 job.start()
                 self.active_jobs[job.name] = job
                 if job.require_comment:

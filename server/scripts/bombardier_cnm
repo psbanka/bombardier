@@ -11,6 +11,16 @@ MAXFD = 1024
 INFO_FILE = "dispatcher_info.yml"
 os.environ["DJANGO_SETTINGS_MODULE"] = 'bombardier_server.web.rest_api.settings'
 
+
+def get_process_info(server_home):
+    yaml_file = os.path.join(server_home, INFO_FILE)
+    while not os.path.isfile(yaml_file):
+        time.sleep(1)
+    info_dict = yaml.load(open(yaml_file, 'r').read())
+    pid = info_dict["dispatcher_pid"]
+    uri = info_dict["dispatcher_uri"]
+    return pid, uri
+
 def refork(server_home, encryption_key):
     "Inner fork, sets up Dispatcher"
     yaml_file = os.path.join(server_home, INFO_FILE)
@@ -47,7 +57,6 @@ def daemonize(server_home, encryption_key):
     os.chdir(server_home)
     yaml_file = os.path.join(server_home, INFO_FILE)
     os.environ["PYRO_STORAGE"] = server_home
-    print "Starting..."
     if os.path.isfile(yaml_file):
         os.unlink(yaml_file)
     try:
@@ -112,12 +121,14 @@ if __name__ == "__main__":
 
     action = actions[0]
 
-    print ">>> ACTION:", action
 
     if action == "start":
         if decryption_key == None:
             decryption_key = getpass.getpass("Enter decryption key:")
-        sys.exit(daemonize(server_home, decryption_key))
+        status = daemonize(server_home, decryption_key)
+        pid, uri = get_process_info(server_home)
+        print ">>> ACTION:", action, uri
+        sys.exit(status)
     elif action == "stop":
         sys.exit(stop(server_home))
     else:

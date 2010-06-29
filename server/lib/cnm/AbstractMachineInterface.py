@@ -37,6 +37,8 @@ class AbstractMachineInterface:
 
     def set_job(self, job_name):
         "Sets the job name / locks the object"
+        if self.job_name == job_name:
+            return
         if self.job_name:
             raise JobAlreadySet(self.job_name)
         self.job_name = job_name

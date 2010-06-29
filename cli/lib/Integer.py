@@ -47,13 +47,13 @@ class Integer(PinshCmd.PinshCmd):
         self.max_value = max_value
         self.cmd_owner = 0
 
-    def match(self, tokens, index):
+    def match(self, command_line, index):
         '''determines if the number the user entered falls within limits'''
-        if tokens[index] == '':
+        if command_line[index] == '':
             return NO_MATCH, 1
         value = 0
         try:
-            value = int(tokens[index])
+            value = int(command_line[index])
             if value >= self.min_value and value <= self.max_value:
                 return COMPLETE, 1
             else:
@@ -62,10 +62,10 @@ class Integer(PinshCmd.PinshCmd):
             return NO_MATCH, 1
         return NO_MATCH, 1
 
-    def preferred_names(self, tokens, index):
+    def preferred_names(self, command_line, index):
         '''A wrapper for match'''
-        if self.match(tokens, index)[0] == NO_MATCH:
+        if self.match(command_line, index)[0] == NO_MATCH:
             return []
         else:
-            return [tokens[index]]
+            return [command_line[index]]
 

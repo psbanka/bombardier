@@ -34,7 +34,7 @@ is a design compomise because readline() requires it, really.'''
 
 import readline, socket, sys, os
 import yaml
-from bombardier_core.static_data import OK, FAIL, USER, ADMIN, INFO, LOG_LEVEL_LOOKUP
+from bombardier_core.static_data import OK, FAIL, USER, INFO
 from bombardier_core.static_data import LOG_LEVEL_LOOKUP
 
 PERSONAL_CONFIG_FILE = "%s/.bdr_config" % os.environ.get("HOME")

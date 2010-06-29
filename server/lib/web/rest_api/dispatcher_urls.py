@@ -243,6 +243,9 @@ class MachineStartTestEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
+            open("/tmp/FOOP.txt", 'a').write("STE 0\n")
+            open("/tmp/FOOP.txt", 'a').write("USER: %s\n" % request.user)
+            open("/tmp/FOOP.txt", 'a').write("MACHINE: %s\n" % machine_name)
             job_name = dispatcher.test_job(request.user, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)

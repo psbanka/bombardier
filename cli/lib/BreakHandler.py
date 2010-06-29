@@ -81,7 +81,7 @@ class BreakHandler:
             self._oldhandler = None
         return
  
-    def __call__(self, signame, sf):
+    def __call__(self, signame, segfault):
         '''
         An break just occurred.  Save information about it and keep
         going.

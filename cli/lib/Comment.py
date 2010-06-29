@@ -106,41 +106,52 @@ class Comment(PinshCmd.PinshCmd):
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "comment")
         self.help_text = "comment\tcomment on jobs that have been run"
-        comment_line = Expression.Expression("<comment>\tComments to be applied to all uncommented jobs")
+        cmnt_help = "<comment>\tComments to be applied to all uncommented jobs"
+        comment_line = Expression.Expression(cmnt_help)
         self.children = [comment_line]
         self.cmd_owner = 1
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         '''Comment on some jobs that have been run'''
-        if no_flag:
-            return FAIL, []
+        status = FAIL
+        output = []
+        if command_line.no_flag:
+            return status, output
 
-        job_info = system_state.cnm_connector.get_uncommented_jobs()
+        cnm = system_state.cnm_connector
+        job_info = cnm.get_uncommented_jobs()
         job_names = []
         form_text = FORM_TEXT_HEADER
+
         for job_name, job_desc in job_info:
             form_text += "\n[X] %20s: %50s" % (job_name, job_desc)
             job_names.append(job_name)
 
-        if len(job_names) == 0:
-            return FAIL, ["No jobs require comments."]
-
-        if len(tokens) > 1:
-            comments = ' '.join(tokens[1:])
-            response = system_state.cnm_connector.post_comments(True, job_names, comments)
-            system_state.set_comment_counter()
-            return response["command_status"], response
-
-        submit, publish, job_names, comments = get_comments(form_text)
-        if not job_names:
-            return FAIL, ["Comment does not apply to any jobs."]
-        if not comments:
-            return FAIL, ["No comments made."]
-        if not submit:
-            return FAIL, []
-
-        response = system_state.cnm_connector.post_comments(publish, job_names, comments)
-        system_state.set_comment_counter()
-        system_state.set_comment_counter()
-        return response["command_status"], response
+        if job_names:
+            if command_line.get_length() > 1:
+                comments = ' '.join(command_line[1:])
+                response = cnm.post_comments(True, job_names, comments)
+                system_state.set_comment_counter()
+                status = response["command_status"]
+                output = response
+            else:
+                submit, publish, job_names, comments = get_comments(form_text)
+                if job_names:
+                    if comments:
+                        if submit:
+                            response = cnm.post_comments(publish, job_names,
+                                                         comments)
+                            system_state.set_comment_counter()
+                            system_state.set_comment_counter()
+                            status = response["command_status"]
+                            output = response
+                        else:
+                            output = ["Comments not submitted."]
+                    else:
+                        output = ["No comments made."]
+                else:
+                    output = ["Comment does not apply to any jobs."]
+        else:
+            output = ["No jobs require comments."]
+        return status, output
 

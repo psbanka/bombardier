@@ -1,0 +1,140 @@
+.. _faq-general:
+
+FAQ: General
+============
+
+Why does this project exist?
+----------------------------
+
+Bombardier grew from a company that provided key-control products to
+Real Estate Agents (these are in the form of little boxes that hang on
+people's doors when they want to sell their houses and keys that all
+Real Estate Agents hold to access the key housed in the little
+box). One of the features of these key-control products was that it
+was possible to get information about what boxes a given Real-estate
+agent opened. In addition, it was possible to turn off a key quickly
+so that a Real Estate Agent who was not longer in good standing
+couldn't open the boxes and gain access to the houses being sold.
+
+To facilitate some of these features, the key-control products
+required a datacenter back-end which communicated with the keys to
+find out and report what boxes were opened and which could authorize
+keys to access key-boxes for the next day. In addition, there were a
+large variety of other network-based software services: web-based
+portals, interactive voice-response, TCP-based socket servers,
+client-server applications fronted by VPN components; as well as
+numerous infrastructure components to make everything work: DNS,
+email, load balancing, and database backend.
+
+Because this datacenter infrastructure was part of a product that
+provided people with access to a large number of homes in various
+geographic areas, it was critical that the datacenter infrastructure
+be deployed properly each and every time to large numbers of
+servers. Furthermore, there was a large software development group
+which was constantly releasing improvements and patches to the backend
+software, and so this datacenter had to be able to accomodate change
+quickly as well.
+
+Bombardier was developed to manage this infrastructure: to get a
+concrete idea of what software was being deployed on what servers in a
+single `Definitive Software Library`_ , to centralize all software
+`Configuration Items`_, and to be able to deploy software correctly
+every time. Implementing Bombardier in this environment decreased the
+`Incidents`_ to the `Service Desk`_ by 90% and increased speed of
+deployment by 90%.
+
+After the success of the team in managing software releases in the
+Real Estate field, the same IT team was assigned in 2006 to a new
+product which dealt with identifying and tracking any tampering to
+shipping containers coming into and out of the United States. This
+product also had a substantial back-end datacenter with even higher
+security requirements. We tried to find any products that were at all
+similar to the Bombardier that could be used instead of writing our
+own software, but could find nothing that came close. Therefore
+Bombardier was extended and enhanced, providing it with much more of a
+Linux focus, a streamlined command-line interface, locked-down
+security protocols, and other features. All these features rolled into
+the 0.70 release, which was released to open source under the GPLv2
+license.
+
+This venture was audited by several large companies, including
+undergoing a successful abbreviated ISO 17799 audit by Siemens CERT,
+which deemed that the system "...provides an appropriate and
+acceptable level of IT security."
+
+Since then, the software has been used on other products within the
+company, gradually becoming more secure, more modular, and easier to
+use.
+
+
+.. _Definitive Software Library: http://en.wikipedia.org/wiki/Definitive_Software_Library
+.. _Configuration Items: http://en.wikipedia.org/wiki/Configuration_item
+.. _Incidents: http://en.wikipedia.org/wiki/Incident_Management_%28ITSM%29
+.. _Service Desk: http://en.wikipedia.org/wiki/Information_Technology_Infrastructure_Library#Service_Desk
+
+What does "Bombardier" mean, and how do you pronounce it?
+---------------------------------------------------------
+
+One of the goals of Bombardier was to apply some concepts of
+Manufacturing Engineering to Software as a Service. On a factory line,
+every product has a `Bill of Materials`_, which "is a list of the raw
+materials, sub-assemblies, intermediate assemblies, sub-components,
+components, parts and the quantities of each needed to manufacture an
+end item." And we thought to ourselves, "Why should servers in a
+datacenter be any different? This software is just as critical to our
+customers as the widgets that they purchase, and yet we manage
+software deployment and changes in a much different way." We therefore
+had the belief that every server should have a Bill of Materials or
+"BOM." Hence, the name "Bombardier" comes from this term: it's the
+software that ensures that all servers comply with their BOMs.
+
+Furthermore, many datacenter administrators treat their work like
+ground warfare: send in a platoon of system administrators to pore
+over each and every configuration option and setting within those
+systems to make sure they're correct. Whereas our viewpoint is that
+system administrators should hardly ever log on to an individual
+server, and should **never** make any changes to a server ad-hoc. All
+changes to servers should be done with packages so that the changes
+are well-documented and reversible. Therefore, managing a datacenter
+chagne using Bombardier is much more like strategic air-strikes: from
+a centralized console, pick your packages and deploy them to (usually
+large amounts of) servers, and sit back and watch things happen.
+
+We're American English speakers, so we pronounce Bombardier as
+bom-buh-**DEER**. If you're a French feller and want to pronounce it
+bom-bahr-**DYEY**, then that's up to you.
+
+There's also an `audio clip of the pronunciation`_.
+
+.. _Bill of Materials: http://en.wikipedia.org/wiki/Bill_of_materials
+.. _audio clip of the pronunciation: http://cache.lexico.com/dictionary/audio/lunaWAV/B04/B0477000.wav
+
+
+What platforms does Bombardier run on?
+--------------------------------------
+
+Bombardier runs on Linux (specifically tested with Ubuntu Hardy,
+RedHat Enterprise Linux 4, and Centos 4). It will probably run on
+cygwin without much difficulty and other flavors of Linux, but we
+haven't had much need to test this in the past year or two. Anyone
+interested in testing Bombardier on other platforms and flavors of
+Linux is welcome to do so, and we'll gladly help you iron out any
+issues that may arise.
+
+Bombardier uses SSH to communicate between the centralized server
+system and the individual machines that it manages. Therefore the
+remote boxes have to be capable of at least running ssh and providing
+a bash prompt.
+
+
+Is Bombardier stable?
+---------------------
+
+Mostly. 
+
+Who's behind this?
+------------------
+
+Bombardier was originally developed at a Very Large Corporation that
+wishes to remain anonymous. However, the current maintainers are Peter
+Banka and Shawn Sherwood. We welcome additional contributors.
