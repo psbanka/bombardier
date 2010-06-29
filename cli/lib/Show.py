@@ -123,6 +123,25 @@ class User(ShowType):
         self.config_field = ConfigField.ConfigField(data_type=ConfigField.USER)
         self.children = [self.config_field]
 
+class Version(PinshCmd.PinshCmd):
+    'Displays the version information of all of the server components'
+    def __init__(self):
+        PinshCmd.PinshCmd.__init__(self, "version")
+        self.help_text = "version\tshow bombardier server version information"
+        self.cmd_owner = 1
+
+    def cmd(self, command_line):
+        "Shows bombardier version info"
+        cnm = system_state.cnm_connector
+        from bombardier_cli._version import version_info as clv
+        from bombardier_core._version import version_info as crv
+        output = ["CLI: %s-%s" % (clv.get("branch_nick"), clv.get("revno")),
+                  "CLI-Core: %s-%s" % (crv.get("branch_nick"), crv.get("revno")),
+                 ]
+        server_version_info = cnm.get_server_version()
+        output += server_version_info
+        return OK, output
+
 class History(PinshCmd.PinshCmd):
     'Displays command-line history (NOT from the server)'
     def __init__(self):
@@ -164,6 +183,7 @@ class Show(PinshCmd.PinshCmd):
         PinshCmd.PinshCmd.__init__(self, "show")
         self.help_text = "show\tdisplay components of the system"
         history = History()
+        version = Version()
         merged = Merged()
         machine = Machine()
         include = Include()
@@ -173,6 +193,7 @@ class Show(PinshCmd.PinshCmd):
         dist    = Dist()
         bom = Bom()
         summary = Summary()
-        self.children = [merged, machine, include, bom, history, package, user, dist, status, summary]
+        self.children = [merged, machine, include, bom, history, package,
+                         user, dist, status, summary, version]
         self.cmd_owner = 1
 

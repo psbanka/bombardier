@@ -257,6 +257,11 @@ class CnmConnector:
             print "POSTING:", encoded_post_data
         return self.perform_request(curl_obj, full_path)
 
+    def get_server_version(self):
+        url = "json/version"
+        output = self.service_yaml_request(url)
+        return output
+
     def delete_user(self, user_name):
         "Remove an administrative user from the system"
         url = "json/user/name/%s" % user_name

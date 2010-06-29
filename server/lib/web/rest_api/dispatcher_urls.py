@@ -235,6 +235,24 @@ class MachineStartDistEntry(CnmResource):
         responder = JsonDictResponder(output)
         return responder.element(request)
 
+class VersionCollection(CnmResource):
+    "Status config collection"
+    @login_required
+    def read(self, request):
+        "Default read method"
+        from bombardier_server._version import version_info as srv
+        from bombardier_core._version import version_info as crv
+        output = ["Server: %s-%s" % (srv.get("branch_nick"), srv.get("revno")),
+                  "Server-core: %s-%s" % (crv.get("branch_nick"), crv.get("revno")),
+                 ]
+        dispatcher = self.get_dispatcher()
+        client_version_info = dispatcher.get_client_versions()
+        for key in client_version_info:
+            output.append("%s: %s" % (key, client_version_info[key]))
+        responder = JsonDictResponder(output)
+        open("/tmp/FOOP.txt", 'a').write("output: %s\n" % output)
+        return responder.element(request)
+
 class MachineStartTestEntry(CnmResource):
     "Test entry class"
     @login_required
@@ -243,9 +261,6 @@ class MachineStartTestEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            open("/tmp/FOOP.txt", 'a').write("STE 0\n")
-            open("/tmp/FOOP.txt", 'a').write("USER: %s\n" % request.user)
-            open("/tmp/FOOP.txt", 'a').write("MACHINE: %s\n" % machine_name)
             job_name = dispatcher.test_job(request.user, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
@@ -516,5 +531,6 @@ urlpatterns = patterns('',
         JobKillEntry(permitted_methods = ['POST'])),
    url(r'^json/dispatcher/', 
         DispatcherControlEntry(permitted_methods = ['GET', 'POST'])),
+   url(r'^json/version', VersionCollection()),
 )
 

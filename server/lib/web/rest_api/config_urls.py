@@ -1,6 +1,6 @@
 "Config urls module"
 from django.conf.urls.defaults import patterns, url
-from django_restapi.responder import JsonDictResponder, JSONResponder
+from django_restapi.responder import JsonDictResponder
 from django_restapi.responder import YamlFileResponder
 
 from django import forms

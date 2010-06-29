@@ -53,22 +53,15 @@ class CnmResource(Resource):
     def get_dispatcher(cls, dispatcher_uri = None):
         "Create and return a dispatcher"
         try:
-            open("/tmp/FOOP.txt", 'a').write("GD 0\n")
             if dispatcher_uri == None:
-                open("/tmp/FOOP.txt", 'a').write("GD 1\n")
                 config_entry = ServerConfig.objects.get(name="dispatcher_uri")
-                open("/tmp/FOOP.txt", 'a').write("GD 2\n")
                 dispatcher_uri = config_entry.value
-            open("/tmp/FOOP.txt", 'a').write("GD 3\n")
             dispatcher = Pyro.core.getProxyForURI(dispatcher_uri)
-            open("/tmp/FOOP.txt", 'a').write("%s\n" % dispatcher_uri)
             data = dispatcher.check_status()
-            open("/tmp/FOOP.txt", 'a').write("%s\n" % data)
         except ServerConfig.DoesNotExist:
             raise DispatcherOffline()
         except Pyro.core.ProtocolError:
             raise DispatcherOffline()
-
         return dispatcher
 
     @classmethod

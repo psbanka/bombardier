@@ -526,6 +526,26 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         "Returns configuration password"
         return self.password
 
+    def get_client_versions(self):
+        "Obtain bombardier version data from all status files"
+        status_glob = os.path.join(self.server_home, 'status','*.yml')
+        client_version_info = {}
+        for file_name in glob.glob(status_glob):
+            client_name = file_name.split('/')[-1].split('.yml')[0]
+            if client_name == "error":
+                continue
+            try:
+                client_info = yaml.load(open(file_name).read())
+            except Exception, exc:
+                self.server_log.warning( "file_name: %s is NOT parsable" % file_name )
+                continue
+            client_version = client_info.get("client_version", 'UNKNOWN')
+            machine_version_list = client_version_info.get(client_version, [])
+            machine_version_list.append(client_name)
+            client_version_info[client_version] = machine_version_list
+        self.server_log.warning( "client_version_info: %s" % client_version_info )
+        return client_version_info
+
     def _validate_password(self, password):
         "Very shallow password validation"
         lazy_dog = "the_quick_brown_fox_jumped_over_the_lazy_dog\n"
