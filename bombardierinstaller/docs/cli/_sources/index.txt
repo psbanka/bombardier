@@ -1,0 +1,129 @@
+.. Bombardier documentation master file, created by sphinx-quickstart on Thu Dec 31 08:26:26 2009.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+=====================================================
+Bombardier Command-Line Interface (CLI) documentation
+=====================================================
+
+Why is this necessary?
+======================
+
+Interacting with the Bombardier system essentially requires performing
+the following four activities:
+
+ 1. Gathering information about the machines that are under
+    configuration control.
+
+ 2. Making modifications to configuration data, such as machine
+    configuration data, bills of materials, include files, and package
+    configuration.
+
+ 3. Instructing the bombardier system to make modifications to one or
+    more machines within the network based on the configuration data
+    and packages that are within the system.
+
+ 4. Making comments about the changes that have been made to
+    configuration data and to the machines under management.
+
+As such, this requires a user-interface of some kind.  Our experience
+is that command-line interfaces provide much more power and
+flexibility than other graphically-oriented interfaces.  This does not
+preclude there being other types of interfaces to be developed for the
+Bombardier system in the future, since any interface, including this
+one, will essentially need to interact with a RESTful web UI.
+
+One of the best examples we can think of for a command-line interface
+is the Cisco IOS, which the Bombardier CLI tries to emulate wherever
+it makes sense.
+
+Basically, this means that it provides
+
+ * Command-line history and editing
+ 
+ * Context-sensitive command completion. For example, when you are
+   attempting to install a package on a machine, if you type::
+
+     peacemaker (admin)> machine web_farm_01 install svn<tab>
+
+
+   the CLI will attempt to complete with any packages that are
+   designated to be installed on the web_farm_01 server which begin
+   with "svn"
+
+ * Acceptance of command abbreviations. As long as a command is
+   unique, it's not necessary to complete a command fully. The last
+   example could just as easily have been done by typing::
+
+     peacemaker (admin)> mach web_farm_01 ins svn
+
+ * Context-sensitive help. The '?' key is critical to providing help
+   whenever it is needed. It provides information about what arguments
+   come next, what next fields are required in a command, etc.
+
+
+How it works
+============
+
+Since this interface is built on Python, it can run on any system that
+can run Python that has web access to the Bombardier Server, including
+the Bombardier Server itself.
+
+If you really want to know, the CLI is basically a command-line web
+browser.  It interacts with the Bombardier server over HTTPS (if you've
+set your server up that way) or HTTP. Although the underlying
+communication to the server is web-based, the interface is smooth,
+quick, and interactive, and we have strived to keep the
+user-experience much the same that you might experience using a bash
+prompt.
+
+
+How to install it
+=================
+
+The best way to install the CLI is to use setuptools::
+
+  easy_install bombardier_cli
+
+This will provide the basic CLI software, as well as all the
+dependencies it requires.
+
+The next thing that is required is to edit a file called .bomsh_config
+in the user's home directory::
+
+ cnm_url: "https://172.16.10.3"
+ username: admin
+
+The ``cnm_url`` is the only configuration item that is mandatory. This
+is the URL of the Bombardier Server that you have already set up.  If
+you haven't set the Bombardier Server up yet, refer to the Bombardier
+Server documentation and come back here when you're finished.
+
+The ``username`` field is only required if you want to have the
+username automatically filled in for you when logging in to the
+system.
+
+
+Getting started
+===============
+
+Once the system has been installed and basic configuration settings
+have been made, you start the CLI by typing::
+
+  bash$ bdr
+
+You will be greeted with a request to authenticate. If you haven't
+configured your username variable, it will guess you want to log in as
+your user account on your local computer::
+
+  username [pbanka]: admin
+  password: ******
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+

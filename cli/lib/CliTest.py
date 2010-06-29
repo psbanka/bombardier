@@ -55,15 +55,15 @@ class CliTest(PinshCmd.PinshCmd):
         self.spotty.children = [self.options]
         self.cmd_owner = 1
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         'Used in unit testing only'
         if no_flag:
             return OK, ["YOU SAID NO"]
-        if len(tokens) < 3:
+        if command_line.get_length() < 3:
             return FAIL, ["YOU NEED TO TYPE IN SOME MORE STUFF."]
 
-        command = self.find_one_child(tokens, 1)
-        return [OK, [tokens[0], command, tokens[2]]]
+        command = self.find_one_child(command_line, 1)
+        return [OK, [command_line[0], command, command_line[2]]]
 
 
 

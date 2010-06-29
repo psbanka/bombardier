@@ -35,19 +35,14 @@ __author__ =  'Peter Banka'
 __version__ = '1.0'
 
 import PinshCmd
-from ConfigField import ConfigField, MACHINE, DIST, PACKAGE
+from ConfigField import ConfigField, PACKAGE
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState, ENABLE
-from PackageField import PackageField, FIX, PURGE, NOT_INSTALLED, INSTALLED
-import PackageActionField
 from Exceptions import MachineTraceback, CommandError
-import Integer
-from Ssh import Ssh
-from Show import Status, Summary
 import Edit
 import Show
 system_state = SystemState()
-import libUi, time, yaml
+import libUi
 
 def setup_test():
     fresh_status_yaml = """ 
@@ -80,30 +75,31 @@ class Package(PinshCmd.PinshCmd):
         show = PinshCmd.PinshCmd("show", "display the configuration for this package")
         self.package_field.children = [build, edit, show]
 
-    def check_package_name(self, tokens, no_flag):
-        possible_package_names = self.package_field.preferred_names(tokens, 1)
+    def check_package_name(self, command_line):
+        """Get a real package name from the command_line, assuming the
+        package name is the second field"""
+        possible_package_names = self.package_field.preferred_names(command_line, 1)
         package_name = possible_package_names[0]
-        if no_flag:
+        if command_line.no_flag:
             raise CommandError("NO cannot be used here")
         if len(possible_package_names) == 0:
-            raise CommandError("Unknown package name: %s" % tokens[2])
+            raise CommandError("Unknown package name: %s" % command_line[2])
         if len(possible_package_names) > 1:
-            raise CommandError("Ambiguous package name: %s" % tokens[2])
+            raise CommandError("Ambiguous package name: %s" % command_line[2])
         return package_name
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         """
-        tokens -- all of the keywords passed in the command string, parsed
-        no_flag -- whether the 'no' keyword was used in the command string
+        command_line -- all of the keywords passed in the command string, parsed
         """
-        if len(tokens) < 2:
+        if len(command_line) < 2:
             raise CommandError("Incomplete command.")
-        package_name = self.check_package_name(tokens, no_flag)
-        if len(tokens) == 2:
+        package_name = self.check_package_name(command_line)
+        if len(command_line) == 2:
             system_state.push_prompt(["package", package_name])
-            return OK,[]
+            return OK, []
 
-        command = tokens[2].lower()
+        command = command_line[2].lower()
 
         if command == "show":
             return Show.Package().cmd(["show", "package", package_name], 0)
@@ -116,15 +112,11 @@ class Package(PinshCmd.PinshCmd):
             svn_user = libUi.get_default("svn user", '')
             if svn_user:
                 svn_password = libUi.pwd_input("svn password: ")
-            url = "/json/package_build/%s" % package_name
-            post_data = {"svn_user": svn_user,
-                         "svn_password": svn_password,
-                         "debug": True,
-                         "prepare": True}
             try:
-                job_name = system_state.cnm_connector.get_job(url, post_data)
-                return system_state.cnm_connector.watch_jobs([job_name])
+                cnm = system_state.cnm_connector
+                return cnm.package_build_job(package_name, svn_user,
+                                             svn_password, command_line.bg_flag)
             except MachineTraceback, m_err:
                 libUi.process_traceback(m_err)
-                return FAIL,[]
+                return FAIL, []
 

@@ -1,0 +1,93 @@
+.. _intro-tutorial03:
+
+
+====================================================
+Deploying your first package with Bombardier, part 2
+====================================================
+
+Building the package
+====================
+
+You now have the basic ingredients for this example package, which
+are:
+
+ 1. The package configuration file
+
+ 2. The libraries that will be used to install and configure the
+    package
+
+ 3. Any and all files that you would like to bundle with the package
+    (i.e. 'injectors')
+
+It's now time to 'build' the package on the Bombardier Server through
+the command-line interface.
+
+When you issue the build command, the Bombardier server will examine
+the package configuration data, check out any parts of the package from
+the SVN repository that are necessary, and evaluate whether or not the
+package is ready to be deployed. This is done with the package / build
+command, as follows::
+
+  peacemaker (admin)> pack SnmpConfigV5 build
+  svn user []:
+  svn password:
+  >>> Job name: admin@CNM_Server-5
+    |   admin@CNM_Server-5 | Checking out and building SnmpConfigV5...
+    |   admin@CNM_Server-5 | --- /tmp/tmpMenc_j/libs/SnmpConfigV5/snmp_template.py
+    |   admin@CNM_Server-5 | --- /tmp/tmpMenc_j/libs/SnmpConfigV5/SnmpConfigV5.py
+    |   admin@CNM_Server-5 | --- /tmp/tmpMenc_j/libs/SnmpConfigV5/__init__.py
+    |   admin@CNM_Server-5 | Checking out and building YumPackageInstaller...
+    |   admin@CNM_Server-5 | --- /tmp/tmpMenc_j/libs/YumPackageInstaller/__init__.py
+    |   admin@CNM_Server-5 | --- /tmp/tmpMenc_j/libs/YumPackageInstaller/YumPackageInstaller.py
+    |   admin@CNM_Server-5 | My current directory: /usr/lib/python2.5/site-packages/bombardier_server/web/cnm
+    |   admin@CNM_Server-5 | Package does not contain any metadata
+    |   admin@CNM_Server-5 | Note: not deleting /tmp/tmpMenc_j
+  >>> Joining...
+    built /var/deploy/repos/libs/SnmpConfigV5-672.tar.gz
+    built /var/deploy/repos/libs/YumPackageInstaller-672.tar.gz
+
+At this point, the Bombardier Server is ready to be able to associate
+this package with a machine on your network to configure it.  When the
+Bombardier server examined the package, it added some information to
+the package configuration file.  To see what it added, show the
+package definition again::
+
+
+  peacemaker (admin)> sho pack SnmpConfigV5
+    class_name: SnmpConfigV5.SnmpConfigV5
+    configuration:
+      snmp:
+        community_string: public
+        location: UNDEFINED
+        contact: NOBODY@EXAMPLE.COM
+    dependencies: []
+    executables:
+    - configure
+    - ensure_snmp
+    - handle_backup_snmp
+    - install
+    - uninstall
+    - verify
+    injectors: {}
+    libs:
+      SnmpConfigV5:
+        path: /var/deploy/repos/libs/SnmpConfigV5-672.tar.gz
+        svn: 'http://www.bombardierinstaller.org/svn/pkg/SnmpConfigV5'
+        version: '672'
+      YumPackageInstaller:
+        path: /var/deploy/repos/libs/YumPackageInstaller-672.tar.gz
+        svn: 'http://www.bombardierinstaller.org/svn/pkg/YumPackageInstaller'
+        version: '672'
+    package-version: 5
+    release: 4
+    virtualpackage: SnmpConfigV5
+
+You'll notice that the build system added a "configuration" section to
+this package; that specifies the configuration values that are
+required when this package is associated with a machine.  The build
+process inspects the class that is responsible for the installation
+process and gathers all of the configuration entries that the class
+accesses.  The build also added a number of entries to the
+"executables" section; there will be more on executables later.
+
+

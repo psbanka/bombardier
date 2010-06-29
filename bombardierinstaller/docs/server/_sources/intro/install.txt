@@ -1,0 +1,284 @@
+.. _intro-install:
+
+===================
+Quick install guide
+===================
+
+Before you can use Bombardier, you'll need to get it
+installed. Eventually we may have a complete installation guide that
+covers all the possibilities; this guide will step guide you through a
+simple, minimal installation that'll work while you walk through this
+tutorial.
+
+Bombardier Components
+=====================
+
+.. image:: .images/components.png
+   :alt: Components of the Bombardier system
+
+There are several components to the Bombardier system:
+
+ * Bombardier shared components (**bombardier_core**).  This component does
+   nothing in and of itself. It is used by the other three parts of
+   the system.
+
+ * Bombardier Server (**bombardier_server**).  This component is a
+   centralized web-based server with a REST interface.  It is the
+   central point of control for all actions that are done on the
+   network.  It stores and handles all configuration data and all
+   software; it manages all logging information for changes on the
+   network; and it handles authentication for all actions.
+
+ * Bombardier Command-line Interface (**bombardier_cli**).  This
+   component provides a (hopefully) user-friendly interface to the
+   Bombardier Server.  It can run on the same computer as the
+   Bombardier Server, or it can run over the network.
+
+ * Bombardier Client (**bombardier_client**).  This component runs on
+   all the servers that are under management control of the Bombardier
+   Server.
+
+This installation guide will step you through installing the first
+three of these onto one computer.  We will install the Client at a
+later stage.
+
+
+Prerequisites
+=============
+
+Python
+------
+
+Bombardier Server and CLI are built on top of Python 2.5 or 2.6. The
+Bombardier Client can run on any version of Python from 2.4 through
+2.6.
+
+.. admonition:: Platforms supported by Bombardier
+
+    Bombardier has been thoroughly tested and developed on Redhat
+    (Centos) Enterprise Linux 5 and Ubuntu Linux 8.10.  If you choose
+    to install Bombardier onto other flavors of Linux or Unix or other
+    POSIX operating systems, we can't guarantee it will work, but we'd
+    love to hear from you and help you work through any issues.  If
+    you need help with other platforms, send a message to
+    `bombardier answers`_ .
+
+.. _bombardier answers: https://answers.launchpad.net/bombardier
+
+
+You can verify that Python's installed by typing ``python`` from your
+shell; you should see something like::
+
+    Python 2.5.1 (r251:54863, Jan 17 2008, 19:35:17) 
+    [GCC 4.0.1 (Apple Inc. build 5465)] on darwin
+    Type "help", "copyright", "credits" or "license" for more information.
+    >>>
+
+Install Bombardier Server component and Python Dependencies
+-----------------------------------------------------------
+
+We recommend using `setuptools`_ to quickly and easily download the
+Bombardier Server component as well as the Python libraries that are
+required:
+
+   .. code-block:: bash
+
+      $ easy_install bombardier_server
+
+.. _setuptools: http://pypi.python.org/pypi/setuptools
+
+
+Generate your SSH key-pairs
+---------------------------
+
+The Bombardier Server uses SSH to communicate with other systems in
+your network. We believe that this provides the most secure method of
+communication, since this is likely a hole that has already been made
+in your firewall between your management servers and the rest of the
+machines on your network.  Bombardier will connect as a particular
+user (in this example, it will run as root, but that is not
+necessary), and that user needs to have ssh key-pairs generated, as
+follows:
+
+   .. code-block:: bash
+
+     $ ssh-keygen -t dsa
+     Generating public/private dsa key pair.
+     Enter file in which to save the key (/root/.ssh/id_dsa):
+     Enter passphrase (empty for no passphrase):
+     Enter same passphrase again:
+     Your identification has been saved in /root/.ssh/id_dsa.
+     Your public key has been saved in /root/.ssh/id_dsa.pub.
+     The key fingerprint is:
+     2c:08:eb:64:7f:6f:4e:1f:d3:36:9e:c3:9c:70:09:15 208048363@ES-BC9QP81
+
+remember to use the **DSA** type when generating the key.  You must
+not put a pass-phrase on the key in order for this to work with
+Bombardier Server.
+
+
+Setting up the server
+=====================
+
+Run the quickstart
+------------------
+
+Next, you'll have to take care of setting up the basic repository
+database, directory structure, and configuration key.  You'll do this
+using the bdr_server_quickstart script:
+
+   .. code-block:: bash
+
+       $ bdr_server_quickstart
+       Perform initial Bombardier Server environment setup? (y/n): y
+       Where do you want the root of your repository? [/var/deploy]:
+
+       Creating directory structure in /var/deploy...
+
+       Bombardier Server requires the public SSH DSA key to be stored
+       in the %s directory.
+       Using the one in root's home directory..."
+
+       Creating repository in /var/deploy/cmdb...
+       Created a standalone tree (format: 2a)
+       added /var/deploy/cmdb/package
+       added /var/deploy/cmdb/machine
+       added /var/deploy/cmdb/bom
+       added /var/deploy/cmdb/include
+       Committing to: /var/deploy/cmdb/
+       added bom
+       added include
+       added machine
+       added package
+       Committed revision 1.
+
+       You will need to set your configuration key as part of the setup process.
+       This key will be used to encrypt sensitive configuration items.
+       Please enter your configuration key:
+       Please re-enter your configuration key:
+       Writing configuration to /etc/bombardier.yml...
+
+       Basic server setup complete.
+       Now configure your web server according to the instructions
+       in your documentation.
+    
+Create the database
+-------------------
+
+There is a minimal sqlite database that the Bombardier server will use
+to keep track of a few configuration items and to keep track of the
+administrative users who have the right to log in.
+
+Use the manage.py script in the bombardier_server directory to create
+the database (which should look something like, but probably not
+identical to the following):
+
+   .. code-block:: bash
+
+      $ cd /usr/lib/python2.5/site-packages/
+      $ cd bombardier_server-1.00_702-py2.5.egg/bombardier_server/web/cnm
+      $ python manage.py syncdb
+
+      Creating table django_content_type
+      Creating table django_admin_log
+      Creating table auth_permission
+      Creating table auth_group
+      Creating table auth_user
+      Creating table auth_message
+      Creating table django_session
+      Creating table django_site
+      Creating table configs_serverconfig
+
+      You just installed Django's auth system, which means you don't have any superusers defined.
+      Would you like to create one now? (yes/no): yes
+      Username (Leave blank to use 'pbanka'): admin
+      E-mail address: info@bombardierinstaller.org
+      Password:
+      Password (again):
+      Superuser created successfully.
+      Installing index for admin.LogEntry model
+      Installing index for auth.Permission model
+      Installing index for auth.Message model
+
+Start the web server
+--------------------
+
+The quick-and-dirty way to start the web server is by using the
+built-in development server that comes with Django **don't do this in
+production**.  For the purposes of this tutorial, however, it should
+be safe enough.  Do not put the Django server on a network with
+potentially hostile traffic.
+
+If this were a *production* server, you would want to deploy the
+Bombardier server under Apache, following rules similar to those
+described `here`_ .
+
+You'll use the manage.py script to start the web server process like
+this:
+
+   .. code-block:: bash
+
+      $ python manage.py runserver
+      Validating models...
+      0 errors found
+
+      Django version 1.1.1, using settings 'cnm.settings'
+      Development server is running at http://127.0.0.1:8000/
+      Quit the server with CONTROL-C.
+
+
+.. _here: http://docs.djangoproject.com/en/dev/howto/deployment/modpython/
+
+
+Install Bombardier CLI component and Python Dependencies
+--------------------------------------------------------
+
+We will again use `setuptools`_ to quickly and easily download the
+Bombardier CLI component as well as the Python libraries that are
+required:
+
+   .. code-block:: bash
+
+      $ easy_install bombardier_cli
+
+.. _setuptools: http://pypi.python.org/pypi/setuptools
+
+
+Logging in to the server
+------------------------
+
+Now it's time to start the command-line interface. You'll need to
+enter the same configuration-key that you used in the quick-start
+process as well as the server-home value.
+
+  .. code-block:: bash
+
+     root@peacemaker:~# bdr
+     username [root]: admin
+     password:
+     Server home is not set. Please enter the value [/var/deploy]:
+     Dispatcher is offline; enter CI decryption password:
+       Dispatcher started
+
+                  `...``                       `...``
+                 `+dmmy:                      `+dNmy:
+                  -/yNN+                       -/yMm/
+                    /Nm/                         /Nm/
+                    /Nm: ./++/++-       -+++++/` /Nm/   ./++:. `:+++++:`
+                    /mNo-+dmddmds:.` `.:sdmddmh+-oNm/   :hmNNs-/ymddmms-
+                    /mMNdo......omd: :dm+...``-odNMd/    `:dMNms-.....`
+                    /mNs-`      +Nm/ /NN+      `-sNm/     -dMy:.
+                    /Nm/        +Nm/ /mN+        /NN/     :dNo
+                    /mMho-      +MN/ /NN/      :ohMm:     -dMo
+                  -/yNMmho//////oys- -syo//////ohmMNs/- .:sNMh//////-`
+                 `+dNmy:`/dmmmmdo.    `.sdmmmmh:`:hmNd+ /hmmdddddmmd+`
+                  `...`  `......`       `......`  `...` `...........`
+
+                         Bombardier Network Command Line
+
+
+     peacemaker (admin)>
+
+
+That's it -- you can now :ref:`move onto the tutorial <intro-tutorial01>`
+to start doing something useful with the server.

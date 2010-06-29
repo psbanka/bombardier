@@ -109,22 +109,22 @@ class PackageField(PinshCmd.PinshCmd):
         package_name = package_names[0]
         return [package_name]
 
-    def preferred_names(self, tokens, index):
+    def preferred_names(self, command_line, index):
         '''Provide a list of names that the system would prefer to use, other
         than that which was typed in by the user. For example, 'machine local status fix package-1-1'
         will return 'localhost' for the machine name if strict is off,
         otherwise, it will return 'localh'.'''
-        #print "PN: Tokens being passed (%s)" % tokens
-        complete_machine_name = tokens[self.machine_name_index]
-        incomplete_package_name = tokens[index]
+        #print "PN: Tokens being passed (%s)" % command_line
+        complete_machine_name = command_line[self.machine_name_index]
+        incomplete_package_name = command_line[index]
         package_names = self.get_package_names(complete_machine_name,
                                                incomplete_package_name)
         return package_names
 
-    def match(self, tokens, index):
+    def match(self, command_line, index):
         '''Determines if what has been typed in by the user matches a
         configuration item that the system is keeping track of.'''
-        possible_matches = self.acceptable_names(tokens, index)
+        possible_matches = self.acceptable_names(command_line, index)
         if not possible_matches:
             return NO_MATCH, 1
         if len(possible_matches) > 1:

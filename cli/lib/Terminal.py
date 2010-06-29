@@ -75,58 +75,83 @@ class Terminal(PinshCmd.PinshCmd):
         width.children = [self.num]
         self.cmd_owner = 1
 
-    def cmd(self, tokens, no_flag):
-        'Someone wants to execute a command to change their terminal'
-        if no_flag:
-            if setting == "color":
-                system_state.termcolor = NO_COLOR
-                return OK, ["Terminal set to black and white."]
-            else:
-                return FAIL, ["'No' not applicable in this context"]
+    def _set_color(self, value):
+        "Set terminal color"
+        status = OK
+        output = []
+        if value == "none":
+            system_state.termcolor = NO_COLOR
+            output = ["Terminal set to black and white."]
+        elif value == "light":
+            system_state.termcolor = LIGHT
+            output = ["Terminal set to light background."]
+        elif value == "dark":
+            system_state.termcolor = DARK
+            output = ["Terminal set to dark background."]
+        else:
+            status = FAIL
+            output = ["Unknown terminal color."]
+        return status, output
 
-        if len(tokens) < 3:
-            msg  = ["terminal length: %d" % system_state.termlen]
-            msg += ["terminal width: %d" % system_state.termwidth]
-            if system_state.termcolor != NO_COLOR:
-                if system_state.termcolor == LIGHT:
-                    msg += ["terminal color-scheme: light"]
-                if system_state.termcolor == DARK:
-                    msg += ["terminal color-scheme: dark"]
-            msg += ["logging level: %s" \
-                     % LOG_REVERSE_LOOKUP[system_state.log_level]]
-            return OK, msg
-
-        setting = tokens[1].lower()
-        value = tokens[2].lower()
-
-        if setting == "log-level":
-            new_log_level = LOG_LEVEL_LOOKUP[value.upper()]
-            system_state.log_level = new_log_level
-            return [OK, ["Logging output set to %s" % tokens[2]]]
-
-        elif setting == "color":
-            if value == "none":
-                system_state.termcolor = NO_COLOR
-                return OK, ["Terminal set to black and white."]
-            elif value == "light":
-                system_state.termcolor = LIGHT
-                return OK, ["Terminal set to light background."]
-            elif value == "dark":
-                system_state.termcolor = DARK
-                return OK, ["Terminal set to dark background."]
-            else:
-                return FAIL, ["Unknown terminal color."]
-        
-        elif setting in ["length", "width"]:
-            if self.num.match([value], 0) != (COMPLETE, 1):
-                return FAIL, ["Please choose a value between 0 and 1000"]
-
+    def _set_size(self, setting, value):
+        "Set length or width of termial"
+        status = OK
+        output = []
+        if self.num.match([value], 0) != (COMPLETE, 1):
+            status = FAIL
+            output = ["Please choose a value between 0 and 1000"]
+        else:
             if setting == "length":
                 system_state.termlen = int(value)
             elif setting.startswith('w'):
                 system_state.termwidth = int(value)
+            status = OK
+            output = ["Terminal set."]
+        return status, output
 
-            return OK, ["Terminal set."]
+    def cmd(self, command_line):
+        'Someone wants to execute a command to change their terminal'
+        setting = command_line[1].lower()
 
-        raise CommandError("Unknown command")
+        status = FAIL
+        output = []
 
+        if command_line.no_flag:
+            if setting == "color":
+                system_state.termcolor = NO_COLOR
+                status = OK
+                output = ["Terminal set to black and white."]
+            else:
+                status = FAIL
+                output = ["'No' not applicable in this context"]
+        else:
+            if len(command_line) < 3:
+                output  = ["terminal length: %d" % system_state.termlen]
+                output += ["terminal width: %d" % system_state.termwidth]
+                if system_state.termcolor != NO_COLOR:
+                    if system_state.termcolor == LIGHT:
+                        output += ["terminal color-scheme: light"]
+                    if system_state.termcolor == DARK:
+                        output += ["terminal color-scheme: dark"]
+                output += ["logging level: %s" \
+                            % LOG_REVERSE_LOOKUP[system_state.log_level]]
+                status = OK
+            else:
+                value = command_line[2].lower()
+
+                if setting == "log-level":
+                    new_log_level = LOG_LEVEL_LOOKUP[value.upper()]
+                    system_state.log_level = new_log_level
+                    status = OK
+                    output = ["Logging output set to %s" % command_line[2]]
+
+                elif setting == "color":
+                    status, output = self._set_color(value)
+                
+                elif setting in ["length", "width"]:
+                    status, output = self._set_size(setting, value)
+
+                else:
+                    raise CommandError("Unknown command")
+
+            return status, output

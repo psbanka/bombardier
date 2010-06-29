@@ -1,0 +1,200 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Deploying your first package with Bombardier, part 2 &mdash; Bombardier v1.00 documentation</title>
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.00',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Bombardier v1.00 documentation" href="../index.html" />
+    <link rel="up" title="Getting started" href="index.html" />
+    <link rel="next" title="Bombardier FAQ" href="../faq/index.html" />
+    <link rel="prev" title="Deploying your first package with Bombardier, part 2" href="tutorial02.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../faq/index.html" title="Bombardier FAQ"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="tutorial02.html" title="Deploying your first package with Bombardier, part 2"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Bombardier v1.00 documentation</a> &raquo;</li>
+          <li><a href="../contents.html" >Bombardier documentation contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Getting started</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="deploying-your-first-package-with-bombardier-part-2">
+<span id="intro-tutorial03"></span><h1>Deploying your first package with Bombardier, part 2<a class="headerlink" href="#deploying-your-first-package-with-bombardier-part-2" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="building-the-package">
+<h2>Building the package<a class="headerlink" href="#building-the-package" title="Permalink to this headline">¶</a></h2>
+<p>You now have the basic ingredients for this example package, which
+are:</p>
+<blockquote>
+<ol class="arabic simple">
+<li>The package configuration file</li>
+<li>The libraries that will be used to install and configure the
+package</li>
+<li>Any and all files that you would like to bundle with the package
+(i.e. &#8216;injectors&#8217;)</li>
+</ol>
+</blockquote>
+<p>It&#8217;s now time to &#8216;build&#8217; the package on the Bombardier Server through
+the command-line interface.</p>
+<p>When you issue the build command, the Bombardier server will examine
+the package configuration data, check out any parts of the package from
+the SVN repository that are necessary, and evaluate whether or not the
+package is ready to be deployed. This is done with the package / build
+command, as follows:</p>
+<div class="highlight-python"><pre>peacemaker (admin)&gt; pack SnmpConfigV5 build
+svn user []:
+svn password:
+&gt;&gt;&gt; Job name: admin@CNM_Server-5
+  |   admin@CNM_Server-5 | Checking out and building SnmpConfigV5...
+  |   admin@CNM_Server-5 | --- /tmp/tmpMenc_j/libs/SnmpConfigV5/snmp_template.py
+  |   admin@CNM_Server-5 | --- /tmp/tmpMenc_j/libs/SnmpConfigV5/SnmpConfigV5.py
+  |   admin@CNM_Server-5 | --- /tmp/tmpMenc_j/libs/SnmpConfigV5/__init__.py
+  |   admin@CNM_Server-5 | Checking out and building YumPackageInstaller...
+  |   admin@CNM_Server-5 | --- /tmp/tmpMenc_j/libs/YumPackageInstaller/__init__.py
+  |   admin@CNM_Server-5 | --- /tmp/tmpMenc_j/libs/YumPackageInstaller/YumPackageInstaller.py
+  |   admin@CNM_Server-5 | My current directory: /usr/lib/python2.5/site-packages/bombardier_server/web/cnm
+  |   admin@CNM_Server-5 | Package does not contain any metadata
+  |   admin@CNM_Server-5 | Note: not deleting /tmp/tmpMenc_j
+&gt;&gt;&gt; Joining...
+  built /var/deploy/repos/libs/SnmpConfigV5-672.tar.gz
+  built /var/deploy/repos/libs/YumPackageInstaller-672.tar.gz</pre>
+</div>
+<p>At this point, the Bombardier Server is ready to be able to associate
+this package with a machine on your network to configure it.  When the
+Bombardier server examined the package, it added some information to
+the package configuration file.  To see what it added, show the
+package definition again:</p>
+<div class="highlight-python"><pre>peacemaker (admin)&gt; sho pack SnmpConfigV5
+  class_name: SnmpConfigV5.SnmpConfigV5
+  configuration:
+    snmp:
+      community_string: public
+      location: UNDEFINED
+      contact: NOBODY@EXAMPLE.COM
+  dependencies: []
+  executables:
+  - configure
+  - ensure_snmp
+  - handle_backup_snmp
+  - install
+  - uninstall
+  - verify
+  injectors: {}
+  libs:
+    SnmpConfigV5:
+      path: /var/deploy/repos/libs/SnmpConfigV5-672.tar.gz
+      svn: 'http://www.bombardierinstaller.org/svn/pkg/SnmpConfigV5'
+      version: '672'
+    YumPackageInstaller:
+      path: /var/deploy/repos/libs/YumPackageInstaller-672.tar.gz
+      svn: 'http://www.bombardierinstaller.org/svn/pkg/YumPackageInstaller'
+      version: '672'
+  package-version: 5
+  release: 4
+  virtualpackage: SnmpConfigV5</pre>
+</div>
+<p>You&#8217;ll notice that the build system added a &#8220;configuration&#8221; section to
+this package; that specifies the configuration values that are
+required when this package is associated with a machine.  The build
+process inspects the class that is responsible for the installation
+process and gathers all of the configuration entries that the class
+accesses.  The build also added a number of entries to the
+&#8220;executables&#8221; section; there will be more on executables later.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference external" href="">Deploying your first package with Bombardier, part 2</a><ul>
+<li><a class="reference external" href="#building-the-package">Building the package</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="tutorial02.html"
+                                  title="previous chapter">Deploying your first package with Bombardier, part 2</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="../faq/index.html"
+                                  title="next chapter">Bombardier FAQ</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="../_sources/intro/tutorial03.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="../search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../faq/index.html" title="Bombardier FAQ"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="tutorial02.html" title="Deploying your first package with Bombardier, part 2"
+             >previous</a> |</li>
+        <li><a href="../index.html">Bombardier v1.00 documentation</a> &raquo;</li>
+          <li><a href="../contents.html" >Bombardier documentation contents</a> &raquo;</li>
+          <li><a href="index.html" >Getting started</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2009, Peter Banka, Shawn Sherwood.
+      Last updated on Mar 22, 2010.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.3.
+    </div>
+  </body>
+</html>

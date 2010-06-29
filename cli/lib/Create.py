@@ -43,28 +43,28 @@ class CreateType(PinshCmd.PinshCmd):
         self.config_field = None
         self.cmd_owner = 1
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         '''Create a thing that the user is interested in'''
-        if no_flag:
+        if command_line.no_flag:
             return FAIL, []
-        if len(tokens) < 3:
+        if len(command_line) < 3:
             return FAIL, ["Incomplete command."]
 
         conf_str = self.config_field.get_default_data()
         #conf_str = yaml.dump(current_dict, default_flow_style=False)
-        fd,fn = tempfile.mkstemp(suffix=".yml", text=True)
-        fh = os.fdopen(fd, 'w+b')
-        fh.write(conf_str)
-        fh.close()
-        os.system("vim %s" % fn)
-        post_data = yaml.load(open(fn).read())
+        file_descriptor, file_name = tempfile.mkstemp(suffix=".yml", text=True)
+        file_handle = os.fdopen(file_descriptor, 'w+b')
+        file_handle.write(conf_str)
+        file_handle.close()
+        os.system("vim %s" % file_name)
+        post_data = yaml.load(open(file_name).read())
         submit = libUi.ask_yes_no("Commit changes to server", libUi.YES)
         if submit:
-            status, output = self.config_field.post_specific_data(tokens, 2, post_data)
-            os.unlink(fn)
+            _status, output = self.config_field.post_specific_data(command_line, 2, post_data)
+            os.unlink(file_name)
             return OK, [output]
         else:
-            msg = "Discarded changes. Edits can be found here: %s" % fn
+            msg = "Discarded changes. Edits can be found here: %s" % file_name
             return OK, [msg]
 
 class Machine(CreateType):

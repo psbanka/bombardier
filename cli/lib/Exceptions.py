@@ -30,6 +30,7 @@
 'Classes that hold command-line interface-specific exceptions'
 
 class ExceptionBase(Exception):
+    "Saves a little coding"
     def __init__(self):
         Exception.__init__(self)
     def __str__(self):
@@ -60,17 +61,19 @@ class HostNotEnabledException(Exception):
 class ConfigFileException(Exception):
     '''Your config file (~/.bomsh_config) stores critical setup info.
     If there is a problem reading or writing to it, this throws.'''
-    def __init__(self, message, fileName):
+    def __init__(self, message, file_name):
         Exception.__init__(self)
-        self.fileName = fileName
+        self.file_name = file_name
         self.message = message
     def __repr__(self):
         return "%% Error processing config file %s: %s" \
-               % (self.fileName, self.message)
+               % (self.file_name, self.message)
     def __str__(self):
         return self.__repr__()
 
 class ServerTracebackException(ExceptionBase):
+    """The server raised a traceback and caught it and is now telling us
+    about it so that we can report it to the user"""
     def __init__(self, traceback_lines):
         ExceptionBase.__init__(self)
         self.traceback = traceback_lines
@@ -78,13 +81,17 @@ class ServerTracebackException(ExceptionBase):
         return "Server Exception"
 
 class MachineUnavailableException(ExceptionBase):
+    "Can't connect to a remote machine"
     def __init__(self, msg):
+        ExceptionBase.__init__(self)
         self.msg = msg
     def __repr__(self):
         return "Machine is not available: %s" % self.msg
 
 class MachineStatusException(ExceptionBase):
+    "Status data from a remote machine is corrupt"
     def __init__(self, msg):
+        ExceptionBase.__init__(self)
         self.msg = msg
     def __repr__(self):
         return "Error in status data: %s" % self.msg
@@ -99,7 +106,8 @@ class ServerException(Exception):
         self.curl_err = curl_err
         self.http_code = http_code
     def __repr__(self):
-        return "Can't connect to %s (%s) (%d)" % (self.url, self.curl_err, self.http_code)
+        msg = "Can't connect to %s (%s) (%d)"
+        return msg % (self.url, self.curl_err, self.http_code)
     def __str__(self):
         return self.__repr__()
 
@@ -109,7 +117,10 @@ class UnexpectedDataException(Exception):
     def __init__(self, reason):
         Exception.__init__(self)
         self.reason = reason
+        self.url = None
     def __repr__(self):
+        if self.url:
+            return "Got unexpected data from %s (%s)" % (self.url, self.reason)
         return "Got unexpected data from the server (%s)" % self.reason
     def __str__(self):
         return self.__repr__()
@@ -131,7 +142,8 @@ class AmbiguousCommand(Exception):
         self.command = command
         self.options = options
     def __repr__(self):
-        return 'Command "%s" ambiguous -- could be %s.' % (self.command, self.options)
+        msg = 'Command "%s" ambiguous -- could be %s.'
+        return msg % (self.command, self.options)
     def __str__(self):
         return self.__repr__()
 

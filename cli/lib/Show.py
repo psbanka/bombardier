@@ -35,6 +35,7 @@ import yaml
 import PinshCmd, ConfigField, Integer
 from bombardier_core.static_data import OK, FAIL
 from SystemStateSingleton import SystemState
+from Exceptions import UnexpectedDataException
 system_state = SystemState()
 
 TERM_OVERCOUNT = 8 # For some reason, the term width seems too long...
@@ -46,13 +47,16 @@ class ShowType(PinshCmd.PinshCmd):
         self.config_field = None
         self.cmd_owner = 1
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         '''Show the thing that the user is interested in'''
-        if no_flag:
+        if command_line.no_flag:
             return FAIL, []
-        if len(tokens) < 3:
+        if len(command_line) < 3:
             return FAIL, ["Incomplete command."]
-        current_dict = self.config_field.get_specific_data(tokens, 2)
+        try:
+            current_dict = self.config_field.get_specific_data(command_line, 2)
+        except UnexpectedDataException, err:
+            return FAIL, ["Data appears to be corrupt. Check the server (%s)" % err.url]
         return OK, yaml.dump(current_dict, default_flow_style=False).split('\n')
 
 class Merged(ShowType):
@@ -119,6 +123,25 @@ class User(ShowType):
         self.config_field = ConfigField.ConfigField(data_type=ConfigField.USER)
         self.children = [self.config_field]
 
+class Version(PinshCmd.PinshCmd):
+    'Displays the version information of all of the server components'
+    def __init__(self):
+        PinshCmd.PinshCmd.__init__(self, "version")
+        self.help_text = "version\tshow bombardier server version information"
+        self.cmd_owner = 1
+
+    def cmd(self, command_line):
+        "Shows bombardier version info"
+        cnm = system_state.cnm_connector
+        from bombardier_cli._version import version_info as clv
+        from bombardier_core._version import version_info as crv
+        output = ["CLI: %s-%s" % (clv.get("branch_nick"), clv.get("revno")),
+                  "CLI-Core: %s-%s" % (crv.get("branch_nick"), crv.get("revno")),
+                 ]
+        server_version_info = cnm.get_server_version()
+        output += server_version_info
+        return OK, output
+
 class History(PinshCmd.PinshCmd):
     'Displays command-line history (NOT from the server)'
     def __init__(self):
@@ -128,15 +151,15 @@ class History(PinshCmd.PinshCmd):
         self.children = [self.integer]
         self.cmd_owner = 1
 
-    def cmd(self, tokens, _no_flag):
+    def cmd(self, command_line):
         "Shows the history for this user's bomsh session and before"
-        if len(tokens) == 2 or tokens[-1].strip()=='':
+        if len(command_line) == 2 or command_line[-1].strip()=='':
             number = 20
         else:
             try:
-                number = int(tokens[2])
+                number = int(command_line[2])
             except ValueError:
-                return FAIL, ["%s is not a number." % tokens[2]]
+                return FAIL, ["%s is not a number." % command_line[2]]
         hlen = readline.get_current_history_length()
         if hlen < number:
             number = hlen
@@ -160,6 +183,7 @@ class Show(PinshCmd.PinshCmd):
         PinshCmd.PinshCmd.__init__(self, "show")
         self.help_text = "show\tdisplay components of the system"
         history = History()
+        version = Version()
         merged = Merged()
         machine = Machine()
         include = Include()
@@ -169,6 +193,7 @@ class Show(PinshCmd.PinshCmd):
         dist    = Dist()
         bom = Bom()
         summary = Summary()
-        self.children = [merged, machine, include, bom, history, package, user, dist, status, summary]
+        self.children = [merged, machine, include, bom, history, package,
+                         user, dist, status, summary, version]
         self.cmd_owner = 1
 

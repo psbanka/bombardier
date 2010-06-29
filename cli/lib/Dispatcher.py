@@ -65,23 +65,22 @@ class JobCommand(PinshCmd.PinshCmd):
         kill.children = [job_name_field]
         self.auth = ENABLE
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         """
-        tokens -- all of the keywords passed in the command string, parsed
-        no_flag -- whether the 'no' keyword was used in the command string
+        command_line -- all of the keywords passed in the command string, parsed
         """
-        connector = system_state.cnm_connector
-        if len(tokens) < 4:
+        cnm = system_state.cnm_connector
+        if len(command_line) < 4:
             raise CommandError("Incomplete command")
-        job_name = tokens[3]
-        if tokens[2] == "kill":
-            status, output = connector.kill_job(job_name)
+        job_name = command_line[3]
+        if command_line[2] == "kill":
+            status, output = cnm.kill_job(job_name)
             return status, output
-        elif tokens[2] == "view":
-            status, output = connector.watch_jobs([job_name])
+        elif command_line[2] == "view":
+            status, output = cnm.watch_jobs([job_name])
             return status, output
             #return output["command_status"], output["command_output"]
-        raise CommandError("Unknown command: %s" % tokens[1])
+        raise CommandError("Unknown command: %s" % command_line[1])
             
 class Dispatcher(PinshCmd.PinshCmd):
     '''bomsh# dispatcher status
@@ -124,53 +123,50 @@ class Dispatcher(PinshCmd.PinshCmd):
 
         self.auth = ENABLE
 
-    def cmd(self, tokens, no_flag):
+    def cmd(self, command_line):
         """
-        tokens -- all of the keywords passed in the command string, parsed
-        no_flag -- whether the 'no' keyword was used in the command string
+        command_line -- all of the keywords passed in the command string, parsed
         """
-        connector = system_state.cnm_connector
-        action = tokens[1].lower()
+        cnm = system_state.cnm_connector
+        action = command_line[1].lower()
         post_data = {}
 
         if action == "server-home":
-            if len(tokens) != 3:
+            if len(command_line) != 3:
                 raise CommandError("Incomplete command.")
-            server_home = tokens[2]
+            server_home = command_line[2]
             try:
-                connector.sync_server_home(server_home)
+                cnm.sync_server_home(server_home)
             except UnexpectedDataException, ude:
                 return FAIL, [str(ude)] 
             return OK, ["Server home set to %s" % server_home]
 
         elif action in ["configuration-key", "restart"]:
             cmd_output = []
-            if len(tokens) == 2:
+            if len(command_line) == 2:
                 prompt = "Enter CI decryption password: "
                 configuration_key = libUi.pwd_input(prompt)
             else:
-                configuration_key = tokens[2]
+                configuration_key = command_line[2]
             if action == "restart":
-                _status, output = connector.dispatcher_control("stop",
-                                                                   post_data)
+                _status, output = cnm.dispatcher_control("stop", post_data)
                 cmd_output.append(output)
-                status, output = connector.dispatcher_control("start",
-                                                                  post_data)
+                status, output = cnm.dispatcher_control("start", post_data)
                 cmd_output.append(output)
                 if status != OK:
                     return FAIL, output
 
-            cmd_output_dict = connector.set_password(configuration_key)
+            cmd_output_dict = cnm.set_configuration_key(configuration_key)
             cmd_output.append(cmd_output_dict["command_output"])
             return cmd_output_dict["command_status"], cmd_output
             
         elif action == "attach":
-            if len(tokens) < 3:
+            if len(command_line) < 3:
                 raise CommandError("Incomplete command")
-            post_data["uri"] = tokens[2]
+            post_data["uri"] = command_line[2]
 
         elif action in ["start", "stop", "status"]:
-            return connector.dispatcher_control(action, post_data)
+            return cnm.dispatcher_control(action, post_data)
 
         raise CommandError("Unknown command")
 

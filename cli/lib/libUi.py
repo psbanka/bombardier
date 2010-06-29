@@ -34,13 +34,12 @@ import sys, termios, tty
 from CnmConnector import CnmConnector, UnexpectedDataException, ServerException
 from SystemStateSingleton import SystemState
 system_state = SystemState()
-from bombardier_core.static_data import OK, FAIL
-from bombardier_core.static_data import WARNING, ERROR, CRITICAL, DEBUG, INFO
+from bombardier_core.static_data import FAIL
+from bombardier_core.static_data import WARNING, CRITICAL, DEBUG, INFO
 from bombardier_core.static_data import USER, ADMIN, LOG_LEVEL_LOOKUP
-from bombardier_core.static_data import GOOD_COLOR, WARNING_COLOR, STRONG_COLOR
+from bombardier_core.static_data import WARNING_COLOR, STRONG_COLOR
 from bombardier_core.static_data import WEAK_COLOR, NO_COLOR
-
-import re
+import CommandLine
 
 
 ONE_LINE = 0
@@ -63,9 +62,6 @@ def login(username, password=None):
             except KeyboardInterrupt:
                 print "\n%% Aborted login"
                 sys.exit(1)
-        else:
-            print "Logging in as %s" % system_state.username
-        print "LOGIN: CNM_URL IS:",system_state.cnm_url
         system_state.cnm_connector = CnmConnector(system_state.cnm_url,
                                      system_state.username)
         tries = 0
@@ -94,6 +90,7 @@ def login(username, password=None):
         system_state.set_prompt()
     except Exception, ste:
         process_traceback(ste)
+        sys.exit(1)
 
 def motd():
     'Print out the message of the day after login'
@@ -101,118 +98,6 @@ def motd():
     for line in banner:
         system_state.fp_out.write(line)
         system_state.fp_out.flush()
-
-def append_not_blank(current_token, tokens):
-    '''append something to the list if it isn't blank. Handles users typing
-    in more than one space between tokens'''
-    current_token = current_token.strip()
-    if current_token:
-        tokens.append(current_token)
-    return tokens
-
-def tokenize(input_str):
-    '''Takes an input string and divides it into string tokens. Handles
-    the word "no" in front of the string specially, handles a '?' specially
-    handles quoted text as one unit, and handles comment markers'''
-    tokens = []
-    quote_mode = False
-    current_token = ''
-    append_last = False
-    comment = ''
-    for i in range(0, len(input_str)):
-        char = input_str[i]
-        if not quote_mode:
-            if char not in ['"', '#', ' ']:
-                current_token += char
-                append_last = True
-                continue
-            tokens = append_not_blank(current_token, tokens)
-            if char == '"': # start quote
-                quote_mode = True
-            elif char == '#': # discard the rest, it's a real comment
-                if i != 0 and input_str[i-1] == ' ':
-                    append_last = True
-                else:
-                    append_last = False
-                comment = input_str[i+1:]
-                break
-            elif char == ' ': # tokenize on spaces if not quoted
-                current_token = ''
-                append_last = True
-        else:
-            if char == '"': # end quote
-                tokens = append_not_blank(current_token, tokens)
-                current_token = ''
-                append_last = False
-                quote_mode = False
-            else:
-                current_token += char
-    if quote_mode: # unbalanced quotes
-        raise Exception
-    if append_last:
-        tokens.append(current_token.lstrip()) # grab the last
-    return tokens, comment
-
-def process_input(string):
-    '''take a line of input from the user and convert it into an argv
-    type structure'''
-    if len(string) == 0:
-        return 0, 0, [], ''
-    # determine if the help_flag is there (cheap hack)
-    help_flag = 0
-    strlen = len(string)
-    if strlen >= 1 and string[-1] == '?':
-        help_flag = 1
-        string = string[:-1]
-    if len(string) == 0:
-        return 0, 1, [], ''
-    string.lstrip() # left space is unimportant, right space is important
-    tokens, comment = tokenize(string)
-    # handle a preceding 'no'
-    no_flag = 0
-    if not tokens:
-        return 0, 0, [], comment
-    if tokens[0] == 'no':
-        no_flag = 1
-        if len(tokens) > 1:
-            tokens = tokens[1:]
-        else:
-            return 0, 0, [], comment
-    # get rid of extra spaces, except at the end!
-    processed_data = []
-    for token in tokens:
-        if token != '':
-            processed = False
-            if token.startswith('$'):
-                var_name = token[1:]
-                if system_state.globals.has_key(var_name):
-                    value = system_state.globals.get(var_name)
-                    if type(value) == type(["list"]):
-                        processed_data.append('[')
-                        processed_data += value
-                        processed_data.append(']')
-                    else:
-                        token = str(value)
-                    processed = True
-            if token.startswith('[') and len(token) > 1:
-                processed_data.append('[')
-                token = token[1:]
-            if token.endswith(']') and len(token) > 1:
-                processed_data.append(token[:-1])
-                processed_data.append(']')
-                processed = True
-            if not processed:
-                processed_data.append(token)
-    if tokens[-1] != '':
-        tokens = processed_data
-    else:
-        tokens = processed_data + ['']
-    if len(tokens) == 0:
-        return 0, 0, [], comment
-    if tokens[0] == "ls" and len(tokens) == 1:
-        tokens[0] = ''
-        help_flag = True
-    return no_flag, help_flag, tokens, comment
 
 # User Input
 def get_default(prompt, default):
@@ -407,7 +292,6 @@ def process_cnm(server_output_lines):
             log_level_string = components[1]
             log_level = LOG_LEVEL_LOOKUP.get(log_level_string, CRITICAL)
             if log_level >= system_state.log_level:
-                date = components[0]
                 job_name = components[2]
                 if system_state.termcolor != NO_COLOR:
                     color_code = None
@@ -451,6 +335,7 @@ def user_output(output, status, prepend = '', test = False):
     return
 
 def process_traceback(machine_exception):
+    "Pretty-print a machine traceback to the screen"
     output = {"Exception": str(machine_exception)}
     if hasattr(machine_exception, "traceback"):
         output["data"] = machine_exception.traceback

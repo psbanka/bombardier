@@ -44,6 +44,8 @@ import os
 SSH = "/usr/bin/ssh"
 
 class Ssh(PinshCmd.PinshCmd):
+    "Provides the ability to SSH to a machine directly"
+
     def __init__(self):
         PinshCmd.PinshCmd.__init__(self, "ssh")
         self.help_text = "ssh\tssh to another host"
@@ -52,14 +54,15 @@ class Ssh(PinshCmd.PinshCmd):
         self.cmd_owner = 1
         self.log_command = True
 
-    def cmd(self, tokens, no_flag):
-        if no_flag:
+    def cmd(self, command_line):
+        "PinshCmd interface when someone hits return"
+        if command_line.no_flag:
             return FAIL, []
-        if len(tokens) < 2:
+        if len(command_line) < 2:
             return FAIL, ["Incomplete command."]
-        host_name = tokens[1]
+        #host_name = command_line[1]
 
-        current_dict = self.config_field.get_specific_data(tokens, 1)
+        current_dict = self.config_field.get_specific_data(command_line, 1)
         ip_address = current_dict.get("ip_address")
         default_user = current_dict.get("default_user")
 
@@ -68,5 +71,5 @@ class Ssh(PinshCmd.PinshCmd):
             msg += ["configuration in order to access this host."]
             return FAIL, msg
         else:
-            os.system('%s %s@%s'%(SSH,default_user,ip_address))
+            os.system('%s %s@%s'%(SSH, default_user, ip_address))
         return OK, []

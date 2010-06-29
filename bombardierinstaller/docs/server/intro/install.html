@@ -1,0 +1,384 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Quick install guide &mdash; Bombardier v1.00 documentation</title>
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.00',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Bombardier v1.00 documentation" href="../index.html" />
+    <link rel="up" title="Getting started" href="index.html" />
+    <link rel="next" title="Deploying your first package with Bombardier, part 1" href="tutorial01.html" />
+    <link rel="prev" title="Getting started" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="tutorial01.html" title="Deploying your first package with Bombardier, part 1"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Getting started"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Bombardier v1.00 documentation</a> &raquo;</li>
+          <li><a href="../contents.html" >Bombardier documentation contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Getting started</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="quick-install-guide">
+<span id="intro-install"></span><h1>Quick install guide<a class="headerlink" href="#quick-install-guide" title="Permalink to this headline">¶</a></h1>
+<p>Before you can use Bombardier, you&#8217;ll need to get it
+installed. Eventually we may have a complete installation guide that
+covers all the possibilities; this guide will step guide you through a
+simple, minimal installation that&#8217;ll work while you walk through this
+tutorial.</p>
+<div class="section" id="bombardier-components">
+<h2>Bombardier Components<a class="headerlink" href="#bombardier-components" title="Permalink to this headline">¶</a></h2>
+<img alt="Components of the Bombardier system" src="../_images/components.png" />
+<p>There are several components to the Bombardier system:</p>
+<blockquote>
+<ul class="simple">
+<li>Bombardier shared components (<strong>bombardier_core</strong>).  This component does
+nothing in and of itself. It is used by the other three parts of
+the system.</li>
+<li>Bombardier Server (<strong>bombardier_server</strong>).  This component is a
+centralized web-based server with a REST interface.  It is the
+central point of control for all actions that are done on the
+network.  It stores and handles all configuration data and all
+software; it manages all logging information for changes on the
+network; and it handles authentication for all actions.</li>
+<li>Bombardier Command-line Interface (<strong>bombardier_cli</strong>).  This
+component provides a (hopefully) user-friendly interface to the
+Bombardier Server.  It can run on the same computer as the
+Bombardier Server, or it can run over the network.</li>
+<li>Bombardier Client (<strong>bombardier_client</strong>).  This component runs on
+all the servers that are under management control of the Bombardier
+Server.</li>
+</ul>
+</blockquote>
+<p>This installation guide will step you through installing the first
+three of these onto one computer.  We will install the Client at a
+later stage.</p>
+</div>
+<div class="section" id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="python">
+<h3>Python<a class="headerlink" href="#python" title="Permalink to this headline">¶</a></h3>
+<p>Bombardier Server and CLI are built on top of Python 2.5 or 2.6. The
+Bombardier Client can run on any version of Python from 2.4 through
+2.6.</p>
+<div class="admonition-platforms-supported-by-bombardier admonition ">
+<p class="first admonition-title">Platforms supported by Bombardier</p>
+<p class="last">Bombardier has been thoroughly tested and developed on Redhat
+(Centos) Enterprise Linux 5 and Ubuntu Linux 8.10.  If you choose
+to install Bombardier onto other flavors of Linux or Unix or other
+POSIX operating systems, we can&#8217;t guarantee it will work, but we&#8217;d
+love to hear from you and help you work through any issues.  If
+you need help with other platforms, send a message to
+<a class="reference external" href="https://answers.launchpad.net/bombardier">bombardier answers</a> .</p>
+</div>
+<p>You can verify that Python&#8217;s installed by typing <tt class="docutils literal"><span class="pre">python</span></tt> from your
+shell; you should see something like:</p>
+<div class="highlight-python"><pre>Python 2.5.1 (r251:54863, Jan 17 2008, 19:35:17)
+[GCC 4.0.1 (Apple Inc. build 5465)] on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+&gt;&gt;&gt;</pre>
+</div>
+</div>
+<div class="section" id="install-bombardier-server-component-and-python-dependencies">
+<h3>Install Bombardier Server component and Python Dependencies<a class="headerlink" href="#install-bombardier-server-component-and-python-dependencies" title="Permalink to this headline">¶</a></h3>
+<p>We recommend using <a class="reference external" href="http://pypi.python.org/pypi/setuptools">setuptools</a> to quickly and easily download the
+Bombardier Server component as well as the Python libraries that are
+required:</p>
+<blockquote>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>easy_install bombardier_server
+</pre></div>
+</div>
+</blockquote>
+</div>
+<div class="section" id="generate-your-ssh-key-pairs">
+<h3>Generate your SSH key-pairs<a class="headerlink" href="#generate-your-ssh-key-pairs" title="Permalink to this headline">¶</a></h3>
+<p>The Bombardier Server uses SSH to communicate with other systems in
+your network. We believe that this provides the most secure method of
+communication, since this is likely a hole that has already been made
+in your firewall between your management servers and the rest of the
+machines on your network.  Bombardier will connect as a particular
+user (in this example, it will run as root, but that is not
+necessary), and that user needs to have ssh key-pairs generated, as
+follows:</p>
+<blockquote>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>ssh-keygen -t dsa
+Generating public/private dsa key pair.
+Enter file in which to save the key <span class="o">(</span>/root/.ssh/id_dsa<span class="o">)</span>:
+Enter passphrase <span class="o">(</span>empty <span class="k">for </span>no passphrase<span class="o">)</span>:
+Enter same passphrase again:
+Your identification has been saved in /root/.ssh/id_dsa.
+Your public key has been saved in /root/.ssh/id_dsa.pub.
+The key fingerprint is:
+2c:08:eb:64:7f:6f:4e:1f:d3:36:9e:c3:9c:70:09:15 208048363@ES-BC9QP81
+</pre></div>
+</div>
+</blockquote>
+<p>remember to use the <strong>DSA</strong> type when generating the key.  You must
+not put a pass-phrase on the key in order for this to work with
+Bombardier Server.</p>
+</div>
+</div>
+<div class="section" id="setting-up-the-server">
+<h2>Setting up the server<a class="headerlink" href="#setting-up-the-server" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="run-the-quickstart">
+<h3>Run the quickstart<a class="headerlink" href="#run-the-quickstart" title="Permalink to this headline">¶</a></h3>
+<p>Next, you&#8217;ll have to take care of setting up the basic repository
+database, directory structure, and configuration key.  You&#8217;ll do this
+using the bdr_server_quickstart script:</p>
+<blockquote>
+<div class="highlight-bash"><pre>$ bdr_server_quickstart
+Perform initial Bombardier Server environment setup? (y/n): y
+Where do you want the root of your repository? [/var/deploy]:
+
+Creating directory structure in /var/deploy...
+
+Bombardier Server requires the public SSH DSA key to be stored
+in the %s directory.
+Using the one in root's home directory..."
+
+Creating repository in /var/deploy/cmdb...
+Created a standalone tree (format: 2a)
+added /var/deploy/cmdb/package
+added /var/deploy/cmdb/machine
+added /var/deploy/cmdb/bom
+added /var/deploy/cmdb/include
+Committing to: /var/deploy/cmdb/
+added bom
+added include
+added machine
+added package
+Committed revision 1.
+
+You will need to set your configuration key as part of the setup process.
+This key will be used to encrypt sensitive configuration items.
+Please enter your configuration key:
+Please re-enter your configuration key:
+Writing configuration to /etc/bombardier.yml...
+
+Basic server setup complete.
+Now configure your web server according to the instructions
+in your documentation.</pre>
+</div>
+</blockquote>
+</div>
+<div class="section" id="create-the-database">
+<h3>Create the database<a class="headerlink" href="#create-the-database" title="Permalink to this headline">¶</a></h3>
+<p>There is a minimal sqlite database that the Bombardier server will use
+to keep track of a few configuration items and to keep track of the
+administrative users who have the right to log in.</p>
+<p>Use the manage.py script in the bombardier_server directory to create
+the database (which should look something like, but probably not
+identical to the following):</p>
+<blockquote>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">cd</span> /usr/lib/python2.5/site-packages/
+<span class="nv">$ </span><span class="nb">cd </span>bombardier_server-1.00_702-py2.5.egg/bombardier_server/web/cnm
+<span class="nv">$ </span>python manage.py syncdb
+
+Creating table django_content_type
+Creating table django_admin_log
+Creating table auth_permission
+Creating table auth_group
+Creating table auth_user
+Creating table auth_message
+Creating table django_session
+Creating table django_site
+Creating table configs_serverconfig
+
+You just installed Django<span class="s1">&#39;s auth system, which means you don&#39;</span>t have any superusers defined.
+Would you like to create one now? <span class="o">(</span>yes/no<span class="o">)</span>: yes
+Username <span class="o">(</span>Leave blank to use <span class="s1">&#39;pbanka&#39;</span><span class="o">)</span>: admin
+E-mail address: info@bombardierinstaller.org
+Password:
+Password <span class="o">(</span>again<span class="o">)</span>:
+Superuser created successfully.
+Installing index <span class="k">for </span>admin.LogEntry model
+Installing index <span class="k">for </span>auth.Permission model
+Installing index <span class="k">for </span>auth.Message model
+</pre></div>
+</div>
+</blockquote>
+</div>
+<div class="section" id="start-the-web-server">
+<h3>Start the web server<a class="headerlink" href="#start-the-web-server" title="Permalink to this headline">¶</a></h3>
+<p>The quick-and-dirty way to start the web server is by using the
+built-in development server that comes with Django <strong>don&#8217;t do this in
+production</strong>.  For the purposes of this tutorial, however, it should
+be safe enough.  Do not put the Django server on a network with
+potentially hostile traffic.</p>
+<p>If this were a <em>production</em> server, you would want to deploy the
+Bombardier server under Apache, following rules similar to those
+described <a class="reference external" href="http://docs.djangoproject.com/en/dev/howto/deployment/modpython/">here</a> .</p>
+<p>You&#8217;ll use the manage.py script to start the web server process like
+this:</p>
+<blockquote>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>python manage.py runserver
+Validating models...
+0 errors found
+
+Django version 1.1.1, using settings <span class="s1">&#39;cnm.settings&#39;</span>
+Development server is running at http://127.0.0.1:8000/
+Quit the server with CONTROL-C.
+</pre></div>
+</div>
+</blockquote>
+</div>
+<div class="section" id="install-bombardier-cli-component-and-python-dependencies">
+<h3>Install Bombardier CLI component and Python Dependencies<a class="headerlink" href="#install-bombardier-cli-component-and-python-dependencies" title="Permalink to this headline">¶</a></h3>
+<p>We will again use <a class="reference external" href="http://pypi.python.org/pypi/setuptools">setuptools</a> to quickly and easily download the
+Bombardier CLI component as well as the Python libraries that are
+required:</p>
+<blockquote>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>easy_install bombardier_cli
+</pre></div>
+</div>
+</blockquote>
+</div>
+<div class="section" id="logging-in-to-the-server">
+<h3>Logging in to the server<a class="headerlink" href="#logging-in-to-the-server" title="Permalink to this headline">¶</a></h3>
+<p>Now it&#8217;s time to start the command-line interface. You&#8217;ll need to
+enter the same configuration-key that you used in the quick-start
+process as well as the server-home value.</p>
+<blockquote>
+<div class="highlight-bash"><div class="highlight"><pre>root@peacemaker:~# bdr
+username <span class="o">[</span>root<span class="o">]</span>: admin
+password:
+Server home is not set. Please enter the value <span class="o">[</span>/var/deploy<span class="o">]</span>:
+Dispatcher is offline; enter CI decryption password:
+  Dispatcher started
+
+             <span class="sb">`</span>...<span class="sb">``</span>                       <span class="sb">`</span>...<span class="sb">``</span>
+            <span class="sb">`</span>+dmmy:                      <span class="sb">`</span>+dNmy:
+             -/yNN+                       -/yMm/
+               /Nm/                         /Nm/
+               /Nm: ./++/++-       -+++++/<span class="sb">`</span> /Nm/   ./++:. <span class="sb">`</span>:+++++:<span class="sb">`</span>
+               /mNo-+dmddmds:.<span class="sb">`</span> <span class="sb">`</span>.:sdmddmh+-oNm/   :hmNNs-/ymddmms-
+               /mMNdo......omd: :dm+...<span class="sb">``</span>-odNMd/    <span class="sb">`</span>:dMNms-.....<span class="sb">`</span>
+               /mNs-<span class="sb">`</span>      +Nm/ /NN+      <span class="sb">`</span>-sNm/     -dMy:.
+               /Nm/        +Nm/ /mN+        /NN/     :dNo
+               /mMho-      +MN/ /NN/      :ohMm:     -dMo
+             -/yNMmho//////oys- -syo//////ohmMNs/- .:sNMh//////-<span class="sb">`</span>
+            <span class="sb">`</span>+dNmy:<span class="sb">`</span>/dmmmmdo.    <span class="sb">`</span>.sdmmmmh:<span class="sb">`</span>:hmNd+ /hmmdddddmmd+<span class="sb">`</span>
+             <span class="sb">`</span>...<span class="sb">`</span>  <span class="sb">`</span>......<span class="sb">`</span>       <span class="sb">`</span>......<span class="sb">`</span>  <span class="sb">`</span>...<span class="sb">`</span> <span class="sb">`</span>...........<span class="sb">`</span>
+
+                    Bombardier Network Command Line
+
+
+peacemaker <span class="o">(</span>admin<span class="o">)</span>&gt;
+</pre></div>
+</div>
+</blockquote>
+<p>That&#8217;s it &#8211; you can now <a class="reference external" href="tutorial01.html#intro-tutorial01"><em>move onto the tutorial</em></a>
+to start doing something useful with the server.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference external" href="">Quick install guide</a><ul>
+<li><a class="reference external" href="#bombardier-components">Bombardier Components</a></li>
+<li><a class="reference external" href="#prerequisites">Prerequisites</a><ul>
+<li><a class="reference external" href="#python">Python</a></li>
+<li><a class="reference external" href="#install-bombardier-server-component-and-python-dependencies">Install Bombardier Server component and Python Dependencies</a></li>
+<li><a class="reference external" href="#generate-your-ssh-key-pairs">Generate your SSH key-pairs</a></li>
+</ul>
+</li>
+<li><a class="reference external" href="#setting-up-the-server">Setting up the server</a><ul>
+<li><a class="reference external" href="#run-the-quickstart">Run the quickstart</a></li>
+<li><a class="reference external" href="#create-the-database">Create the database</a></li>
+<li><a class="reference external" href="#start-the-web-server">Start the web server</a></li>
+<li><a class="reference external" href="#install-bombardier-cli-component-and-python-dependencies">Install Bombardier CLI component and Python Dependencies</a></li>
+<li><a class="reference external" href="#logging-in-to-the-server">Logging in to the server</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="index.html"
+                                  title="previous chapter">Getting started</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="tutorial01.html"
+                                  title="next chapter">Deploying your first package with Bombardier, part 1</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="../_sources/intro/install.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="../search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="tutorial01.html" title="Deploying your first package with Bombardier, part 1"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Getting started"
+             >previous</a> |</li>
+        <li><a href="../index.html">Bombardier v1.00 documentation</a> &raquo;</li>
+          <li><a href="../contents.html" >Bombardier documentation contents</a> &raquo;</li>
+          <li><a href="index.html" >Getting started</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2009, Peter Banka, Shawn Sherwood.
+      Last updated on Mar 22, 2010.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.3.
+    </div>
+  </body>
+</html>

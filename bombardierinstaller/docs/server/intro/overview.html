@@ -1,0 +1,471 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Bombardier at a glance &mdash; Bombardier v1.00 documentation</title>
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.00',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Bombardier v1.00 documentation" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../index.html">Bombardier v1.00 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="bombardier-at-a-glance">
+<span id="intro-overview"></span><h1>Bombardier at a glance<a class="headerlink" href="#bombardier-at-a-glance" title="Permalink to this headline">¶</a></h1>
+<p>Bombardier provides all of the components of a mature change
+management system for production datacenters:</p>
+<blockquote>
+<ul class="simple">
+<li>A package format for delivering application binary data and
+application setup script files</li>
+<li>A cross-platform scripting language and libraries for package
+installation, configuration, verification, and uninstallation
+(basically Python)</li>
+<li>A centralized Configuration Management Database (CMDB) for keeping
+track of all configuration items (CIs), with a means for packages
+that are being delivered to a target system to read configuration
+items for that package</li>
+<li>A means for storing and tracking all packages in the system in a
+Definitive Software Library (DSL)</li>
+<li>A central console for managing all network operations on all
+servers in a network using a scriptable command-line interface.</li>
+</ul>
+</blockquote>
+<p>The goal of this document is to give you enough technical specifics to
+understand how Bombardier works, but this isn&#8217;t intended to be a
+tutorial or reference &#8211; but we&#8217;ve got both! When you&#8217;re ready to
+start a project, you can <a class="reference external" href="tutorial01.html#intro-tutorial01"><em>start with the tutorial</em></a> or <a class="reference external" href="../topics/index.html#topics-index"><em>dive right into more detailed
+documentation</em></a>.</p>
+<div class="section" id="design-your-packages">
+<h2>Design your Packages<a class="headerlink" href="#design-your-packages" title="Permalink to this headline">¶</a></h2>
+<p>A set of software packages are the heart of a Bombardier system. When
+thinking about rolling out Bombardier, ask yourself: What components
+of my datacenter are...</p>
+<blockquote>
+<ul class="simple">
+<li>configuration-intensive,</li>
+<li>change frequently, and</li>
+<li>are critical to keeping my customers happy?</li>
+</ul>
+</blockquote>
+<p>Perhaps this starts with a core website or an LDAP directory or a
+backend database system. Bombardier is perfect for managing all these
+things, and many more. Start with the components of the system which
+make you the most nervous, which have the most mystery around them and
+&#8220;tribal knowledge&#8221; around their installation, configuration, and
+maintenance. However, it may be easiest to tackle some simple and
+well-defined problems first: perhaps your SVN repository.</p>
+<p>Most datacenters have large, dark, frightening silos of murky know-how
+around managing certain services.  Bombardier is typically used like a
+flash-light to shine light in each of these murky areas one at a time
+to verify and prove that installation and configuration processes are
+known and repeatable and to then provide a simple and universal tool
+for their ongoing management. As you tackle these areas of your
+datacenter one at a time, the process will gain momentum:
+administrators will wonder why it took so long to organize these
+processes, they will demand that all critical components be packaged,
+and you will see a gradual relief spread over your IT staff as they
+begin to realize that they know how to perform any type of maintenance
+in the datacenter quickly, efficiently, and flawlessly whenever needed.</p>
+<div class="section" id="not-everything-needs-to-be-packaged">
+<h3>Not everything needs to be packaged<a class="headerlink" href="#not-everything-needs-to-be-packaged" title="Permalink to this headline">¶</a></h3>
+<p>Once you start converting things into packages, it can be tempting to
+have Bombardier manage everything. But there are quite a few software
+components that don&#8217;t need to be packaged at all. For example, if your
+operating system has a good software distribution system of its own
+such as Yum or APT, it will probably be preferable to use this system
+for installing run-of-the-mill utilities such as screen or vim; things
+that don&#8217;t take any configuration, don&#8217;t provide any end-value to
+your customers, and pose almost no risk to causing a problem with the
+healthy operating of other things on the server, such as Apache
+HTTPD.  Bombardier packages are really only useful for managing highly
+critical software components that provide value to someone outside
+your company or department.</p>
+</div>
+</div>
+<div class="section" id="what-a-package-looks-like">
+<h2>What a package looks like<a class="headerlink" href="#what-a-package-looks-like" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="metadata">
+<h3>metadata<a class="headerlink" href="#metadata" title="Permalink to this headline">¶</a></h3>
+<p>A package consists of two things: metadata and a Python class.  The
+metadata describes the package&#8211; what it does, what configuration data
+it needs, what dependencies it has, etc. An example of package
+metadata is this:</p>
+<div class="highlight-python"><pre>class_name: SvnServer.SvnServer
+configuration:
+  fqdn: ''
+  ip_address: ''
+  ldap:
+    admin_email: admin@test.com
+    admin_pass: abc123
+    admin_user: admin
+    backup_dir: NOT_CONFIGURED
+    base: dc=mycompany,dc=com
+    groupOu: UNKNOWN
+    ignore_users: []
+    password_complexity: '100'
+    port: '389'
+    schema: {}
+    userOu: UNKNOWN
+    users: {}
+  ssl_cert: ''
+  ssl_key: ''
+  svn:
+    admin_pass: NONE
+    daemon_group: www-data
+    daemon_user: www-data
+    friendly_email: The SVN admins
+    lock_dir: /var/lock/apache2
+    log_dir: /var/log/apache2
+    name: Un-named repository
+    ou: UKNOWN
+    repositories: []
+    repository_root: ''
+    rights: {}
+    server_port: '443'
+    server_root: /etc/apache2
+dependencies:
+- LdapServer
+executables:
+- configure
+- generate_auth_files
+- install
+- start
+- stop
+- uninstall
+- verify
+injectors:
+  LdapManager:
+    path: /var/deploy/repos/injectors/LdapManager-526.tar.gz
+    svn: https://svn.ge-is-beta.com/icontrol/src/trunk/libs/LdapManager
+    version: '526'
+  apache_templates:
+    path: /var/deploy/repos/injectors/apache_templates-526.tar.gz
+    svn: https://svn.ge-is-beta.com/icontrol/src/trunk/injector/apache_templates/
+    version: '526'
+  sousaphone:
+    path: /var/deploy/repos/injectors/sousaphone-526.tar.gz
+    svn: https://svn.ge-is-beta.com/icontrol/src/trunk/injector/sousaphone/
+    version: '526'
+libs:
+  LdapManager:
+    path: /var/deploy/repos/libs/LdapManager-526.tar.gz
+    svn: https://svn.ge-is-beta.com/icontrol/src/trunk/libs/LdapManager
+    version: '526'
+  SvnServer:
+    path: /var/deploy/repos/libs/SvnServer-526.tar.gz
+package-version: 5
+release: 26</pre>
+</div>
+<p>This metadata defines what configuration data the package requires (in
+this case, test.directory and test.value), what executables it
+provides (more on this later). What Python libraries are required to
+install and manage this package (under libs), and what supplementary
+files should be shipped with the package (typically these are the
+files that will actually get installed onto the server), which are
+called &#8220;injectors.&#8221;</p>
+</div>
+<div class="section" id="class-file">
+<h3>Class file<a class="headerlink" href="#class-file" title="Permalink to this headline">¶</a></h3>
+<p>The class that is responsible for installing, configuring, verifying
+and uninstalling the package needs to be called out under the
+<strong>class_name</strong> directive in the package metadata. This class can be
+part of the package, under the libs directory. Here&#8217;s a quick example
+of a class:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">class</span> <span class="nc">SvnServer</span><span class="p">(</span><span class="n">SpkgV5</span><span class="p">):</span>
+    <span class="s">&quot;Class for SVN/Apache installation&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+        <span class="n">SpkgV5</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">=</span> <span class="s">&quot;False&quot;</span>
+        <span class="n">domain_white_list</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">listobj</span><span class="p">(</span><span class="s">&quot;svn.domain_white_list&quot;</span><span class="p">,</span> <span class="p">[],</span> <span class="n">optional</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">domain_white_list</span> <span class="o">=</span> <span class="s">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">domain_white_list</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">friendly_email</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">string</span><span class="p">(</span><span class="s">&#39;svn.friendly_email&#39;</span><span class="p">,</span> <span class="s">&quot;The SVN admins&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fqdn</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">string</span><span class="p">(</span><span class="s">&#39;fqdn&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">company</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;svn.company_name&quot;</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">company</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">company</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fqdn</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">days_before_token_expiration</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;svn.days_before_token_expiration&quot;</span><span class="p">,</span>
+                                                          <span class="s">&quot;2&quot;</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">server_root</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;svn.server_root&quot;</span><span class="p">,</span> <span class="s">&quot;/etc/apache2&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lock_dir</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;svn.lock_dir&quot;</span><span class="p">,</span> <span class="s">&#39;/var/lock/apache2&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">daemon_user</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;svn.daemon_user&quot;</span><span class="p">,</span> <span class="s">&#39;www-data&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">daemon_group</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;svn.daemon_group&quot;</span><span class="p">,</span> <span class="s">&#39;www-data&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;svn.log_dir&quot;</span><span class="p">,</span> <span class="s">&#39;/var/log/apache2&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">admin_pass</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;svn.admin_pass&quot;</span><span class="p">,</span> <span class="s">&quot;NONE&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">server_port</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;svn.server_port&quot;</span><span class="p">,</span> <span class="s">&#39;443&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">configure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s">&quot;Standard configuration method for a package&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_info</span><span class="p">(</span><span class="s">&quot;Current directory: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span>
+        <span class="n">sites_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">server_root</span><span class="p">,</span> <span class="s">&quot;sites-enabled&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">sites_dir</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s">&quot;mkdir -p </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">sites_dir</span><span class="p">)</span>
+        <span class="n">config_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">server_root</span><span class="p">,</span> <span class="s">&#39;apache2.conf&#39;</span><span class="p">)</span>
+        <span class="n">template_file</span> <span class="o">=</span> <span class="s">&quot;apache_templates/apache-svn.template&quot;</span>
+        <span class="n">status1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modify_template</span><span class="p">(</span><span class="n">template_file</span><span class="p">,</span> <span class="n">config_file</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_info</span><span class="p">(</span><span class="s">&quot;Creating repository configuration&quot;</span><span class="p">)</span>
+        <span class="n">status2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_repositories</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_info</span><span class="p">(</span><span class="s">&quot;Generating authorization file...&quot;</span><span class="p">)</span>
+        <span class="n">status3</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_auth_files</span><span class="p">()</span>
+        <span class="k">if</span> <span class="p">[</span><span class="n">status1</span><span class="p">,</span> <span class="n">status2</span><span class="p">,</span> <span class="n">status3</span><span class="p">]</span> <span class="o">==</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">[</span><span class="n">OK</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">OK</span>
+        <span class="k">return</span> <span class="n">FAIL</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="install-it">
+<h2>Install it<a class="headerlink" href="#install-it" title="Permalink to this headline">¶</a></h2>
+<p>Packages have to get installed on a computer somewhere in order for
+them to be useful. We call the computers that are part of the
+datacenter &#8220;machines&#8221; in order to distinguish them from the Bombardier
+server.</p>
+<div class="section" id="set-up-a-machine">
+<h3>Set up a machine<a class="headerlink" href="#set-up-a-machine" title="Permalink to this headline">¶</a></h3>
+<p>A machine has a metadata file similar to the package just
+shown. Here&#8217;s an example of a miniumum machine configuration file for
+a machine svn_server:</p>
+<div class="highlight-python"><pre>default_user: root
+ip_address: 10.10.1.70
+platform: linux</pre>
+</div>
+<p>If you&#8217;re going to install the SVN package on this server, you&#8217;ll have
+to add the configuration values to it that the package requires (not
+shown). Finally, you&#8217;ll need to actually install the package onto the
+remote server:</p>
+<div class="highlight-python"><pre>( machine svn_server )&gt; inst svn
+&gt;&gt;&gt; Job name: admin@svn_server-10
+  |  admin@svn_server-10 | Package SvnServer does not have a priority (assuming 100)
+  | admin@svn_server-10 | Packages remaining to install (in order): ['SvnServer']
+  | admin@svn_server-10 | Currently installing package priority 100 [SvnServer]
+  | admin@svn_server-10 | svn_server installing SvnServer-27
+  | admin@svn_server-10 | [injectors]|Template: settings.template
+  | admin@svn_server-10 | [injectors]|Created: sousaphone/settings.py
+  | admin@svn_server-10 | [injectors]|Installing the sousaphone webapp libraries...
+  | admin@svn_server-10 | [injectors]|Template: sousaphone/header.html.template
+  | admin@svn_server-10 | [injectors]|Created: /var/www/templates/header.html
+  | admin@svn_server-10 | [injectors]|Template: sousaphone/password_policy.html.template
+  | admin@svn_server-10 | [injectors]|Created: /var/www/site_media/password_policy.html
+  |  admin@svn_server-10 | [injectors]|No PID file: /var/lock/apache2/apache.pid
+  | admin@svn_server-10 | [injectors]|Current directory: /opt/spkg/svn_server/packages/SvnServer-27/injectors
+  | admin@svn_server-10 | [injectors]|Template: apache_templates/apache-svn.template
+  | admin@svn_server-10 | [injectors]|Created: /etc/apache2/apache2.conf
+  | admin@svn_server-10 | [injectors]|Creating repository configuration
+  | admin@svn_server-10 | [injectors]|Generating authorization file...
+  | admin@svn_server-10 | install OK: SvnServer-27
+  | admin@svn_server-10 | Verifying package SvnServer-27
+  | admin@svn_server-10 | verify OK: SvnServer-27
+  | svn_server | Finished install for SvnServer.
+  | svn_server | Finished install for SvnServer.
+&gt;&gt;&gt; Joining...
+ info:
+   Generated /etc/apache2/devel
+   Generated /etc/apache2/partner
+   Generated /etc/apache2/admin
+
+( machine svn_server )&gt; exec svn start
+&gt;&gt;&gt; Job name: admin@svn_server-11
+  | admin@svn_server-11 | Using SvnServer
+  |  admin@svn_server-11 | Package SvnServer does not have a priority (assuming 100)
+  | admin@svn_server-11 | Executing (start) inside package (SvnServer-27)
+  | admin@svn_server-11 | [injectors]|Waiting for apache2 to start...
+  | admin@svn_server-11 | start OK: SvnServer-27
+  | svn_server | Finished execute for SvnServer.
+  | svn_server | Finished execute for SvnServer.
+&gt;&gt;&gt; Joining...
+ time to start: 0
+
+( machine svn_server )&gt;</pre>
+</div>
+</div>
+</div>
+<div class="section" id="enjoy-the-free-api">
+<h2>Enjoy the free API<a class="headerlink" href="#enjoy-the-free-api" title="Permalink to this headline">¶</a></h2>
+<p>With that, you&#8217;ve got a free, and rich, Python API to write
+installation and configuration packages however you like.  Bombardier
+also provides quite a bit of assistance on the remote machine side for
+making packages easier to create. For example, you&#8217;ll notice that the
+class SvnServer inherited from SpkgV5.  With this inheritence you get
+the following:</p>
+<div class="section" id="config-object">
+<h3>config object<a class="headerlink" href="#config-object" title="Permalink to this headline">¶</a></h3>
+<p>A &#8220;config&#8221; object is passed into your constructor. This object
+provides your installer class with all the information that the
+administrator has configured for this machine.  For example, if you
+want to know what daemon the Apache server should be configured to run
+as, you can request the information from the config object in the
+following way:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">apache_user</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;svn.daemon_user&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="logging-methods">
+<h3>logging methods<a class="headerlink" href="#logging-methods" title="Permalink to this headline">¶</a></h3>
+<p>If you want to report-out the the user-interface anything of interest
+that happens during the installation, you can use the build-in logging
+methods:</p>
+<blockquote>
+<ul class="simple">
+<li>self._debug()</li>
+<li>self._info()</li>
+<li>self._warning()</li>
+<li>self._error()</li>
+<li>self._critical()</li>
+</ul>
+</blockquote>
+<p>While the installation is proceeding, the administrator running the
+package commands will be able to see what&#8217;s going on with the
+installation, and the details of the package actions will be recorded
+in Bombardier&#8217;s permanent log file for forensic analysis if that&#8217;s
+ever necessary.</p>
+</div>
+<div class="section" id="standard-interface-methods">
+<h3>standard interface methods<a class="headerlink" href="#standard-interface-methods" title="Permalink to this headline">¶</a></h3>
+<p>Each package installation class must provide the following standard
+interface methods:</p>
+<dl class="docutils">
+<dt>install()</dt>
+<dd>This method is called on the class when the user wants to install
+the package</dd>
+<dt>configure()</dt>
+<dd>This method is called on the class when the user wants to make a
+configuration change to an already-installed system.  Configuration
+is supported on already-installed systems and provides for those
+changes that you can make to a &#8216;live&#8217; system.</dd>
+<dt>verify()</dt>
+<dd>This method is used to verify that the software is deployed
+as-designed.</dd>
+<dt>uninstall()</dt>
+<dd>This method is used when a package is to be removed (uninstalled)
+from the system. The package should provide for <em>idempotance</em>,
+meaning that the system should be left in exactly the same state
+after being uninstalled that it was before the package was
+installed.</dd>
+</dl>
+</div>
+<div class="section" id="additional-interface-methods">
+<h3>additional interface methods<a class="headerlink" href="#additional-interface-methods" title="Permalink to this headline">¶</a></h3>
+<p>Any non-public methods (methods that don&#8217;t start with an underscore)
+in your class will also be made available to the administrator for
+performing specific functions with that package. For example,
+<tt class="docutils literal"><span class="pre">start</span></tt>, <tt class="docutils literal"><span class="pre">stop</span></tt>, and <tt class="docutils literal"><span class="pre">backup</span></tt> are often added as public methods
+to a package class to start services and backup data.</p>
+</div>
+</div>
+<div class="section" id="this-is-just-the-surface">
+<h2>This is just the surface<a class="headerlink" href="#this-is-just-the-surface" title="Permalink to this headline">¶</a></h2>
+<p>This has been only a quick overview of Bombardier&#8217;s functionality. Some more useful
+features:</p>
+<blockquote>
+<ul class="simple">
+<li>The Bombardier CLI :ref:` &lt;topics-cli&gt;` that provides for a
+great and simple command-line user experience.</li>
+</ul>
+</blockquote>
+<p>The next obvious steps are for you to <a class="reference external" href="https://launchpad.net/bombardier/+download">download Bombardier</a>, read
+<a class="reference external" href="tutorial01.html#intro-tutorial01"><em>the tutorial</em></a>. Thanks for your interest!</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference external" href="">Bombardier at a glance</a><ul>
+<li><a class="reference external" href="#design-your-packages">Design your Packages</a><ul>
+<li><a class="reference external" href="#not-everything-needs-to-be-packaged">Not everything needs to be packaged</a></li>
+</ul>
+</li>
+<li><a class="reference external" href="#what-a-package-looks-like">What a package looks like</a><ul>
+<li><a class="reference external" href="#metadata">metadata</a></li>
+<li><a class="reference external" href="#class-file">Class file</a></li>
+</ul>
+</li>
+<li><a class="reference external" href="#install-it">Install it</a><ul>
+<li><a class="reference external" href="#set-up-a-machine">Set up a machine</a></li>
+</ul>
+</li>
+<li><a class="reference external" href="#enjoy-the-free-api">Enjoy the free API</a><ul>
+<li><a class="reference external" href="#config-object">config object</a></li>
+<li><a class="reference external" href="#logging-methods">logging methods</a></li>
+<li><a class="reference external" href="#standard-interface-methods">standard interface methods</a></li>
+<li><a class="reference external" href="#additional-interface-methods">additional interface methods</a></li>
+</ul>
+</li>
+<li><a class="reference external" href="#this-is-just-the-surface">This is just the surface</a></li>
+</ul>
+</li>
+</ul>
+
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="../_sources/intro/overview.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="../search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../index.html">Bombardier v1.00 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2009, Peter Banka, Shawn Sherwood.
+      Last updated on Mar 22, 2010.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.3.
+    </div>
+  </body>
+</html>

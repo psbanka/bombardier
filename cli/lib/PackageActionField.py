@@ -60,27 +60,27 @@ class PackageActionField(PinshCmd.PinshCmd):
         data = system_state.cnm_connector.service_yaml_request(url)
         return data
 
-    def preferred_names(self, tokens, index):
+    def preferred_names(self, command_line, index):
         '''Provide a list of names that the system would prefer to use, other
         than that which was typed in by the user. For example, 'sho mach localh'
         will return 'localhost' for the machine name if strict is off,
         otherwise, it will return 'localh'.
 
         '''
-        package_name = tokens[index-1]
+        package_name = command_line[index-1]
         package_data = self.get_package_data(package_name)
         actions = package_data.get("executables")
         possible_actions = []
         for action in actions:
-            if action.lower().startswith(tokens[index].lower()):
+            if action.lower().startswith(command_line[index].lower()):
                 possible_actions.append(action)
         #print "possible actions:",possible_actions
         return possible_actions
 
-    def match(self, tokens, index):
+    def match(self, command_line, index):
         '''Determines if what has been typed in by the user matches a
         possible package action'''
-        possible_matches = self.acceptable_names(tokens, index)
+        possible_matches = self.acceptable_names(command_line, index)
         if not possible_matches:
             return NO_MATCH, 1
         if len(possible_matches) > 1:

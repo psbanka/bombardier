@@ -1,0 +1,433 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Deploying your first package with Bombardier, part 1 &mdash; Bombardier v1.00 documentation</title>
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.00',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Bombardier v1.00 documentation" href="../index.html" />
+    <link rel="up" title="Getting started" href="index.html" />
+    <link rel="next" title="Deploying your first package with Bombardier, part 2" href="tutorial02.html" />
+    <link rel="prev" title="Quick install guide" href="install.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="tutorial02.html" title="Deploying your first package with Bombardier, part 2"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="install.html" title="Quick install guide"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Bombardier v1.00 documentation</a> &raquo;</li>
+          <li><a href="../contents.html" >Bombardier documentation contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Getting started</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="deploying-your-first-package-with-bombardier-part-1">
+<span id="intro-tutorial01"></span><h1>Deploying your first package with Bombardier, part 1<a class="headerlink" href="#deploying-your-first-package-with-bombardier-part-1" title="Permalink to this headline">¶</a></h1>
+<p>Let&#8217;s learn by example.  Refer to the diagram below for what the
+network will look like in general.  If your network doesn&#8217;t look
+exactly like this, don&#8217;t worry.  Interpret the instructions for
+your environment.</p>
+<img alt="Basic network configuration" src="../_images/deployment.png" />
+<p>In this example, we&#8217;re going to take a network as shown above and
+configure all the servers on it for SNMP.</p>
+<p>We&#8217;ll assume you have Bombardier installed on the Bombardier Server
+already. If not, please read the <a class="reference external" href="install.html#intro-install"><em>installation guide</em></a>.</p>
+<div class="admonition-where-to-get-help admonition ">
+<p class="first admonition-title">Where to get help</p>
+<p class="last">If you&#8217;re having trouble going through this tutorial, please post
+a question to <a class="reference external" href="https://answers.launchpad.net/bombardier">launchpad</a> to interact with other Bombardier
+users who might be able to help.</p>
+</div>
+<div class="section" id="the-bombardier-package">
+<h2>The Bombardier Package<a class="headerlink" href="#the-bombardier-package" title="Permalink to this headline">¶</a></h2>
+<p>The core of the Bombardier system is the Bombardier Package.  To do
+anything in Bombardier, you create a package.  So we&#8217;ll create one to
+manage the SNMP configuration on a machine under our control.  In this
+example, this package will work on a Redhat Enterprise Linux 5 server
+or a Centos 5 server.  If you don&#8217;t have one of these available, you
+may have to modify this package to fit your configuration.</p>
+<div class="section" id="package-definition-file">
+<h3>Package definition file<a class="headerlink" href="#package-definition-file" title="Permalink to this headline">¶</a></h3>
+<p>A package starts with a definition file, which is nothing more than a
+simple human-readable text file which lists the binary (installable)
+files with a set of instructions (scripts) that install, configure,
+verify, and uninstall those binary files onto a given machine. The
+format of this file is <a class="reference external" href="http://www.yaml.org/">yaml</a> (or <a class="reference external" href="http://www.json.org/">JSON</a>), and should be pretty
+intuitive.  We chose this format over XML because, as the JSON site
+says, &#8220;it is easy for humans to read and write. It is easy for
+machines to parse and generate.&#8221;</p>
+<p>The first step is to create this package definition on your Bombardier
+server using the bombardier command-line interface:</p>
+<blockquote>
+<div class="highlight-bash"><div class="highlight"><pre>peacemaker <span class="o">(</span>admin<span class="o">)</span>&gt; create package SnmpConfig
+</pre></div>
+</div>
+</blockquote>
+<p>at which point, the CLI will open an editor screen and allow you to
+enter the configuration data for your package.  When creating a new
+package, Bombardier provides an outline of the minimum configuration
+items that you&#8217;re going to need to define:</p>
+<div class="highlight-python"><pre>class_name: Module.Class
+dependencies: []
+injectors: {}
+libs: {}
+package-version: 5
+release: 0
+~
+~</pre>
+</div>
+<div class="admonition-setting-your-editor admonition ">
+<p class="first admonition-title">Setting your editor</p>
+<p class="last">The bombardier cli will use <a class="reference external" href="http://www.ssel.montana.edu/HowTo/vi_commands.html">vim</a> as the default editor because
+it&#8217;s powerful and ubiquitous.  However, there are a lot of people
+who don&#8217;t like vim.  We can sympathize with this point of view,
+since we can still remember when vim was frightening.  If you
+prefer using a different editor, create a file in your home
+directory called .bdr_config, and put an entry on its own line, as
+follows: <tt class="docutils literal"><span class="pre">editor:</span> <span class="pre">/path/to/editor</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="required-sections-and-what-they-mean">
+<h3>Required sections and what they mean<a class="headerlink" href="#required-sections-and-what-they-mean" title="Permalink to this headline">¶</a></h3>
+<p>Before going on with our example, a few words about what the metadata
+entries mean.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">dependencies:</th><td class="field-body"><p class="first">This is a list of packages that must be installed before this
+package can be installed.  When deploying a number of packages to a
+remote machine, Bombardier will ensure that all dependent packages
+are installed prior to those packages that are dependent upon them.</p>
+</td>
+</tr>
+<tr class="field"><th class="field-name">priority:</th><td class="field-body"><p class="first">The higher the number, the more important a package.  Packages that
+are more important are installed first, including packages that are
+dependencies of an important package</p>
+</td>
+</tr>
+<tr class="field"><th class="field-name" colspan="2">package-version:</th></tr>
+<tr><td>&nbsp;</td><td class="field-body"><p class="first">This indicates the type of package this is.  We will always be
+dealing with version-5 packages in this document.  There is a
+version-4 package as well which is a self-contained file.</p>
+</td>
+</tr>
+<tr class="field"><th class="field-name">release:</th><td class="field-body"><p class="first">This is the revision number of this package.  Any time a package is
+released to be available to a machine in your network, this number
+must be increased by one.</p>
+</td>
+</tr>
+<tr class="field"><th class="field-name">injectors:</th><td class="field-body"><p class="first">This is a dictionary of .tar files that should ship with a package.
+Some packages don&#8217;t have any files that need to be included with the
+package in this way (like our example package). If this is the case,
+leave this section blank.</p>
+<p>Most packages need to provide some kind of software to a machine as
+part of their activities.  For example, you may want to deliver a
+website to a web server, with all the .html, .jpg, .css, etc. files
+that such a site would require.  Any and all files that you would
+like to bundle with your package should be bundled in a .tar.gz file
+specified in the <tt class="docutils literal"><span class="pre">injectors</span></tt> section of the package configuration
+file.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">path:</th><td class="field-body">This specifies the path where the .tar file is stored that will be
+shipped as part of this package.  If this is given with a full
+path, Bombardier will find the file.  If it is given without a
+path, Bombardier will assume it&#8217;s in the
+$server_home/repos/injector directory</td>
+</tr>
+<tr class="field"><th class="field-name">svn:</th><td class="field-body">Sometimes it&#8217;s preferable to store the injector files in an SVN
+repository.  Put the full URL path to the repository here if you
+want to store them here.</td>
+</tr>
+<tr class="field"><th class="field-name">version:</th><td class="field-body">This is the SVN revision number to retrieve.  Only needed if the
+SVN parameter is set</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+<tr class="field"><th class="field-name">libs:</th><td class="field-body"><p class="first">This is a dictionary of Python code libraries that will be shipped
+with the package.  One of these libraries will be responsible for
+driving the installation, configuration, verification, and
+uninstallation activities.  This library will be specified in the
+<tt class="docutils literal"><span class="pre">class_name</span></tt> field.  Like <tt class="docutils literal"><span class="pre">injectors</span></tt>, this item will also
+include either <strong>path</strong>, or <strong>svn</strong>/ <strong>version</strong> entries to tell
+Bombardier where to find these libraries.</p>
+</td>
+</tr>
+<tr class="field"><th class="field-name">class_name:</th><td class="field-body"><p class="first last">This specifies the Python class that will have control of
+package administration on the remote machine.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="our-example-metadata">
+<h3>Our example metadata<a class="headerlink" href="#our-example-metadata" title="Permalink to this headline">¶</a></h3>
+<p>We have some ready-made metadata for our example.  In our SNMP setup
+example, we&#8217;ll start with a package configuration file below.  Remove
+the example data that Bombardier provides and replace it with the
+following:</p>
+<div class="highlight-python"><pre>class_name: SnmpConfigV5.SnmpConfigV5
+dependencies: []
+injectors: {}
+libs:
+  SnmpConfigV5: {
+    svn: 'http://www.bombardierinstaller.org/svn/pkg/SnmpConfigV5'
+  }
+  YumPackageInstaller: {
+    svn: 'http://www.bombardierinstaller.org/svn/pkg/YumPackageInstaller'
+  }
+package-version: 5
+release: 3</pre>
+</div>
+<p>When you exit the editor, the CLI will upload the package definition
+to the Bombardier Server.</p>
+</div>
+</div>
+<div class="section" id="finally-writing-some-python">
+<h2>Finally, writing some Python<a class="headerlink" href="#finally-writing-some-python" title="Permalink to this headline">¶</a></h2>
+<p>The packages, when it comes time to install and manage the software on
+the machine, come with a set of scripts that must be written in
+Python, which will be executed on the remote machine within the
+Bombardier Client framework.  You will be creating Python libraries
+(or using someone else&#8217;s) to perform all the installation activities.
+All Python modules that are responsible for performing package
+maintenance must extend the <tt class="docutils literal"><span class="pre">SpkgV5</span></tt> class.</p>
+<p>The minimum Python class for a package must look like the following:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">bombardier_core.Spkg</span> <span class="kn">import</span> <span class="n">SpkgV5</span>
+<span class="kn">from</span> <span class="nn">bombardier_core.static_data</span> <span class="kn">import</span> <span class="n">OK</span>
+
+<span class="k">class</span> <span class="nc">MiniPackage</span><span class="p">(</span><span class="n">SpkgV5</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+        <span class="n">SpkgV5</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">install</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">OK</span>
+
+    <span class="k">def</span> <span class="nf">configure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">OK</span>
+
+    <span class="k">def</span> <span class="nf">verify</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">OK</span>
+
+    <span class="k">def</span> <span class="nf">uninstall</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">OK</span>
+</pre></div>
+</div>
+<p>Every package must extend the SpkgV5 class, must take a <tt class="docutils literal"><span class="pre">config</span></tt>
+object in the constructor, and must define the following public
+methods:</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">install():</th><td class="field-body">Performs tasks that install the software from scratch.</td>
+</tr>
+<tr class="field"><th class="field-name">configure():</th><td class="field-body">Performs tasks that configure the software after it has been
+installed.</td>
+</tr>
+<tr class="field"><th class="field-name">verify():</th><td class="field-body">Performs tasks that validate that the software installed on the
+system is correct.</td>
+</tr>
+<tr class="field"><th class="field-name">uninstall():</th><td class="field-body">Performs any tasks needed to remove the package from the machine
+(ideally, without any trace of it having been installed).</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="building-our-example-package">
+<h2>Building Our example package<a class="headerlink" href="#building-our-example-package" title="Permalink to this headline">¶</a></h2>
+<p>Our example package is only slightly more complicated than this, and
+can be viewed at this URL:
+<a class="reference external" href="http://www.bombardierinstaller.org/svn/pkg/SnmpConfigV5/SnmpConfigV5.py">http://www.bombardierinstaller.org/svn/pkg/SnmpConfigV5/SnmpConfigV5.py</a></p>
+<p>In our SNMP example, Redhat already provides the basic software for
+SNMP utilities, so there is no need to bundle binary files along with
+this package.  If you view the script for this package, you can see
+that it uses the YumPackageInstaller library to install and verify
+that the &#8220;net-snmp-utils&#8221; RPM is installed on the remote machine.</p>
+<p>Now it&#8217;s time to build this package on the Bombardier server using the
+Bombardier Command-line interface as follows:</p>
+<blockquote>
+<div class="highlight-bash"><div class="highlight"><pre>peacemaker <span class="o">(</span>admin<span class="o">)</span>&gt; package snmp build
+svn user <span class="o">[]</span>:
+svn password:
+&gt;&gt;&gt; Job name: admin@CNM_Server-9
+  |   admin@CNM_Server-9 | Checking out and building SnmpConfigV5...
+  |   admin@CNM_Server-9 | --- /tmp/tmp_1YVMz/libs/SnmpConfigV5/snmp_template.py
+  |   admin@CNM_Server-9 | --- /tmp/tmp_1YVMz/libs/SnmpConfigV5/SnmpConfigV5.py
+  |   admin@CNM_Server-9 | --- /tmp/tmp_1YVMz/libs/SnmpConfigV5/__init__.py
+  |   admin@CNM_Server-9 | Checking out and building YumPackageInstaller...
+  |   admin@CNM_Server-9 | --- /tmp/tmp_1YVMz/libs/YumPackageInstaller/__init__.py
+  |   admin@CNM_Server-9 | --- /tmp/tmp_1YVMz/libs/YumPackageInstaller/YumPackageInstaller.py
+  |   admin@CNM_Server-9 | My current directory: /usr/lib/python2.5/site-packages/bombardier_server/web/cnm
+  |   admin@CNM_Server-9 | import SnmpConfigV5.SnmpConfigV5 as WVHBFXPSEUKIMTRJZNQLYGAODC
+  |   admin@CNM_Server-9 | Note: not deleting /tmp/tmp_1YVMz
+&gt;&gt;&gt; Joining...
+  built /var/deploy/repos/libs/SnmpConfigV5-1.tar.gz
+  built /var/deploy/repos/libs/YumPackageInstaller-1.tar.gz
+
+SkyNut <span class="o">(</span>admin<span class="o">)</span>&gt;
+</pre></div>
+</div>
+</blockquote>
+<p>Your package is now ready to be used on your Bombardier server.  It
+can be deployed to any machines throughout your network.</p>
+<div class="section" id="examining-your-new-package">
+<h3>Examining your new package<a class="headerlink" href="#examining-your-new-package" title="Permalink to this headline">¶</a></h3>
+<p>Before we finish this part of the tutorial, let&#8217;s have a look at our
+new package.  Bombardier, when it build the package filled some
+information in about it, which you can see when you issue a <tt class="docutils literal"><span class="pre">show</span>
+<span class="pre">package</span></tt> command</p>
+<blockquote>
+<div class="highlight-bash"><div class="highlight"><pre>peacemaker <span class="o">(</span>admin<span class="o">)</span>&gt; sho package test_snmp
+  class_name: SnmpConfigV5.SnmpConfigV5
+  configuration:
+    snmp:
+      community_string: public
+      contact: janitor@noreply.com
+      location: the basement
+  dependencies: <span class="o">[]</span>
+  executables:
+  - configure
+  - ensure_snmp
+  - handle_backup_snmp
+  - install
+  - uninstall
+  - verify
+  injectors: <span class="o">{}</span>
+  libs:
+    SnmpConfigV5:
+      path: /var/deploy/repos/libs/SnmpConfigV5-2.tar.gz
+      svn: http://www.bombardierinstaller.org/svn/pkg/SnmpConfigV5
+      version: <span class="s1">&#39;2&#39;</span>
+    YumPackageInstaller:
+      path: /var/deploy/repos/libs/YumPackageInstaller-2.tar.gz
+      svn: http://www.bombardierinstaller.org/svn/pkg/YumPackageInstaller
+      version: <span class="s1">&#39;2&#39;</span>
+  package-version: 5
+  release: 5
+</pre></div>
+</div>
+</blockquote>
+<p>Before we go on, notice a couple of things that Bombardier did when
+importing this package. First, There is now a <tt class="docutils literal"><span class="pre">configuration</span></tt>
+section.  This shows all of the configuration items that this package
+requires in order to be installed on a machine.  We&#8217;ll see how this
+can be helpful when creating a machine configuration in the next
+section.</p>
+<p>The other thing that changed is that this package has several
+<tt class="docutils literal"><span class="pre">executables</span></tt>.  Bombardier packages often provide some type of
+administrative actions that can be performed on a machine, and these
+can be called from the command-line interface.</p>
+<p>That&#8217;s it &#8211; you can now <a class="reference external" href="tutorial02.html#intro-tutorial02"><em>move onto the next page of the tutorial</em></a> to install the package on a machine.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference external" href="">Deploying your first package with Bombardier, part 1</a><ul>
+<li><a class="reference external" href="#the-bombardier-package">The Bombardier Package</a><ul>
+<li><a class="reference external" href="#package-definition-file">Package definition file</a></li>
+<li><a class="reference external" href="#required-sections-and-what-they-mean">Required sections and what they mean</a></li>
+<li><a class="reference external" href="#our-example-metadata">Our example metadata</a></li>
+</ul>
+</li>
+<li><a class="reference external" href="#finally-writing-some-python">Finally, writing some Python</a></li>
+<li><a class="reference external" href="#building-our-example-package">Building Our example package</a><ul>
+<li><a class="reference external" href="#examining-your-new-package">Examining your new package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="install.html"
+                                  title="previous chapter">Quick install guide</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="tutorial02.html"
+                                  title="next chapter">Deploying your first package with Bombardier, part 2</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="../_sources/intro/tutorial01.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="../search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="tutorial02.html" title="Deploying your first package with Bombardier, part 2"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="install.html" title="Quick install guide"
+             >previous</a> |</li>
+        <li><a href="../index.html">Bombardier v1.00 documentation</a> &raquo;</li>
+          <li><a href="../contents.html" >Bombardier documentation contents</a> &raquo;</li>
+          <li><a href="index.html" >Getting started</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2009, Peter Banka, Shawn Sherwood.
+      Last updated on Mar 22, 2010.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.3.
+    </div>
+  </body>
+</html>

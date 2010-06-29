@@ -1,0 +1,315 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Deploying your first package with Bombardier, part 2 &mdash; Bombardier v1.00 documentation</title>
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.00',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Bombardier v1.00 documentation" href="../index.html" />
+    <link rel="up" title="Getting started" href="index.html" />
+    <link rel="next" title="Deploying your first package with Bombardier, part 2" href="tutorial03.html" />
+    <link rel="prev" title="Deploying your first package with Bombardier, part 1" href="tutorial01.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="tutorial03.html" title="Deploying your first package with Bombardier, part 2"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="tutorial01.html" title="Deploying your first package with Bombardier, part 1"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Bombardier v1.00 documentation</a> &raquo;</li>
+          <li><a href="../contents.html" >Bombardier documentation contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Getting started</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="deploying-your-first-package-with-bombardier-part-2">
+<span id="intro-tutorial02"></span><h1>Deploying your first package with Bombardier, part 2<a class="headerlink" href="#deploying-your-first-package-with-bombardier-part-2" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="create-a-machine-definintion">
+<h2>Create a machine definintion<a class="headerlink" href="#create-a-machine-definintion" title="Permalink to this headline">¶</a></h2>
+<p>It&#8217;s time to get a machine working which we will deploy this new
+SNMP package to. The first thing to do is to create a machine object,
+using the <tt class="docutils literal"><span class="pre">create</span></tt> command again on the command-line interface:</p>
+<blockquote>
+<div class="highlight-bash"><div class="highlight"><pre>peacemaker <span class="o">(</span>admin<span class="o">)</span>&gt; create machine test_machine
+</pre></div>
+</div>
+</blockquote>
+<p>Again, the system will present you with a default system configuration
+in your favorite editor:</p>
+<div class="highlight-python"><pre>ip_address: 127.0.0.1
+default_user: root
+platform: rhel5
+~
+~</pre>
+</div>
+<p>Fill in the <tt class="docutils literal"><span class="pre">ip_address</span></tt> value with the one of the server that you
+want to configure this package onto.  For the purposes of this
+tutorial, if you don&#8217;t have another computer, you can use
+<tt class="docutils literal"><span class="pre">127.0.0.1</span></tt> to install onto the server system itself.</p>
+<p>The <tt class="docutils literal"><span class="pre">default_user</span></tt> option defines what user object Bombardier will
+connect to this remote system as when performing administrative
+actions.  If this is going to be something other than <tt class="docutils literal"><span class="pre">root</span></tt>, make
+sure that the remove user account has the rights to perform all the
+actions that it needs to.</p>
+<p>The <tt class="docutils literal"><span class="pre">platform</span></tt> option provides Bombardier some information about
+what kind of operating-system the remote machine is running.  Some
+packages can only be installed on certain platforms, and this value
+will be checked by some packages before installing.  Some packages can
+be installed on a number of different platforms and may take different
+actions, depending on what this value is. Current options are:</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name"><tt class="docutils literal"><span class="pre">rhel5</span></tt>:</th><td class="field-body">Redhad Linux 5</td>
+</tr>
+<tr class="field"><th class="field-name"><tt class="docutils literal"><span class="pre">centos5</span></tt>:</th><td class="field-body">CentOS Linux 5 (a Redhat Linux clone)</td>
+</tr>
+<tr class="field"><th class="field-name"><tt class="docutils literal"><span class="pre">ubuntu-hardy</span></tt>:</th><td class="field-body">Ubuntu Linux 8.04 (a.k.a. &#8220;Hardy Heron&#8221;)</td>
+</tr>
+<tr class="field"><th class="field-name"><tt class="docutils literal"><span class="pre">cygwin</span></tt>:</th><td class="field-body">Windows Cygwin 1.7</td>
+</tr>
+</tbody>
+</table>
+<p>In addition, you can feel free to fill any value in this field that
+you want, as it is primarily used by packages.</p>
+</div>
+<div class="section" id="initialize-the-remote-machine-for-use-with-the-server">
+<h2>Initialize the remote machine for use with the server<a class="headerlink" href="#initialize-the-remote-machine-for-use-with-the-server" title="Permalink to this headline">¶</a></h2>
+<p>Now it&#8217;s time to get the remote system talking to the server.  Let&#8217;s
+go into machine sub-interface mode and use the <tt class="docutils literal"><span class="pre">setup</span></tt> command.</p>
+<div class="highlight-bash"><div class="highlight"><pre> peacemaker <span class="o">(</span>admin<span class="o">)</span>&gt; machine test_machine
+<span class="o">(</span> machine test_machine <span class="o">)</span>&gt; setup
+&gt;&gt;&gt; Watching job progress. Press ^C to abort or disconnect.
+
+  | admin@test_machine-73 | Sending /var/deploy/admin/id_dsa.pub to test_machine:.
+  | admin@test_machine-74 | Sending /var/deploy/dist/bombardier_core-1.00-732.tar.gz to test_machine:.
+  | admin@test_machine-75 | Sending /var/deploy/dist/bombardier_client-1.00-732.tar.gz to test_machine:.
+  | admin@test_machine-76 | Sending /var/deploy/dist/PyYAML-3.08.tar.gz to test_machine:.
+  | admin@test_machine-77 | Streaming configuration data...
+  | admin@test_machine-78 | Syncing packages...
+  | admin@test_machine-78 | Streaming configuration data...
+  | admin@test_machine-78 | System-check starting...
+  | admin@test_machine-78 | Packages that are installed:
+&gt;&gt;&gt; Finishing processing of 6 jobs...
+   Packages that are BROKEN: <span class="o">[]</span>
+   Packages to be RECONFIGURED: <span class="o">[]</span>
+   Packages to be REMOVED: <span class="o">[]</span>
+   Packages to be INSTALLED: <span class="o">[]</span>
+   Packages installed properly: <span class="o">[]</span>
+
+<span class="o">(</span>*5<span class="o">)</span> <span class="o">(</span> machine test_machine <span class="o">)</span>&gt;
+</pre></div>
+</div>
+<p>This command will perform the following actions on the remote system:</p>
+<blockquote>
+<ul class="simple">
+<li>Add the Bombardier Server&#8217;s SSH key to the remote machine&#8217;s
+.ssh/authorized_keys for the <tt class="docutils literal"><span class="pre">default_user</span></tt> specified in the
+configuration file.</li>
+<li>Copy and install necessary Python libraries to the remote machine
+(i.e. PyYaml, Bombardier Core, and Bombardier Client).</li>
+<li>Initialize the Bombardier Client code on the remote machine
+(i.e. set up some directories and initialize some configuration
+files)</li>
+<li>Run a <tt class="docutils literal"><span class="pre">check-status</span></tt> command on the remote system, showing on the
+last few lines what packages are to be installed, removed,
+etc. from the remote system (in our example, there are no pending
+package actions).</li>
+</ul>
+</blockquote>
+</div>
+<div class="section" id="assign-a-package-to-a-remote-machine">
+<h2>Assign a package to a remote machine<a class="headerlink" href="#assign-a-package-to-a-remote-machine" title="Permalink to this headline">¶</a></h2>
+<p>We are now ready to assign a package to a machine. This is done with
+the <tt class="docutils literal"><span class="pre">assign</span></tt> command.  Since Bombardier keeps track of the
+configuration settings that each package requires, when you issue the
+<tt class="docutils literal"><span class="pre">assign</span></tt> command, Bombardier will examine the configuration of the
+machine you are currently viewing and compare it to the configuration
+parameters that are required by the package.  If your machine
+configuration is missing any parameters, Bombardier will open an
+editor screen to allow you to enter all the configuration data for
+that machine that you need.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="o">(</span>*5<span class="o">)</span> <span class="o">(</span> machine test_machine <span class="o">)</span>&gt; assign SnmpConfigV5
+</pre></div>
+</div>
+<p>The system will show the configuration data that you need (with
+example data) on the top of the editor, with your machine&#8217;s
+configuration data at the bottom of the editor, as follows:</p>
+<div class="highlight-bash"><div class="highlight"><pre>---
+snmp:
+  community_string: public
+  contact: janitor@noreply.com
+  location: the basement
+
+---
+default_user: root
+ip_address: 127.0.0.1
+packages:
+- SnmpConfigV5
+</pre></div>
+</div>
+<p>It&#8217;s your job to manually merge the two configurations into a single
+configuration file, for example:</p>
+<div class="highlight-bash"><div class="highlight"><pre>snmp:
+  community_string: s33kritp4ssw0rd
+  contact: joe@abc-company.com
+  location: 3532 Southeast Watson Dr., Norfolk, VA
+default_user: root
+platform: ubuntu-hardy
+ip_address: 127.0.0.1
+packages:
+- SnmpConfigV5
+</pre></div>
+</div>
+<p>Once you&#8217;ve saved the configuration data and exited the editor,
+Bombardier will validate the configuration data and upload it to the
+server. At this point you&#8217;re ready to deploy the new package.</p>
+</div>
+<div class="section" id="deploy-a-package-to-a-machine">
+<h2>Deploy a package to a machine<a class="headerlink" href="#deploy-a-package-to-a-machine" title="Permalink to this headline">¶</a></h2>
+<p>At this point, you&#8217;re ready to deploy the package to the remote
+machine.  This can be done in one of two ways, with the <tt class="docutils literal"><span class="pre">install</span></tt>
+command, or with the <tt class="docutils literal"><span class="pre">reconcile</span></tt> command.</p>
+<blockquote>
+<ul class="simple">
+<li>The <tt class="docutils literal"><span class="pre">install</span></tt> command will take one package that is configured to
+be installed on a remote machine and install / configure / verify
+it for you.</li>
+<li>The <tt class="docutils literal"><span class="pre">reconcile</span></tt> command is potentially a little more dangerous:
+it will examine the configuration on the server for all the
+packages that are supposed to be on the remote machine. Any
+packages that do not belong on the remote machine will be
+uninstalled, and any packages that have not been installed yet will
+be installed.  Because this command is potentially dangerous, the
+companion to this command is <tt class="docutils literal"><span class="pre">check-status</span></tt>, which will report to
+you everything that &#8216;&#8217;&#8216;would&#8217;&#8216;&#8217; be done if a reconcile were attempted.</li>
+</ul>
+</blockquote>
+<div class="highlight-bash"><div class="highlight"><pre><span class="o">(</span> machine test_machine <span class="o">)</span>&gt; check-status
+&gt;&gt;&gt; Watching job progress. Press ^C to abort or disconnect.
+  | admin@test_machine-2 | Syncing packages...
+  | admin@test_machine-2 | Streaming configuration data...
+  | admin@test_machine-2 | System-check starting...
+  | admin@test_machine-2 | Packages that are installed:
+&gt;&gt;&gt; Finishing processing of 1 jobs...
+   Packages that are BROKEN: <span class="o">[]</span>
+   Packages to be RECONFIGURED: <span class="o">[]</span>
+   Packages to be REMOVED: <span class="o">[]</span>
+   Packages to be INSTALLED: <span class="o">[</span><span class="s1">&#39;SnmpConfigV5&#39;</span><span class="o">]</span>
+   Packages installed properly: <span class="o">[]</span>
+</pre></div>
+</div>
+<div class="highlight-bash"><div class="highlight"><pre><span class="o">(</span> machine test_machine <span class="o">)</span>&gt; reconcile
+&gt;&gt;&gt; Watching job progress. Press ^C to abort or disconnect.
+  | admin@test_machine-3 | Syncing packages...
+  | admin@test_machine-3 | Streaming configuration data...
+  | admin@test_machine-3 | Reconcile starting...
+  | admin@test_machine-3 | Packages to remove: <span class="o">[]</span>
+  | admin@test_machine-3 | Packages remaining to install <span class="o">(</span>in order<span class="o">)</span>:
+  | admin@test_machine-3 | +   SnmpConfigV5
+  | admin@test_machine-3 | Currently installing package priority 100 <span class="o">[</span>SnmpConfigV5<span class="o">]</span>
+  | admin@test_machine-3 | Exploding SnmpConfigV5-943...
+  | admin@test_machine-3 | Exploding YumPackageInstaller-943...
+  | admin@test_machine-3 | Making directory /opt/spkg/test_machine/packages/SnmpConfigV5-8
+  | admin@test_machine-3 | test_machine installing SnmpConfigV5-8
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference external" href="">Deploying your first package with Bombardier, part 2</a><ul>
+<li><a class="reference external" href="#create-a-machine-definintion">Create a machine definintion</a></li>
+<li><a class="reference external" href="#initialize-the-remote-machine-for-use-with-the-server">Initialize the remote machine for use with the server</a></li>
+<li><a class="reference external" href="#assign-a-package-to-a-remote-machine">Assign a package to a remote machine</a></li>
+<li><a class="reference external" href="#deploy-a-package-to-a-machine">Deploy a package to a machine</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="tutorial01.html"
+                                  title="previous chapter">Deploying your first package with Bombardier, part 1</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="tutorial03.html"
+                                  title="next chapter">Deploying your first package with Bombardier, part 2</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="../_sources/intro/tutorial02.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="../search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="tutorial03.html" title="Deploying your first package with Bombardier, part 2"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="tutorial01.html" title="Deploying your first package with Bombardier, part 1"
+             >previous</a> |</li>
+        <li><a href="../index.html">Bombardier v1.00 documentation</a> &raquo;</li>
+          <li><a href="../contents.html" >Bombardier documentation contents</a> &raquo;</li>
+          <li><a href="index.html" >Getting started</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2009, Peter Banka, Shawn Sherwood.
+      Last updated on Mar 22, 2010.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.3.
+    </div>
+  </body>
+</html>

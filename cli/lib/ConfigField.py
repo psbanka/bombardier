@@ -33,9 +33,10 @@ Supports access to 'configurable items' on the bombardier web server'''
 import PinshCmd
 import random
 import yaml
-from bombardier_core.static_data import OK, FAIL, PARTIAL, COMPLETE, NO_MATCH
+from bombardier_core.static_data import FAIL, PARTIAL, COMPLETE, NO_MATCH
 from Exceptions import UnexpectedDataException
 from SystemStateSingleton import SystemState
+import CnmConnector
 system_state = SystemState()
 
 MERGED = 1
@@ -114,6 +115,29 @@ class ConfigField(PinshCmd.PinshCmd):
             self.directory = "summary"
         self.new = new
 
+    def get_help_text(self, command_line):
+        'produced customized help-text based on input'
+        field_type = command_line[-2]
+        if field_type.startswith('b'):
+            return '[bom]\tthe name of a bill-of-materials file'
+        elif field_type.startswith('ma'):
+            return '[machine]\tthe name of a machine managed by this system'
+        elif field_type.startswith('me'):
+            return '[machine]\tthe name of a machine managed by this system'
+        elif field_type.startswith('in'):
+            return '[include]\tthe name of an include file'
+        elif field_type.startswith('pa'):
+            return '[package]\tthe name of a package'
+        elif field_type.startswith('u'):
+            return '[user]\tthe name of an administrative user'
+        elif field_type.startswith('d'):
+            return '[dist]\tthe name of a distribution file'
+        elif field_type.startswith('st'):
+            return '[machine]\tthe name of a machine managed by this system'
+        elif field_type.startswith('su'):
+            return '[machine]\tthe name of a machine managed by this system'
+        return ''
+
     def get_object_list(self):
         'returns a list of all self.data_type things'
         url = CnmConnector.SEARCH_PATH % self.directory
@@ -127,9 +151,10 @@ class ConfigField(PinshCmd.PinshCmd):
 
     def post_data(self, first_token_name, data):
         'posts data to modify the object'
+        cnm = system_state.cnm_connector
         post_data = {"yaml": yaml.dump(data)}
         url = CnmConnector.NAME_PATH % (self.directory, first_token_name)
-        output = system_state.cnm_connector.service_yaml_request(url, post_data=post_data)
+        output = cnm.service_yaml_request(url, post_data=post_data)
         return output
 
     def get_data(self, first_token_name):
@@ -138,36 +163,35 @@ class ConfigField(PinshCmd.PinshCmd):
         data = system_state.cnm_connector.service_yaml_request(url)
         return data
 
-    def get_top_level_data(self, tokens, index):
+    def get_top_level_data(self, command_line, index):
         '''someone typed in something like 'show machine localho'. Our job is
         to figure out that localhost is the object that needs to be found and
         to return the dictionary for that object.
         '''
         #print "my directory: %s" % self.directory
-        #print "get_top_lvl_data: tokens", tokens
-        partial_first = tokens[index]
+        #print "get_top_lvl_data: command_line", command_line
+        partial_first = command_line[index]
         object_names = self.get_object_list()
         #print "OBJECT NAMES:",object_names
         first_token_names = []
         for ftn in object_names:
             if ftn.lower().startswith(partial_first.lower()):
-                #print "%s starts with the same as partial_first: %s" % (ftn, partial_first)
                 first_token_names.append(ftn)
         if len(first_token_names) == 0:
             return [], {}
-        if tokens[index] in first_token_names:
-            first_token_names = [tokens[index]]
+        if command_line[index] in first_token_names:
+            first_token_names = [command_line[index]]
         if len(first_token_names) > 1:
             return first_token_names, {}
         first_token_name = first_token_names[0]
         data = self.get_data(first_token_name)
         return [first_token_name], data
 
-    def get_specific_data(self, tokens, index):
+    def get_specific_data(self, command_line, index):
         '''used with the show command to display data to the screen'''
-        tokens[index] = tokens[index].replace('"', '')
+        command_line[index] = command_line[index].replace('"', '')
         try:
-            first_token_names, data = self.get_top_level_data(tokens, index)
+            first_token_names, data = self.get_top_level_data(command_line, index)
         except TypeError:
             return FAIL, "Unable to read data from server"
         if len(first_token_names) != 1:
@@ -175,59 +199,60 @@ class ConfigField(PinshCmd.PinshCmd):
         return data
 
 
-    def post_specific_data(self, tokens, index, new_data):
+    def post_specific_data(self, command_line, index, new_data):
         '''used with the edit command to upload data to server'''
-        tokens[index] = tokens[index].replace('"', '')
+        command_line[index] = command_line[index].replace('"', '')
+        cnm = system_state.cnm_connector
         if not self.new:
             try:
-                first_token_names, data = self.get_top_level_data(tokens, index)
+                first_token_names, _data = self.get_top_level_data(command_line, index)
             except TypeError:
                 return FAIL, "Unable to read data from server"
             if len(first_token_names) < 1:
-                msg = "%s was not found on the server to upload to" % tokens[index]
-                raise UnexpectedDataException(msg)
+                msg = "%s was not found on the server to upload to"
+                raise UnexpectedDataException(msg % command_line[index])
             url = CnmConnector.NAME_PATH % (self.directory, first_token_names[0])
         else:
-            url = CnmConnector.NAME_PATH % (self.directory, tokens[index])
+            url = CnmConnector.NAME_PATH % (self.directory, command_line[index])
         post_data = {"yaml": new_data}
-        output_dict = system_state.cnm_connector.service_yaml_request(url,
-                                                               post_data=post_data)
+        output_dict = cnm.service_yaml_request(url, post_data=post_data)
         return output_dict["command_status"], output_dict["command_output"]
 
-    def preferred_names(self, tokens, index):
+    def preferred_names(self, command_line, index):
         '''Provide a list of names that the system would prefer to use, other
         than that which was typed in by the user. For example, 'sho mach localh'
         will return 'localhost' for the machine name if strict is off,
         otherwise, it will return 'localh'.
         '''
+        cnm = system_state.cnm_connector
         if self.machine_field:
-            machine_name = tokens[self.machine_field]
+            machine_name = command_line[self.machine_field]
             url = CnmConnector.MACHINE_PATH % machine_name
-            machine_config = system_state.cnm_connector.service_yaml_request(url)
+            machine_config = cnm.service_yaml_request(url)
             possible_names = machine_config.get(self.directory, [])
             output_names = []
             for name in possible_names:
-                if name.lower().startswith(tokens[-1].lower()):
+                if name.lower().startswith(command_line[-1].lower()):
                     output_names.append(name)
             return output_names
             
-        #print "PN: begin tokens, index = ", tokens, index
-        tokens[index] = tokens[index].replace('"', '')
+        #print "PN: begin command_line, index = ", command_line, index
+        command_line[index] = command_line[index].replace('"', '')
         if not self.strict:
-            return tokens[index:]
+            return command_line[index:]
         try:
-            first_token_names, data = self.get_top_level_data(tokens, index)
+            first_token_names, _data = self.get_top_level_data(command_line, index)
         except TypeError:
             return FAIL, "Unable to read data from server"
 
         #print "PN: first_token_names: ", first_token_names
         if len(first_token_names) == 0:
             if self.new:
-                return tokens[index:]
+                return command_line[index:]
             return []
         if self.new:
-            if not tokens[index] in first_token_names:
-                return tokens[index:]
+            if not command_line[index] in first_token_names:
+                return command_line[index:]
             else:
                 return []
         if len(first_token_names) > 1:
@@ -235,10 +260,10 @@ class ConfigField(PinshCmd.PinshCmd):
         first_token_name = first_token_names[0]
         return [first_token_name]
 
-    def match(self, tokens, index):
+    def match(self, command_line, index):
         '''Determines if what has been typed in by the user matches a
         configuration item that the system is keeping track of.'''
-        possible_matches = self.acceptable_names(tokens, index)
+        possible_matches = self.acceptable_names(command_line, index)
         if not possible_matches:
             return NO_MATCH, 1
         if len(possible_matches) > 1:
