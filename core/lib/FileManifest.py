@@ -1,4 +1,4 @@
-#!/cygdrive/c/Python24/python.exe
+#!/usr/bin/env python
 """FileManifest.py: This is a class for automatically creating and
    verifying file manifests for installed code."""
 

@@ -1,4 +1,4 @@
-#!/cygdrive/c/Python24/python.exe
+#!/usr/bin/env python
 
 # BSD License
 # Copyright (c) 2009, Peter Banka et al
