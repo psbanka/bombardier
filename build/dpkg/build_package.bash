@@ -9,6 +9,7 @@ export DEBCHANGE_QUERY_BTS=no
 [ "$DEBEMAIL" == "" ] &&  complain_and_exit "DEBEMAIL is not set"
 
 start_dir=$PWD
+[ "${start_dir##*/}" == "dpkg" ] || complain_and_exit "Script must run from the dpkg directory"
 
 component=$1
 version=1.00
@@ -29,7 +30,8 @@ mkdir -p $work_dir
 
 cd $work_dir || complain_and_exit "Could not cd to $work_dir"
 
-cp /root/src/$version/$component/dist/${old_name}-${revision}.tar.gz $bdr_name.tar.gz
+orig_tarball=$start_dir/../../$component/dist/${old_name}-${revision}.tar.gz
+cp  $orig_tarball $bdr_name.tar.gz
 tar -xzf $bdr_name.tar.gz 
 mv ${old_name}-${revision} $bdr_dir
 
