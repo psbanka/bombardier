@@ -437,6 +437,7 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         url = '/json/machine/start_test/localhost'
         response = self.client.post(path=url, data={"machine": "localhost"})
         content_dict = yaml.load(response.content)
+        assert "job_name" in content_dict, content_dict
         job_name1 = content_dict["job_name"]
 
         response = self.client.post(path=url, data={"machine": "localhost"})

@@ -40,7 +40,7 @@ class PackageBuildEntry(CnmResource):
             debug = safe_get(request, "debug")
             prepare = safe_get(request, "prepare")
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.package_build_job(request.user, package_name,
+            job_name = dispatcher.package_build_job(request.user.username, package_name,
                                                     svn_user, svn_password, debug,
                                                     prepare) 
             dispatcher.queue_job(job_name)
@@ -60,7 +60,7 @@ class PackageActionEntry(CnmResource):
             action = safe_get(request, "action")
             machine_name = safe_get(request, "machine")
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.package_action_job(request.user, package_name,
+            job_name = dispatcher.package_action_job(request.user.username, package_name,
                                                      action, machine_name) 
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
@@ -81,7 +81,7 @@ class MachineEnableEntry(CnmResource):
             if not password:
                 raise InvalidInput("Password needed")
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.enable_job(request.user, machine_name, password)
+            job_name = dispatcher.enable_job(request.user.username, machine_name, password)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -97,7 +97,7 @@ class MachineDisableEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.disable_job(request.user, machine_name)
+            job_name = dispatcher.disable_job(request.user.username, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -113,7 +113,7 @@ class MachineStatusEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.check_status_job(request.user, machine_name)
+            job_name = dispatcher.check_status_job(request.user.username, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -142,7 +142,7 @@ class MachineStartReconcileEntry(CnmResource):
         #try:
             dispatcher = self.get_dispatcher()
             data = dispatcher.check_status()
-            job_name = dispatcher.reconcile_job(request.user, machine_name)
+            job_name = dispatcher.reconcile_job(request.user.username, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         else:
@@ -159,7 +159,7 @@ class MachineUnPushEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.unpush_job(request.user, machine_name)
+            job_name = dispatcher.unpush_job(request.user.username, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -175,7 +175,7 @@ class MachinePushEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.push_job(request.user, machine_name)
+            job_name = dispatcher.push_job(request.user.username, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -195,7 +195,7 @@ class MachineStartSetupEntry(CnmResource):
             if not password:
                 raise InvalidInput("Password needed")
             dispatcher = self.get_dispatcher()
-            init_job_name = dispatcher.setup_machine(request.user, machine_name, password)
+            init_job_name = dispatcher.setup_machine(request.user.username, machine_name, password)
             output = dispatcher.get_job_status(init_job_name)
         except Exception, x:
             output.update(self.dump_exception(request, x))
@@ -210,7 +210,7 @@ class MachineStartInitEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.init_job(request.user, machine_name)
+            job_name = dispatcher.init_job(request.user.username, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -227,7 +227,7 @@ class MachineStartDistEntry(CnmResource):
         try:
             dist_name = safe_get(request, "dist")
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.dist_job(request.user, machine_name, dist_name)
+            job_name = dispatcher.dist_job(request.user.username, machine_name, dist_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -261,7 +261,8 @@ class MachineStartTestEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.test_job(request.user, machine_name)
+            data = dispatcher.check_status()
+            job_name = dispatcher.test_job(request.user.username, machine_name)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -277,7 +278,7 @@ class MachineCleanupEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.cleanup_connections(request.user)
+            output = dispatcher.cleanup_connections(request.user.username)
         except DispatcherOffline:
             output = {}
         except Exception, x:
@@ -294,7 +295,7 @@ class MachineClearBrokenEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.clear_broken(request.user, machine_name)
+            output = dispatcher.clear_broken(request.user.username, machine_name)
         except DispatcherOffline:
             output = {}
         except Exception, x:
@@ -312,7 +313,7 @@ class MachineStopJobsEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.stop_all_jobs(request.user, machine_name)
+            output = dispatcher.stop_all_jobs(request.user.username, machine_name)
         except DispatcherOffline:
             output = {}
         except Exception, x:
@@ -328,7 +329,7 @@ class MachineShowJobsEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.show_jobs(request.user, machine_name)
+            output = dispatcher.show_jobs(request.user.username, machine_name)
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
@@ -365,7 +366,7 @@ class JobCommentPendingEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.get_jobs_pending_comments(request.user)
+            output = dispatcher.get_jobs_pending_comments(request.user.username)
         except Exception, x:
             output["command_status"] = FAIL
             output.update(self.dump_exception(request, x))
@@ -382,14 +383,14 @@ class JobCommentPendingEntry(CnmResource):
             job_names = post_dict.get("job_names", [])
             comment_text = post_dict.get("comment", None)
             publish_flag = post_dict.get("publish", False)
-            comment = Comment(text=comment_text, username=str(request.user),
+            comment = Comment(text=comment_text, username=str(request.user.username),
                               publish=publish_flag)
             comment.save()
             for job_name in job_names:
                 machine_name = dispatcher.get_machine_name(job_name)
                 commented_job = CommentedJob(comment_id=comment,
                                              job_name=job_name,
-                                             username=str(request.user),
+                                             username=str(request.user.username),
                                              machine_name=machine_name,
                                             )
                 commented_job.save()
@@ -409,7 +410,7 @@ class JobJoinEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.job_join(request.user, job_name, 10)
+            output = dispatcher.job_join(request.user.username, job_name, 10)
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
@@ -425,7 +426,7 @@ class JobPollEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             post_dict = yaml.load(request.POST.get("yaml"))
             job_names = post_dict.get("job_names", [])
-            output = dispatcher.job_poll(request.user, job_names)
+            output = dispatcher.job_poll(request.user.username, job_names)
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
@@ -439,7 +440,7 @@ class JobKillEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.job_kill(request.user, job_name)
+            output = dispatcher.job_kill(request.user.username, job_name)
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)

@@ -23,6 +23,14 @@ class CnmResource(Resource):
         Resource.__init__(self, authentication, permitted_methods, mimetype)
 
     @classmethod
+    def debug_log(cls, message):
+        "This is for troubleshooting"
+        fh = open("/tmp/web.log", 'a')
+        fh.write("\nDEBUG>>> "+message+"\n")
+        fh.flush()
+        fh.close()
+
+    @classmethod
     def get_server_home(cls):
         "Return server_home"
         config_entries = ServerConfig.objects.filter(name="server_home")

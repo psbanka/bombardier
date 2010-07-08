@@ -339,9 +339,8 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
 
     def test_job(self, username, machine_name):
         "Simple test job"
-        fp = open("/tmp/POOP.txt", 'a')
-        fp.write("TEST_JOB 0\n")
-        fp.flush()
+        username = str(username)
+        machine_name = str(machine_name)
         job = self._create_next_job(username, machine_name)
         job.description = "Self-test"
         try:
@@ -492,6 +491,14 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                   "command_status": OK
                  }
         return output
+
+    @classmethod
+    def debug_log(cls, message):
+        "This is for troubleshooting"
+        fh = open("/tmp/web.log", 'a')
+        fh.write("\nDEBUG>>> "+message+"\n")
+        fh.flush()
+        fh.close()
 
     def check_status(self):
         "Return elapsed time"
