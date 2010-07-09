@@ -3,10 +3,8 @@ include AUTHORS
 include INSTALL
 include LICENSE
 include MANIFEST.in
+include project_info.yml
+include component_info.yml
 recursive-include docs *
 recursive-include scripts *
-recursive-include examples *
-recursive-include extras *
 recursive-include tests *
-include lib/web/cnm/templates/registration/*
-include lib/web/cnm/templates/*

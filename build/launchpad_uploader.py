@@ -7,6 +7,11 @@ import glob
 APP_NAME = 'bombardier'
 CACHE_DIR = os.path.expanduser('~/.launchpadlib/cache')
 
+def base(file_name):
+    "Return the name of the file without directory info"
+    base_name = file_name.split(os.path.sep)[-1]
+    return base_name
+
 def upload_file(environment):
     "Send a file to Launchpad"
     launchpad = Launchpad.login_with(APP_NAME, environment, CACHE_DIR)
@@ -15,18 +20,26 @@ def upload_file(environment):
     alpha = series1.releases[0]
     beta = series1.releases[1]
 
-    filenames = glob.glob("dist/*.tar.gz")
-    if len(filenames) > 1:
+    file_names = glob.glob("dist/*.tar.gz")
+    if len(file_names) > 1:
         print "Directory is unclean"
         sys.exit(1)
     
-    filename = filenames[0]
-    file_content = open(os.path.join(filename), 'r').read()
-    base_name = filename.split(os.path.sep)[-1]
+    file_name = file_names[0]
+    file_content = open(os.path.join(file_name), 'r').read()
+
+    signature_file_name = file_name+".asc"
+    os.system("gpg --armor --sign --detach-sig %s" % file_name)
+    signature_content = open(signature_file_name, 'r').read()
+
     alpha.add_file(file_type="Code Release Tarball",
-                   filename = base_name,
+                   description = "Bombardier file",
+                   file_name = base(file_name),
                    content_type="application/x-gtar",
-                   file_content=file_content)
+                   file_content=file_content,
+                   signature_filename = base(signature_file_name),
+                   signature_content = signature_content,
+                  )
 
 def main():
     "This is all we're going to do"

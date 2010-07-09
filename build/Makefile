@@ -57,7 +57,7 @@ define remove_dist_files
 endef
 
 define remove_upload_dist_files
-	cd $(upload_dir) && rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
+	cd $(upload_dir) && rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README project_info.yml setup.py
 endef
 
 help:
@@ -149,7 +149,9 @@ bombardierinstaller: clean_docs server_doc client_doc cli_doc
 sdist: do_sdist reclean_files
 
 upload:	official clean_dist dist_files version_dist
+	echo "UPLOAD TO PYPI using setup.py sdist upload"
 	python setup.py sdist upload
+	echo "UPLOAD TO LAUNCHPAD using $(launchpad_uploader)"
 	python $(launchpad_uploader)
 
 modify_changelog:
