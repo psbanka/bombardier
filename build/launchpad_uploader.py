@@ -3,41 +3,50 @@ import sys
 from launchpadlib.launchpad import Launchpad, STAGING_SERVICE_ROOT
 from launchpadlib.launchpad import EDGE_SERVICE_ROOT
 import glob
+import yaml
 
 APP_NAME = 'bombardier'
 CACHE_DIR = os.path.expanduser('~/.launchpadlib/cache')
+LAUNCHPAD_ENVIRONMENT = EDGE_SERVICE_ROOT
 
-def base(file_name):
+def base(filename):
     "Return the name of the file without directory info"
-    base_name = file_name.split(os.path.sep)[-1]
+    base_name = filename.split(os.path.sep)[-1]
     return base_name
 
 def upload_file(environment):
     "Send a file to Launchpad"
+    filenames = glob.glob("dist/*.tar.gz")
+    if len(filenames) > 1:
+        print "Directory is unclean"
+        sys.exit(1)
+    
+    filename = filenames[0]
+    file_content = open(os.path.join(filename), 'r').read()
+
+    signature_filename = filename+".asc"
+    if not os.path.isfile(signature_filename):
+        os.system("gpg --armor --sign --detach-sig %s" % filename)
+
+    signature_content = open(signature_filename, 'r').read()
+
+    component_info = yaml.load(open("component_info.yml").read())
+    description = component_info["description"]
+
+    print("Logging in to Launchpad %s..." % LAUNCHPAD_ENVIRONMENT)
     launchpad = Launchpad.login_with(APP_NAME, environment, CACHE_DIR)
     project = launchpad.projects["bombardier"]
     series1 = project.series[1] # 1.00
     alpha = series1.releases[0]
-    beta = series1.releases[1]
+    #beta = series1.releases[1]
 
-    file_names = glob.glob("dist/*.tar.gz")
-    if len(file_names) > 1:
-        print "Directory is unclean"
-        sys.exit(1)
-    
-    file_name = file_names[0]
-    file_content = open(os.path.join(file_name), 'r').read()
-
-    signature_file_name = file_name+".asc"
-    os.system("gpg --armor --sign --detach-sig %s" % file_name)
-    signature_content = open(signature_file_name, 'r').read()
-
+    print("Uploading file (%s)..." % description)
     alpha.add_file(file_type="Code Release Tarball",
-                   description = "Bombardier file",
-                   file_name = base(file_name),
-                   content_type="application/x-gtar",
-                   file_content=file_content,
-                   signature_filename = base(signature_file_name),
+                   description = description,
+                   filename = base(filename),
+                   content_type = "application/x-gtar",
+                   file_content = file_content,
+                   signature_filename = base(signature_filename),
                    signature_content = signature_content,
                   )
 
