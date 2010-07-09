@@ -2,6 +2,7 @@ build_dir=$(PWD)/../build
 staging_dir=../staging
 upload_docs_dir=../bombardierinstaller/docs
 launchpad_uploader=$(build_dir)/launchpad_uploader.py
+modify_changelog=$(build_dir)/modify_changelog.py
 
 MAKE_FILE=$(build_dir)/Makefile
 
@@ -52,7 +53,7 @@ endef
 
 define remove_dist_files
 	echo "$$PWD" | grep -v "build"
-	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
+	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README project_info.yml setup.py
 endef
 
 define remove_upload_dist_files
@@ -65,6 +66,8 @@ help:
 	@echo "  staging   to make all and create a staging directory"
 	@echo "  <component>  to make component (server, client, cli or core)"
 	@echo "  <component>_upload  to make component and upload to pypi"
+	@echo "  <component>_doc  to build the generated doc html"
+	@echo "  modify_changelog  to roughly add bzr comments to the CHANGELOG file"
 
 all:
 	make -f $(MAKE_FILE) server
@@ -149,6 +152,9 @@ upload:	official clean_dist dist_files version_dist
 	python setup.py sdist upload
 	python $(launchpad_uploader)
 
+modify_changelog:
+	python $(modify_changelog)
+
 doc:	clean_dist dist_files version_dist reclean_files
 	cd docs && make html
 
@@ -180,7 +186,7 @@ clean_files:
 reclean_files:
 	$(remove_dist_files)
 
-dist_files: AUTHORS CHANGELOG README LICENSE INSTALL MANIFEST.in 
+dist_files: AUTHORS CHANGELOG README LICENSE INSTALL MANIFEST.in project_info proto_setup
 
 AUTHORS:
 	cp -f $(build_dir)/AUTHORS .
@@ -194,4 +200,7 @@ INSTALL:
 	cp -f $(build_dir)/INSTALL .
 MANIFEST.in:
 	cp -f $(build_dir)/MANIFEST.in .
-
+project_info:
+	cp -f $(build_dir)/project_info.yml .
+proto_setup:
+	cp -f $(build_dir)/proto_setup.py ./setup.py
