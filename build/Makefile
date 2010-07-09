@@ -47,13 +47,17 @@ define sdist_target
 	cd $(target_dir) && make -f $(MAKE_FILE) sdist
 endef
 
+define setup_target
+	cd $(build_dir)/../$(subst _setup,,$@) && python setup.py install
+endef
+
 define dpkg_target
-	cd $(build_dir)/dpkg && bash build_package.bash $@
+	cd $(build_dir)/dpkg && bash build_package.bash $(subst _dpkg,,$@)
 endef
 
 define remove_dist_files
 	echo "$$PWD" | grep -v "build"
-	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README project_info.yml setup.py
+	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
 endef
 
 define remove_upload_dist_files
@@ -67,6 +71,8 @@ help:
 	@echo "  <component>  to make component (server, client, cli or core)"
 	@echo "  <component>_upload  to make component and upload to pypi"
 	@echo "  <component>_doc  to build the generated doc html"
+	@echo "  <component>_dpkg  to build the apt source package"
+	@echo "  <component>_setup  to run setup.py install"
 	@echo "  modify_changelog  to roughly add bzr comments to the CHANGELOG file"
 
 all:
@@ -86,22 +92,42 @@ staging: all
 server:
 	$(check_target_dir)
 	$(sdist_target)
-	$(dpkg_target)
 
 client:
 	$(check_target_dir)
 	$(sdist_target)
-	$(dpkg_target)
 
 cli: 
 	$(check_target_dir)
 	$(sdist_target)
-	$(dpkg_target)
 
 core:
 	$(check_target_dir)
 	$(sdist_target)
+
+server_dpkg: server
 	$(dpkg_target)
+
+client_dpkg: client
+	$(dpkg_target)
+
+cli_dpkg:  cli
+	$(dpkg_target)
+
+core_dpkg: core
+	$(dpkg_target)
+
+server_setup: server
+	$(setup_target)
+
+client_setup: client
+	$(setup_target)
+
+cli_setup:  cli
+	$(setup_target)
+
+core_setup: core
+	$(setup_target)
 
 server_upload:
 	$(check_upload_dir)
