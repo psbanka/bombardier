@@ -53,6 +53,11 @@ endef
 
 define dpkg_target
 	cd $(build_dir)/dpkg && bash build_package.bash $(subst _dpkg,,$@)
+    @echo
+    @echo "Press Ctrl-C now to skip ppa upload"
+    @echo
+    @read tester
+    cd $(build_dir) && dput ppa:bombardier-team/bombardier-ppa ./dpkg/work/$(subst _dpkg,,$@)/bombardier*source.changes
 endef
 
 define remove_dist_files
