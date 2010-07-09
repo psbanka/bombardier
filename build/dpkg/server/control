@@ -10,7 +10,7 @@ Homepage: https://launchpad.net/bombardier
 Package: bombardier-server-1.00
 Section: admin
 Architecture: any
-Depends: ${misc:Depends}, ${python:Depends}, python-crypto (>=2.0.1), python-yaml
+Depends: ${misc:Depends}, ${python:Depends}, python-crypto (>=2.0.1), python-yaml, bombardier-core-1.00
 Description: Open Source Configuration management and package delivery (server component)
  Bombardier is a software system that delivers visibility, control
  and automation to datacenter environments. Bombardier provides a means
