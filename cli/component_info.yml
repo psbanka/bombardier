@@ -1,0 +1,55 @@
+classifiers:
+- "Development Status :: 2 - Pre-Alpha"
+- "Programming Language :: Python"
+- "Environment :: Web Environment"
+- "Framework :: Django"
+- "Intended Audience :: Developers"
+- "Intended Audience :: Information Technology"
+- "License :: OSI Approved :: BSD License"
+- "Operating System :: POSIX"
+- "Topic :: Internet :: WWW/HTTP :: Site Management"
+- "Topic :: Security"
+- "Topic :: Software Development :: Build Tools"
+- "Topic :: Software Development :: Libraries :: Python Modules"
+- "Topic :: Software Development :: Quality Assurance"
+- "Topic :: Software Development :: Version Control"
+- "Topic :: System :: Archiving :: Packaging"
+- "Topic :: System :: Installation/Setup"
+- "Topic :: System :: Logging"
+- "Topic :: System :: Shells"
+- "Topic :: System :: Software Distribution"
+- "Topic :: System :: Systems Administration"
+data_files:
+-
+  - web/rest_api/templates
+  -
+    - lib/web/rest_api/templates/404.html
+    - lib/web/rest_api/templates/500.html
+    - lib/web/rest_api/templates/config_setting_form.html
+    - lib/web/rest_api/templates/error.html
+-
+  - web/rest_api/templates/registration
+  - 
+    - lib/web/rest_api/templates/registration/logged_out.html
+    - lib/web/rest_api/templates/registration/login.html
+install_requires:
+- PyYAML
+- bombardier_core
+- pycurl
+description: 'Open Source Configuration management and package delivery: central server
+  components'
+name: bombardier_cli
+package_data:
+  bombardier_server:
+  - web/rest_api/templates/*.html
+  - web/rest_api/templates/registration/*.html
+package_dir:
+  bombardier_cli: lib
+packages:
+- bombardier_cli
+provides:
+- bombardier_cli
+scripts:
+- scripts/bdr
+- scripts/dsl
+- scripts/ymlEncrypter.py

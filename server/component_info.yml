@@ -1,0 +1,42 @@
+data_files:
+-
+  - web/rest_api/templates
+  -
+    - lib/web/rest_api/templates/404.html
+    - lib/web/rest_api/templates/500.html
+    - lib/web/rest_api/templates/config_setting_form.html
+    - lib/web/rest_api/templates/error.html
+-
+  - web/rest_api/templates/registration
+  - 
+    - lib/web/rest_api/templates/registration/logged_out.html
+    - lib/web/rest_api/templates/registration/login.html
+install_requires:
+- PyYAML
+- bombardier_core
+- Pyro
+- Django
+- pexpect
+- pysqlite
+description: 'Open Source Configuration management and package delivery: central server
+  components'
+name: bombardier_server
+package_data:
+  bombardier_server:
+  - web/rest_api/templates/*.html
+  - web/rest_api/templates/registration/*.html
+package_dir:
+  bombardier_server: lib
+  django_restapi: lib/django_restapi
+packages:
+- bombardier_server
+- bombardier_server.web
+- bombardier_server.web.rest_api
+- bombardier_server.web.rest_api.configs
+- django_restapi
+- bombardier_server.cnm
+provides:
+- bombardier_server
+scripts:
+- scripts/bdr_admin
+- scripts/bombardier_cnm

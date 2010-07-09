@@ -28,310 +28,242 @@ software goes a long way towards making it possible to bite
 off the Change Management piece and go all the way with it (it has for
 our organization, anyway).
 
-0.70
-====
-         Released to beta in November 2008. We had done extensive
-         regression testing against the Bombardier code base and
-         believed it to be ready for use. We have been using it in our
-         QA environments and promoted it to our production datacenters.
+Bombardier 0.70 series
+======================
 
-         Besides bug-scrubbing, a few features were added:
+598: 2009-10-21 <shawn.sherwood>
+    Released to beta in November 2008. We had done extensive
+    regression testing against the Bombardier code base and
+    believed it to be ready for use. We have been using it in our
+    QA environments and promoted it to our production datacenters.
 
-          * Cleaned up traceback output and did some better exception
-            handling.
+    Besides bug-scrubbing, a few features were added:
 
-          * Improved Sql Server functionality
+     * Cleaned up traceback output and did some better exception
+       handling.
 
-          * Cleaned up the way communications are done with the client
+     * Improved Sql Server functionality
 
-          * Made the logic for determining when to send packages to
-            client more robust.
+     * Cleaned up the way communications are done with the client
 
-1.00
-====
-668:     Alpha release of system. The 1.00 branch provides a
-         centralized RESTful web server enabled with Django. This
-         architecture change enables greater security, better
-         reporting, and provides for adding quite a few additional
-         services, such as monitoring system integration,
-         load-balancer integration, and log management. Deprecated
-         Windows compatibility
+     * Made the logic for determining when to send packages to
+       client more robust.
 
-
-
+Bombardier 1.00 series
+======================
 668: 2009-12-31 <peter.banka>
-    An initial documentation set; far from complete
+    * Alpha release of system. The 1.00 branch provides a
+      centralized RESTful web server enabled with Django. This
+      architecture change enables greater security, better
+      reporting, and provides for adding quite a few additional
+      services, such as monitoring system integration,
+      load-balancer integration, and log management. Deprecated
+      Windows compatibility
 
-671: 2010-01-07 <root>
-    Added Job control; cleaned up some logging and error
-    handling; make reconnecting take less time
+    * An initial documentation set; far from complete
 
-672: 2010-01-07 <peter.banka>
-    Preparing for submission to PyPi
+692: 2010-01-14 <peter.banka>
+    * Added Job control; cleaned up some logging and error
+      handling; make reconnecting take less time
 
-673: 2010-01-08 <shawn.sherwood>
-    Made rsync throw if there is a problem.
+    * Preparing for submission to PyPi
 
-675: 2010-01-12 <root>
-    Increased pylint scores for Bombardier core; moved Spkg.py
-    and Config.py into bombardier_core from bombardier_client.
+    * Made rsync throw if there is a problem.
 
-678: 2010-01-12 <root>
-    Added a MANIFEST.in file, added a long description to
-    setup.py, added some clean to make.sh.
+    * Increased pylint scores for Bombardier core; moved Spkg.py
+      and Config.py into bombardier_core from bombardier_client.
 
-681: 2010-01-12 <root>
-    Created a build directory, and a rough make file. Moved
-    some the files like AUTHORS and LICENSE into build.
+    * Created a build directory, and a rough make file. Moved
+      some the files like AUTHORS and LICENSE into build.
 
-683: 2010-01-12 <root>
-    Removed cli from setup.py for server.
+    * Removed cli from setup.py for server.
 
-685: 2010-01-13 <root>
-    Removed some a useless component within Client
-    (utility.py) and moved a couple of them over to core
-    (PluggableFileProcessor and FileManifest). Cleaned up
-    client pylint scores and Shawn worked on the Makefile.
-
-691: 2010-01-13 <U-ES-BC9QP81\2080...>
-    Cleaned out some old packages not needed for tests and
-    worked on some client tests; only need to complete
-    BombardierClass.
-
-692: 2010-01-14 <U-ES-BC9QP81\2080...>
-    Significant changes in BombardierClass based on unit-test
-    completion: Performing better dependency checking for
-    already-installed packages; better logging, especially
-    during check_system; better initialization if methods in
-    BombardierClass are being called sequentially if the object
-    is not destroyed. Slightly better logging if a package is
-    not found. Made Config a little more tolerant of not
-    finding a saved config hash. Added a few dinky test
-    packages.
-
-693: 2010-01-14 <U-ES-BC9QP81\2080...>
-    Basic documentation
-
-694: 2010-01-14 <U-ES-BC9QP81\2080...>
-    Fixed up setup for import to PyPi
-
-705: 2010-01-18 <U-scruffy\Peter>
-    Added some basic documentation for the CLI
-
-707: 2010-01-18 <U-scruffy\Peter>
-    Added documentation around package creation
-
-708: 2010-01-18 <U-scruffy\Peter>
-    Small edit to documentation
-
-709: 2010-01-19 <U-scruffy\Peter>
-    Creating some documentation and the quickstart script
-
-710: 2010-01-19 <U-scruffy\Peter>
-    Debugging quickstart; adding to setup.py scripts
-
-713: 2010-01-20 <root>
-    Trying to be more defensive when parsing output from login
-
-714: 2010-01-21 <root>
-    More defensive in parsing JSON output; Not always asking
-    to disconnect clients. Handling ^C better when initially
-    logging in. Asking the user to set server_home if it is not
-    configured in the CNM.
-
-715: 2010-01-21 <U-ES-BC9QP81\2080...>
-    Cleaned up documentation significantly; made a correct
-    banner for this version of the cli; fixed up the
-    quick-install script
+    * Significant changes in BombardierClass based on unit-test
+      completion: Performing better dependency checking for
+      already-installed packages; better logging, especially
+      during check_system; better initialization if methods in
+      BombardierClass are being called sequentially if the object
+      is not destroyed. Slightly better logging if a package is
+      not found. Made Config a little more tolerant of not
+      finding a saved config hash. Added a few dinky test
+      packages.
 
 717: 2010-01-25 <shawn.sherwood>
-    Corrected at virtual package dependency resolution. Added
-    a test. Fixed classes inside pkg2 and pkg3 spkg files.
+    * Basic documentation
 
-720: 2010-01-27 <root>
-    Better logging in the client; better exception processing
-    in Spkg; cleaned up the banner
+    * Fixed up setup for import to PyPi
 
-727: 2010-02-03 <root>
-    First shot at making a job queue
+    * Added some basic documentation for the CLI
 
-728: 2010-02-22 <root>
-    Added m to the options on tar to throw away timestamps in
-    the tarball. This negates the effects of incorrect time on
-    the client machine.
+    * Added documentation around package creation
 
-729: 2010-02-22 <root>
-    Checking in this import try/except for machines with no
-    pycrypto.
+    * Creating some documentation and the quickstart script
 
-730: 2010-03-02 <root>
-    Implemented a Job scheduler in the form of
-    DispatchMonitor. This thing keeps track of current jobs and
-    fires off new ones when the time is right. It also keeps
-    track of finished and broken ones. Plus, it's got your back
-    if you get freaked out and want to stop everything.  This
-    required some changes in the CLI code to be able to track
-    the next job in a sequence of jobs. Also added some other
-    job management commands on the CLI to view active/finished
-    jobs and clear out old broken jobs. Also fixed the help on
-    the Create command. Also, got a little more defensive about
-    handling exceptions in jobs and clearing a job from a
-    machine object. Got Pyro to dump tracebacks from Dispatcher
-    more efficiently. Stopped passing back Dispatcher objects
-    through pyro because they can no longer be serialized due
-    to the fact that they have a thread object now. Added a
-    machine 'setup' command which does all the hard work for a
-    guy, sending the dists, enabling, and firing up bombardier
-    for the first time.
+    * More defensive in parsing JSON output; Not always asking
+      to disconnect clients. Handling ^C better when initially
+      logging in. Asking the user to set server_home if it is not
+      configured in the CNM.
 
-731: 2010-03-09 <root>
-    Added User management features:this required support for
-    the DELETE method. Will need to be able to support delete
-    for other high-level objects. Added a Comment feature. BDR
-    now keeps track of jobs that haven't been commented and
-    notifies the user of the jobs that need comments applied.
-    The COMMENT command will bring up the editor to allow the
-    user to enter comments and select which jobs the comments
-    apply to. Factored the Dispatcher module into its component
-    parts: Commands, Job, DispatchMonitor, and ServerLogMixin.
+    * Cleaned up documentation significantly; made a correct
+      banner for this version of the cli; fixed up the
+      quick-install script
 
-731.1.2: 2010-03-12 <root>
-    Re-organized the command-structure of the CLI. Cleaned up
-    how server tracebacks were done. Fixed up Merge command so
-    that it works properly in the server. Added the ability to
-    have job-watcher trap a ^C and properly kill a job if it's
-    necessary. Cleaned up how help was done, and avoided
-    needless repetition when setting up commands. Cleaned out
-    the CLI commands within bdr so that they don't annoy the
-    user
+    * Corrected at virtual package dependency resolution. Added
+      a test. Fixed classes inside pkg2 and pkg3 spkg files.
 
-733: 2010-03-15 <root>
-    Changed how verbose job-watching is. Tried to provide
-    succinct user output, and to always provide summary data at
-    the end of a command. Fixed a bug with setting comments.
-    Hopefully removed all sign of 'command_status' showing up
-    in the output of commands. Starting to experience a problem
-    where the CnmConnector is asking for jobs to be joined
-    before they're ready. Not sure what's happening. It logs
-    when this occurs.
+730: 2010-03-02 <peter.banka>
+    * Better logging in the client; better exception processing
+      in Spkg; cleaned up the banner
 
-734: 2010-03-16 <U-GECORPORATE\208...>
-    Finished basic stuff for tutorial02.txt
+    * First shot at making a job queue
 
-735: 2010-03-19 <root>
-    Added package assignment
+    * Added m to the options on tar to throw away timestamps in
+      the tarball. This negates the effects of incorrect time on
+      the client machine.
 
-736: 2010-03-19 <U-GECORPORATE\208...>
-    Implemented the bombardierinstaller.org website via Google
-    AppEngine
+    * Checking in this import try/except for machines with no
+      pycrypto.
 
-738: 2010-03-22 <root>
-    Finished makefile target for docs.
+    * Implemented a Job scheduler in the form of
+      DispatchMonitor. This thing keeps track of current jobs and
+      fires off new ones when the time is right. It also keeps
+      track of finished and broken ones. Plus, it's got your back
+      if you get freaked out and want to stop everything.  This
+      required some changes in the CLI code to be able to track
+      the next job in a sequence of jobs. Also added some other
+      job management commands on the CLI to view active/finished
+      jobs and clear out old broken jobs. Also fixed the help on
+      the Create command. Also, got a little more defensive about
+      handling exceptions in jobs and clearing a job from a
+      machine object. Got Pyro to dump tracebacks from Dispatcher
+      more efficiently. Stopped passing back Dispatcher objects
+      through pyro because they can no longer be serialized due
+      to the fact that they have a thread object now. Added a
+      machine 'setup' command which does all the hard work for a
+      guy, sending the dists, enabling, and firing up bombardier
+      for the first time.
 
-739: 2010-03-26 <U-GECORPORATE\208...>
-    Nice-looking documentation content, etc. Ready to publish.
+734: 2010-03-16 <peter.banka>
+    * Added User management features:this required support for
+      the DELETE method. Will need to be able to support delete
+      for other high-level objects. Added a Comment feature. BDR
+      now keeps track of jobs that haven't been commented and
+      notifies the user of the jobs that need comments applied.
+      The COMMENT command will bring up the editor to allow the
+      user to enter comments and select which jobs the comments
+      apply to. Factored the Dispatcher module into its component
+      parts: Commands, Job, DispatchMonitor, and ServerLogMixin.
 
-740: 2010-04-07 <root>
-    Hopefully fixed building problem. Also addressed bug
-    #557469
+    * Re-organized the command-structure of the CLI. Cleaned up
+      how server tracebacks were done. Fixed up Merge command so
+      that it works properly in the server. Added the ability to
+      have job-watcher trap a ^C and properly kill a job if it's
+      necessary. Cleaned up how help was done, and avoided
+      needless repetition when setting up commands. Cleaned out
+      the CLI commands within bdr so that they don't annoy the
+      user
 
-741: 2010-04-07 <root>
-    Fixed bug 557470. Now issues a warning when something is
-    queued. Should also fix 557477
+    * Changed how verbose job-watching is. Tried to provide
+      succinct user output, and to always provide summary data at
+      the end of a command. Fixed a bug with setting comments.
+      Hopefully removed all sign of 'command_status' showing up
+      in the output of commands. Starting to experience a problem
+      where the CnmConnector is asking for jobs to be joined
+      before they're ready. Not sure what's happening. It logs
+      when this occurs.
 
-742: 2010-04-07 <root>
-    Fixed bug #557581
+    * Finished basic stuff for tutorial02.txt
 
-743: 2010-04-07 <root>
-    Fixed bug #557480
+739: 2010-03-26 <peter.banka>
+    * Added package assignment
 
-744: 2010-04-07 <root>
-    Fixed bug 557478 and cleaned up CnmConnector. Also brought
-    in some code from
-    http://stacyprowell.com/blog/2009/03/30/trapping-ctrlc-in-python/
+    * Implemented the bombardierinstaller.org website via Google
+      AppEngine
 
-745: 2010-04-07 <root>
-    Fixed bug 557575
+    * Finished makefile target for docs.
 
-746: 2010-04-07 <root>
-    Fixed bug #557610
+    * Nice-looking documentation content, etc. Ready to publish.
 
-747: 2010-04-08 <root>
-    Marginally compatible with python2.4. Included proper
+746: 2010-04-07 <peter.banka>
+    * Hopefully fixed building problem. Also addressed bug
+      #557469
+
+    * Fixed bug 557470. Now issues a warning when something is
+      queued. Should also fix 557477
+
+    * Fixed bug #557581
+
+    * Fixed bug #557480
+
+    * Fixed bug 557478 and cleaned up CnmConnector. Also brought
+      in some code from
+      http://stacyprowell.com/blog/2009/03/30/trapping-ctrlc-in-python/
+
+    * Fixed bug 557575
+
+    * Fixed bug #557610
+
+753: 2010-05-26 <shawn.sherwood>
+    * Marginally compatible with python2.4. Included proper
     templates in the build. Ensured that pysqlite was dependent
     for the server system
 
-748: 2010-04-08 <root>
-    Some minor python2.4 fixes. Some documentation fixes, and
+    * Some minor python2.4 fixes. Some documentation fixes, and
     some build fixes.
 
-750: 2010-04-08 <root>
-    Peter made a change to setup.py for server. Added a new
+    * Peter made a change to setup.py for server. Added a new
     target for cleaning distutils files after an upload.
 
-752: 2010-05-24 <root>
-    Fixed some issues with how job names are retained when
+    * Fixed some issues with how job names are retained when
     terminating a session. Fixed build process so that it
     creates an injector directory
 
-753: 2010-05-26 <root>
-    Changed 'Packages to be RECONFIGURED' to a dictionary.
+    * Changed 'Packages to be RECONFIGURED' to a dictionary.
 
-754: 2010-06-04 <U-GECORPORATE\208...>
-    Documentation changes. Fixed up the FAQ a bit.
+759: 2010-06-14 <peter.banka>
+    * Documentation changes. Fixed up the FAQ a bit.
 
-755: 2010-06-04 <root>
-    Removed all references to syck (hope it doesn't make us
-    sad). Fixed old problem with TestPackageType4-7.spkg that
-    we never knew about. Made Exit command work at all levels.
-    Modified Makefile to be able to upload to launchpad
-    automagically
+    * Removed all references to syck (hope it doesn't make us
+      sad). Fixed old problem with TestPackageType4-7.spkg that
+      we never knew about. Made Exit command work at all levels.
+      Modified Makefile to be able to upload to launchpad
+      automagically
 
-757: 2010-06-04 <root>
-    Setting the Launchpad production environment as the
-    default in the uploader
+    * Setting the Launchpad production environment as the
+      default in the uploader
 
-758: 2010-06-04 <root>
-    fixing minor problem in launchpad uploader
+    * fixing minor problem in launchpad uploader
 
-759: 2010-06-14 <root>
-    about to perform a major change in factoring components of
-    Machine into CnmConnector
+    * about to perform a major change in factoring components of
+      Machine into CnmConnector
 
-760: 2010-06-29 <root>
+760: 2010-06-29 <peter.banka>
     [merge] Separated dispatcher from the rest of the rest web
     interface.
 
-759.1.1: 2010-06-16 <root>
-    Checkpoint. The dispatcher stops and starts under apache
-    without leaving zombies.
+      * Checkpoint. The dispatcher stops and starts under apache
+        without leaving zombies.
 
-759.1.2: 2010-06-17 <root>
-    Proper URLs. Importing missing components. Better error
-    reporting. Cleaned up how parent PIDs were monitored and
-    how server home is used. Did some better input
-    sanitization.
+      * Proper URLs. Importing missing components. Better error
+        reporting. Cleaned up how parent PIDs were monitored and
+        how server home is used. Did some better input
+        sanitization.
 
-759.1.3: 2010-06-23 <root>
-    Checkpoint: We can start the dispatcher, start apache, and
-    log in to bdr.
+      * Checkpoint: We can start the dispatcher, start apache, and
+        log in to bdr.
 
-759.1.4: 2010-06-29 <root>
-    refactored the command-line components into a CommandLine
-    object. Added the background-flag option for the
-    command-line. Fixed a race-condition which was breaking a
-    unit-test. All the unit tests are passing on the
-    server-side code after breaking out the dis-patcher.
+      * refactored the command-line components into a CommandLine
+        object. Added the background-flag option for the
+        command-line. Fixed a race-condition which was breaking a
+        unit-test. All the unit tests are passing on the
+        server-side code after breaking out the dis-patcher.
 
-759.1.5: 2010-06-29 <root>
-    Added versioning capability. Removed excess logging.
+      * Added versioning capability. Removed excess logging.
 
-761: 2010-06-30 <root>
-    bdr_admin now does automatic upgrades!
+763: 2010-07-07 <shawn.sherwood>
+    * bdr_admin now does automatic upgrades!
 
-762: 2010-07-01 <root>
-    Corrected shebang.
+    * Corrected shebang.
 
-763: 2010-07-07 <root>
-    Added rough dpkg script and files.
+    * Added rough dpkg script and files.
 

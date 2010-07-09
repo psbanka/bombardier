@@ -1,0 +1,20 @@
+classifiers:
+- "Development Status :: 2 - Pre-Alpha"
+- "Programming Language :: Python"
+- "Intended Audience :: Developers"
+- "Intended Audience :: Information Technology"
+- "License :: OSI Approved :: BSD License"
+- "Operating System :: POSIX"
+- "Topic :: Software Development :: Libraries :: Python Modules"
+- "Topic :: System :: Archiving :: Packaging"
+install_requires:
+- PyYAML
+- pycrypto
+description: "Open Source Configuration management and package delivery: shared components"
+name: bombardier_core
+package_dir:
+  bombardier_core: lib
+packages:
+- bombardier_core
+provides:
+- bombardier_core

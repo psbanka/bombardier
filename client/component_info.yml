@@ -1,0 +1,23 @@
+classifiers:
+- "Development Status :: 2 - Pre-Alpha"
+- "Programming Language :: Python"
+- "Intended Audience :: Developers"
+- "Intended Audience :: Information Technology"
+- "License :: OSI Approved :: BSD License"
+- "Operating System :: POSIX"
+- "Topic :: Software Development :: Libraries :: Python Modules"
+- "Topic :: System :: Archiving :: Packaging"
+install_requires:
+- PyYAML
+- bombardier_core
+description: 'Open Source Configuration management and package delivery: central server
+  components'
+name: bombardier_client
+package_dir:
+  bombardier_client: lib
+packages:
+- bombardier_client
+provides:
+- bombardier_client
+scripts:
+- scripts/bc.py
