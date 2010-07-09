@@ -5,5 +5,8 @@ this command from the command prompt:
 
     python setup.py install
 
+To get rid of some duplication, we now copy in setup.py from
+build/proto_setup.py, along with project_info.yml.
+
 For more information please visit http://www.bombardierinstaller.org
 
