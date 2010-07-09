@@ -46,6 +46,10 @@ define sdist_target
 	cd $(target_dir) && make -f $(MAKE_FILE) sdist
 endef
 
+define dpkg_target
+	cd $(build_dir)/dpkg && bash build_package.bash $@
+endef
+
 define remove_dist_files
 	echo "$$PWD" | grep -v "build"
 	rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README
@@ -79,18 +83,22 @@ staging: all
 server:
 	$(check_target_dir)
 	$(sdist_target)
+	$(dpkg_target)
 
 client:
 	$(check_target_dir)
 	$(sdist_target)
+	$(dpkg_target)
 
 cli: 
 	$(check_target_dir)
 	$(sdist_target)
+	$(dpkg_target)
 
 core:
 	$(check_target_dir)
 	$(sdist_target)
+	$(dpkg_target)
 
 server_upload:
 	$(check_upload_dir)

@@ -28,7 +28,9 @@ software goes a long way towards making it possible to bite
 off the Change Management piece and go all the way with it (it has for
 our organization, anyway).
 
-0.70     Released to beta in November 2008. We had done extensive
+0.70
+====
+         Released to beta in November 2008. We had done extensive
          regression testing against the Bombardier code base and
          believed it to be ready for use. We have been using it in our
          QA environments and promoted it to our production datacenters.
@@ -45,7 +47,9 @@ our organization, anyway).
           * Made the logic for determining when to send packages to
             client more robust.
 
-1.00-668 Alpha release of system. The 1.00 branch provides a
+1.00
+====
+668:     Alpha release of system. The 1.00 branch provides a
          centralized RESTful web server enabled with Django. This
          architecture change enables greater security, better
          reporting, and provides for adding quite a few additional
@@ -53,4 +57,417 @@ our organization, anyway).
          load-balancer integration, and log management. Deprecated
          Windows compatibility
 
+
+
+668: 2009-12-31 <peter.banka>
+    An initial documentation set; far from complete
+
+669: 2010-01-04 <root>
+    Made more defensible
+
+670: 2010-01-04 <root>
+    Fixing another initialization issue
+
+671: 2010-01-07 <root>
+    Added Job control; cleaned up some logging and error
+    handling; make reconnecting take less time
+
+672: 2010-01-07 <peter.banka>
+    Preparing for submission to PyPi
+
+673: 2010-01-08 <shawn.sherwood>
+    Made rsync throw if there is a problem.
+
+674: 2010-01-08 <shawn.sherwood>
+    Added a comma to fix setup.py.
+
+675: 2010-01-12 <root>
+    Increased pylint scores for Bombardier core; moved Spkg.py
+    and Config.py into bombardier_core from bombardier_client.
+
+676: 2010-01-12 <root>
+    Fixed a syntax error in setup.py
+
+677: 2010-01-12 <root>
+    Using install_requires instead of requires.
+
+678: 2010-01-12 <root>
+    Added a MANIFEST.in file, added a long description to
+    setup.py, added some clean to make.sh.
+
+679: 2010-01-12 <root>
+    Changed imports.
+
+680: 2010-01-12 <root>
+    Moving some files around.
+
+681: 2010-01-12 <root>
+    Created a build directory, and a rough make file. Moved
+    some the files like AUTHORS and LICENSE into build.
+
+682: 2010-01-12 <root>
+    Added a doc string and added a decorator.
+
+683: 2010-01-12 <root>
+    Removed cli from setup.py for server.
+
+684: 2010-01-12 <root>
+    Working out some make targets.
+
+685: 2010-01-13 <root>
+    Removed some a useless component within Client
+    (utility.py) and moved a couple of them over to core
+    (PluggableFileProcessor and FileManifest). Cleaned up
+    client pylint scores and Shawn worked on the Makefile.
+
+686: 2010-01-13 <U-ES-BC9QP81\2080...>
+    Moved directories
+
+687: 2010-01-13 <root>
+    Corrected targets to insure things are checked in and not
+    modified.
+
+688: 2010-01-13 <root>
+    upload target functionality test before factoring.
+
+689: 2010-01-13 <root>
+    Factored using string substitution.
+
+690: 2010-01-13 <U-ES-BC9QP81\2080...>
+    Working on client unit tests
+
+691: 2010-01-13 <U-ES-BC9QP81\2080...>
+    Cleaned out some old packages not needed for tests and
+    worked on some client tests; only need to complete
+    BombardierClass.
+
+692: 2010-01-14 <U-ES-BC9QP81\2080...>
+    Significant changes in BombardierClass based on unit-test
+    completion: Performing better dependency checking for
+    already-installed packages; better logging, especially
+    during check_system; better initialization if methods in
+    BombardierClass are being called sequentially if the object
+    is not destroyed. Slightly better logging if a package is
+    not found. Made Config a little more tolerant of not
+    finding a saved config hash. Added a few dinky test
+    packages.
+
+693: 2010-01-14 <U-ES-BC9QP81\2080...>
+    Basic documentation
+
+694: 2010-01-14 <U-ES-BC9QP81\2080...>
+    Fixed up setup for import to PyPi
+
+695: 2010-01-15 <root>
+    Added reclean_files.
+
+696: 2010-01-15 <root>
+    Fixed upload for client, server and cli.
+
+697: 2010-01-15 <root>
+    Removed some unnecessary files
+
+698: 2010-01-15 <root>
+    Cleaning out the server directory
+
+699: 2010-01-15 <root>
+    Corrected import problems with Cipher, kept configData
+    around for backward compatibility.
+
+700: 2010-01-15 <root>
+    Fixed some errors when attempting to actually deploy this
+    on real computers.
+
+701: 2010-01-15 <root>
+    Cleaned this up to make the client less chatty
+
+702: 2010-01-15 <root>
+    Added daemonize, which wasn't under revision control, and
+    fixed up setup.py
+
+703: 2010-01-15 <root>
+    Very minor changes..
+
+704: 2010-01-17 <root>
+    Updated unit tests
+
+705: 2010-01-18 <U-scruffy\Peter>
+    Added some basic documentation for the CLI
+
+706: 2010-01-18 <U-scruffy\Peter>
+    Cleaned up unit tests for cli
+
+707: 2010-01-18 <U-scruffy\Peter>
+    Added documentation around package creation
+
+708: 2010-01-18 <U-scruffy\Peter>
+    Small edit to documentation
+
+709: 2010-01-19 <U-scruffy\Peter>
+    Creating some documentation and the quickstart script
+
+710: 2010-01-19 <U-scruffy\Peter>
+    Debugging quickstart; adding to setup.py scripts
+
+711: 2010-01-19 <U-scruffy\Peter>
+    Updated
+
+712: 2010-01-20 <root>
+    checked in merged change
+
+713: 2010-01-20 <root>
+    Trying to be more defensive when parsing output from login
+
+714: 2010-01-21 <root>
+    More defensive in parsing JSON output; Not always asking
+    to disconnect clients. Handling ^C better when initially
+    logging in. Asking the user to set server_home if it is not
+    configured in the CNM.
+
+715: 2010-01-21 <U-ES-BC9QP81\2080...>
+    Cleaned up documentation significantly; made a correct
+    banner for this version of the cli; fixed up the
+    quick-install script
+
+716: 2010-01-21 <U-ES-BC9QP81\2080...>
+    Updating docs
+
+717: 2010-01-25 <shawn.sherwood>
+    Corrected at virtual package dependency resolution. Added
+    a test. Fixed classes inside pkg2 and pkg3 spkg files.
+
+718: 2010-01-25 <root>
+    Minor cleanup on bdr and config_urls.
+
+719: 2010-01-25 <root>
+    Added a help file and tried to prevent deleting the dist
+    files from the build directory.
+
+720: 2010-01-27 <root>
+    Better logging in the client; better exception processing
+    in Spkg; cleaned up the banner
+
+721: 2010-01-27 <root>
+    Added a 'create' command
+
+722: 2010-01-28 <root>
+    Allowing for now needing a user name with svn. Fixed an
+    error with dependencies.
+
+723: 2010-01-29 <U-ES-BC9QP81\2080...>
+    Updated docs
+
+724: 2010-01-29 <root>
+    This set of files builds without warnings.
+
+725: 2010-01-29 <root>
+    Added glossary.txt.
+
+726: 2010-01-29 <root>
+    Corrected a format string for build.
+
+727: 2010-02-03 <root>
+    First shot at making a job queue
+
+728: 2010-02-22 <root>
+    Added m to the options on tar to throw away timestamps in
+    the tarball. This negates the effects of incorrect time on
+    the client machine.
+
+729: 2010-02-22 <root>
+    Checking in this import try/except for machines with no
+    pycrypto.
+
+730: 2010-03-02 <root>
+    Implemented a Job scheduler in the form of
+    DispatchMonitor. This thing keeps track of current jobs and
+    fires off new ones when the time is right. It also keeps
+    track of finished and broken ones. Plus, it's got your back
+    if you get freaked out and want to stop everything.  This
+    required some changes in the CLI code to be able to track
+    the next job in a sequence of jobs. Also added some other
+    job management commands on the CLI to view active/finished
+    jobs and clear out old broken jobs. Also fixed the help on
+    the Create command. Also, got a little more defensive about
+    handling exceptions in jobs and clearing a job from a
+    machine object. Got Pyro to dump tracebacks from Dispatcher
+    more efficiently. Stopped passing back Dispatcher objects
+    through pyro because they can no longer be serialized due
+    to the fact that they have a thread object now. Added a
+    machine 'setup' command which does all the hard work for a
+    guy, sending the dists, enabling, and firing up bombardier
+    for the first time.
+
+731: 2010-03-09 <root>
+    Added User management features:this required support for
+    the DELETE method. Will need to be able to support delete
+    for other high-level objects. Added a Comment feature. BDR
+    now keeps track of jobs that haven't been commented and
+    notifies the user of the jobs that need comments applied.
+    The COMMENT command will bring up the editor to allow the
+    user to enter comments and select which jobs the comments
+    apply to. Factored the Dispatcher module into its component
+    parts: Commands, Job, DispatchMonitor, and ServerLogMixin.
+
+732: 2010-03-12 <root>
+    [merge] Feel more confident about these changes: binding
+    back to trunk
+
+731.1.1: 2010-03-12 <root>
+    made some changes to Machine which are half-baked. Need to
+    refactor Machine before I can move forward.
+
+731.1.2: 2010-03-12 <root>
+    Re-organized the command-structure of the CLI. Cleaned up
+    how server tracebacks were done. Fixed up Merge command so
+    that it works properly in the server. Added the ability to
+    have job-watcher trap a ^C and properly kill a job if it's
+    necessary. Cleaned up how help was done, and avoided
+    needless repetition when setting up commands. Cleaned out
+    the CLI commands within bdr so that they don't annoy the
+    user
+
+733: 2010-03-15 <root>
+    Changed how verbose job-watching is. Tried to provide
+    succinct user output, and to always provide summary data at
+    the end of a command. Fixed a bug with setting comments.
+    Hopefully removed all sign of 'command_status' showing up
+    in the output of commands. Starting to experience a problem
+    where the CnmConnector is asking for jobs to be joined
+    before they're ready. Not sure what's happening. It logs
+    when this occurs.
+
+734: 2010-03-16 <U-GECORPORATE\208...>
+    Finished basic stuff for tutorial02.txt
+
+735: 2010-03-19 <root>
+    Added package assignment
+
+736: 2010-03-19 <U-GECORPORATE\208...>
+    Implemented the bombardierinstaller.org website via Google
+    AppEngine
+
+737: 2010-03-22 <root>
+    Commented out html_theme defs to make the build work
+    temporarily.
+
+738: 2010-03-22 <root>
+    Finished makefile target for docs.
+
+739: 2010-03-26 <U-GECORPORATE\208...>
+    Nice-looking documentation content, etc. Ready to publish.
+
+740: 2010-04-07 <root>
+    Hopefully fixed building problem. Also addressed bug
+    #557469
+
+741: 2010-04-07 <root>
+    Fixed bug 557470. Now issues a warning when something is
+    queued. Should also fix 557477
+
+742: 2010-04-07 <root>
+    Fixed bug #557581
+
+743: 2010-04-07 <root>
+    Fixed bug #557480
+
+744: 2010-04-07 <root>
+    Fixed bug 557478 and cleaned up CnmConnector. Also brought
+    in some code from
+    http://stacyprowell.com/blog/2009/03/30/trapping-ctrlc-in-python/
+
+745: 2010-04-07 <root>
+    Fixed bug 557575
+
+746: 2010-04-07 <root>
+    Fixed bug #557610
+
+747: 2010-04-08 <root>
+    Marginally compatible with python2.4. Included proper
+    templates in the build. Ensured that pysqlite was dependent
+    for the server system
+
+748: 2010-04-08 <root>
+    Some minor python2.4 fixes. Some documentation fixes, and
+    some build fixes.
+
+749: 2010-04-08 <root>
+    Stopped deleting special dist files before doing the
+    upload.
+
+750: 2010-04-08 <root>
+    Peter made a change to setup.py for server. Added a new
+    target for cleaning distutils files after an upload.
+
+751: 2010-04-08 <root>
+    Using upload_dir instead of target_dir.
+
+752: 2010-05-24 <root>
+    Fixed some issues with how job names are retained when
+    terminating a session. Fixed build process so that it
+    creates an injector directory
+
+753: 2010-05-26 <root>
+    Changed 'Packages to be RECONFIGURED' to a dictionary.
+
+754: 2010-06-04 <U-GECORPORATE\208...>
+    Documentation changes. Fixed up the FAQ a bit.
+
+755: 2010-06-04 <root>
+    Removed all references to syck (hope it doesn't make us
+    sad). Fixed old problem with TestPackageType4-7.spkg that
+    we never knew about. Made Exit command work at all levels.
+    Modified Makefile to be able to upload to launchpad
+    automagically
+
+756: 2010-06-04 <root>
+    Small fix on Makefile
+
+757: 2010-06-04 <root>
+    Setting the Launchpad production environment as the
+    default in the uploader
+
+758: 2010-06-04 <root>
+    fixing minor problem in launchpad uploader
+
+759: 2010-06-14 <root>
+    about to perform a major change in factoring components of
+    Machine into CnmConnector
+
+760: 2010-06-29 <root>
+    [merge] Separated dispatcher from the rest of the rest web
+    interface.
+
+759.1.1: 2010-06-16 <root>
+    Checkpoint. The dispatcher stops and starts under apache
+    without leaving zombies.
+
+759.1.2: 2010-06-17 <root>
+    Proper URLs. Importing missing components. Better error
+    reporting. Cleaned up how parent PIDs were monitored and
+    how server home is used. Did some better input
+    sanitization.
+
+759.1.3: 2010-06-23 <root>
+    Checkpoint: We can start the dispatcher, start apache, and
+    log in to bdr.
+
+759.1.4: 2010-06-29 <root>
+    refactored the command-line components into a CommandLine
+    object. Added the background-flag option for the
+    command-line. Fixed a race-condition which was breaking a
+    unit-test. All the unit tests are passing on the
+    server-side code after breaking out the dis-patcher.
+
+759.1.5: 2010-06-29 <root>
+    Added versioning capability. Removed excess logging.
+
+761: 2010-06-30 <root>
+    bdr_admin now does automatic upgrades!
+
+762: 2010-07-01 <root>
+    Corrected shebang.
+
+763: 2010-07-07 <root>
+    Added rough dpkg script and files.
 
