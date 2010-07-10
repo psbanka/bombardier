@@ -176,13 +176,14 @@ clean_docs:
 
 bombardierinstaller: clean_docs server_doc client_doc cli_doc 
 	@echo "Doc build complete"
+	cd ../bombardierinstaller && python prep_site.py
 
 sdist: do_sdist reclean_files
 
 upload:	official clean_dist dist_files version_dist
-	echo "UPLOAD TO PYPI using setup.py sdist upload"
+	@echo "UPLOAD TO PYPI using setup.py sdist upload"
 	python setup.py sdist upload
-	echo "UPLOAD TO LAUNCHPAD using $(launchpad_uploader)"
+	@echo "UPLOAD TO LAUNCHPAD using $(launchpad_uploader)"
 	python $(launchpad_uploader)
 
 modify_changelog:

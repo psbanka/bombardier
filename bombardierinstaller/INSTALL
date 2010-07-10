@@ -1,0 +1,45 @@
+Introduction
+============
+
+This is the www.bombardierinstaller.org website. To work with this system, you'll
+need first to download the google appengine system.
+
+- Download the latest Python appengine SDK from here: http://code.google.com/appengine/downloads.html
+  (Get the Linux/Other platforms zip file)
+
+- Unzip the file at the same place that you checked out the bombardier source. This 
+  should create a directory called google_appengine.
+
+Updating the public website
+---------------------------
+
+- This is intended to install the website used for the www.bombardierinstaller.org
+  URL.  If you are not an administrator of that website, these directions don't
+  apply to you.
+
+- Generate the bombardierinstaller doc files by going to the 1.00/build directory
+  and running 'make bombardierinstaller'
+
+- Issue the following command:
+  google_appengine/appcfg.py update 1.00/bombardierinstaller/
+
+  This will upload the bombardierinstaller stuff to Google.
+
+Running the webserver on your local computer
+--------------------------------------------
+
+- Generate the bombardierinstaller doc files by going to the 1.00/build directory
+  and running 'make bombardierinstaller'
+
+- Issue the following command:
+  google_appengine/appcfg.py update ../1.00/bombardierinstaller/
+
+- You'll see something like the following:
+
+    $ google_appengine/dev_appserver.py 1.00/bombardierinstaller/
+    INFO     2010-07-09 22:47:09,299 py_zipimport.py:108] zipimporter('/usr/lib/python2.5/site-packages/simplejson-2.1.1-py2.5-cygwin-1.7.2-i686.egg', 'simplejson/')
+    INFO     2010-07-09 22:47:24,023 appengine_rpc.py:159] Server: appengine.google.com
+    INFO     2010-07-09 22:47:24,059 appcfg.py:357] Checking for updates to the SDK.
+    INFO     2010-07-09 22:47:24,921 appcfg.py:371] The SDK is up to date.
+    INFO     2010-07-09 22:47:25,765 dev_appserver_main.py:431] Running application bombardierinstaller on port 8080: http://localhost:8080
+

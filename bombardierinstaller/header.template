@@ -32,7 +32,7 @@
                 </ul>
                 {% endblock %}
 
-            <div id="date">August 1, 2006</div>
+            <div id="date">##TEMPLATE##</div>
             </div>
         
 

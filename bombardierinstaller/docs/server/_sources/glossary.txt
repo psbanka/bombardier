@@ -1,7 +1,0 @@
-.. _glossary:
-
-===================
-Glossary
-===================
-
-Test item: test
