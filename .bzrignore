@@ -34,3 +34,4 @@ server/docs/.build
 server/docs/.static
 server/docs/.templates
 server/docs/server
+bombardierinstaller/docs
