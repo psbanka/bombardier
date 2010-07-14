@@ -3,6 +3,7 @@
 import os, sys, time
 import optparse
 import termios, tty
+import traceback
 from bombardier_server.cnm.Dispatcher import Dispatcher
 import resource, yaml
 from bombardier_core.static_data import OK
@@ -13,6 +14,7 @@ PIDFILE="/var/run/bombardier_cnm.pid"
 MAXFD = 1024
 INFO_FILE = "dispatcher_info.yml"
 os.environ["DJANGO_SETTINGS_MODULE"] = 'bombardier_server.web.rest_api.settings'
+DEBUG_TRACE=False
 
 def DEBUG(msg):
     fp = open("/tmp/DEBUG", "a")
@@ -21,13 +23,18 @@ def DEBUG(msg):
     fp.flush()
     fp.close()
 
+def trace_exit(value):
+    if DEBUG_TRACE:
+        traceback.print_stack()
+    sys.exit(value)
+
 def yaml_and_pidfile_or_die(server_home):
     yaml_file = os.path.join(server_home, INFO_FILE)
     start_time = time.time()
     while not (os.path.isfile(yaml_file) and os.path.isfile(PIDFILE)):
         time.sleep(1)
         if time.time() - start_time > TIMEOUT:
-            sys.exit(TIMEOUT)
+            trace_exit(TIMEOUT)
 
 def get_process_info(server_home):
     yaml_file = os.path.join(server_home, INFO_FILE)
@@ -39,7 +46,7 @@ def get_process_info(server_home):
         uri = info_dict["dispatcher_uri"]
         return pid, uri
     except:
-        sys.exit(1)
+        trace_exit(1)
 
 def refork(server_home, encryption_key):
     "Inner fork, sets up Dispatcher"
@@ -52,7 +59,7 @@ def refork(server_home, encryption_key):
 
     if (pid != 0):
         yaml_and_pidfile_or_die(server_home)
-        os._exit(0)
+        trace_exit(0)
     else:
         os.chdir(server_home)
         os.environ["PYRO_STORAGE"] = server_home
@@ -66,21 +73,24 @@ def refork(server_home, encryption_key):
         Pyro.core.initServer()
         daemon = Pyro.core.Daemon()
         dispatcher = Dispatcher(server_home, encryption_key)
-        uri = daemon.connect(dispatcher, "dispatcher")
+        uri = str(daemon.connect(dispatcher, "dispatcher"))
         
         time.sleep(3)
-        pid = os.getpid()
+        pid = str(os.getpid())
         info_dict = {"dispatcher_uri": str(uri)}
         try:
             open(yaml_file, 'w').write( yaml.dump(info_dict) )
             open(PIDFILE, 'w').write( "%s\n" % pid )
         except:
             dispatcher.terminate("not_root")
-            sys.exit(1)
+            trace_exit(1)
         test_pid, test_uri = get_process_info(server_home)
-        if not set([test_pid, test_uri]) == set([pid, uri]):
+        actual_set = set([pid, uri])
+        test_set = set([test_pid, test_uri]) 
+
+        if not (actual_set == test_set):
             dispatcher.terminate("not_root")
-            sys.exit(1)
+            trace_exit(1)
         daemon.requestLoop()
 
 def daemonize(server_home, encryption_key):
@@ -121,14 +131,14 @@ def stop(server_home):
     "Stop the dispathcer"
     yaml_file = os.path.join(server_home, INFO_FILE)
     info_dict = yaml.load(open(yaml_file, 'r').read())
-    pid = info_dict["dispatcher_pid"]
+    pid = open(PIDFILE).read().strip()
     print "Stopping %s..." % pid
-    return os.kill(pid, SIGTERM)
+    return os.kill(int(pid), SIGTERM)
 
 def usage(inputted):
     print "Action %s unknown. Please choose 'start' or 'stop'" % inputted
     parser.print_help()
-    sys.exit(1)
+    trace_exit(1)
 
 def pwd_input(prompt):
     'ask for a password, providing asterisks for output'
@@ -157,7 +167,7 @@ def pwd_input(prompt):
                 password += char
     except KeyboardInterrupt:
         termios.tcsetattr(file_handle, termios.TCSADRAIN, old_settings)
-        sys.exit(1)
+        trace_exit(1)
     termios.tcsetattr(file_handle, termios.TCSADRAIN, old_settings)
     redaction = "\b" * len(password) + " " * len(password)
     sys.stdout.write(redaction)
@@ -190,13 +200,13 @@ if __name__ == "__main__":
             try:
                 decryption_key = pwd_input("Enter decryption key:")
             except KeyboardInterrupt:
-                sys.exit(1)
+                trace_exit(1)
         status = daemonize(server_home, decryption_key)
         pid, uri = get_process_info(server_home)
         #print ">>> ACTION:", action, uri
-        sys.exit(status)
+        trace_exit(status)
     elif action == "stop":
-        sys.exit(stop(server_home))
+        trace_exit(stop(server_home))
     else:
         usage(action)
 
