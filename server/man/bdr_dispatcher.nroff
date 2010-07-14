@@ -1,0 +1,62 @@
+.TH BDR_DISPATCHER 1 "July 14, 2010" "" "Bombardier Installer System"
+.SH NAME
+bdr_dispatcher
+.SH DESCRIPTION
+
+.P
+The bdr_dispatcher is a daemon that provides the core services of the
+Bombardier server system. It is configured with the \fI/etc/bombardier.yml\fR
+file, which specifies the server-home directory that the bdr_dispatcher
+daemon runs out of. The server-home directory can also be specified on
+the command-line. This daemon is responsible for issuing commands to
+computers (or "machines") throughout the network. In addition, it provides the
+following services: (1) connects to remote machines in your network via ssh
+and holds on to the connections in a connection-pool, (2) is responsible for
+all the configuration data for machines, include files, and packages,
+(3) is responsible for building new packages, (4) performs actions on remote
+machines throughout the network via the ssh connections that it maintains,
+(5) maintains a central change-log of all actions performed on the network
+in \fI/var/user.log\fR.
+
+.br
+.P
+
+.P
+Individual Configuration Items (CIs) in a machine's configuration can be
+encrypted. For example, you may choose to leave the IP address of a
+machine readable by eveyone, but perhaps you have an Oracle 10g
+package which installs and manages the database. In this case, you may
+choose to encrypt the dba password and leave other configuration data
+intact. The selective encryption of these items requires the daemon to
+possess a decryption key. That key must be entered after starting the
+bdr_dispatcher daemon. It can optionally be added on the command-line,
+but that's not recommended, as the key will show up in the process
+table. It is set by bdr_admin.
+.br
+
+.SH SYNOPSIS
+bdr_dispatcher [-h server-home] [-d decryption-key] [start | stop]
+
+Options:
+  -h, --help            show \fIthis\fR help message and exit
+  -d DECRYPTION_KEY, --decryption-key=DECRYPTION_KEY
+                        Set the password for decrypting server configs
+  -s SERVER_HOME, --server-home=SERVER_HOME
+                        Set the server home directory (default
+                        /var/deploy)
+
+.SH EXAMPLE
+bdr_dispatcher start
+    starts the bombardier dispatcher daemon
+
+bdr_dispatcher stop
+    kills the bombardier dispatcher daemon
+
+bdr_dispatcher -s /dev/extra/bombardier -d s3cur1ty33 start
+    starts the bombardier dispatcher deamon, setting the decryption
+    key and the server home on the command-line.
+
+
+.SH AUTHORS
+.SS Peter Banka <peter.banka@gmail.com>
+.SS Shawn Sherwood <shsher@gmail.com>
