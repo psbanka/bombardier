@@ -6,7 +6,7 @@ from bombardier_core.static_data import OK, SERVER_CONFIG_FILE
 from bombardier_core.Cipher import Cipher
 from commands import getstatusoutput as gso
 
-USAGE  = ["usage:  %prog upgrade [-v VERSION_NAME] [-y]",
+USAGE  = ["usage:  %prog upgrade [-v RELEASE_NAME] [-y]",
           "        %prog init [-s SERVER_HOME] [-k KEY_PATH]",
           "        %prog passwd",
           "",
@@ -14,7 +14,7 @@ USAGE  = ["usage:  %prog upgrade [-v VERSION_NAME] [-y]",
           "            Defaults to /root/.ssh/id_dsa.pub",
           "SERVER_HOME := The path to the bombardier server configuration",
           "               management database (defaults to /var/deploy) ",
-          "VERSION_NAME := The version of bombardier to download. The only",
+          "RELEASE_NAME := The version of bombardier to download. The only",
           "                option right now is 'alpha' which is the default."
          ]
 

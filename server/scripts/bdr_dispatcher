@@ -10,7 +10,7 @@ from bombardier_core.static_data import OK
 from signal import SIGTERM
 
 TIMEOUT=5
-PIDFILE="/var/run/bombardier_cnm.pid"
+PIDFILE="/var/run/bdr_dispatcher.pid"
 MAXFD = 1024
 INFO_FILE = "dispatcher_info.yml"
 os.environ["DJANGO_SETTINGS_MODULE"] = 'bombardier_server.web.rest_api.settings'
@@ -183,7 +183,7 @@ if __name__ == "__main__":
 
     (options, actions) = parser.parse_args()
     server_home = "/var/deploy"
-    decryption_key = None
+    decryption_key = ''
     if options.server_home:
         server_home = options.server_home
     if options.decryption_key:
@@ -196,11 +196,14 @@ if __name__ == "__main__":
 
 
     if action == "start":
-        if decryption_key == None:
-            try:
-                decryption_key = pwd_input("Enter decryption key:")
-            except KeyboardInterrupt:
-                trace_exit(1)
+        key_file = os.path.join(server_home, "admin",
+                                "encryption_validation.yml")
+        if os.path.isfile(key_file):
+            if decryption_key == '':
+                try:
+                    decryption_key = pwd_input("Enter decryption key:")
+                except KeyboardInterrupt:
+                    trace_exit(1)
         status = daemonize(server_home, decryption_key)
         pid, uri = get_process_info(server_home)
         #print ">>> ACTION:", action, uri
