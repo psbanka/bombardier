@@ -50,4 +50,4 @@ cd ..
 dch --newversion=${revision}-1 "$message"
 cp debian/changelog $start_dir/$component/new_changelog
 
-debuild -S -sa
+debuild -sa
