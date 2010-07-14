@@ -8,7 +8,7 @@ from commands import getstatusoutput as gso
 
 USAGE  = ["usage:  %prog upgrade [-v VERSION_NAME] [-y]",
           "        %prog init [-s SERVER_HOME] [-k KEY_PATH]",
-          "        %prog set-password",
+          "        %prog passwd",
           "",
           "KEY_PATH := The path to the id_dsa.pub file for ssh key-sharing.",
           "            Defaults to /root/.ssh/id_dsa.pub",
@@ -302,7 +302,7 @@ def main():
         init(options.server_home, options.key_path)
     elif command == "upgrade":
         upgrade(options.version, options.no_confirm)
-    elif command == "set_password":
+    elif command == "passwd":
         set_password()
     else:
         print("CMD: %s" % ' '.join(sys.argv))
