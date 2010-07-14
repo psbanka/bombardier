@@ -2,24 +2,44 @@
 "Script to run dispatcher as a daemon"
 import os, sys, time
 import optparse
-import getpass
+import termios, tty
 from bombardier_server.cnm.Dispatcher import Dispatcher
 import resource, yaml
 from bombardier_core.static_data import OK
 from signal import SIGTERM
+
+TIMEOUT=5
+PIDFILE="/var/run/bombardier_cnm.pid"
 MAXFD = 1024
 INFO_FILE = "dispatcher_info.yml"
 os.environ["DJANGO_SETTINGS_MODULE"] = 'bombardier_server.web.rest_api.settings'
 
+def DEBUG(msg):
+    fp = open("/tmp/DEBUG", "a")
+    fp.write(msg)
+    fp.write('\n')
+    fp.flush()
+    fp.close()
+
+def yaml_and_pidfile_or_die(server_home):
+    yaml_file = os.path.join(server_home, INFO_FILE)
+    start_time = time.time()
+    while not (os.path.isfile(yaml_file) and os.path.isfile(PIDFILE)):
+        time.sleep(1)
+        if time.time() - start_time > TIMEOUT:
+            sys.exit(TIMEOUT)
 
 def get_process_info(server_home):
     yaml_file = os.path.join(server_home, INFO_FILE)
     while not os.path.isfile(yaml_file):
         time.sleep(1)
-    info_dict = yaml.load(open(yaml_file, 'r').read())
-    pid = info_dict["dispatcher_pid"]
-    uri = info_dict["dispatcher_uri"]
-    return pid, uri
+    try:
+        info_dict = yaml.load(open(yaml_file, 'r').read())
+        pid = open(PIDFILE).read().strip() #info_dict["dispatcher_pid"]
+        uri = info_dict["dispatcher_uri"]
+        return pid, uri
+    except:
+        sys.exit(1)
 
 def refork(server_home, encryption_key):
     "Inner fork, sets up Dispatcher"
@@ -31,8 +51,7 @@ def refork(server_home, encryption_key):
         raise Exception, "%s [%d]" % (err.strerror, err.errno)
 
     if (pid != 0):
-        while not os.path.isfile(yaml_file):
-            time.sleep(1)
+        yaml_and_pidfile_or_die(server_home)
         os._exit(0)
     else:
         os.chdir(server_home)
@@ -46,10 +65,22 @@ def refork(server_home, encryption_key):
 
         Pyro.core.initServer()
         daemon = Pyro.core.Daemon()
-        uri = daemon.connect(Dispatcher(server_home, encryption_key), "dispatcher")
+        dispatcher = Dispatcher(server_home, encryption_key)
+        uri = daemon.connect(dispatcher, "dispatcher")
+        
+        time.sleep(3)
         pid = os.getpid()
-        info_dict = { "dispatcher_uri": str(uri), "dispatcher_pid": pid }
-        open(yaml_file, 'w').write( yaml.dump(info_dict) )
+        info_dict = {"dispatcher_uri": str(uri)}
+        try:
+            open(yaml_file, 'w').write( yaml.dump(info_dict) )
+            open(PIDFILE, 'w').write( "%s\n" % pid )
+        except:
+            dispatcher.terminate("not_root")
+            sys.exit(1)
+        test_pid, test_uri = get_process_info(server_home)
+        if not set([test_pid, test_uri]) == set([pid, uri]):
+            dispatcher.terminate("not_root")
+            sys.exit(1)
         daemon.requestLoop()
 
 def daemonize(server_home, encryption_key):
@@ -67,12 +98,10 @@ def daemonize(server_home, encryption_key):
     if (pid == 0):
         refork(server_home, encryption_key)
     else:
-        while not os.path.isfile(yaml_file):
-            time.sleep(1)
+        yaml_and_pidfile_or_die(server_home)
         return OK
 
-    while not os.path.isfile(yaml_file):
-        time.sleep(1)
+    yaml_and_pidfile_or_die(server_home)
     maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
     if (maxfd == resource.RLIM_INFINITY):
         maxfd = MAXFD
@@ -101,6 +130,40 @@ def usage(inputted):
     parser.print_help()
     sys.exit(1)
 
+def pwd_input(prompt):
+    'ask for a password, providing asterisks for output'
+    file_handle = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(file_handle)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        print prompt,
+        password = ''
+        while 1 == 1:
+            char = sys.stdin.read(1)
+            if char == chr(3): # ^C was pressed
+                raise KeyboardInterrupt
+            if char == chr(13): # Enter was pressed
+                break
+            if char == chr(8) or char == chr(127): # backspace
+                if len(password) > 0:
+                    sys.stdout.write("\b")
+                    sys.stdout.write(" ")
+                    sys.stdout.write("\b")
+                    password = password[:-1]
+                continue
+            if ord(char) > 31 and ord(char) < 128: # Valid character
+                sys.stdout.write("*")
+                sys.stdout.flush()
+                password += char
+    except KeyboardInterrupt:
+        termios.tcsetattr(file_handle, termios.TCSADRAIN, old_settings)
+        sys.exit(1)
+    termios.tcsetattr(file_handle, termios.TCSADRAIN, old_settings)
+    redaction = "\b" * len(password) + " " * len(password)
+    sys.stdout.write(redaction)
+    print
+    return password
+
 if __name__ == "__main__":
     parser = optparse.OptionParser("usage: %prog <-h server-home> [start | stop]")
     parser.add_option("-d", "--decryption-key", dest="decryption_key",
@@ -124,10 +187,13 @@ if __name__ == "__main__":
 
     if action == "start":
         if decryption_key == None:
-            decryption_key = getpass.getpass("Enter decryption key:")
+            try:
+                decryption_key = pwd_input("Enter decryption key:")
+            except KeyboardInterrupt:
+                sys.exit(1)
         status = daemonize(server_home, decryption_key)
         pid, uri = get_process_info(server_home)
-        print ">>> ACTION:", action, uri
+        #print ">>> ACTION:", action, uri
         sys.exit(status)
     elif action == "stop":
         sys.exit(stop(server_home))
