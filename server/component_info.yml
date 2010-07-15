@@ -39,4 +39,4 @@ provides:
 - bombardier_server
 scripts:
 - scripts/bdr_admin
-- scripts/bombardier_cnm
+- scripts/bdr_dispatcher
