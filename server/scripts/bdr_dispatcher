@@ -6,137 +6,242 @@ import termios, tty
 import traceback
 from bombardier_server.cnm.Dispatcher import Dispatcher
 import resource, yaml
-from bombardier_core.static_data import OK
+from bombardier_core.static_data import OK, FAIL, SERVER_CONFIG_FILE
 from signal import SIGTERM
 
-TIMEOUT=5
-PIDFILE="/var/run/bdr_dispatcher.pid"
+from django.core.servers.basehttp import AdminMediaHandler
+from django.core.servers.basehttp import WSGIServer
+from django.core.servers.basehttp import WSGIRequestHandler, ServerHandler
+from django.core.handlers.wsgi import WSGIHandler
+
+TIMEOUT = 5
+DISPATCHER_PID_FILE = "/var/run/bdr_dispatcher.pid"
+WEB_SERVER_PID_FILE = "/var/run/bdr_web_server.pid"
 MAXFD = 1024
 INFO_FILE = "dispatcher_info.yml"
+WEB_LOG_FILENAME = "/var/log/bdr_web.log"
 os.environ["DJANGO_SETTINGS_MODULE"] = 'bombardier_server.web.rest_api.settings'
-DEBUG_TRACE=False
+DEBUG_TRACE = False
 
-def DEBUG(msg):
-    fp = open("/tmp/DEBUG", "a")
-    fp.write(msg)
-    fp.write('\n')
-    fp.flush()
-    fp.close()
+def debug(msg):
+    "Scratch debug log when we don't have stdout"
+    file_handle = open("/tmp/DEBUG", "a")
+    file_handle.write(msg)
+    file_handle.write('\n')
+    file_handle.flush()
+    file_handle.close()
 
 def trace_exit(value):
+    "Scratch traceback so we can tell where something exited."
     if DEBUG_TRACE:
         traceback.print_stack()
     sys.exit(value)
 
-def yaml_and_pidfile_or_die(server_home):
-    yaml_file = os.path.join(server_home, INFO_FILE)
-    start_time = time.time()
-    while not (os.path.isfile(yaml_file) and os.path.isfile(PIDFILE)):
-        time.sleep(1)
-        if time.time() - start_time > TIMEOUT:
-            trace_exit(TIMEOUT)
+class SimpleWebLogger:
+    "Web logging class which works with the Django web server"
+    def __init__(self):
+        "Initialize our output"
+        self.handle = open(WEB_LOG_FILENAME, 'a')
 
-def get_process_info(server_home):
-    yaml_file = os.path.join(server_home, INFO_FILE)
-    while not os.path.isfile(yaml_file):
-        time.sleep(1)
+    def write(self, msg):
+        "Pretend to be a file handle, but flush each time written"
+        self.handle.write(msg)
+        self.handle.flush()
+
+class BDRRequestHandler(WSGIRequestHandler):
+    "This provides django web services without stderr and stdout"
+
+    def __init__(self, *args, **kwargs):
+        "All we're doing is adding a logger object to the class"
+        self.logger = SimpleWebLogger()
+        WSGIRequestHandler.__init__(self, *args, **kwargs)
+
+    def get_stderr(self):
+        "Overwrite the superclass's get_stderr method to write to a log"
+        return self.logger
+
+    def handle(self):
+        """Handle a single HTTP request"""
+        self.raw_requestline = self.rfile.readline()
+        if not self.parse_request():
+            return
+        handler = ServerHandler(self.rfile, self.wfile, self.get_stderr(),
+                                self.get_environ())
+        handler.request_handler = self
+        handler.run(self.server.get_app())
+
+    def log_message(self, format, *args):
+        "The superclass doesn't use its own get_srderr method"
+        if self.path.startswith(self.admin_media_prefix) or self.path == '/favicon.ico':
+            return
+        self.get_stderr().write("[%s] %s\n" % (self.log_date_time_string(), format % args))
+
+def stop_pid_file(file_name, service_name):
+    "Stops a service based on the PID file"
+    if not os.path.isfile(file_name):
+        print "Can't stop "+service_name+" (can't find PID file)."
+        return FAIL
+    pid = open(file_name).read().strip()
+    print "Stopping "+service_name+" ("+pid+")...",
     try:
-        info_dict = yaml.load(open(yaml_file, 'r').read())
-        pid = open(PIDFILE).read().strip() #info_dict["dispatcher_pid"]
-        uri = info_dict["dispatcher_uri"]
-        return pid, uri
-    except:
-        trace_exit(1)
+        os.kill(int(pid), SIGTERM)
+        print "OK"
+        status = OK 
+    except OSError:
+        print "FAILED"
+        status = FAIL
+    os.system("rm -f %s" % file_name)
+    return status
 
-def refork(server_home, encryption_key):
-    "Inner fork, sets up Dispatcher"
-    yaml_file = os.path.join(server_home, INFO_FILE)
-    os.setsid()
-    try:
-        pid = os.fork()
-    except OSError, err:
-        raise Exception, "%s [%d]" % (err.strerror, err.errno)
+class Daemonizer:
+    "Runs the bombardier service(s)"
 
-    if (pid != 0):
-        yaml_and_pidfile_or_die(server_home)
-        trace_exit(0)
-    else:
-        os.chdir(server_home)
-        os.environ["PYRO_STORAGE"] = server_home
-        import Pyro.core
-        import Pyro.configuration
-        #Pyro.configuration.PYRO_STORAGE = server_home
-        data = Pyro.configuration.Pyro.config.PYRO_STORAGE
-        Pyro.configuration.Pyro.config.PYRO_STORAGE = server_home
-        Pyro.configuration.Pyro.config.PYRO_DETAILED_TRACEBACK = 1
+    def __init__(self, server_home, encryption_key, external_web_server):
+        self.server_home = server_home
+        self.encryption_key = encryption_key
+        self.external_web_server = external_web_server
+        self.yaml_file = os.path.join(self.server_home, INFO_FILE)
 
-        Pyro.core.initServer()
-        daemon = Pyro.core.Daemon()
-        dispatcher = Dispatcher(server_home, encryption_key)
-        uri = str(daemon.connect(dispatcher, "dispatcher"))
-        
-        time.sleep(3)
-        pid = str(os.getpid())
-        info_dict = {"dispatcher_uri": str(uri)}
+    def files_created(self):
+        "Determine if the files that should be creaed or not"
+        if not os.path.isfile(self.yaml_file):
+            return False
+        if not os.path.isfile(DISPATCHER_PID_FILE):
+            return False
+        if not self.external_web_server:
+            if not os.path.isfile(WEB_SERVER_PID_FILE):
+                return False
+        return True
+
+    def yaml_and_pidfile_or_die(self):
+        "Wait for necessary files to show up or abort"
+        start_time = time.time()
+        while not self.files_created():
+            time.sleep(1)
+            if time.time() - start_time > TIMEOUT:
+                trace_exit(1)
+
+    def get_process_info(self):
+        "Read URL and dispatcher PID"
+        while not self.files_created():
+            time.sleep(1)
         try:
-            open(yaml_file, 'w').write( yaml.dump(info_dict) )
-            open(PIDFILE, 'w').write( "%s\n" % pid )
+            info_dict = yaml.load(open(self.yaml_file, 'r').read())
+            pid = open(DISPATCHER_PID_FILE).read().strip()
+            uri = info_dict["dispatcher_uri"]
+            return pid, uri
         except:
-            dispatcher.terminate("not_root")
             trace_exit(1)
-        test_pid, test_uri = get_process_info(server_home)
-        actual_set = set([pid, uri])
-        test_set = set([test_pid, test_uri]) 
 
-        if not (actual_set == test_set):
-            dispatcher.terminate("not_root")
-            trace_exit(1)
-        daemon.requestLoop()
+    def refork(self):
+        "Inner fork, sets up Dispatcher"
+        os.setsid()
+        try:
+            pid = os.fork()
+        except OSError, err:
+            raise Exception, "%s [%d]" % (err.strerror, err.errno)
 
-def daemonize(server_home, encryption_key):
-    "Create a deamon process from Dispatcher"
-    os.chdir(server_home)
-    yaml_file = os.path.join(server_home, INFO_FILE)
-    os.environ["PYRO_STORAGE"] = server_home
-    if os.path.isfile(yaml_file):
-        os.unlink(yaml_file)
-    try:
-        pid = os.fork()
-    except OSError, err:
-        raise Exception, "%s [%d]" % (err.strerror, err.errno)
+        if (pid != 0):
+            self.yaml_and_pidfile_or_die()
+            trace_exit(0)
+        else:
+            os.chdir(self.server_home)
+            os.environ["PYRO_STORAGE"] = self.server_home
+            import Pyro.core
+            import Pyro.configuration
+            Pyro.configuration.Pyro.config.PYRO_STORAGE = self.server_home
+            Pyro.configuration.Pyro.config.PYRO_DETAILED_TRACEBACK = 1
 
-    if (pid == 0):
-        refork(server_home, encryption_key)
-    else:
-        yaml_and_pidfile_or_die(server_home)
+            Pyro.core.initServer()
+            daemon = Pyro.core.Daemon()
+            dispatcher = Dispatcher(self.server_home, self.encryption_key)
+            uri = str(daemon.connect(dispatcher, "dispatcher"))
+            
+            time.sleep(3)
+            pid = str(os.getpid())
+            info_dict = {"dispatcher_uri": str(uri)}
+            try:
+                open(self.yaml_file, 'w').write( yaml.dump(info_dict) )
+                open(DISPATCHER_PID_FILE, 'w').write( "%s\n" % pid )
+            except:
+                dispatcher.terminate("not_root")
+                trace_exit(1)
+            test_pid, test_uri = self.get_process_info()
+            actual_set = set([pid, uri])
+            test_set = set([test_pid, test_uri]) 
+
+            if not (actual_set == test_set):
+                dispatcher.terminate("not_root")
+                trace_exit(1)
+            daemon.requestLoop()
+
+    def start_django(self):
+        "Start the mini development web server"
+        pid = str(os.getpid())
+        open(WEB_SERVER_PID_FILE, 'w').write( "%s\n" % pid )
+        admin_media_path = '/var/www'
+        server_address = ("127.0.0.1", 8000)
+
+        wsgi_handler = AdminMediaHandler(WSGIHandler(), admin_media_path)
+        httpd = WSGIServer(server_address, BDRRequestHandler)
+        httpd.set_app(wsgi_handler)
+        httpd.serve_forever()
+
+    def daemonize(self):
+        "Create a deamon process from Dispatcher"
+        os.chdir(self.server_home)
+        yaml_file = os.path.join(self.server_home, INFO_FILE)
+        os.environ["PYRO_STORAGE"] = self.server_home
+        if os.path.isfile(yaml_file):
+            os.unlink(yaml_file)
+        try:
+            pid = os.fork()
+        except OSError, err:
+            raise Exception, "%s [%d]" % (err.strerror, err.errno)
+
+        if (pid == 0):
+            self.refork()
+        else:
+            if not(self.external_web_server):
+                try:
+                    pid = os.fork()
+                except OSError, err:
+                    raise Exception, "%s [%d]" % (err.strerror, err.errno)
+                if (pid == 0):
+                    self.start_django()
+                
+                self.yaml_and_pidfile_or_die()
+                return OK
+
+        self.yaml_and_pidfile_or_die()
+        maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
+        if (maxfd == resource.RLIM_INFINITY):
+            maxfd = MAXFD
+
+        for file_descriptor in range(0, maxfd):
+            try:
+                os.close(file_descriptor)
+            except OSError:
+                pass
+
+        os.dup2(0, 1)
+        os.dup2(0, 2)
+
         return OK
 
-    yaml_and_pidfile_or_die(server_home)
-    maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
-    if (maxfd == resource.RLIM_INFINITY):
-        maxfd = MAXFD
+    def stop(self):
+        "Stop the dispathcer"
+        dispatcher_status = stop_pid_file(DISPATCHER_PID_FILE, "dispatcher")
+        web_server_status = OK
+        if not self.external_web_server:
+            web_server_status = stop_pid_file(WEB_SERVER_PID_FILE, "web server")
+        if FAIL in [ dispatcher_status, web_server_status ]:
+            return FAIL
+        return OK
 
-    for file_descriptor in range(0, maxfd):
-        try:
-            os.close(file_descriptor)
-        except OSError:
-            pass
-
-    os.dup2(0, 1)
-    os.dup2(0, 2)
-
-    return OK
-
-def stop(server_home):
-    "Stop the dispathcer"
-    yaml_file = os.path.join(server_home, INFO_FILE)
-    info_dict = yaml.load(open(yaml_file, 'r').read())
-    pid = open(PIDFILE).read().strip()
-    print "Stopping %s..." % pid
-    return os.kill(int(pid), SIGTERM)
-
-def usage(inputted):
-    print "Action %s unknown. Please choose 'start' or 'stop'" % inputted
+def usage(action, parser):
+    "Print usage data"
+    print "Action %s unknown. Please choose 'start' or 'stop'" % action
     parser.print_help()
     trace_exit(1)
 
@@ -174,26 +279,47 @@ def pwd_input(prompt):
     print
     return password
 
-if __name__ == "__main__":
-    parser = optparse.OptionParser("usage: %prog <-h server-home> [start | stop]")
+def main():
+    "main method"
+    parser = optparse.OptionParser("usage: %prog [-s server-home] [-d decryption_key] [-x] {start | stop}")
     parser.add_option("-d", "--decryption-key", dest="decryption_key",
                       help="Set the password for decrypting server configs")
     parser.add_option("-s", "--server-home", dest="server_home",
                       help="Set the server home directory (default /var/deploy)")
+    parser.add_option("-x", "--external", dest="external_web_server",
+                      action="store_const", const=True,
+                      help="Use an external web server")
 
     (options, actions) = parser.parse_args()
-    server_home = "/var/deploy"
+    server_home = None
+    external_web_server = False
+
+    if os.path.isfile(SERVER_CONFIG_FILE):
+        config_data = yaml.load(open(SERVER_CONFIG_FILE).read())
+        server_home = config_data.get("server_home")
+        external_web_server = config_data.get("external_web_server", False)
     decryption_key = ''
     if options.server_home:
         server_home = options.server_home
     if options.decryption_key:
         decryption_key = options.decryption_key
+    if options.external_web_server == True:
+        external_web_server = True
 
     if len(actions) != 1:
-        usage(actions)
+        usage(actions, parser)
 
     action = actions[0]
+    
+    if not server_home:
+        print("Need to set the server_home value in %s. Run 'bdr_admin init'" % SERVER_CONFIG_FILE)
+        parser.print_help()
+        trace_exit(1)
 
+    if not os.path.isdir(server_home):
+        print("bombardier server home (%s) does not exist. Run 'bdr_admin init'" % server_home)
+        parser.print_help()
+        trace_exit(1)
 
     if action == "start":
         key_file = os.path.join(server_home, "admin",
@@ -204,12 +330,17 @@ if __name__ == "__main__":
                     decryption_key = pwd_input("Enter decryption key:")
                 except KeyboardInterrupt:
                     trace_exit(1)
-        status = daemonize(server_home, decryption_key)
-        pid, uri = get_process_info(server_home)
-        #print ">>> ACTION:", action, uri
+        else:
+            msg = "%s does not exist. Run 'bdr_admin passwd' to enable."
+            print(msg % key_file)
+        daemonizer = Daemonizer(server_home, decryption_key, external_web_server)
+        status = daemonizer.daemonize()
         trace_exit(status)
     elif action == "stop":
-        trace_exit(stop(server_home))
+        daemonizer = Daemonizer(server_home, '', external_web_server)
+        trace_exit(daemonizer.stop())
     else:
-        usage(action)
+        usage(action, parser)
 
+if __name__ == "__main__":
+    main()

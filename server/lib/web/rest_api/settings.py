@@ -8,7 +8,7 @@ if os.path.isfile(SERVER_CONFIG_FILE):
 DEBUG = SERVER_CONFIG.get("debug", True)
 TEMPLATE_DEBUG = SERVER_CONFIG.get("debug", True)
 
-SERVER_HOME = SERVER_CONFIG.get("home_directory", "/var/deploy")
+SERVER_HOME = SERVER_CONFIG.get("server_home", "/var/deploy")
 SERVER_ROOT = SERVER_CONFIG.get("server_root", '')
 LOGIN_URL="%s/accounts/login" % SERVER_ROOT
 LOGIN_REDIRECT_URL="%s/accounts/profile" % SERVER_ROOT
