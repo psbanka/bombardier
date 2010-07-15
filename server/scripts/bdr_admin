@@ -5,6 +5,7 @@ import sys, yaml, os, getpass, re, tempfile
 from bombardier_core.static_data import OK, SERVER_CONFIG_FILE
 from bombardier_core.Cipher import Cipher
 from commands import getstatusoutput as gso
+os.environ["DJANGO_SETTINGS_MODULE"] = 'bombardier_server.web.rest_api.settings'
 
 USAGE  = ["usage:  %prog upgrade [-v RELEASE_NAME] [-y]",
           "        %prog init [-s SERVER_HOME] [-k KEY_PATH]",
@@ -254,6 +255,17 @@ def run_cmd(cmd):
         print("%%%% ABORTING: Unable to run %s" % cmd)
         sys.exit(1)
 
+def setup_db(server_home):
+    from django.core.management import execute_manager
+    import bombardier_server.web.rest_api.settings as settings
+    from django.core.management import setup_environ
+    from django.core.management import ManagementUtility
+    import traceback
+    setup_environ(settings)
+    utility = ManagementUtility(["manage.py", "syncdb"])
+    traceback.print_stack()
+    utility.execute()
+
 def init(server_home, key_path):
     "Initializes the bombardier server_home"
     if not server_home:
@@ -272,6 +284,7 @@ def init(server_home, key_path):
         print("Aborted.")
         sys.exit(1)
     set_password()
+    setup_db(server_home)
     print("\n\nBasic server setup complete.")
     print("Now configure your web server according to the instructions")
     print("in your documentation.")
