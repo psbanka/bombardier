@@ -23,6 +23,7 @@ old_name=bombardier_${component}-${version}
 bdr_name=${component_name}-${revision}
 work_dir=$start_dir/work/$component
 bdr_dir=$work_dir/$bdr_name
+man_dir=$bdr_dir/usr/share/man
 message="$(bzr log -r${revision} | awk '$0 ~ /^  / {print substr($0,3); next}')"
 
 rm -rf $work_dir
@@ -39,11 +40,14 @@ cd $bdr_dir
 
 dh_make -c gpl -s -b -f ../$bdr_name.tar.gz
 
-cd debian
+cd $bdr_dir/debian
 rm *ex *EX README.Debian dirs
 
 cp -r $start_dir/common/* .
 cp -r $start_dir/$component/* .
+if [ -e $man_dir ]; then
+    find $man_dir -type f -exec gzip '{}' \; || :
+fi
 
 cd ..
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python2.6
 "Script to run dispatcher as a daemon"
 import os, sys, time
 import optparse
@@ -46,6 +46,9 @@ class SimpleWebLogger:
     def write(self, msg):
         "Pretend to be a file handle, but flush each time written"
         self.handle.write(msg)
+        self.flush()
+
+    def flush(self):
         self.handle.flush()
 
 class BDRRequestHandler(WSGIRequestHandler):
