@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python2.6
 "Performs bombardie server management tasks"
 
 import sys, yaml, os, getpass, re, tempfile
@@ -183,6 +183,12 @@ def upgrade(version, no_confirm):
     download_and_install(fetch_list)
     print("Successfully upgraded.")
 
+def fetch_client(version="alpha"):
+    url_list = [ url for in get_url_list(version) if "client" in url ]
+    fetch_list = get_most_recent(url_list)
+    download_and_install(fetch_list)
+    print("Successfully fetched latest client.")
+
 def set_password():
     """Set the password on the master config file. Note that this does not
     (yet) go through and verify that the password works on all config files,
@@ -283,6 +289,7 @@ def init(server_home, key_path):
         sys.exit(1)
     set_password()
     setup_db(server_home)
+    fetch_client()
     print("\n\nBasic server setup complete.")
     print("Now configure your web server according to the instructions")
     print("in your documentation.")
