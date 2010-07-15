@@ -260,10 +260,8 @@ def setup_db(server_home):
     import bombardier_server.web.rest_api.settings as settings
     from django.core.management import setup_environ
     from django.core.management import ManagementUtility
-    import traceback
     setup_environ(settings)
     utility = ManagementUtility(["manage.py", "syncdb"])
-    traceback.print_stack()
     utility.execute()
 
 def init(server_home, key_path):
