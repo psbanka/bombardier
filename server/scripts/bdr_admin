@@ -67,9 +67,10 @@ def check_version(version):
 
 def get_url_list(version):
     "Find all the files downloadable on Launchpad"
-    cmd = "curl https://launchpad.net/bombardier"
+    cmd = "curl https://launchpad.net/bombardier/1.00/%s" % version
     _status, output = gso(cmd)
-    matcher = re.compile('\<a href=\"(http:\/\/launchpad\.net\/bombardier\/1\.00\/%s\/\+download\/.*)\"\>' % version)
+    matcher = re.compile(' href=\"(http:\/\/launchpad\.net\/bombardier\/1\.00\/%s\/\+download\/.*\.tar\.gz)\"\>' % version)
+
     url_list = matcher.findall(output)
     if not url_list:
         print("Error getting urls from Launchpad. Check proxy settings.")
@@ -117,7 +118,7 @@ def unpack_tarball(file_name, working_dir):
         print("CMD: \n%s" % cmd)
         sys.exit(1)
 
-def install(directory, working_dir):
+def run_setup(directory, working_dir):
     "Install a python package with setup.py"
     print("Installing %s..." % directory)
     os.chdir(os.path.join(working_dir, directory))
@@ -130,6 +131,36 @@ def install(directory, working_dir):
         print("You can look at the file in %s" % working_dir)
         sys.exit(1)
 
+def download(fetch_list):
+    file_list = [ url.split('/')[-1] for url in fetch_list ]
+    for url in fetch_list:
+        fetch_url(url)
+    return file_list
+
+def move_dist(file_list):
+    server_home = get_server_home()
+    for file_name in file_list:
+        if 'client' in file_name or 'core' in file_name or 'PyYAML' in file_name:
+            dist_dir = os.path.join(server_home, "dist")
+            print("Moving %s to %s..." % (file_name, dist_dir))
+            status = os.system("mv %s %s" % (file_name, dist_dir))
+            if status != OK:
+                msg = "Error putting %s in the server home (%s)..."
+                print(msg % (file_name, server_home))
+                print("You can look at the file in %s" % os.getcwd())
+                sys.exit(1)
+
+def install_tarballs(file_list):
+    directory_list = []
+    for file_name in file_list:
+        if "client" not in url:
+            unpack_tarball(file_name, working_dir)
+            directory = file_name.split('.tar.gz')[0]
+            directory_list.append(directory)
+
+    for directory in directory_list:
+        run_setup(directory, working_dir)
+
 def download_and_install(fetch_list):
     "Grab a bunch of files and install them"
     starting_dir = os.getcwd()
@@ -137,40 +168,24 @@ def download_and_install(fetch_list):
 
     working_dir = tempfile.mkdtemp()
     os.chdir(working_dir)
-    for url in fetch_list:
-        fetch_url(url)
 
-    directory_list = []
-    for url in fetch_list:
-        file_name = url.split('/')[-1]
-        if "client" not in url:
-            unpack_tarball(file_name, working_dir)
-            directory = file_name.split('.tar.gz')[0]
-            directory_list.append(directory)
-        else:
-            dist_dir = os.path.join(server_home, "dist")
-            print("Moving %s to %s..." % (file_name, dist_dir))
-            status = os.system("mv %s %s" % (file_name, dist_dir))
-            if status != OK:
-                msg = "Error putting %s in the server home (%s)..."
-                print(msg % (file_name, server_home))
-                print("You can look at the file in %s" % working_dir)
-                sys.exit(1)
+    file_list = download(fetch_list)
 
-    for directory in directory_list:
-        install(directory, working_dir)
+    move_dist(file_list)
+    install_tarballs(file_list)
+
     print("Cleaning up...")
     os.chdir(starting_dir)
     os.system("rm -rf %s" % working_dir)
 
-def upgrade(version, no_confirm):
+def upgrade(version, no_confirm, file_types=FILE_TYPES):
     "Upgrade the server"
     version = check_version(version)
     check_curl()
     url_list = get_url_list(version)
     fetch_list = []
 
-    for file_type in FILE_TYPES:
+    for file_type in file_types:
         urls = [url for url in url_list if "bombardier_%s-" % file_type in url]
         fetch_list.append( get_most_recent(urls) )
      
@@ -183,10 +198,15 @@ def upgrade(version, no_confirm):
     download_and_install(fetch_list)
     print("Successfully upgraded.")
 
-def fetch_client(version="alpha"):
-    url_list = [ url for in get_url_list(version) if "client" in url ]
-    fetch_list = get_most_recent(url_list)
-    download_and_install(fetch_list)
+def update_client_dists(version="alpha"):
+    url_list = get_url_list(version)
+    fetch_list = [ url for url in url_list if "PyYAML" in url ]
+    file_types = [ "client", "core" ]
+    for file_type in file_types:
+        urls = [url for url in url_list if "bombardier_%s-" % file_type in url]
+        fetch_list.append( get_most_recent(urls) )
+    file_list = download(fetch_list)
+    move_dist(file_list)
     print("Successfully fetched latest client.")
 
 def set_password():
@@ -289,7 +309,7 @@ def init(server_home, key_path):
         sys.exit(1)
     set_password()
     setup_db(server_home)
-    fetch_client()
+    update_client_dists()
     print("\n\nBasic server setup complete.")
     print("Now configure your web server according to the instructions")
     print("in your documentation.")

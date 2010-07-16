@@ -545,7 +545,7 @@ class BombardierMachineInterface(MachineInterface):
             error_file =  os.path.join(status_dir, "error.yml")
             msg = "status.yml could not be parsed (writing to %s)" % error_file
             self.polling_log.error(msg)
-            open( error_file ).write(status_yml)
+            open( error_file, "w" ).write(status_yml)
             return
         status_file = os.path.join(status_dir, "%s.yml" % self.machine_name)
         try:

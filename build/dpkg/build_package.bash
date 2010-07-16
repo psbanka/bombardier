@@ -38,16 +38,17 @@ mv ${old_name}-${revision} $bdr_dir
 
 cd $bdr_dir
 
-dh_make -c gpl -s -b -f ../$bdr_name.tar.gz
+dh_make -c bsd -s -b -f ../$bdr_name.tar.gz
 
 cd $bdr_dir/debian
 rm *ex *EX README.Debian dirs
 
 cp -r $start_dir/common/* .
 cp -r $start_dir/$component/* .
-if [ -e $man_dir ]; then
-    find $man_dir -type f -exec gzip '{}' \; || :
-fi
+
+#if [ -e $man_dir ]; then
+#    find $man_dir -type f -exec gzip '{}' \; || :
+#fi
 
 cd ..
 
