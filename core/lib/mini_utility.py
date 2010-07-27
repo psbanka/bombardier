@@ -19,7 +19,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, re, time, random, yaml, hashlib, shutil
+import os, re, time, random, yaml, shutil
 import sys
 from static_data import OK, FAIL
 from static_data import PACKAGES, STATUS_FILE, SERVER_CONFIG_FILE
@@ -30,6 +30,16 @@ BROKEN_INSTALL   = 0
 INSTALLED        = 1
 BROKEN_UNINSTALL = 2
 UNINSTALLED      = 3
+
+def md5_sum(value):
+    hasher = None
+    try:
+        import hashlib
+        hasher = hashlib.md5(value)
+    except ImportError:
+        import md5
+        hasher = md5.new(value)
+    return hasher.hexdigest()
 
 def load_current_progress(instance_name):
     "Loads the status.yml file for this instance"
@@ -140,9 +150,9 @@ def hash_list(listobj):
         elif type(value) == type([]):
             output.append(hash_list(value))
         elif type(value) == type('string'):
-            output.append(hashlib.md5(value).hexdigest())
+            output.append(md5_sum(value))
         elif  type(value) == type(1):
-            output.append(hashlib.md5(str(value)).hexdigest())
+            output.append(md5_sum(`value`))
     return output
 
 def hash_dictionary(dictionary):
@@ -161,9 +171,9 @@ def hash_dictionary(dictionary):
         elif type(value) == type([]):
             output[key] = hash_list(value)
         elif type(value) == type('string'):
-            output[key] = hashlib.md5(value).hexdigest()
+            output[key] = md5_sum(value)
         elif type(value) == type(1):
-            output[key] = hashlib.md5(str(value)).hexdigest()
+            output[key] = md5_sum(`value`)
     return output
 
 def diff_lists(sub_list, super_list, check_values=False):
