@@ -18,6 +18,17 @@ GOOD_BREAK_CHARS = ['.', '-', ' ', '\\', '/', '=', ')', ']', '_']
 CONNECTION_TIMEOUT = 90 * 3600 #90 min
 SSH_NEW_KEY = 'Are you sure you want to continue connecting'
 
+class PatchedPxssh(pxssh.pxssh):
+    "This subclass corrects a prompt problem"
+    def __init__(self):
+        pxssh.pxssh.__init__(self)
+
+    def synch_original_prompt(self):
+        "Send a line and wait half a second before the original call"
+        self.sendline()
+        time.sleep(0.5)
+        return super(PatchedPxssh, self).synch_original_prompt()
+
 class MachineInterface(AbstractMachineInterface):
     "Interface to a remote machine via pxssh"
     def __init__(self, machine_config, server_log):
@@ -69,7 +80,7 @@ class MachineInterface(AbstractMachineInterface):
 
     def connect(self):
         "Make a new connection to the remote system"
-        self.ssh_conn = pxssh.pxssh()
+        self.ssh_conn = PatchedPxssh()
         self.ssh_conn.timeout = 6000
         msg = "Connecting to %s..." % self.machine_name
         self.polling_log.debug(msg)
