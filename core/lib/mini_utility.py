@@ -21,8 +21,8 @@
 
 import os, re, time, random, yaml, shutil
 import sys
-from static_data import OK, FAIL
-from static_data import PACKAGES, STATUS_FILE, CLIENT_CONFIG_FILE
+from static_data import OK, FAIL, PACKAGES
+from static_data import STATUS_FILE, CLIENT_CONFIG_FILE, DEFAULT_SPKG_PATH
 from Exceptions import StatusException, UnsupportedPlatform
 from Exceptions import ConfigurationException
 
@@ -491,7 +491,8 @@ def get_linux_config():
     try:
         if not os.path.isfile(CLIENT_CONFIG_FILE):
             client_fp = open(CLIENT_CONFIG_FILE)
-            client_fp.write("spkg_path: /opt/spkg")
+            tmp_dict = {"spkg_path": DEFAULT_SPKG_PATH}
+            client_fp.write(yaml.dump(tmp_dict))
             client_fp.flush()
             client_fp.close()
         data = open(CLIENT_CONFIG_FILE, 'r').read()
@@ -524,6 +525,8 @@ def get_spkg_path():
         spkg_path = config.get("spkg_path")
         if not spkg_path:
             spkg_path = config.get("spkgPath")
+            if not spkg_path:
+                config['spkg_path'] = DEFAULT_SPKG_PATH
     elif sys.platform == "win32":
         import _winreg as winreg
         key_name = r"Software\GE-IT\Bombardier"
