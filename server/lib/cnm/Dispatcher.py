@@ -82,13 +82,10 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
     def _setup_job(self, job, commands, copy_dict, require_status,
                   job_predecessors = []):
         "When you want a job to run after another job is finished"
-        open("/tmp/POOP.txt", 'a').write("SETUP_JOB 0\n")
         machine_interface = self.get_machine_interface(job.username,
                                                        job.machine_name)
-        open("/tmp/POOP.txt", 'a').write("SETUP_JOB 1\n")
         job.setup(machine_interface, commands, copy_dict, require_status,
                  job_predecessors)
-        open("/tmp/POOP.txt", 'a').write("SETUP_JOB 2\n")
 
     def queue_job(self, job_name): 
         "Take a job and get it ready to be run"
@@ -273,7 +270,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
             unpack = ShellCommand("Unpacking %s on the client" % dist_name, 
                              "tar -xzf %s.tar.gz" % dist_name, "~")
             install = ShellCommand("Installing client libraries...",
-                              "python setup.py install",
+                              "python setup.py install 2>&1 | tee install.log",
                               "~/%s" % dist_name)
             commands = [unpack, install]
             src_file = dist_name+".tar.gz"
@@ -613,17 +610,17 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         job1_name = self.enable_job(username, machine_name, password)
         job1 = self.new_jobs[job1_name]
 
-        dist_name = "bombardier_core\-1\.00\-(\d+)\.tar\.gz"
+        dist_name = "PyYAML-3.(\d+).tar.gz"
         job2_name = self._dist_install_job(dist_name, username, machine_name)
         job2 = self.new_jobs[job2_name]
         job2.predecessors = [job1]
 
-        dist_name = "bombardier_client\-1\.00\-(\d+)\.tar\.gz"
+        dist_name = "bombardier_core\-1\.00\-(\d+)\.tar\.gz"
         job3_name = self._dist_install_job(dist_name, username, machine_name)
         job3 = self.new_jobs[job3_name]
         job3.predecessors = [job2]
 
-        dist_name = "PyYAML-3.(\d+).tar.gz"
+        dist_name = "bombardier_client\-1\.00\-(\d+)\.tar\.gz"
         job4_name = self._dist_install_job(dist_name, username, machine_name)
         job4 = self.new_jobs[job4_name]
         job4.predecessors = [job3]
