@@ -490,7 +490,7 @@ def get_linux_config():
     "Read yaml from CLIENT_CONFIG_FILE, create a default if necessary."
     try:
         if not os.path.isfile(CLIENT_CONFIG_FILE):
-            client_fp = open(CLIENT_CONFIG_FILE)
+            client_fp = open(CLIENT_CONFIG_FILE, "w")
             tmp_dict = {"spkg_path": DEFAULT_SPKG_PATH}
             client_fp.write(yaml.dump(tmp_dict))
             client_fp.flush()
