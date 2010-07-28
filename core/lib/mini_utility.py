@@ -486,7 +486,7 @@ def get_installed(progress_data):
 # CONFIGURATION FILE METHODS
 
 def get_linux_config():
-    "our config file is in /etc/bombardier.yml. Go read it and give us the info"
+    "our config file is in SERVER_CONFIG_FILE. Go read it and give us the info"
     try:
         data = open(SERVER_CONFIG_FILE, 'r').read()
     except IOError, ioe:
@@ -496,7 +496,7 @@ def get_linux_config():
 
 def put_linux_config(config):
     "Write a change to our config file"
-    data = open("/etc/bombardier.yml", 'w')
+    data = open(SERVER_CONFIG_FILE, 'w')
     data.write(yaml.dump(config))
 
 def add_dictionaries(dict1, dict2):
