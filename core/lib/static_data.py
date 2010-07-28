@@ -20,6 +20,8 @@ BSD License. License terms can be found here:
 http://www.opensource.org/licenses/bsd-license.php""" % VERSION
 
 SERVER_CONFIG_FILE = "/etc/bombardier.yml"
+CLIENT_CONFIG_FILE = "/etc/bombardier.yml"
+
 
 VALID_PACKAGE_VERSIONS = [4, 5]
 
