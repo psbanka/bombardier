@@ -21,8 +21,8 @@
 
 import os, re, time, random, yaml, shutil
 import sys
-from static_data import OK, FAIL, PACKAGES
-from static_data import STATUS_FILE, CLIENT_CONFIG_FILE, DEFAULT_SPKG_PATH
+from static_data import OK, FAIL
+from static_data import PACKAGES, STATUS_FILE, SERVER_CONFIG_FILE
 from Exceptions import StatusException, UnsupportedPlatform
 from Exceptions import ConfigurationException
 
@@ -32,7 +32,6 @@ BROKEN_UNINSTALL = 2
 UNINSTALLED      = 3
 
 def md5_sum(value):
-    "Return the md5sum using appropriate library"
     hasher = None
     try:
         import hashlib
@@ -487,15 +486,9 @@ def get_installed(progress_data):
 # CONFIGURATION FILE METHODS
 
 def get_linux_config():
-    "Read yaml from CLIENT_CONFIG_FILE, create a default if necessary."
+    "our config file is in /etc/bombardier.yml. Go read it and give us the info"
     try:
-        if not os.path.isfile(CLIENT_CONFIG_FILE):
-            client_fp = open(CLIENT_CONFIG_FILE, "w")
-            tmp_dict = {"spkg_path": DEFAULT_SPKG_PATH}
-            client_fp.write(yaml.dump(tmp_dict))
-            client_fp.flush()
-            client_fp.close()
-        data = open(CLIENT_CONFIG_FILE, 'r').read()
+        data = open(SERVER_CONFIG_FILE, 'r').read()
     except IOError, ioe:
         raise ConfigurationException(str(ioe))
     config = yaml.load(data)
@@ -503,7 +496,7 @@ def get_linux_config():
 
 def put_linux_config(config):
     "Write a change to our config file"
-    data = open(CLIENT_CONFIG_FILE, 'w')
+    data = open("/etc/bombardier.yml", 'w')
     data.write(yaml.dump(config))
 
 def add_dictionaries(dict1, dict2):
@@ -525,8 +518,6 @@ def get_spkg_path():
         spkg_path = config.get("spkg_path")
         if not spkg_path:
             spkg_path = config.get("spkgPath")
-            if not spkg_path:
-                config['spkg_path'] = DEFAULT_SPKG_PATH
     elif sys.platform == "win32":
         import _winreg as winreg
         key_name = r"Software\GE-IT\Bombardier"

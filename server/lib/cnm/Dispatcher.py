@@ -171,6 +171,8 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                 cmd += '%s add -v "%s";' % ( rtool, bom_hkey )
                 cmd += '%s set -v "%s/InstallPath" $SPKG_DOS_DIR'
                 cmd = cmd % ( rtool, bom_hkey )
+            else:
+                cmd = 'echo spkg_path: %s > /etc/bombardier.yml' % spkg_dir
             set_spkg_config = ShellCommand("Setting spkg path", cmd, '.')
             bombardier_init = BombardierCommand("init", None, None)
 
