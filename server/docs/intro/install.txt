@@ -23,7 +23,7 @@ There are several components to the Bombardier system:
    the system.
 
  * Bombardier Server (**bombardier_server**).  This component is a
-   centralized web-based server with a REST interface.  It is the
+   centralized web-based server with a ReST interface.  It is the
    central point of control for all actions that are done on the
    network.  It stores and handles all configuration data and all
    software; it manages all logging information for changes on the
