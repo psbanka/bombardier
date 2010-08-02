@@ -11,17 +11,18 @@ def start():
     status_file = os.path.join(INSTANCE_WORK_DIR, "status.yml")
     spkg_work_dir = os.path.join(os.getcwd(), 'spkg')
     config_data = {"spkg_path": spkg_work_dir}
+    os.system("mkdir -p %s" % INSTANCE_WORK_DIR)
+    print "Copying repository files..."
+    os.system("cp -ax repos/ %s" % spkg_work_dir)
     if not os.path.isdir(PKG_DIR):
         print "Making %s..." % PKG_DIR
         os.system("mkdir -p %s" % PKG_DIR)
         print "Copying package files..."
-        os.system("cp packages/*.spkg %s" % PKG_DIR)
-    if not os.path.isdir(status_file):
-        print "Creating %s" % status_file
-        open(status_file, 'w').write("{}")
-    if not os.path.isdir(CONFIG_FILE):
-        print "Creating %s" % CONFIG_FILE
-        open(CONFIG_FILE, 'w').write(yaml.dump(config_data))
+        os.system("cp repos/type4/*.spkg %s" % PKG_DIR)
+    print "Creating %s" % status_file
+    open(status_file, 'w').write("{}")
+    print "Creating %s" % CONFIG_FILE
+    open(CONFIG_FILE, 'w').write(yaml.dump(config_data))
 
 def cleanup():
     print "Removing %s..." % SPKG_WORK_DIR
