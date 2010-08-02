@@ -40,7 +40,7 @@ NOTE ON NAMING CONVENTIONS:
  - 'pdat' = a dictionary of package progress data
 '''
 
-import sets, os, copy
+import os, copy
 import PackageV4, PackageV5
 import Exceptions
 from bombardier_core.Logger import Logger
@@ -590,7 +590,7 @@ class Bombardier:
         pdat = get_progress_data(self.instance_name, False)
         installed_pkns, _broken_pkns = get_installed(pdat)
         del_pkd = self._get_del_pkd(del_pkns)
-        if sets.Set(installed_pkns) == sets.Set(del_pkd.keys()):
+        if set(installed_pkns) == set(del_pkd.keys()):
             return del_pkd, del_pkd.keys()
         if del_pkns:
             del_pkd, uninstall_order = self._get_uninst_pkg_dep(del_pkd,

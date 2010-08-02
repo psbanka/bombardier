@@ -281,11 +281,11 @@ class Config(dict):
         >>> data = {"section": {"item1": "value1", "item2": 2, "item3": [1,2,3]}}
         >>> config = Config("tester", data)
         >>> config.string("section.item1")
-        "value1"
+        'value1'
         >>> config.string("section.item234", default = "not_defined")
-        "not_defined"
+        'not_defined'
         >>> config.string("section.item2")
-        "2"
+        '2'
         '''
         return self._getobj(section_string, default, "string", optional)
 
@@ -302,7 +302,7 @@ class Config(dict):
         '''Get a boolean object from the config'
         >>> data = {"thing": True}
         >>> config = Config("tester", data)
-        >>> config.boolean("section")
+        >>> config.boolean("thing")
         True
         '''
         return self._getobj(section_string, default, True, optional)
@@ -311,8 +311,12 @@ class Config(dict):
         '''Get a dictionary object from the config'
         >>> data = {"section": {"item1": "value1", "item2": 2, "item3": [1,2,3]}}
         >>> config = Config("tester", data)
-        >>> config.dictionary("section")
-        {"item1": "value1", "item2": 2, "item3": [1,2,3]}
+        >>> config.dictionary("section")["item1"]
+        'value1'
+        >>> config.dictionary("section")["item2"]
+        2
+        >>> config.dictionary("section")["item3"]
+        [1, 2, 3]
         '''
         return self._getobj(section_string, default, {}, optional)
 
