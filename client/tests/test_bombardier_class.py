@@ -383,11 +383,12 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.repository = repository
         self.bombardier.config = self.config
         test_results = self.bombardier.check_system()
-        assert set(test_results["ok"]) == set(["pkg1", "pkg2"])
-        assert set(test_results["not-installed"]) == set(["pkg3"])
-        assert set(test_results["remove"]) == set()
-        assert set(test_results["broken"]) == set()
-        assert set(test_results["reconfigure"]) == set()
+        assert 'Packages installed properly' in test_results, test_results
+        assert set(test_results['Packages installed properly']) == set(["pkg1", "pkg2"]), test_results
+        assert set(test_results['Packages to be INSTALLED']) == set(["pkg3"])
+        assert set(test_results['Packages to be REMOVED']) == set()
+        assert set(test_results['Packages that are BROKEN']) == set()
+        assert set(test_results['Packages to be RECONFIGURED']) == set()
 
     def test_reconfigure(self):
         """
@@ -424,11 +425,11 @@ class BombardierTest(unittest.TestCase):
                            }
         self.bombardier.config = self.config
         test_results = self.bombardier.check_system()
-        assert set(test_results["ok"]) == set()
-        assert set(test_results["not-installed"]) == set()
-        assert set(test_results["remove"]) == set()
-        assert set(test_results["broken"]) == set()
-        assert set(test_results["reconfigure"]) == set(["TestPackage"])
+        assert set(test_results['Packages installed properly']) == set()
+        assert set(test_results['Packages to be INSTALLED']) == set()
+        assert set(test_results['Packages to be REMOVED']) == set()
+        assert set(test_results['Packages that are BROKEN']) == set()
+        assert set(test_results['Packages to be RECONFIGURED']) == set(["TestPackage"])
 
     def test_check_system_2(self):
         install_progress = {"install-progress":
@@ -455,11 +456,12 @@ class BombardierTest(unittest.TestCase):
         self.config.repository = repository
         self.bombardier.repository = repository
         test_results = self.bombardier.check_system()
-        assert set(test_results["ok"]) == set(["pkg1", "pkg2"])
-        assert set(test_results["not-installed"]) == set()
-        assert set(test_results["remove"]) == set()
-        assert set(test_results["broken"]) == set()
-        assert set(test_results["reconfigure"]) == set()
+
+        assert set(test_results['Packages installed properly']) == set(["pkg1", "pkg2"])
+        assert set(test_results['Packages to be INSTALLED']) == set()
+        assert set(test_results['Packages to be REMOVED']) == set()
+        assert set(test_results['Packages that are BROKEN']) == set()
+        assert set(test_results['Packages to be RECONFIGURED']) == set()
 
     def test_verify_system_4(self): # No packages installed, error in verify.
         pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"},
@@ -473,7 +475,7 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.repository = repository
 
         test_results = self.bombardier.check_system()
-        expected_results = {'broken': [], 'ok': [], 'remove': [], 'reconfigure': {}, 'not-installed': []}
+        expected_results = {'Packages that are BROKEN': [], 'Packages installed properly': [], 'Packages to be REMOVED': [], 'Packages to be RECONFIGURED': {}, 'Packages to be INSTALLED': []}
         assert test_results == expected_results, `test_results`
 
     def test_reconcile_system1(self):
@@ -548,18 +550,18 @@ class BombardierTest(unittest.TestCase):
         full_list = [ 'pkg3', 'pkg2', 'pkg1' ]
 
         test_results = self._virtual_dependency_helper( full_list ) 
-        expected_results = { 'ok': ['pkg2', 'pkg1', 'pkg3'] }
+        expected_results = { 'Packages installed properly': ['pkg2', 'pkg1', 'pkg3'] }
         self._check_virtual_dep_results(expected_results, test_results)
 
         two_missing_list = [ 'pkg3', 'pkg1' ] 
         test_results = self._virtual_dependency_helper( two_missing_list )
-        expected_results = {'ok': ['pkg1'], 'not-installed': ['pkg3']}
+        expected_results = {'Packages installed properly': ['pkg1'], 'Packages to be INSTALLED': ['pkg3']}
 
         self._check_virtual_dep_results(expected_results, test_results)
 
     def _check_virtual_dep_results(self, expected_results, test_results):
-        expected_template = {'broken': [], 'ok': [], 'remove': [],
-                            'reconfigure': {}, 'not-installed': []}
+        expected_template = {'Packages that are BROKEN': [], 'Packages installed properly': [], 'Packages to be REMOVED': [],
+                             'Packages to be RECONFIGURED': {}, 'Packages to be INSTALLED': []}
         expected_template.update(expected_results)
         for result in expected_results:
             assert set(test_results[result]) == set(expected_results[result]),\
