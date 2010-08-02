@@ -101,6 +101,7 @@ class Repository:
         full_name -- name of package (with version)
         '''
         pkg_dir = get_package_path(self.instance_name)
+        os.system("mkdir -p %s" % pkg_dir)
         pkg_path = os.path.join(pkg_dir, full_name)
         if not os.path.isfile(pkg_path + ".spkg"):
             erstr = "No package file in %s." % (pkg_path + ".spkg")
@@ -138,7 +139,8 @@ class Repository:
         Used to find all type-5 package data in the repository and
         untar the files properly.
         '''
-        _status, output = gso('find /opt/spkg/ -name "*.tar.gz"')
+        base_path = os.path.join(get_spkg_path(), "repos")
+        _status, output = gso('find %s -name "*.tar.gz"' % base_path)
         start_dir = os.getcwd()
         for full_tar_file_name in output.split('\n'):
             tmp_list = full_tar_file_name.split(os.path.sep)
@@ -178,6 +180,9 @@ class Repository:
                 dst = os.path.join(pkg_path, component_type, component_name)
                 if os.path.islink(dst):
                     continue
+                if not os.path.isdir(src):
+                    msg = "Package component (%s) does not exist." % src
+                    raise Exceptions.BadPackage(full_name, msg)
                 cmd = "ln -s %s %s" % (src, dst)
                 #Logger.info("CMD: (%s)" % cmd)
                 if os.system(cmd) != OK:

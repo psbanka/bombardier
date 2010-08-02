@@ -174,6 +174,7 @@ class PackageV5(Package):
             ermsg = ''
             for line in data.split('\n'):
                 Logger.error(line)
+            self.status = FAIL
             msg = "Class %s is not importable." % self.class_name
             raise BadPackage(self.name, msg)
         return obj, rand_string
