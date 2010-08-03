@@ -5,7 +5,6 @@ from threading import Thread
 from bombardier_core.static_data import OK, FAIL
 import time
 import os
-import psutil
 
 KILL_TIMEOUT = 20
 APACHE_PID_FILE = "/var/run/apache2.pid"
