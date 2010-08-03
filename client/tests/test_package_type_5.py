@@ -12,7 +12,7 @@ from PackageV5 import PackageV5
 from Exceptions import BadPackage
 from bombardier_core.static_data import FAIL, OK
 from bombardier_core.static_data import INSTALL, VERIFY
-from bombardier_core.mini_utility import load_current_progress
+from bombardier_core.Progress import Progress
 import Exceptions
 import mock
 import StringIO
@@ -145,7 +145,7 @@ class PackageTest(unittest.TestCase):
         status = package._write_progress()
         assert status == OK
 
-        status_data = load_current_progress(INSTANCE)
+        status_data = Progress(INSTANCE).load_current_progress()
         install_progress = status_data["install-progress"]
         matches = install_progress.get("t5_pkg1-2")
 

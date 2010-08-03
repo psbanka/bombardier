@@ -42,9 +42,10 @@ NOTE ON NAMING CONVENTIONS:
 
 import os, copy
 import PackageV4, PackageV5
+from bombardier_core.Progress import Progress
 import Exceptions
 from bombardier_core.Logger import Logger
-from bombardier_core.mini_utility import get_installed, get_progress_data
+from bombardier_core.mini_utility import get_progress_path
 from bombardier_core.mini_utility import diff_dicts
 from bombardier_core.static_data import OK, FAIL, HASH_FILE
 from bombardier_core.static_data import UNINSTALL, DRY_RUN, VERIFY
@@ -245,7 +246,7 @@ class VirtualPackages:
         installable_pkns.append(pkn)
         return( installable_pkns[0] ) 
 
-def find_differences(pkg_config, config_diff, differences=[], chain=[]):
+def find_differences(pkg_config, config_diff, differences=None, chain=None):
     '''
     Find the differences in the configuration fo the system since the last
     time the package was installed or configured
@@ -257,7 +258,12 @@ def find_differences(pkg_config, config_diff, differences=[], chain=[]):
                    machine, as it recurses)
     chain -- a package chain
     '''
-    output = differences
+    if chain == None:
+        chain = []
+    if differences == None:
+        output = []
+    else:
+        output = differences
     for key in pkg_config.keys():
         if type(pkg_config[key]) == type({}):
             if key not in config_diff:
@@ -280,11 +286,12 @@ class Bombardier:
         instance_name -- the name of this machine
         '''
         self.repository = repository
-        self.config     = config
-        self.instance_name    = instance_name
+        self.config = config
+        self.instance_name = instance_name
         self.record_errors = True
         self.operation_status = OK
         self.operation_output = []
+        self.progress = Progress(instance_name)
 
     def _get_dependency_errors(self, bom_pkns, pdat):
         '''
@@ -309,8 +316,8 @@ class Bombardier:
         pkd -- dictionary of package objects
         '''
         chains = []
-        pkg_data = get_progress_data(self.instance_name, False)
-        installed_pkns, broken_pkns = get_installed(pkg_data)
+        pkg_data = self.progress.get_progress_data(False)
+        installed_pkns, broken_pkns = Progress.get_installed(pkg_data)
         for pkn in pkd.keys():
             if pkn in broken_pkns:
                 Logger.warning("Skipping broken package %s" % pkn)
@@ -357,8 +364,8 @@ class Bombardier:
         """
 
         chains = self._create_pkg_chains(pkd)
-        pdat = get_progress_data(self.instance_name, False)
-        installed_pkns, _broken_pkns = get_installed(pdat)
+        pdat = self.progress.get_progress_data(False)
+        installed_pkns, _broken_pkns = Progress.get_installed(pdat)
         # - Put all the packages of each chain into the installation
         # order, excluding those that have already been installed in order
         # of chain priority. If a package is already in the installation
@@ -587,8 +594,8 @@ class Bombardier:
         del_pkns -- a list of package names that need to be removed
         '''
         uninstall_order = []
-        pdat = get_progress_data(self.instance_name, False)
-        installed_pkns, _broken_pkns = get_installed(pdat)
+        pdat = self.progress.get_progress_data(False)
+        installed_pkns, _broken_pkns = Progress.get_installed(pdat)
         del_pkd = self._get_del_pkd(del_pkns)
         if set(installed_pkns) == set(del_pkd.keys()):
             return del_pkd, del_pkd.keys()
@@ -627,8 +634,8 @@ class Bombardier:
         """
         should_be_installed = []
         shouldnt_be_installed = []
-        pdat = get_progress_data(self.instance_name, False)
-        installed_pkns, broken_pkns = get_installed(pdat)
+        pdat = self.progress.get_progress_data(False)
+        installed_pkns, broken_pkns = Progress.get_installed(pdat)
         
         all_pkns = set(installed_pkns).union(broken_pkns)
         all_plus_missing_pkns = self._examine_dependencies(all_pkns)
@@ -715,12 +722,12 @@ class Bombardier:
         '''
         Logger.info("System-check starting...")
         bom_pkns = self.config.get_bom_pkns()
-        pdat = get_progress_data(self.instance_name)
-        full_pdat = get_progress_data(self.instance_name, False)
-        full_installed_pkns, _full_bpkns = get_installed(full_pdat)
+        pdat = self.progress.get_progress_data()
+        full_pdat = self.progress.get_progress_data(False)
+        full_installed_pkns, _full_bpkns = Progress.get_installed(full_pdat)
         msg = "Packages that are installed: %s"
         Logger.info(msg % ' '.join(full_installed_pkns))
-        installed_pkns, broken_pkns = get_installed(pdat)
+        installed_pkns, broken_pkns = Progress.get_installed(pdat)
         should_be_installed, shouldnt_be_installed = self._check_bom(bom_pkns)
         # check the configuration for each installed package
         pkg_info = {"Packages installed properly": installed_pkns,
@@ -754,8 +761,8 @@ class Bombardier:
                 self.operation_status = FAIL
                 return self._cleanup()
             if action == INSTALL:
-                pdat = get_progress_data(self.instance_name, False)
-                installed_pkns, broken_pkns = get_installed(pdat)
+                pdat = self.progress.get_progress_data(False)
+                installed_pkns, broken_pkns = Progress.get_installed(pdat)
                 if pkn in [installed_pkns + broken_pkns]:
                     Logger.error("Package %s cannot be installed." % pkn)
                     self.operation_status = FAIL
@@ -763,8 +770,8 @@ class Bombardier:
                 add_pkd = {pkn:pkg}
                 status = self._install_pkgs(add_pkd)
             if action == UNINSTALL:
-                pdat = get_progress_data(self.instance_name, False)
-                installed_pkns, broken_pkns = get_installed(pdat)
+                pdat = self.progress.get_progress_data(False)
+                installed_pkns, broken_pkns = Progress.get_installed(pdat)
                 bom_pkns = installed_pkns
                 if pkn in bom_pkns:
                     bom_pkns.remove(pkn)

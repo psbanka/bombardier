@@ -35,7 +35,7 @@ import StringIO, traceback
 
 import MetaData
 from bombardier_core.mini_utility import get_package_path, get_spkg_path
-from bombardier_core.mini_utility import update_progress, get_progress_data
+from bombardier_core.Progress import Progress
 
 from Exceptions import BadPackage, FeatureRemovedException
 from bombardier_core.Logger import Logger
@@ -78,6 +78,7 @@ class Package:
         self.downloaded   = False
         self.dependency_errors = []
         self.full_name    = None
+        self.progress     = Progress(instance_name)
 
     ############################################ PUBLIC METHODS
 
@@ -306,7 +307,7 @@ class Package:
         system. Keeps track of when packages were installed, uninstalled,
         verified, and keeps track of dependency errors.'''
         time_string = time.ctime()
-        pdat = get_progress_data(self.instance_name)
+        pdat = self.progress.get_progress_data()
         if not pdat.has_key(self.full_name):
             pdat[self.full_name] = {"INSTALLED": "NA",
                                              "UNINSTALLED": "NA",
@@ -332,6 +333,5 @@ class Package:
         elif self.action == VERIFY:
             pdat[self.full_name]['VERIFIED'] = time_string
         pdat[self.full_name]['DEPENDENCY_ERRORS'] = self.dependency_errors
-        update_progress({"install-progress":pdat},
-                        self.instance_name, overwrite=True)
+        self.progress.update_progress({"install-progress":pdat}, overwrite=True)
         return OK

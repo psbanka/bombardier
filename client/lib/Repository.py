@@ -48,14 +48,16 @@ class Repository:
     '''Provides support functions for package, dealing with proper
     package file layout, unpacking, and verification'''
 
-    def __init__(self, instance_name, pkg_data = {}):
+    def __init__(self, instance_name, pkg_data = None):
         '''
         instance_name -- name of this machine
         pkg_data -- data regarding all packages on this machine
         '''
         self.instance_name = instance_name
-        self.pkg_data      = pkg_data
-        #self.packages      = pkg_data.keys()
+        if pkg_data == None:
+            self.pkg_data = {}
+        else:
+            self.pkg_data = pkg_data
 
     def get_meta_data(self, name):
         '''
@@ -156,7 +158,7 @@ class Repository:
                     cmd = cmd % (tar_file_dir, tar_file_name)
                     if os.system(cmd) != OK:
                         msg = "could not untar %s" % (tar_file_name)
-                        raise Exceptions.BadPackage(full_name, msg)
+                        raise Exceptions.BadPackage(full_tar_file_name, msg)
         os.chdir(start_dir)
 
     def make_symlinks(self, pkg_path, info_dict, full_name):

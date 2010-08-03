@@ -1,6 +1,6 @@
 "Package management information"
 
-from bombardier_core.mini_utility import strip_version, get_installed_uninstalled_times
+from bombardier_core.Progress import Progress
 from bombardier_core.static_data import OK, FAIL
 import yaml, os
 from MachineConfig import MachineConfig
@@ -49,14 +49,14 @@ class MachineStatus:
         if progress_data == None:
             (installed_package_names, broken_package_names) = ([],[])
         else:
-            pkg_info = get_installed_uninstalled_times(progress_data)
+            pkg_info = Progress.get_installed_uninstalled_times(progress_data)
             unstripped_inst_pkgs    = [package_name[0] for package_name in pkg_info["installed"]]
             unstripped_broken_pkgs  = [package_name[0] for package_name in pkg_info["broken_installed"]]
             unstripped_broken_pkgs += [package_name[0] for package_name in pkg_info["broken_uninstalled"]]
 
             if stripped:
-                installed_package_names = [ strip_version(x) for x in unstripped_inst_pkgs]
-                broken_package_names    = [ strip_version(x) for x in unstripped_broken_pkgs]
+                installed_package_names = [ Progress.strip_version(x) for x in unstripped_inst_pkgs]
+                broken_package_names    = [ Progress.strip_version(x) for x in unstripped_broken_pkgs]
             else:
                 installed_package_names = unstripped_inst_pkgs
                 broken_package_names    = unstripped_broken_pkgs
@@ -84,7 +84,7 @@ class MachineStatus:
             package_list = self.get_package_names_from_progress().get(PROGRESS, {})
         except MachineStatusException:
             package_list = []
-        package_names = set([strip_version(x) for x in package_list])
+        package_names = set([Progress.strip_version(x) for x in package_list])
         package_names = package_names.union(set(config_packages))
         return list(package_names)
 
