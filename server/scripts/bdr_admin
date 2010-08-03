@@ -303,7 +303,7 @@ def init(server_home, key_path):
         copy_dsa_key(key_path, server_home)
         print("Writing configuration to /etc/bombardier.yml...")
         config_data = {"server_home": server_home}
-        open("/etc/bombardier.yml", 'w').write(yaml.dump(config_data))
+        open(SERVER_CONFIG_FILE, 'w').write(yaml.dump(config_data))
     else:
         print("Aborted.")
         sys.exit(1)

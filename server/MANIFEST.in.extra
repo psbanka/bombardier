@@ -1,2 +1,3 @@
-include lib/web/rest_api/templates/registration/*
-include lib/web/rest_api/templates/*
+include share/bdr-templates/registration/*
+include share/bdr-templates/*
+
