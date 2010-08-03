@@ -4,6 +4,7 @@ import sys, os
 import stat
 import yaml
 from bombardier_core.static_data import SERVER_CONFIG_FILE
+from bombardier_core.mini_utility import ensure_bombardier_config_dir
 
 
 class ConfigFileException(Exception):
@@ -28,6 +29,7 @@ class ServerConfigFile:
         self.load_config()
 
     def write_config(self, option, value):
+        ensure_bombardier_config_dir()
         self.global_config[option] = value
         open(SERVER_CONFIG_FILE, 'w').write(yaml.dump(self.global_config))
         os.system("chgrp %s %s 2> /dev/null" % (self.default_group, SERVER_CONFIG_FILE))

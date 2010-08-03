@@ -1,12 +1,15 @@
 import os, yaml
+from bombardier_core.static_data import CLIENT_CONFIG_FILE
+from bombardier_core.mini_utility import ensure_bombardier_config_dir
 
-CONFIG_FILE = "/etc/bombardier.yml"
+CONFIG_FILE = CLIENT_CONFIG_FILE
 INSTANCE_WORK_DIR = os.path.join(os.getcwd(), 'spkg', "TEST_INSTANCE")
 PKG_DIR = os.path.join(INSTANCE_WORK_DIR, "packages")
 STATUS_FILE = os.path.join(INSTANCE_WORK_DIR, "status.yml")
 SPKG_WORK_DIR = os.path.join(os.getcwd(), 'spkg')
 
 def get_current_config():
+    ensure_bombardier_config_dir()
     if os.path.isfile(CONFIG_FILE):
         current_config = yaml.load(open(CONFIG_FILE).read())
         if type(current_config) == type({}):

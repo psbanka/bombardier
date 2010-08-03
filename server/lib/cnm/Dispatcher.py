@@ -164,19 +164,9 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                                                            machine_name)
             spkg_dir = machine_interface.spkg_dir
             commands = []
-            if machine_interface.platform == "win32":
-                rtool = "regtool"
-                bom_hkey = "/HKEY_LOCAL_MACHINE/SOFTWARE/Bombardier"
-                cmd = "export SPKG_DOS_DIR=$(cygpath -w %s);" % spkg_dir
-                cmd += '%s add -v "%s";' % ( rtool, bom_hkey )
-                cmd += '%s set -v "%s/InstallPath" $SPKG_DOS_DIR'
-                cmd = cmd % ( rtool, bom_hkey )
-            else:
-                cmd = 'echo spkg_path: %s > /etc/bombardier.yml' % spkg_dir
-            set_spkg_config = ShellCommand("Setting spkg path", cmd, '.')
             bombardier_init = BombardierCommand("init", None, None)
 
-            commands = [set_spkg_config, bombardier_init]
+            commands = [bombardier_init]
             job.description = "INIT"
             job.require_comment = True
             self._setup_job(job, commands, {}, False)

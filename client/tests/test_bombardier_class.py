@@ -15,6 +15,7 @@ from bombardier_core.Config import Config
 from bombardier_core.static_data import OK, FAIL, RECONCILE, DRY_RUN
 import Exceptions
 import MockObjects
+import tempfile
 
 INSTANCE = "TEST_INSTANCE"
 
@@ -397,6 +398,7 @@ class BombardierTest(unittest.TestCase):
         3. change the configs and see if the system notices
         """
         # STEP 1
+        dest_dir = tempfile.mkdtemp()
         pkg_data = {"TestPackage": {"install": {"fullName":"TestPackage-7"},
                                     "package-version": 4,
                                     "configuration": { "test": {"value": "abc123",
@@ -413,7 +415,7 @@ class BombardierTest(unittest.TestCase):
 
         # STEP 2
         self.config.data = {"packages": ["TestPackage"],
-                            "test": {"value": 'abc', "directory": "/tmp"},
+                            "test": {"value": 'abc', "directory": dest_dir},
                            }
         self.bombardier.config = self.config
         status = self.bombardier.reconcile_system(RECONCILE)
@@ -421,12 +423,13 @@ class BombardierTest(unittest.TestCase):
 
         # STEP 3
         self.config.data = {"packages": ["TestPackage"],
-                            "test": {"value": 'DEF', "directory": "/tmp"},
+                            "test": {"value": 'DEF', "directory": dest_dir},
                            }
         self.bombardier.config = self.config
         test_results = self.bombardier.check_system()
+        os.system("rm -rf %s" % dest_dir)
         assert set(test_results['Packages installed properly']) == set()
-        assert set(test_results['Packages to be INSTALLED']) == set()
+        assert set(test_results['Packages to be INSTALLED']) == set(), test_results
         assert set(test_results['Packages to be REMOVED']) == set()
         assert set(test_results['Packages that are BROKEN']) == set()
         assert set(test_results['Packages to be RECONFIGURED']) == set(["TestPackage"])

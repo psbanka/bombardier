@@ -21,8 +21,8 @@
 
 import os, re, time, random, yaml, shutil
 import sys
-from static_data import OK, FAIL
-from static_data import PACKAGES, STATUS_FILE, SERVER_CONFIG_FILE
+from static_data import OK, FAIL, BOMBARDIER_CONFIG_DIR
+from static_data import PACKAGES, STATUS_FILE, CLIENT_CONFIG_FILE
 from Exceptions import StatusException, UnsupportedPlatform
 from Exceptions import ConfigurationException
 
@@ -32,6 +32,7 @@ BROKEN_UNINSTALL = 2
 UNINSTALLED      = 3
 
 def md5_sum(value):
+    "Return md5sum using appropriate library"
     hasher = None
     try:
         import hashlib
@@ -152,7 +153,7 @@ def hash_list(listobj):
         elif type(value) == type('string'):
             output.append(md5_sum(value))
         elif  type(value) == type(1):
-            output.append(md5_sum(`value`))
+            output.append(md5_sum(str(value)))
     return output
 
 def hash_dictionary(dictionary):
@@ -173,7 +174,7 @@ def hash_dictionary(dictionary):
         elif type(value) == type('string'):
             output[key] = md5_sum(value)
         elif type(value) == type(1):
-            output[key] = md5_sum(`value`)
+            output[key] = md5_sum(str(value))
     return output
 
 def diff_lists(sub_list, super_list, check_values=False):
@@ -449,8 +450,9 @@ def strip_version_info(pkg_info):
             other_types = output.keys()
             other_types.remove(package_list_name)
             for compare_list in other_types:
-                more_recent = check_if_more_recent(base_package_name, action_time,
-                                              pkg_info[compare_list])
+                more_recent = check_if_more_recent(base_package_name,
+                                                   action_time,
+                                                   pkg_info[compare_list])
                 if more_recent == True:
                     break
             if not more_recent:
@@ -478,30 +480,43 @@ def get_installed(progress_data):
     """
     pkg_info = get_installed_uninstalled_times(progress_data)
     pkg_info = strip_version_info(pkg_info)
-    installed_package_names = [package_name[0] for package_name in pkg_info["installed"]]
-    broken_package_names    = [package_name[0] for package_name in pkg_info["broken_installed"]]
-    broken_package_names   += [package_name[0] for package_name in pkg_info["broken_uninstalled"]]
+    installed_package_names = [pkg_name[0] \
+                               for pkg_name in pkg_info["installed"]]
+    broken_package_names    = [pkg_name[0] \
+                               for pkg_name in pkg_info["broken_installed"]]
+    broken_package_names   += [pkg_name[0] \
+                               for pkg_name in pkg_info["broken_uninstalled"]]
     return installed_package_names, broken_package_names
 
 # CONFIGURATION FILE METHODS
 
-def get_linux_config():
-    "our config file is in /etc/bombardier.yml. Go read it and give us the info"
-    try:
-        data = open(SERVER_CONFIG_FILE, 'r').read()
-    except IOError, ioe:
-        raise ConfigurationException(str(ioe))
-    config = yaml.load(data)
+def ensure_bombardier_config_dir():
+    if not os.path.isdir(BOMBARDIER_CONFIG_DIR):
+        os.system("mkdir -p %s" % BOMBARDIER_CONFIG_DIR)
+
+def get_linux_client_config():
+    "Read CLIENT_CONFIG_FILE and give us the info"
+    spkg_dict = {"spkg_path": "/opt/spkg"}
+    ensure_bombardier_config_dir()
+    if not os.path.isfile(CLIENT_CONFIG_FILE):
+        put_linux_client_config(spkg_dict)
+        return spkg_dict
+    yaml_str = open(CLIENT_CONFIG_FILE, 'r').read()
+    config = yaml.load(yaml_str)
+    if "spkg_path" not in config:
+        config.update( spkg_dict )
+        put_linux_client_config(config)
     return config
 
-def put_linux_config(config):
+def put_linux_client_config(config):
     "Write a change to our config file"
-    data = open("/etc/bombardier.yml", 'w')
+    ensure_bombardier_config_dir()
+    data = open(CLIENT_CONFIG_FILE, 'w')
     data.write(yaml.dump(config))
 
 def add_dictionaries(dict1, dict2):
     """dict1 gets stuff from dict2, only if it doesn't have it"""
-    for key,value in dict2.iteritems():
+    for key, value in dict2.iteritems():
         if not dict1.has_key(key):
             dict1[key] = value
         else:
@@ -514,7 +529,7 @@ def get_spkg_path():
     "Find out where our root directory is on the client"
     spkg_path = ''
     if sys.platform == "linux2" or sys.platform == "cygwin":
-        config = get_linux_config()
+        config = get_linux_client_config()
         spkg_path = config.get("spkg_path")
         if not spkg_path:
             spkg_path = config.get("spkgPath")
