@@ -29,7 +29,7 @@ class RepositoryTest(unittest.TestCase):
         assert metaData["install"]["fullName"] == "TestPackage-7-1"
 
     def test_unzip(self):
-        pkg_path = os.path.join("packages", "TestPackage-7")
+        pkg_path = os.path.join("repos", "type4", "TestPackage-7")
         status = self.repository.unzip_type_4(pkg_path, "TestPackage-7-1")
         assert status == OK
 

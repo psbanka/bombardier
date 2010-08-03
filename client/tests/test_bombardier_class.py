@@ -15,6 +15,7 @@ from bombardier_core.Config import Config
 from bombardier_core.static_data import OK, FAIL, RECONCILE, DRY_RUN
 import Exceptions
 import MockObjects
+import tempfile
 
 INSTANCE = "TEST_INSTANCE"
 
@@ -702,11 +703,11 @@ if __name__ == "__main__":
     #suite.addTest(BombardierTest("test_get_packages_to_remove_1"))
     #suite.addTest(BombardierTest("test_check_system_1"))
     #suite.addTest(BombardierTest("test_check_system_2"))
-    suite.addTest(BombardierTest("test_reconfigure"))
+    #suite.addTest(BombardierTest("test_reconfigure"))
     #suite.addTest(BombardierTest("test_verify_system_4"))
     #suite.addTest(BombardierTest("test_install_one_broken"))
     #suite.addTest(BombardierTest("test_check_configuration"))
-    #suite.addTest(unittest.makeSuite(BombardierTest))
+    suite.addTest(unittest.makeSuite(BombardierTest))
     status = unittest.TextTestRunner(verbosity=2).run(suite)
     errors = len(status.errors) + len(status.failures)
     if not errors:
