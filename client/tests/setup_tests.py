@@ -6,6 +6,14 @@ PKG_DIR = os.path.join(INSTANCE_WORK_DIR, "packages")
 STATUS_FILE = os.path.join(INSTANCE_WORK_DIR, "status.yml")
 SPKG_WORK_DIR = os.path.join(os.getcwd(), 'spkg')
 
+def get_current_config():
+    if os.path.isfile(CONFIG_FILE):
+        current_config = yaml.load(open(CONFIG_FILE).read())
+        if type(current_config) == type({}):
+            return current_config
+        else:
+            return None
+
 def start():
     INSTANCE_WORK_DIR = os.path.join(os.getcwd(), 'spkg', "TEST_INSTANCE")
     status_file = os.path.join(INSTANCE_WORK_DIR, "status.yml")
@@ -22,8 +30,22 @@ def start():
     print "Creating %s" % status_file
     open(status_file, 'w').write("{}")
     print "Creating %s" % CONFIG_FILE
-    open(CONFIG_FILE, 'w').write(yaml.dump(config_data))
+    current_config = get_current_config()
+    if current_config:
+        if "spkg_path" in current_config:
+            current_config["old_spkg_path"] = current_config["spkg_path"]
+            current_config["spkg_path"] = spkg_work_dir
+    else:
+        current_config = config_data
+    open(CONFIG_FILE, 'w').write(yaml.dump(current_config))
 
 def cleanup():
+    current_config = get_current_config()
+    if current_config:
+        if "old_spkg_path" in current_config:
+            print "Reverting %s" % CONFIG_FILE
+            current_config["spkg_path"] = current_config["old_spkg_path"]
+            del current_config["old_spkg_path"]
+            open(CONFIG_FILE, 'w').write(yaml.dump(current_config))
     print "Removing %s..." % SPKG_WORK_DIR
     os.system("rm -rf %s" % SPKG_WORK_DIR)
