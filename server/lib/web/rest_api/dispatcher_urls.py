@@ -295,7 +295,7 @@ class MachineClearBrokenEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.clear_broken(request.user.username, machine_name)
+            output = dispatcher.clear_broken(machine_name)
         except DispatcherOffline:
             output = {}
         except Exception, x:
@@ -329,7 +329,7 @@ class MachineShowJobsEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.show_jobs(request.user.username, machine_name)
+            output = dispatcher.show_jobs(machine_name)
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
@@ -426,7 +426,7 @@ class JobPollEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             post_dict = yaml.load(request.POST.get("yaml"))
             job_names = post_dict.get("job_names", [])
-            output = dispatcher.job_poll(request.user.username, job_names)
+            output = dispatcher.job_poll(job_names)
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)

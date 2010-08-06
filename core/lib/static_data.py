@@ -19,6 +19,7 @@ and you are welcome to redistribute it under the terms of the Simplified
 BSD License. License terms can be found here: 
 http://www.opensource.org/licenses/bsd-license.php""" % VERSION
 
+ABORTED_JOB_NAME = "ABORTED_JOB_NAME"
 BOMBARDIER_CONFIG_DIR = "/etc/bombardier"
 SERVER_CONFIG_FILE = "%s/bombardier_server.yml" % BOMBARDIER_CONFIG_DIR
 CLIENT_CONFIG_FILE = "%s/bombardier_client.yml" % BOMBARDIER_CONFIG_DIR

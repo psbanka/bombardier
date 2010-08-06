@@ -8,16 +8,17 @@ import Pyro.naming
 
 from bombardier_core.static_data import OK, FAIL, WAIT
 from bombardier_core.Cipher import Cipher, DecryptionException
-from bombardier_core.static_data import ACTION_LOOKUP
+from bombardier_core.static_data import ACTION_LOOKUP, ABORTED_JOB_NAME
 
 from Exceptions import InvalidJobName, JoinTimeout
-from Exceptions import QueuedJob
+from Exceptions import QueuedJob, NonexistentDistFiles
 
 from MachineConfig import MachineConfig
 from BombardierMachineInterface import BombardierMachineInterface
 from LocalMachineInterface import LocalMachineInterface 
 import Job
 import ServerLogMixin
+from ServerLogger import ServerLogger
 from Commands import BuildCommand, ShellCommand, BombardierCommand
 import DispatchMonitor
 
@@ -32,6 +33,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
     def __init__(self, server_home, encryption_key):
         Pyro.core.ObjBase.__init__(self)
         ServerLogMixin.ServerLogMixin.__init__(self)
+        self.polling_log   = None
         self.start_time = time.time()
         self.password = encryption_key
         self.server_home = server_home
@@ -89,8 +91,10 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         return job
 
     def _setup_job(self, job, commands, copy_dict, require_status,
-                  job_predecessors = []):
+                  job_predecessors = None):
         "When you want a job to run after another job is finished"
+        if job_predecessors == None:
+            job_predecessors = []
         machine_interface = self.get_machine_interface(job.username,
                                                        job.machine_name)
         job.setup(machine_interface, commands, copy_dict, require_status,
@@ -169,9 +173,6 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         job = self._create_next_job(username, machine_name)
         job.description = "Initialize"
         try:
-            machine_interface = self.get_machine_interface(username,
-                                                           machine_name)
-            spkg_dir = machine_interface.spkg_dir
             commands = []
             bombardier_init = BombardierCommand("init", None, None)
 
@@ -382,7 +383,6 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
 
     def job_join(self, username, job_name, timeout):
         "Wait for a job to finish"
-        require_comment = False
         try:
             self.server_log.info("Attempting to join %s" % job_name)
             job = self.get_job(job_name)
@@ -400,8 +400,6 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                     raise JoinTimeout(job_name, timeout)
                 time.sleep(1)
             job.acknowledged = True
-            if job.require_comment:
-                require_comment = True
             self.server_log.info("finishing join %s" % job_name)
         except QueuedJob:
             output = {"command_status": WAIT,
@@ -414,7 +412,8 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                      }
             return output
         output = job.get_status_dict()
-        output["jobs_requiring_comment"] = self.monitor.get_uncommented_job_info(username)
+        uncommented = self.monitor.get_uncommented_job_info(username)
+        output["jobs_requiring_comment"] = uncommented
         output["children"] = self.monitor.get_job_children(job)
         return output
 
@@ -433,16 +432,16 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                     raise InvalidJobName(job_name)
         return job
 
-    def job_poll(self, username, job_names):
+    def job_poll(self, job_names):
         "Poll a job for status info and log data"
         job_status_dict = {}
         for job_name in job_names:
             try:
                 job = self.get_job(job_name)
                 job_status_dict[job_name] = job.get_status_dict()
-            except QueuedJob, qj:
+            except QueuedJob, queued_job:
                 job_status_dict[job_name] = {"command_status": "QUEUED",
-                                             "pending_job": qj.job_name}
+                                             "pending_job": queued_job.job_name}
         return job_status_dict
 
     def job_kill(self, username, job_name):
@@ -455,7 +454,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
             return {"command_status": FAIL}
         return {"command_status": status}
 
-    def clear_broken(self, username, machine_name):
+    def clear_broken(self, machine_name):
         "clear out the broken dictionary for a given machine"
         jobs_cleared = self.monitor.clear_broken(machine_name)
         command_output = []
@@ -466,7 +465,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                  }
         return output
 
-    def show_jobs(self, username, machine_name):
+    def show_jobs(self, machine_name):
         "show detailed job information for a machine"
         job_info = self.monitor.show_job_info(machine_name)
         output = {"command_output": '',
@@ -477,6 +476,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
 
     def stop_all_jobs(self, username, machine_name):
         "stop all jobs for a given machine"
+        self.server_log.info("Stopping all jobs on %s" % machine_name, username)
         jobs_killed, jobs_removed = self.monitor.kill_jobs(machine_name)
         command_output = []
         for job_name in jobs_killed:
@@ -540,13 +540,15 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
             try:
                 client_info = yaml.load(open(file_name).read())
             except Exception, exc:
-                self.server_log.warning( "file_name: %s is NOT parsable" % file_name )
+                msg = "file_name: %s is NOT parsable" % file_name 
+                self.server_log.warning(msg)
                 continue
             client_version = client_info.get("client_version", 'UNKNOWN')
             machine_version_list = client_version_info.get(client_version, [])
             machine_version_list.append(client_name)
             client_version_info[client_version] = machine_version_list
-        self.server_log.warning( "client_version_info: %s" % client_version_info )
+        msg = "client_version_info: %s" % client_version_info 
+        self.server_log.warning(msg)
         return client_version_info
 
     def _validate_password(self, password):
@@ -606,23 +608,37 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
            (4) run an 'init' job
            (5) run a 'check_status' job
         """
+
+        dist2_name = "PyYAML-3.(\d+).tar.gz"
+        dist3_name = "bombardier_core\-1\.00\-(\d+)\.tar\.gz"
+        dist4_name = "bombardier_client\-1\.00\-(\d+)\.tar\.gz"
+        try:
+            search_errors = []
+            for dist_name in [ dist2_name, dist3_name, dist4_name ]:
+                if not self._find_latest_file(dist_name):
+                    search_errors.append(dist_name)
+            raise NonexistentDistFiles(search_errors)
+        except NonexistentDistFiles, exc:
+            self.polling_log = ServerLogger(job_name)
+            self.polling_log.add_stringio_handle()
+            self.polling_log.error(str(exc))
+            self.server_log.error(str(exc), machine_name)
+            return ABORTED_JOB_NAME
+
         job1_name = self.enable_job(username, machine_name, password)
         job1 = self.new_jobs[job1_name]
 
-        dist_name = "PyYAML-3.(\d+).tar.gz"
-        job2_name = self._dist_install_job(dist_name, username, machine_name)
         job2 = self.new_jobs[job2_name]
         job2.predecessors = [job1]
+        job2_name = self._dist_install_job(dist2_name, username, machine_name)
 
-        dist_name = "bombardier_core\-1\.00\-(\d+)\.tar\.gz"
-        job3_name = self._dist_install_job(dist_name, username, machine_name)
         job3 = self.new_jobs[job3_name]
         job3.predecessors = [job2]
+        job3_name = self._dist_install_job(dist3_name, username, machine_name)
 
-        dist_name = "bombardier_client\-1\.00\-(\d+)\.tar\.gz"
-        job4_name = self._dist_install_job(dist_name, username, machine_name)
         job4 = self.new_jobs[job4_name]
         job4.predecessors = [job3]
+        job4_name = self._dist_install_job(dist4_name, username, machine_name)
 
         job5_name = self.init_job(username, machine_name)
         job5 = self.new_jobs[job5_name]
@@ -639,7 +655,8 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         return job1_name
 
     def read_config_data(self, config_type, config_name):
-        config_path = os.path.join(self.server_home, config_type, config_name + ".yml")
+        config_path = os.path.join(self.server_home, config_type,
+                                   config_name + ".yml")
         return yaml.load(open(config_path).read())
 
     def make_config_data(self, config_type, config_name, config_data):

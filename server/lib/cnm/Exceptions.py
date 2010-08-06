@@ -186,3 +186,12 @@ class DispatcherOffline(Exception):
         return "Dispatcher offline"
     def __str__(self):
         return self.__repr__()
+
+class NonexistentDistFiles
+    def __init__(self, search_errors):
+        Exception.__init__(self)
+    def __repr__(self):
+        return "Could not match any file for %s" % search_errors
+    def __str__(self):
+        return self.__repr__()
+

@@ -41,10 +41,10 @@ import exceptions
 import re
 import urllib
 import tempfile
-from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import OK, FAIL, ABORTED_JOB_NAME
 from Exceptions import UnexpectedDataException, ServerException
 from Exceptions import MachineTraceback, ServerTracebackException
-from Exceptions import MachineUnavailableException
+from Exceptions import MachineUnavailableException, CommandError
 import libUi
 from SystemStateSingleton import SystemState
 system_state = SystemState()
@@ -398,7 +398,10 @@ class CnmConnector:
     def setup_command(self, machine_name, password, bg_flag):
         "Set a machine up"
         post_data = {"yaml": yaml.dump( {"password" : password } )}
-        return self.machine_job(machine_name, "setup", bg_flag, post_data)
+        job_name =  self.machine_job(machine_name, "setup", bg_flag, post_data)
+        if job_name = ABORTED_JOB_NAME:
+            raise CommandError("Dist files not found, aborted setup.")
+        return job_name
 
     def enable_command(self, machine_name, password, bg_flag):
         "Transfer ssh keys"
