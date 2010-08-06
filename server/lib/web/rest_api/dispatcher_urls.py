@@ -6,7 +6,7 @@ from CnmResource import CnmResource
 from bombardier_server.cnm.Exceptions import InvalidInput, InvalidDispatcherAction
 from bombardier_server.cnm.Exceptions import DispatcherAlreadyStarted, DispatcherOffline
 from bombardier_server.cnm.Exceptions import CnmServerException
-from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import OK, FAIL, ABORTED_JOB_NAME
 import os, yaml
 from configs.models import Comment, CommentedJob
 
@@ -196,7 +196,10 @@ class MachineStartSetupEntry(CnmResource):
                 raise InvalidInput("Password needed")
             dispatcher = self.get_dispatcher()
             init_job_name = dispatcher.setup_machine(request.user.username, machine_name, password)
-            output = dispatcher.get_job_status(init_job_name)
+            if init_job_name == ABORTED_JOB_NAME:
+                output = {"command_status": FAIL}
+            else:
+                output = dispatcher.get_job_status(init_job_name)
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
