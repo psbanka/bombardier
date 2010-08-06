@@ -70,7 +70,9 @@ def get_url_list(version):
     "Find all the files downloadable on Launchpad"
     cmd = "curl https://launchpad.net/bombardier/1.00/%s" % version
     _status, output = gso(cmd)
-    matcher = re.compile(' href=\"(http:\/\/launchpad\.net\/bombardier\/1\.00\/%s\/\+download\/.*\.tar\.gz)\"\>' % version)
+    re_str = ' href=\"(http:\/\/launchpad\.net\/bombardier\/1\.00\/'
+    re_str += '%s\/\+download\/.*\.tar\.gz)\"\>' % version
+    matcher = re.compile(re_str)
 
     url_list = matcher.findall(output)
     if not url_list:
@@ -141,7 +143,9 @@ def download(fetch_list):
 def move_dist(file_list):
     server_home = get_server_home()
     for file_name in file_list:
-        if 'client' in file_name or 'core' in file_name or 'PyYAML' in file_name:
+        if 'client' in file_name or \
+           'core'   in file_name or \
+           'PyYAML' in file_name:
             dist_dir = os.path.join(server_home, "dist")
             print("Moving %s to %s..." % (file_name, dist_dir))
             status = os.system("mv %s %s" % (file_name, dist_dir))
@@ -151,10 +155,10 @@ def move_dist(file_list):
                 print("You can look at the file in %s" % os.getcwd())
                 sys.exit(1)
 
-def install_tarballs(file_list):
+def install_tarballs(file_list, working_dir):
     directory_list = []
     for file_name in file_list:
-        if "client" not in url:
+        if "client" not in file_name:
             unpack_tarball(file_name, working_dir)
             directory = file_name.split('.tar.gz')[0]
             directory_list.append(directory)
@@ -173,14 +177,16 @@ def download_and_install(fetch_list):
     file_list = download(fetch_list)
 
     move_dist(file_list)
-    install_tarballs(file_list)
+    install_tarballs(file_list, working_dir)
 
     print("Cleaning up...")
     os.chdir(starting_dir)
     os.system("rm -rf %s" % working_dir)
 
-def upgrade(version, no_confirm, file_types=FILE_TYPES):
+def upgrade(version, no_confirm, file_types=None):
     "Upgrade the server"
+    if file_types == None:
+        file_types = FILE_TYPES
     version = check_version(version)
     check_curl()
     url_list = get_url_list(version)
@@ -312,7 +318,10 @@ def init(server_home, key_path):
         sys.exit(1)
     set_password()
     setup_db(server_home)
-    update_client_dists()
+    prompt = "Download latest core and client source tarballs? (y/n)"
+    result = ask_yes_no(prompt)
+    if result == True:
+        update_client_dists()
     print("\n\nBasic server setup complete.")
     print("Now configure your web server according to the instructions")
     print("in your documentation.")
