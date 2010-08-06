@@ -1,5 +1,6 @@
 build_dir=$(PWD)/../build
 staging_dir=../staging
+fixtures_dist_dir=$(build_dir)/../server/lib/web/rest_api/configs/fixtures/dist
 upload_docs_dir=../bombardierinstaller/docs
 launchpad_uploader=$(build_dir)/launchpad_uploader.py
 modify_changelog=$(build_dir)/modify_changelog.py
@@ -79,6 +80,7 @@ help:
 	@echo "  <component>_dpkg  to build the apt source package"
 	@echo "  <component>_setup  to run setup.py install"
 	@echo "  modify_changelog  to roughly add bzr comments to the CHANGELOG file"
+	@echo "  rest_testing_dist to populate fixtures/dist for rest_api tests"
 
 all:
 	make -f $(MAKE_FILE) server
@@ -169,6 +171,11 @@ cli_doc:
 core_doc:
 	$(check_doc_dir)
 	$(doc_target) 
+
+rest_testing_dist: core client
+	mkdir -p $(fixtures_dist_dir) || :
+	mv -f $(build_dir)/../core/dist/*.gz $(fixtures_dist_dir)
+	mv -f $(build_dir)/../client/dist/*.gz $(fixtures_dist_dir)
 
 clean_docs:
 	rm -rf $(upload_docs_dir)
