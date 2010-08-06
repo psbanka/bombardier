@@ -309,7 +309,6 @@ def main():
     if options.external_web_server == True:
         external_web_server = True
 
-    print ">>> SERVER HOME:",server_home
     if len(actions) != 1:
         usage(actions, parser)
 
