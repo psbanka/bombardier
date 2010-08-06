@@ -21,6 +21,10 @@ import ServerLogMixin
 from Commands import BuildCommand, ShellCommand, BombardierCommand
 import DispatchMonitor
 
+from bombardier_server.cnm.MachineStatus import MachineStatus
+from bombardier_server.cnm.Exceptions import MachineConfigurationException
+from bombardier_server.cnm.Exceptions import MachineStatusException
+
 LOCAL_MACHINE_NAME = "CNM_Server"
 
 class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
@@ -31,6 +35,8 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         self.start_time = time.time()
         self.password = encryption_key
         self.server_home = server_home
+        msg = "Starting dispatcher (server home: %s)" % server_home
+        self.server_log.info(msg)
         self.next_job = 1
         self.machine_interface_pool = {}
         self.monitor = DispatchMonitor.DispatchMonitor()
@@ -43,18 +49,21 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         self.server_log.info("Setting server home: %s" % server_home, username)
         self.server_home = server_home
 
-    def get_machine_interface(self, username, machine_name):
-        "Returns an interface to a machine, creating a new one if needed"
-
+    def get_machine_config(self, username, machine_name):
         if machine_name == LOCAL_MACHINE_NAME:
             machine_config = MachineConfig(LOCAL_MACHINE_NAME, self.password,
                                            self.server_home)
+        machine_config = MachineConfig(machine_name, self.password,
+                                       self.server_home)
+        return machine_config
+
+    def get_machine_interface(self, username, machine_name):
+        "Returns an interface to a machine, creating a new one if needed"
+        machine_config = self.get_machine_config(username, machine_name)
+        if machine_name == LOCAL_MACHINE_NAME:
             machine_interface = LocalMachineInterface(machine_config,
                                                       self.server_log)
             return machine_interface 
-
-        machine_config = MachineConfig(machine_name, self.password,
-                                       self.server_home)
         machine_config.merge()
         if self.password:
             machine_config.decrypt_config()
@@ -628,6 +637,72 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         for job_name in job_names:
             self.queue_job(job_name)
         return job1_name
+
+    def read_config_data(self, config_type, config_name):
+        config_path = os.path.join(self.server_home, config_type, config_name + ".yml")
+        return yaml.load(open(config_path).read())
+
+    def make_config_data(self, config_type, config_name, config_data):
+        file_path = os.path.join(self.server_home, config_type,
+                                 "%s.yml" % config_name)
+        output = {"command_status": OK}
+        if os.path.isfile(file_path):
+            output["command_output"] = "updated %s" % file_path
+        else:
+            output["command_output"] = "created %s"  % file_path
+        try:
+            data = yaml.load(config_data)
+            nice_yaml_string = yaml.dump(data, default_flow_style=False)
+            open(file_path, 'w').write(nice_yaml_string)
+        except IOError, ioe:
+            output["command_status"] = FAIL
+            output["command_output"] = "IO Error: %s" % str(ioe)
+        return output
+        
+    def get_machine_status(self, machine_name):
+        mbs = MachineStatus(self.server_home, machine_name)
+        output = {}
+        try:
+            output = mbs.machine_install_status()
+            output["command_status"] = "OK"
+        except MachineStatusException, err:
+            output["command_status"] = "FAIL"
+            output["command_output"] = str(err)
+        except MachineConfigurationException, err:
+            output["command_status"] = "FAIL"
+            output["command_output"] = str(err)
+        return output
+
+    def get_dist_name_info(self, dist_name):
+        dist_path = os.path.join(self.server_home, "dist")
+        files = glob.glob(os.path.join(dist_path, "%s*.tar.gz" % dist_name))
+        full_dist_name = files[0].rpartition('.tar.gz')[0]
+        full_dist_name = full_dist_name.rpartition(os.path.sep)[-1]
+        output = {"fields": {"name": full_dist_name}}
+        return output
+
+    def get_config_info(self, config_type, config_name):
+        search_string = os.path.join(self.server_home, config_type,
+                                     "%s*.yml" % config_name)
+        filenames = glob.glob(search_string)
+        output = []
+        for filename in filenames:
+            output.append({"fields": {"name": basename(filename)}})
+        return output
+
+    def get_dist_info(self, dist_name):
+        dist_path = os.path.join(self.server_home, "dist")
+        files = glob.glob(os.path.join(dist_path, "%s*.tar.gz" % dist_name))
+        output = []
+        for filename in files:
+            full_dist_name = filename.rpartition('.tar.gz')[0]
+            full_dist_name = full_dist_name.rpartition(os.path.sep)[-1]
+            output.append({"fields": {"name": full_dist_name}})
+        return output
+
+def basename(filename):
+    output = filename.rpartition(os.path.sep)[-1].rpartition('.')[0]
+    return output
 
 if __name__ == '__main__':
     from django.core.management import setup_environ

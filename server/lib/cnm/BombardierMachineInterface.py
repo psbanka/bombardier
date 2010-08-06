@@ -11,7 +11,6 @@ import traceback
 from MachineInterface import MachineInterface, MachineUnavailableException
 from Exceptions import MachineConfigurationException, BombardierMachineException
 from Exceptions import MachineStatusException, PackageNotFound
-from bombardier_core.mini_utility import strip_version
 from bombardier_core.static_data import OK, FAIL, EXECUTE
 from bombardier_core.static_data import INIT, FIX, PURGE
 from bombardier_core.static_data import ACTION_DICT, RETURN_DICT
@@ -331,8 +330,8 @@ class BombardierMachineInterface(MachineInterface):
                         "libs": [],
                        }
 
-        for dir in [ "libs", "injectors" ]:
-            sync_section = package_data.get(dir, [])
+        for dir_name in [ "libs", "injectors" ]:
+            sync_section = package_data.get(dir_name, [])
             self.server_log.info("SYNC SECTION: %s" % sync_section)
             for sync_item in sync_section:
                 sync_data = sync_section[sync_item]
@@ -341,9 +340,9 @@ class BombardierMachineInterface(MachineInterface):
                     raise PackageNotFound(package_name, "No PATH DEFINED")
                 if not sync_file.startswith(os.path.sep):
                     sync_file = os.path.join(self.server_home, "repos",
-                                             dir, sync_file)
+                                             dir_name, sync_file)
                 self.check_file( package_name, sync_file )
-                package_sync[dir].append(sync_file)
+                package_sync[dir_name].append(sync_file)
         return package_sync
 
     def create_sync_directory(self, files_to_send):

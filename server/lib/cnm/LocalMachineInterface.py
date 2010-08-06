@@ -121,15 +121,22 @@ class LocalMachineInterface(AbstractMachineInterface):
         version = self._svn_checkout(version, svn_user, svn_password,
                            svn_url, checkout_dir, debug)
         os.chdir( checkout_dir )
-        tar_file_path = os.path.join(self.server_home, "repos",
-                                     section_name,
+        section_dir =  os.path.join(self.server_home, "repos", section_name)
+        if not os.path.isdir(section_dir):
+            msg = "Server does not have required directory: %s" % section_dir
+            raise CnmServerException(msg)
+        tar_file_path = os.path.join(section_dir, 
                                      "%s-%s.tar.gz" % (base, version))
         cmd = "tar -czf %s *" % ( tar_file_path )
         status, output = gso(cmd)
-        os.chdir( start_path )
-        if status != OK:        
+        if status != OK:
+            self.server_log.error("Command: %s" % cmd)
+            self.server_log.error("Current Directory: %s" % os.getcwd())
+            self.server_log.error("Output from command: %s" % output)
             msg = "Could not create tarball"
+            os.chdir( start_path )
             raise CnmServerException(msg)
+        os.chdir( start_path )
         return tar_file_path, version
 
     def _inspect_libraries(self, tmp_path, pkg_data):

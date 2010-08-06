@@ -7,7 +7,7 @@ from binascii import b2a_base64
 from datetime import datetime
 from django.core import serializers
 import django.utils.simplejson as json
-from bombardier_core.static_data import SERVER_CONFIG_FILE, OK, FAIL
+from bombardier_core.mini_utility import ensure_bombardier_config_dir
 from bombardier_server.cnm.Exceptions import InvalidServerHome
 from bombardier_core.Cipher import Cipher
 
@@ -23,54 +23,65 @@ from django.test.client import Client
 
 import glob
 
+DEBUG = True
 DEBUG = False
 
 def get_version(base_name):
     dist_dir = os.path.join("configs", "fixtures", "dist")
     search_files = glob.glob(os.path.join(dist_dir, base_name+"*"))
     if len(search_files) != 1:
-        msg = """There needs to be one (and only one) %stype file in %s 
-               for all the unit tests to complete"""
+        msg = """
+               There needs to be one (and only one) %stype file in %s 
+               to perform the unit tests.\n"""
         print msg % (base_name, dist_dir)
+        sys.exit(1)
     found_file = search_files[0]
     version = found_file.rpartition(base_name)[-1].rpartition('.tar.gz')[0]
     return version
     
 TEST_PASSWORD = "testpass1234"
 CONFIG_PASSWORD = "abc123"
-OLD_CLIENT_VERSION = get_version("bombardier-")
 CLIENT_VERSION = get_version("bombardier_client-")
 CORE_VERSION = get_version("bombardier_core-")
 CONFIG_FILE = "unit_test_config_info.yml"
+DISPATCHER_CONTROL_CMD = "bdr_dispatcher"
 
 print "Clients will be updated to the following:"
-print "0.70-client:", OLD_CLIENT_VERSION
 print "1.00-client:", CLIENT_VERSION
 print "1.00-core:", CORE_VERSION
 
-SKIP_SVN_TESTS = False
-if not os.path.isfile(CONFIG_FILE):
-    usage = """
-WARNING: Build testing won't work unless you create a file named
-%s with the following sections:
+BUILD_PACKAGE_NAME = "TestPackageBuild"
 
-svn_user: <svn_username>
-svn_password: <svn_password>
-package_name = <package_name>
-"""
-    print usage
-    SKIP_SVN_TESTS = True
-else:
-    test_config = yaml.load(open(CONFIG_FILE).read())
-    SVN_USER = test_config["svn_user"]
-    SVN_PASSWORD = test_config["svn_password"]
-    BUILD_PACKAGE_NAME = "TestPackageBuild"
-    BUILD_FILE = os.path.join('configs', 'fixtures', 'package',
-                           '%s.yml' % BUILD_PACKAGE_NAME)
-    if not os.path.isfile(BUILD_FILE):
-        print "\nThere needs to be a test package file here: %s" % BUILD_FILE
-        SKIP_SVN_TESTS = True
+def get_current_config():
+    ensure_bombardier_config_dir()
+    if os.path.isfile(SERVER_CONFIG_FILE):
+        current_config = yaml.load(open(SERVER_CONFIG_FILE).read())
+        if type(current_config) == type({}):
+            return current_config
+    else:
+        return {}
 
+def modify_server_config(test_server_home):
+    config_data = {"server_home": test_server_home}
+    print "Creating %s" % SERVER_CONFIG_FILE
+    current_config = get_current_config()
+    if current_config:
+        if "server_home" in current_config:
+            current_config["old_server_home"] = current_config["server_home"]
+    else:
+        current_config.update(config_data)
+    print "Setting server home to: %s" % test_server_home
+    open(SERVER_CONFIG_FILE, 'w').write(yaml.dump(current_config))
+
+
+def revert_server_config():
+    current_config = get_current_config()
+    if "old_server_home" in current_config:
+        print "Reverting %s" % SERVER_CONFIG_FILE
+        current_config["server_home"] = current_config["old_server_home"]
+        del current_config["old_server_home"]
+        open(SERVER_CONFIG_FILE, 'w').write(yaml.dump(current_config))
+        
 class BasicTest:
     def setUp(self):
         self.client = Client()
@@ -249,7 +260,6 @@ class CnmTests(unittest.TestCase, BasicTest):
 
     def test_search(self):
         client_dist = "bombardier_client-%s" % CLIENT_VERSION
-        old_client_dist = "bombardier-%s" % OLD_CLIENT_VERSION
         core_dist = "bombardier_core-%s" % CORE_VERSION
         test_dict  = { "machine":  { "tes": ["tester", "tester1", "tester2"],
                                       "":  ["tester", "tester1", "tester2", "other1", "localhost"],
@@ -259,7 +269,7 @@ class CnmTests(unittest.TestCase, BasicTest):
                        "bom":     { ""    : ["foo", "bomp"],
                                     "fo"  : ["foo"],
                                     "swe" : [] },
-                       "dist": { "": ["test", client_dist, core_dist, old_client_dist]  }, 
+                       "dist": { "": ["test", client_dist, core_dist]  }, 
                        "package": { "": ["TestPackageType5", "TestPackageType4", "TestPackageBuild"]  } }
         for section in test_dict:
             for search_term in test_dict[section]:
@@ -273,6 +283,48 @@ class CnmTests(unittest.TestCase, BasicTest):
         self.failUnlessEqual(content_dict["server configuration"]["server_home"],
                              self.test_server_home)
 
+    def test_make_machine(self):
+        self.login(self.super_user)
+        machine_name = "delete_me"
+        data = {"ip_address": "127.0.0.1",
+                "include": ["app1"],
+                "bom": ["bomp"]}
+        url = '/json/machine/name/%s' % machine_name
+        new_machine_data = {"yaml": data}
+        response = self.client.post(url, new_machine_data)
+        content_dict = json.loads( response.content )
+        assert content_dict["command_status"] == OK, output
+        machine_file = os.path.join(self.test_server_home, "machine", "delete_me.yml")
+        assert os.path.isfile(machine_file)
+        os.system("rm -f %s" % machine_file)
+
+    def test_get_machine(self):
+        self.login(self.super_user)
+        machine_name = "tester1"
+        url = '/json/machine/name/%s' % machine_name
+        content_dict = self.get_content_dict(url)
+        expected = {"ip_address": "127.0.0.1",
+                    "include": ["otherapp", "app1"],
+                    "bom": ["bomp"]}
+        for key in expected:
+            self.failUnlessEqual(type(expected[key]), type(content_dict[key]))
+            if type(expected[key]) != type([]):
+                self.failUnlessEqual(content_dict[key], expected[key])
+            else:
+                assert set(expected[key]).issubset(set(content_dict[key]))
+
+    def test_get_dist(self):
+        self.login(self.super_user)
+        dist_name = "test"
+        url = '/json/dist/name/%s' % dist_name
+        content_dict = self.get_content_dict(url)
+        expected = {"fields": {"name": "test"}}
+        for key in expected:
+            self.failUnlessEqual(type(expected[key]), type(content_dict[key]))
+            if type(expected[key]) != type([]):
+                self.failUnlessEqual(content_dict[key], expected[key])
+            else:
+                assert set(expected[key]).issubset(set(content_dict[key]))
     def test_merged(self):
         self.login(self.super_user)
         machine_name = "tester1"
@@ -502,11 +554,8 @@ class DispatcherTests(unittest.TestCase, BasicTest):
 
     def test_client_update(self):
         url = '/json/machine/dist/localhost'
-        old_client_dist = "bombardier-%s" % OLD_CLIENT_VERSION
         client_dist = "bombardier_client-%s" % CLIENT_VERSION
         core_dist = "bombardier_core-%s" % CORE_VERSION
-        status, output = self.run_job(url, data={"dist": old_client_dist}, timeout=60, verbose=False)
-        assert old_client_dist in output, output
         status, output = self.run_job(url, data={"dist": core_dist}, timeout=60, verbose=False)
         assert core_dist in output, output
         status, output = self.run_job(url, data={"dist": client_dist}, timeout=60, verbose=False)
@@ -658,8 +707,8 @@ class PackageTests(unittest.TestCase, BasicTest):
         current_release = self._get_release(BUILD_PACKAGE_NAME)
         self._remove_paths(BUILD_PACKAGE_NAME)
         url = '/json/package_build/%s' % BUILD_PACKAGE_NAME
-        post_data = {"svn_user": SVN_USER,
-                     "svn_password": SVN_PASSWORD,
+        post_data = {"svn_user": "",
+                     "svn_password": "",
                      "debug": False, "prepare": True
                     }
         status, output = self.run_job(url, data=post_data, timeout=60)
@@ -775,8 +824,27 @@ class ExperimentTest(unittest.TestCase, BasicTest):
     def setUp(self):
         BasicTest.setUp(self)
 
+def create_test_package_yaml(test_server_home):
+        svn_uri = "file://%s/test_repos" % test_server_home
+        package_yaml = """
+class_name: Tester.Tester
+configuration: {}
+injectors:
+  test_injector: { svn: '%s/injectors/Tester'}
+libs:
+  test_lib: { svn: '%s/libs/Tester'}
+package-version: 5
+release: 2
+""" % ( svn_uri, svn_uri )
+        package_path = "%s/package/%s.yml" % (test_server_home, BUILD_PACKAGE_NAME)
+        open(package_path, "w").write(package_yaml)
+
 def initialize_tests(client):
     from django.test.utils import connection
+
+    cwd = os.getcwd()
+    test_server_home = os.path.join(cwd, 'configs', 'fixtures')
+    modify_server_config(test_server_home)
 
     connection.creation.create_test_db(autoclobber=True)
     fixtures = ['init.json']
@@ -788,19 +856,20 @@ def initialize_tests(client):
     super_user.is_superuser = True
     super_user.save()
     login_result = client.login(username="super_guy", password=TEST_PASSWORD)
-    cwd = os.getcwd()
     url = '/json/server/config'
-    test_server_home = os.path.join(cwd, 'configs', 'fixtures')
     response = client.post(url, data={"server_home": test_server_home})
 
-    cmd = "bombardier_cnm -s %s -d %s start" % (test_server_home, CONFIG_PASSWORD)
+    cmd = "%s -s %s -d %s -x start" % (DISPATCHER_CONTROL_CMD, test_server_home, CONFIG_PASSWORD)
     os.system(cmd)
+
+    create_test_package_yaml(test_server_home)
 
 def tear_down_dispatcher(client):
     cwd = os.getcwd()
     test_server_home = os.path.join(cwd, 'configs', 'fixtures')
-    cmd = "bombardier_cnm -s %s stop" % (test_server_home)
+    cmd = "%s -s %s -x stop" % (DISPATCHER_CONTROL_CMD, test_server_home)
     os.system(cmd)
+    revert_server_config()
 
 if __name__ == '__main__':
     client = Client()
@@ -817,16 +886,22 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(PackageTests))
         suite.addTest(unittest.makeSuite(ExperimentTest))
     else:
-        #suite.addTest(CnmTests("test_summary"))
-        #suite.addTest(CnmTests("test_user"))
-        #suite.addTest(DispatcherTests("test_dist_update_for_commenting"))
-        #suite.addTest(DispatcherTests("test_client_update"))
-        suite.addTest(DispatcherTests("test_stop_all_jobs"))
-        #suite.addTest(PackageTests("test_encrypted_ci"))
-        #suite.addTest(PackageTests("test_insufficient_config"))
-        #suite.addTest(PackageTests("test_package_error"))
-        #suite.addTest(PackageTests("test_type5_package_actions"))
-        #suite.addTest(PackageTests("test_package_actions"))
+#        suite.addTest(CnmTests("test_data_modification"))
+#        suite.addTest(CnmTests("test_get_machine"))
+#        suite.addTest(CnmTests("test_get_dist"))
+#        suite.addTest(CnmTests("test_search"))
+#        suite.addTest(CnmTests("test_make_machine"))
+#        suite.addTest(CnmTests("test_summary"))
+#        suite.addTest(CnmTests("test_user"))
+#        suite.addTest(DispatcherTests("test_dist_update_for_commenting"))
+#        suite.addTest(DispatcherTests("test_client_update"))
+#        suite.addTest(DispatcherTests("test_stop_all_jobs"))
+#        suite.addTest(PackageTests("test_encrypted_ci"))
+#        suite.addTest(PackageTests("test_insufficient_config"))
+#        suite.addTest(PackageTests("test_package_error"))
+#        suite.addTest(PackageTests("test_type5_package_actions"))
+#        suite.addTest(PackageTests("test_package_actions"))
+        suite.addTest(PackageTests("test_package_build"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)
 
