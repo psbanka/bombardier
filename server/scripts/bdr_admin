@@ -3,6 +3,7 @@
 
 import sys, yaml, os, getpass, re, tempfile
 from bombardier_core.static_data import OK, SERVER_CONFIG_FILE
+from bombardier_core.mini_utility import ensure_bombardier_config_dir
 from bombardier_core.Cipher import Cipher
 from commands import getstatusoutput as gso
 os.environ["DJANGO_SETTINGS_MODULE"] = 'bombardier_server.web.rest_api.settings'
@@ -292,6 +293,8 @@ def setup_db(server_home):
 
 def init(server_home, key_path):
     "Initializes the bombardier server_home"
+
+    ensure_bombardier_config_dir()
     if not server_home:
         server_home = '/var/deploy'
     
@@ -301,7 +304,7 @@ def init(server_home, key_path):
     if result == True: 
         create_directory_structure(server_home)
         copy_dsa_key(key_path, server_home)
-        print("Writing configuration to /etc/bombardier.yml...")
+        print("Writing configuration to %s..." % SERVER_CONFIG_FILE)
         config_data = {"server_home": server_home}
         open(SERVER_CONFIG_FILE, 'w').write(yaml.dump(config_data))
     else:
