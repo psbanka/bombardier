@@ -619,11 +619,12 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                     search_errors.append(dist_name)
             raise NonexistentDistFiles(search_errors)
         except NonexistentDistFiles, exc:
+            job_name = ABORTED_JOB_NAME
             self.polling_log = ServerLogger(job_name)
             self.polling_log.add_stringio_handle()
             self.polling_log.error(str(exc))
             self.server_log.error(str(exc), machine_name)
-            return ABORTED_JOB_NAME
+            return job_name
 
         job1_name = self.enable_job(username, machine_name, password)
         job1 = self.new_jobs[job1_name]
