@@ -187,7 +187,7 @@ class DispatcherOffline(Exception):
     def __str__(self):
         return self.__repr__()
 
-class NonexistentDistFiles
+class NonexistentDistFiles(Exception):
     def __init__(self, search_errors):
         Exception.__init__(self)
     def __repr__(self):

@@ -399,7 +399,7 @@ class CnmConnector:
         "Set a machine up"
         post_data = {"yaml": yaml.dump( {"password" : password } )}
         job_name =  self.machine_job(machine_name, "setup", bg_flag, post_data)
-        if job_name = ABORTED_JOB_NAME:
+        if job_name == ABORTED_JOB_NAME:
             raise CommandError("Dist files not found, aborted setup.")
         return job_name
 
