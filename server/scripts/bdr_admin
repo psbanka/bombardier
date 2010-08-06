@@ -323,7 +323,7 @@ def init(server_home, key_path):
         update_client_dists()
     else:
         msg = "\nYou will need to get PyYAML, and your own client and core"
-        msg += "tarballs into %s/dist before you can run setup on a machine"
+        msg += " tarballs into %s/dist before you can run setup on a machine."
         msg = msg % server_home
         print(msg)
     print("\n\nBasic server setup complete.")

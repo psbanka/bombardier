@@ -190,8 +190,9 @@ class DispatcherOffline(Exception):
 class NonexistentDistFiles(Exception):
     def __init__(self, search_errors):
         Exception.__init__(self)
+        self.search_errors = search_errors
     def __repr__(self):
-        return "Could not match any file for %s" % search_errors
+        return "Could not match any file for %s" % self.search_errors
     def __str__(self):
         return self.__repr__()
 
