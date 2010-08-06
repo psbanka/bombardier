@@ -101,6 +101,7 @@ class BasicTest:
         dispatcher_info = yaml.load(open(os.path.join(self.test_server_home, "dispatcher_info.yml")).read())
         uri = dispatcher_info["dispatcher_uri"]
         self.attach_dispatcher(uri)
+        self.make_localhost_config()
 
     def attach_dispatcher(self, uri):
         # set the configuration string
@@ -257,6 +258,7 @@ class CnmTests(unittest.TestCase, BasicTest):
 
     def setUp(self):
         BasicTest.setUp(self)
+        self.make_localhost_config()
 
     def test_search(self):
         client_dist = "bombardier_client-%s" % CLIENT_VERSION
@@ -446,6 +448,7 @@ class DispatcherTests(unittest.TestCase, BasicTest):
 
     def setUp(self):
         BasicTest.setUp(self)
+        self.make_localhost_config()
 
     def test_push_config(self):
         url = '/json/machine/push/localhost'
@@ -633,6 +636,7 @@ class PackageTests(unittest.TestCase, BasicTest):
 
     def setUp(self):
         BasicTest.setUp(self)
+        self.make_localhost_config()
 
     def package_action(self, action, package_name):
         url = '/json/package_action/%s' % package_name
@@ -799,6 +803,7 @@ class DangerousTests(unittest.TestCase, BasicTest):
 
     def setUp(self):
         BasicTest.setUp(self)
+        self.make_localhost_config()
 
     def test_disable(self):
         url = "/json/machine/disable/localhost" 
@@ -823,6 +828,7 @@ class ExperimentTest(unittest.TestCase, BasicTest):
 
     def setUp(self):
         BasicTest.setUp(self)
+        self.make_localhost_config()
 
 def create_test_package_yaml(test_server_home):
         svn_uri = "file://%s/test_repos" % test_server_home
@@ -863,6 +869,7 @@ def initialize_tests(client):
     os.system(cmd)
 
     create_test_package_yaml(test_server_home)
+    os.system("rm -f %s/machine/localhost.yml" % test_server_home)
 
 def tear_down_dispatcher(client):
     cwd = os.getcwd()
