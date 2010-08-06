@@ -169,7 +169,6 @@ def install_tarballs(file_list, working_dir):
 def download_and_install(fetch_list):
     "Grab a bunch of files and install them"
     starting_dir = os.getcwd()
-    server_home = get_server_home()
 
     working_dir = tempfile.mkdtemp()
     os.chdir(working_dir)
@@ -318,10 +317,15 @@ def init(server_home, key_path):
         sys.exit(1)
     set_password()
     setup_db(server_home)
-    prompt = "Download latest core and client source tarballs? (y/n)"
+    prompt = "Download latest PyYAML, core and client source tarballs? (y/n)"
     result = ask_yes_no(prompt)
     if result == True:
         update_client_dists()
+    else:
+        msg = "\nYou will need to get PyYAML, and your own client and core"
+        msg += "tarballs into %s/dist before you can run setup on a machine"
+        msg = msg % server_home
+        print(msg)
     print("\n\nBasic server setup complete.")
     print("Now configure your web server according to the instructions")
     print("in your documentation.")
