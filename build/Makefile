@@ -54,11 +54,10 @@ endef
 
 define dpkg_target
 	cd $(build_dir)/dpkg && bash build_package.bash $(subst _dpkg,,$@)
-    @echo
-    @echo "Press Ctrl-C now to skip ppa upload"
-    @echo
-    @read tester
-    cd $(build_dir) && dput ppa:bombardier-team/bombardier-ppa ./dpkg/work/$(subst _dpkg,,$@)/bombardier*source.changes
+endef
+
+define ppa_target
+    cd $(build_dir) && dput ppa:bombardier-team/bombardier-ppa ./dpkg/work/$(subst _dpkg,,$@)/bombardier*source.change
 endef
 
 define remove_dist_files
@@ -78,6 +77,7 @@ help:
 	@echo "  <component>_upload  to make component and upload to pypi"
 	@echo "  <component>_doc  to build the generated doc html"
 	@echo "  <component>_dpkg  to build the apt source package"
+	@echo "  <component>_ppa  to upload the dpkg to the ppa"
 	@echo "  <component>_setup  to run setup.py install"
 	@echo "  modify_changelog  to roughly add bzr comments to the CHANGELOG file"
 	@echo "  rest_testing_dist to populate fixtures/dist for rest_api tests"
@@ -123,6 +123,18 @@ cli_dpkg:  cli
 
 core_dpkg: core
 	$(dpkg_target)
+
+server_ppa: server_dpkg
+	$(ppa_target)
+
+client_ppa: client_dpkg
+	$(ppa_target)
+
+cli_ppa:  cli_dpkg
+	$(ppa_target)
+
+core_ppa: core_dpkg
+	$(ppa_target)
 
 server_setup: server
 	$(setup_target)
