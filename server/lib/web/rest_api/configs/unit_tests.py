@@ -15,7 +15,7 @@ from settings import *
 from django.contrib.auth.models import User
 import django.utils.simplejson as json
 import os, sys, yaml
-from bombardier_core.static_data import SERVER_CONFIG_FILE, OK, FAIL
+from bombardier_core.static_data import SERVER_CONFIG_FILE, CLIENT_CONFIG_FILE, OK, FAIL
 import time
 
 import unittest
@@ -52,35 +52,54 @@ print "1.00-core:", CORE_VERSION
 
 BUILD_PACKAGE_NAME = "TestPackageBuild"
 
-def get_current_config():
+def get_current_configs():
     ensure_bombardier_config_dir()
+    server_conf = {}
+    client_conf = {}
     if os.path.isfile(SERVER_CONFIG_FILE):
-        current_config = yaml.load(open(SERVER_CONFIG_FILE).read())
-        if type(current_config) == type({}):
-            return current_config
-    else:
-        return {}
+        test_server_conf = yaml.load(open(SERVER_CONFIG_FILE).read())
+        if type(test_server_conf) == type({}):
+            server_conf = test_server_conf
+    if os.path.isfile(CLIENT_CONFIG_FILE):
+        test_client_conf = yaml.load(open(CLIENT_CONFIG_FILE).read())
+        if type(test_client_conf) == type({}):
+            client_conf = test_client_conf
+    return server_conf, client_conf
 
-def modify_server_config(test_server_home):
-    config_data = {"server_home": test_server_home}
-    print "Creating %s" % SERVER_CONFIG_FILE
-    current_config = get_current_config()
-    if current_config:
-        if "server_home" in current_config:
-            current_config["old_server_home"] = current_config["server_home"]
-    else:
-        current_config.update(config_data)
+def modify_configs(test_server_home, test_machine_home):
+    server_config_data = {"server_home": test_server_home}
+    client_config_data = {"spkg_path": test_machine_home}
+    server_conf, client_conf = get_current_configs()
+
+    print "Updating %s" % SERVER_CONFIG_FILE
+    if server_conf:
+        if "server_home" in server_conf:
+            server_conf["old_server_home"] = server_conf["server_home"]
+    server_conf.update(server_config_data)
     print "Setting server home to: %s" % test_server_home
-    open(SERVER_CONFIG_FILE, 'w').write(yaml.dump(current_config))
+    open(SERVER_CONFIG_FILE, 'w').write(yaml.dump(server_conf))
 
+    print "Updating %s" % CLIENT_CONFIG_FILE
+    if client_conf:
+        if "spkg_path" in client_conf:
+            client_conf["old_spkg_path"] = client_conf["spkg_path"]
+    client_conf.update(client_config_data)
+    print "Client home to: %s" % test_machine_home
+    open(CLIENT_CONFIG_FILE, 'w').write(yaml.dump(client_conf))
 
-def revert_server_config():
-    current_config = get_current_config()
-    if "old_server_home" in current_config:
+def revert_configs():
+    server_conf, client_conf = get_current_configs()
+    if "old_server_home" in server_conf:
         print "Reverting %s" % SERVER_CONFIG_FILE
-        current_config["server_home"] = current_config["old_server_home"]
-        del current_config["old_server_home"]
-        open(SERVER_CONFIG_FILE, 'w').write(yaml.dump(current_config))
+        server_conf["server_home"] = server_conf["old_server_home"]
+        del server_conf["old_server_home"]
+        open(SERVER_CONFIG_FILE, 'w').write(yaml.dump(server_conf))
+    if "old_spkg_path" in client_conf:
+        print "Reverting %s" % CLIENT_CONFIG_FILE
+        client_conf["spkg_path"] = client_conf["old_spkg_path"]
+        del client_conf["old_spkg_path"]
+        open(CLIENT_CONFIG_FILE, 'w').write(yaml.dump(client_conf))
+    os.system("rm -rf test_spkg")
         
 class BasicTest:
     def setUp(self):
@@ -97,6 +116,7 @@ class BasicTest:
         self.login_super()
         cwd = os.getcwd()
         self.test_server_home = os.path.join(cwd, "configs", "fixtures")
+        self.test_machine_home = os.path.join(cwd, "test_spkg")
 
         dispatcher_info = yaml.load(open(os.path.join(self.test_server_home, "dispatcher_info.yml")).read())
         uri = dispatcher_info["dispatcher_uri"]
@@ -156,7 +176,7 @@ class BasicTest:
 
     def set_status(self, status_dict):
         yaml_str = yaml.dump(status_dict)
-        open("/opt/spkg/localhost/status.yml", 'w').write(yaml_str)
+        open("%s/localhost/status.yml" % self.test_machine_home, 'w').write(yaml_str)
         open("configs/fixtures/status/localhost.yml", 'w').write(yaml_str)
 
     def check_for_traceback(self, content_dict):
@@ -234,8 +254,9 @@ class BasicTest:
 
     def make_localhost_config(self, additional_config={}):
         config = {"ip_address": "127.0.0.1",
-                  "default_user": os.getlogin(),
-                  "spkg_path": "/opt/spkg",
+                  "default_user": "root",
+                  #"default_user": os.getlogin(),
+                  "spkg_path": self.test_machine_home,
                   "platform": sys.platform,
                  }
         self.make_localhost_yaml_file(config, additional_config, "machine")
@@ -454,11 +475,12 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         url = '/json/machine/push/localhost'
         status, output = self.run_job(url)
         assert status == OK
-        assert os.path.isfile("/opt/spkg/localhost/config.yml")
+        config_file = os.path.join(self.test_machine_home, "localhost" , "config.yml")
+        assert os.path.isfile(config_file)
         url = '/json/machine/unpush/localhost'
         status, output = self.run_job(url)
         assert status == OK
-        assert os.path.isfile("/opt/spkg/localhost/config.yml") == False
+        assert os.path.isfile(config_file) == False
 
     def test_kill_job(self):
         url = '/json/machine/start_test/localhost'
@@ -657,9 +679,9 @@ class PackageTests(unittest.TestCase, BasicTest):
                         "status": {"newInstall": 'True'},
                         "timestamp": 1250868198.8639009,
                       }
-        os.system("rm -rf /opt/spkg/localhost/packages/*")
-        os.system("rm -rf /opt/spkg/repos/libs/*")
-        os.system("rm -rf /opt/spkg/repos/injectors/*")
+        os.system("rm -rf %s/localhost/packages/*" % self.test_machine_home)
+        os.system("rm -rf %s/repos/libs/*" % self.test_machine_home)
+        os.system("rm -rf %s/repos/injectors/*" % self.test_machine_home)
         self.set_status(status_dict)
 
     def test_package_error(self):
@@ -850,7 +872,8 @@ def initialize_tests(client):
 
     cwd = os.getcwd()
     test_server_home = os.path.join(cwd, 'configs', 'fixtures')
-    modify_server_config(test_server_home)
+    test_machine_home = os.path.join(os.getcwd(), "test_spkg")
+    modify_configs(test_server_home, test_machine_home)
 
     connection.creation.create_test_db(autoclobber=True)
     fixtures = ['init.json']
@@ -870,13 +893,16 @@ def initialize_tests(client):
 
     create_test_package_yaml(test_server_home)
     os.system("rm -f %s/machine/localhost.yml" % test_server_home)
+    os.system("rm -rf %s" % test_machine_home)
+    os.system("mkdir -p %s/localhost/packages" % test_machine_home)
+    open("%s/localhost/status.yml" % test_machine_home, 'w').write('{}\n')
 
 def tear_down_dispatcher(client):
     cwd = os.getcwd()
     test_server_home = os.path.join(cwd, 'configs', 'fixtures')
     cmd = "%s -s %s -x stop" % (DISPATCHER_CONTROL_CMD, test_server_home)
     os.system(cmd)
-    revert_server_config()
+    revert_configs()
 
 if __name__ == '__main__':
     client = Client()
@@ -901,14 +927,15 @@ if __name__ == '__main__':
 #        suite.addTest(CnmTests("test_summary"))
 #        suite.addTest(CnmTests("test_user"))
 #        suite.addTest(DispatcherTests("test_dist_update_for_commenting"))
-#        suite.addTest(DispatcherTests("test_client_update"))
+#        suite.addTest(DispatcherTests("test_push_config"))
 #        suite.addTest(DispatcherTests("test_stop_all_jobs"))
-#        suite.addTest(PackageTests("test_encrypted_ci"))
+        suite.addTest(PackageTests("test_encrypted_ci"))
 #        suite.addTest(PackageTests("test_insufficient_config"))
 #        suite.addTest(PackageTests("test_package_error"))
 #        suite.addTest(PackageTests("test_type5_package_actions"))
+
 #        suite.addTest(PackageTests("test_package_actions"))
-        suite.addTest(PackageTests("test_package_build"))
+#        suite.addTest(PackageTests("test_package_build"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)
 

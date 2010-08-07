@@ -84,7 +84,6 @@ class MachineInterface(AbstractMachineInterface):
         self.ssh_conn.timeout = 6000
         msg = "Connecting to %s..." % self.machine_name
         self.polling_log.debug(msg)
-        #self.server_log.debug(msg, self.machine_name)
         try:
             self.server_log.debug(msg, self.machine_name)
             login_okay = self.ssh_conn.login(self.ip_address, self.username,
@@ -105,8 +104,8 @@ class MachineInterface(AbstractMachineInterface):
         return OK
 
     def control_c(self):
-        #self.ssh_conn.sendcontrol('c')
-        pass
+        "Sending a ^C to the remote machine to abort jobs"
+        self.ssh_conn.sendcontrol('c')
 
     def freshen(self):
         '''Since we like to keep connections around for a long time,

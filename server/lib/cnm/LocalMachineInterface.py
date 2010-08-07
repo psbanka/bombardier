@@ -31,7 +31,7 @@ class LocalMachineInterface(AbstractMachineInterface):
         "Run a remote shell command"
         return [OK, []]
 
-    def dump_trace(self):
+    def _dump_trace(self):
         "Pretty print a stack trace into the logs"
         exc = StringIO.StringIO()
         traceback.print_exc(file=exc)
@@ -229,7 +229,7 @@ class LocalMachineInterface(AbstractMachineInterface):
             open(package_file, 'w').write(yaml.dump(pkg_data))
             self.polling_log.info("Note: not deleting %s" % tmp_path)
         except Exception:
-            self.dump_trace()
+            self._dump_trace()
             advice = "%s is still available for code inspection." % tmp_path
             self.polling_log.error(advice)
         
