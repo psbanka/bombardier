@@ -18,7 +18,6 @@ from BombardierMachineInterface import BombardierMachineInterface
 from LocalMachineInterface import LocalMachineInterface 
 import Job
 import ServerLogMixin
-from ServerLogger import ServerLogger
 from Commands import BuildCommand, ShellCommand, BombardierCommand
 import DispatchMonitor
 
@@ -33,7 +32,6 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
     def __init__(self, server_home, encryption_key):
         Pyro.core.ObjBase.__init__(self)
         ServerLogMixin.ServerLogMixin.__init__(self)
-        self.polling_log   = None
         self.start_time = time.time()
         self.password = encryption_key
         self.server_home = server_home
@@ -343,7 +341,6 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         try:
             cmd = 'for i in 1 2 3 4; do sleep 1; echo "Testing $i/4"; done'
             commands = [ShellCommand("self_test", cmd, '.')]
-            open("/tmp/POOP.txt", 'a').write("TEST_JOB 1, %s\n" % commands)
             self._setup_job(job, commands, {}, False)
         except Exception:
             job.command_output = self.dump_exception(username)
@@ -590,11 +587,9 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                     max_version = new_version
         return latest_filename
 
-    def _dist_install_job(self, search_string, username, machine_name):
+    def _dist_install_job(self, newest_dist, username, machine_name):
         """Find the latest version of a distribution file and create a job to
         deploy it on a machine"""
-        matcher = re.compile(search_string)
-        newest_dist = self._find_latest_file(matcher)
         newest_dist = newest_dist.split('.tar.gz')[0]
         newest_dist = newest_dist.split(os.path.sep)[-1]
         job_name = self.dist_job(username, machine_name, newest_dist)
@@ -608,38 +603,43 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
            (4) run an 'init' job
            (5) run a 'check_status' job
         """
-
-        dist2_name = "PyYAML-3.(\d+).tar.gz"
-        dist3_name = "bombardier_core\-1\.00\-(\d+)\.tar\.gz"
-        dist4_name = "bombardier_client\-1\.00\-(\d+)\.tar\.gz"
+        
+        dist2_re = re.compile("PyYAML-3.(\d+).tar.gz")
+        dist3_re = re.compile("bombardier_core\-1\.00\-(\d+)\.tar\.gz")
+        dist4_re = re.compile("bombardier_client\-1\.00\-(\d+)\.tar\.gz")
+        dist_dict = {dist2_re: "", dist3_re: "", dist4_re: ""}
         try:
             search_errors = []
-            for dist_name in [ dist2_name, dist3_name, dist4_name ]:
-                if not self._find_latest_file(dist_name):
-                    search_errors.append(dist_name)
-            raise NonexistentDistFiles(search_errors)
+            for dist_re in dist_dict:
+                dist_path = self._find_latest_file(dist_re)
+                dist_dict[dist_re] = dist_path
+                if not dist_path:
+                    search_errors.append(dist_re)
+            if len(search_errors) != 0:
+                raise NonexistentDistFiles(search_errors)
         except NonexistentDistFiles, exc:
             job_name = ABORTED_JOB_NAME
-            self.polling_log = ServerLogger(job_name)
-            self.polling_log.add_stringio_handle()
-            self.polling_log.error(str(exc))
             self.server_log.error(str(exc), machine_name)
+            self.server_log.error("Returning %s as the job_name" %job_name, machine_name)
             return job_name
 
         job1_name = self.enable_job(username, machine_name, password)
         job1 = self.new_jobs[job1_name]
 
+        dist2_path = dist_dict[dist2_re]
+        job2_name = self._dist_install_job(dist2_path, username, machine_name)
         job2 = self.new_jobs[job2_name]
         job2.predecessors = [job1]
-        job2_name = self._dist_install_job(dist2_name, username, machine_name)
 
+        dist3_path = dist_dict[dist3_re]
+        job3_name = self._dist_install_job(dist3_path, username, machine_name)
         job3 = self.new_jobs[job3_name]
         job3.predecessors = [job2]
-        job3_name = self._dist_install_job(dist3_name, username, machine_name)
 
+        dist4_path = dist_dict[dist4_re]
+        job4_name = self._dist_install_job(dist4_path, username, machine_name)
         job4 = self.new_jobs[job4_name]
         job4.predecessors = [job3]
-        job4_name = self._dist_install_job(dist4_name, username, machine_name)
 
         job5_name = self.init_job(username, machine_name)
         job5 = self.new_jobs[job5_name]

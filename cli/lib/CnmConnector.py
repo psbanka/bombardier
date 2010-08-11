@@ -399,8 +399,6 @@ class CnmConnector:
         "Set a machine up"
         post_data = {"yaml": yaml.dump( {"password" : password } )}
         job_name =  self.machine_job(machine_name, "setup", bg_flag, post_data)
-        if job_name == ABORTED_JOB_NAME:
-            raise CommandError("Dist files not found, aborted setup.")
         return job_name
 
     def enable_command(self, machine_name, password, bg_flag):
@@ -545,11 +543,14 @@ class CnmConnector:
     def get_job(self, url, post_data):
         "Given an action dictated by URL, get a job_name that we can track"
         out = self.service_yaml_request(url, post_data=post_data)
+        job_name = out.get("job_name")
+        if job_name == ABORTED_JOB_NAME:
+            msg = "Missing required .tar.gz files in <server_home>/dist."
+            raise CommandError(msg)
         if "traceback" in out:
             raise MachineTraceback(url, out["traceback"])
         if out.get("command_status") != OK:
             raise MachineUnavailableException(out.get("command_output",""))
-        job_name = out.get("job_name")
         return job_name
 
     def join_job(self, job_name):

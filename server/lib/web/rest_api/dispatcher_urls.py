@@ -197,7 +197,9 @@ class MachineStartSetupEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             init_job_name = dispatcher.setup_machine(request.user.username, machine_name, password)
             if init_job_name == ABORTED_JOB_NAME:
-                output = {"command_status": FAIL}
+                output = {"command_status": FAIL,
+                          "job_name": ABORTED_JOB_NAME,
+                          "command output": "Could not find dist files for setup."}
             else:
                 output = dispatcher.get_job_status(init_job_name)
         except Exception, x:
