@@ -13,7 +13,7 @@ LOGS_TO_KEEP  = 5
 LOG_MAX_SIZE  = 1000000
 
 HEADER_TEXT   = \
-"""Bombardier-%s, Copyright (C) 2005-2010 Peter Bankaet. al \n
+"""Bombardier-%s, Copyright (C) 2005-2010 Peter Banka et. al \n
 Bombardier comes with ABSOLUTELY NO WARRANTY; This is free software,
 and you are welcome to redistribute it under the terms of the Simplified
 BSD License. License terms can be found here: 
@@ -36,6 +36,11 @@ RETURN_DICT = {OK: 'OK', FAIL: 'FAIL', REBOOT: 'REBOOT'}
 STRING_TO_RETURN_VALUE_MAPPING = {}
 for item in RETURN_DICT:
     STRING_TO_RETURN_VALUE_MAPPING[RETURN_DICT[item]] = item
+
+# TYPES OF MACHINES BOMBARDIER CAN COMMUNICATE WITH
+
+LOCAL_TYPE = 1
+BDR_CLIENT_TYPE = 2
 
 # TYPES OF LOG MESSAGES FROM CLIENT TO SERVER
 

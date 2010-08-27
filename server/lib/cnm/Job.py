@@ -4,6 +4,7 @@ run a build on the CNM server itself"""
 
 import ServerLogMixin
 from bombardier_core.static_data import OK, FAIL
+
 from threading import Thread
 import time
 import StringIO, traceback
@@ -11,12 +12,13 @@ import StringIO, traceback
 class Job(Thread, ServerLogMixin.ServerLogMixin):
     """Job class: Runs remote commands or copies files to a remote machine.
      Watches status of job"""
-    def __init__(self, username, machine_name, job_id):
+    def __init__(self, username, machine_name, machine_type, job_id):
         Thread.__init__(self)
         ServerLogMixin.ServerLogMixin.__init__(self)
         self.name = "%s@%s-%d" % (username, machine_name, job_id)
         self.username = username
         self.machine_name = machine_name
+        self.machine_type = machine_type
         self.copy_dict = {}
         self.commands = []
         self.require_status = True

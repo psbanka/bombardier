@@ -29,6 +29,13 @@ class InvalidAction(Exception):
     def __str__(self):
         return self.__repr__()
 
+class InvalidMachineType(ExceptionBase):
+    def __init__(self, machine_type):
+        ExceptionBase.__init__(self)
+        self.machine_type = machine_type
+    def __repr__(self):
+        return "Invalid machine type: %s" % self.machine_type
+
 class QueuedJob(ExceptionBase):
     def __init__(self, job_name):
         ExceptionBase.__init__(self)

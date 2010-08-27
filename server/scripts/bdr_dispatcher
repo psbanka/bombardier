@@ -178,20 +178,35 @@ class Daemonizer:
                 trace_exit(1)
             daemon.requestLoop()
 
-    def start_django(self):
+    def start_django(self, listen_address):
         "Start the mini development web server"
         pid = str(os.getpid())
         open(WEB_SERVER_PID_FILE, 'w').write( "%s\n" % pid )
         admin_media_path = '/var/www'
-        server_address = ("127.0.0.1", 8000)
+        if not listen_address:
+            server_address = ("127.0.0.1", 8000)
+        else:
+            ip_address = listen_address.split(':')[0]
+            port = 8000
+            if ":" in listen_address:
+                port = int(listen_address.split(':')[1])
+            server_address = (ip_address, port)
 
         wsgi_handler = AdminMediaHandler(WSGIHandler(), admin_media_path)
         httpd = WSGIServer(server_address, BDRRequestHandler)
         httpd.set_app(wsgi_handler)
         httpd.serve_forever()
 
-    def daemonize(self):
+    def start(self, listen_address):
         "Create a deamon process from Dispatcher"
+
+        if os.path.isfile(DISPATCHER_PID_FILE):
+            print "Cannot start dispatcher (%s) already exists" % DISPATCHER_PID_FILE
+            trace_exit(1)
+        if os.path.isfile(WEB_SERVER_PID_FILE):
+            print "Cannot start web server (%s) already exists" % WEB_SERVER_PID_FILE
+            trace_exit(1)
+
         os.chdir(self.server_home)
         yaml_file = os.path.join(self.server_home, INFO_FILE)
         os.environ["PYRO_STORAGE"] = self.server_home
@@ -211,7 +226,7 @@ class Daemonizer:
                 except OSError, err:
                     raise Exception, "%s [%d]" % (err.strerror, err.errno)
                 if (pid == 0):
-                    self.start_django()
+                    self.start_django(listen_address)
                 
                 self.yaml_and_pidfile_or_die()
                 return OK
@@ -292,6 +307,8 @@ def main():
     parser.add_option("-x", "--external", dest="external_web_server",
                       action="store_const", const=True,
                       help="Use an external web server")
+    parser.add_option("-l", "--listen", dest="listen_address",
+                      help="Set the listening address for web service")
 
     (options, actions) = parser.parse_args()
     server_home = None
@@ -324,7 +341,8 @@ def main():
         parser.print_help()
         trace_exit(1)
 
-    if action == "start":
+    decryption_key = ''
+    if action in ["start", "restart"]:
         key_file = os.path.join(server_home, "admin",
                                 "encryption_validation.yml")
         if os.path.isfile(key_file):
@@ -336,11 +354,17 @@ def main():
         else:
             msg = "%s does not exist. Run 'bdr_admin passwd' to enable."
             print(msg % key_file)
-        daemonizer = Daemonizer(server_home, decryption_key, external_web_server)
-        status = daemonizer.daemonize()
-        trace_exit(status)
+
+    daemonizer = Daemonizer(server_home, decryption_key, external_web_server)
+
+    if action == "restart":
+        status = daemonizer.stop()
+        if status != OK:
+            trace_exit(status)
+
+    if action in [ "start", "restart" ]:
+        trace_exit(daemonizer.start(options.listen_address))
     elif action == "stop":
-        daemonizer = Daemonizer(server_home, '', external_web_server)
         trace_exit(daemonizer.stop())
     else:
         usage(action, parser)

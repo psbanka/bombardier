@@ -48,6 +48,7 @@ USER = 6
 DIST = 7
 STATUS = 8
 SUMMARY = 9
+VMHOST = 10
 
 DEFAULT_MACHINE = """ip_address: 127.0.0.1
 default_user: root
@@ -113,6 +114,8 @@ class ConfigField(PinshCmd.PinshCmd):
             self.directory = "status"
         elif data_type == SUMMARY:
             self.directory = "summary"
+        elif data_type == VMHOST:
+            self.directory = "vmhost"
         self.new = new
 
     def get_help_text(self, command_line):

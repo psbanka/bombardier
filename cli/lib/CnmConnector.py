@@ -42,6 +42,8 @@ import re
 import urllib
 import tempfile
 from bombardier_core.static_data import OK, FAIL, ABORTED_JOB_NAME
+from bombardier_core.static_data import BDR_CLIENT_TYPE
+
 from Exceptions import UnexpectedDataException, ServerException
 from Exceptions import MachineTraceback, ServerTracebackException
 from Exceptions import MachineUnavailableException, CommandError
@@ -403,7 +405,9 @@ class CnmConnector:
 
     def enable_command(self, machine_name, password, bg_flag):
         "Transfer ssh keys"
-        post_data = {"yaml": yaml.dump( {"password" : password } )}
+        post_data = {"yaml": yaml.dump( {"password" : password,
+                                         "machine_type": BDR_CLIENT_TYPE }
+                                      )}
         return self.machine_job(machine_name, "enable", bg_flag, post_data)
 
     def dist_command(self, machine_name, dist_name, bg_flag):
@@ -429,6 +433,9 @@ class CnmConnector:
         if bg_flag:
             return OK, ["Started job: %s" % job_name]
         return self.watch_jobs([job_name])
+
+    def show_snapshots(self, machine_name):
+        return OK, []
 
     def push_machine_config(self, machine_name, bg_flag):
         "Push the configuration to a remote machine"

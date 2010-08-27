@@ -38,6 +38,7 @@ import tempfile, os
 import PinshCmd
 import ConfigField
 from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import BDR_CLIENT_TYPE
 from bombardier_core import mini_utility
 from SystemStateSingleton import SystemState, ENABLE
 from PackageField import PackageField, FIX, PURGE, NOT_INSTALLED, INSTALLED
@@ -91,6 +92,29 @@ def edit_config_file(conf_str, config_field, object_name):
     else:
         msg = "Discarded changes. Edits can be found here: %s" % file_name
         return OK, [msg]
+
+class SnapshotCommand(PinshCmd.PinshCmd):
+    "Handles all 'machine <machine_name> snapshot x' operations"
+    def __init__(self):
+        "Set up the command"
+        PinshCmd.PinshCmd.__init__(self, "snapshot")
+        self.help_text = "manage snapshots on the machine"
+        self.cmd_owner = 1
+        self.auth = ENABLE
+        show = PinshCmd.PinshCmd("show", "show snapshot information")
+        self.children = [show]
+
+    def cmd(self, command_line):
+        """
+        command_line -- all of the keywords passed in the command string, parsed
+        """
+        machine_name = check_machine_name(command_line)
+
+        if len(command_line) != 2:
+            msg = "Incomplete command."
+            raise CommandError(msg)
+
+        return system_state.cnm_connector.show_snapshots(machine_name)
 
 class AssignCommand(PinshCmd.PinshCmd):
     "Handles all 'machine <machine> assign x' operations"
@@ -344,6 +368,7 @@ class Machine(PinshCmd.PinshCmd):
         check_status.help_text = "review the current state of the system"
         show = ShowCommand()
         assign = AssignCommand()
+        snapshot = SnapshotCommand()
         install = PinshCmd.PinshCmd("install", "install a package")
         uninstall = PinshCmd.PinshCmd("uninstall", "remove a package")
         configure = PinshCmd.PinshCmd("configure", "configure a package")
@@ -445,14 +470,16 @@ class Machine(PinshCmd.PinshCmd):
                     return cnm.enable_command(machine_name, password, bg_flag)
                 else:
                     return cnm.setup_command(machine_name, password, bg_flag)
+            elif command == [ "disable" ]:
+                post_data = {"yaml": yaml.dump( {"machine_type": BDR_CLIENT_TYPE })}
+                return cnm.machine_job(machine_name, "disable", bg_flag, post_data)
             elif command == "dist":
                 if len(command_line) <= 3:
                     msg = "Incomplete command; requires a dist file name."
                     raise CommandError(msg)
                 dist_name = command_line[-1]
                 return cnm.dist_command(machine_name, dist_name, bg_flag)
-            elif command in ['test', 'init', 'reconcile',
-                             'check-status', 'disable']:
+            elif command in ['test', 'init', 'reconcile', 'check-status']:
                 return cnm.machine_job(machine_name, command, bg_flag)
             else:
                 raise CommandError("%s is not a valid command" % command)

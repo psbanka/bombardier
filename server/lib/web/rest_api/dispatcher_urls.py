@@ -70,6 +70,7 @@ class PackageActionEntry(CnmResource):
         return responder.element(request)
 
 class MachineEnableEntry(CnmResource):
+# FIXME: need to pass machine_type
     "MachineEnableEntry is used to share ssh keys to a machine"
     @login_required
     def create(self, request, machine_name):
@@ -80,8 +81,13 @@ class MachineEnableEntry(CnmResource):
             password = post_dict.get('password')
             if not password:
                 raise InvalidInput("Password needed")
+            machine_type = post_dict.get('machine_type')
+            if not machine_type:
+                raise InvalidInput("Machine type needed")
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.enable_job(request.user.username, machine_name, password)
+            job_name = dispatcher.enable_job(request.user.username,
+                                             machine_name, machine_type,
+                                             password)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -90,14 +96,20 @@ class MachineEnableEntry(CnmResource):
         return responder.element(request)
 
 class MachineDisableEntry(CnmResource):
+# FIXME: Need to pass yaml
     "MachineDisableEntry is remove ssh keys from a machine"
     @login_required
     def create(self, request, machine_name):
         "Dispatch key removal"
         output = {"command_status": OK}
         try:
+            post_dict = yaml.load(request.POST.get("yaml"))
+            machine_type = post_dict.get('machine_type')
+            if not machine_type:
+                raise InvalidInput("Machine type needed")
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.disable_job(request.user.username, machine_name)
+            job_name = dispatcher.disable_job(request.user.username,
+                                              machine_name, machine_type)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
