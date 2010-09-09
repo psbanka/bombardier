@@ -50,6 +50,10 @@ STATUS = 8
 SUMMARY = 9
 VMHOST = 10
 
+NAME_LOOKUP = {MACHINE: "machine", INCLUDE: "include", BOM: "bom", PACKAGE: "package",
+               USER: "user", VMHOST: "vmhost",
+              }
+
 DEFAULT_MACHINE = """ip_address: 127.0.0.1
 default_user: root
 platform: rhel5

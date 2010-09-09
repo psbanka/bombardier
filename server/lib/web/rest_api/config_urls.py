@@ -9,6 +9,7 @@ from django.shortcuts import render_to_response
 from CnmResource import CnmResource
 from configs.models import ServerConfig
 from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import LOCAL_TYPE, BDR_CLIENT_TYPE
 import os, glob
 from bombardier_server.cnm.MachineStatus import MachineStatus
 from django.contrib.auth.decorators import login_required
@@ -101,8 +102,12 @@ class SummaryEntry(CnmResource):
     @login_required
     def read(self, request, machine_name):
         "Digest useful information from the status of the server"
-        dispatcher = self.get_dispatcher()
-        output = dispatcher.get_machine_status(machine_name)
+        output = {"command_status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            output = dispatcher.get_machine_status(machine_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
         return responder.element(request)
 
@@ -133,7 +138,7 @@ class MergedEntry(CnmResource):
         try:
             username = request.user.username
             dispatcher = self.get_dispatcher()
-            machine_config = dispatcher.get_machine_config(username, machine_name)
+            machine_config = dispatcher.get_machine_config(username, machine_name, BDR_CLIENT_TYPE)
             machine_config.merge()
             responder = JsonDictResponder(machine_config.data)
         except Exception, x:

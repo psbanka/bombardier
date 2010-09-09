@@ -7,6 +7,8 @@ from bombardier_server.cnm.Exceptions import InvalidInput, InvalidDispatcherActi
 from bombardier_server.cnm.Exceptions import DispatcherAlreadyStarted, DispatcherOffline
 from bombardier_server.cnm.Exceptions import CnmServerException
 from bombardier_core.static_data import OK, FAIL, ABORTED_JOB_NAME
+from bombardier_core.static_data import LOCAL_TYPE, BDR_CLIENT_TYPE
+
 import os, yaml
 from configs.models import Comment, CommentedJob
 
@@ -279,7 +281,8 @@ class MachineStartTestEntry(CnmResource):
         try:
             dispatcher = self.get_dispatcher()
             data = dispatcher.check_status()
-            job_name = dispatcher.test_job(request.user.username, machine_name)
+            job_name = dispatcher.test_job(request.user.username,
+                        machine_name, BDR_CLIENT_TYPE)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -295,6 +298,7 @@ class MachineCleanupEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
+            # FIXME: HOW CAN THIS WORK? NO METHOD WITH THIS NAME.
             output = dispatcher.cleanup_connections(request.user.username)
         except DispatcherOffline:
             output = {}

@@ -2,6 +2,7 @@
 
 from bombardier_core.Progress import Progress
 from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import BDR_CLIENT_TYPE
 import yaml, os
 from MachineConfig import MachineConfig
 from Exceptions import MachineStatusException, MachineConfigurationException
@@ -108,7 +109,7 @@ class MachineStatus:
         return package_data
 
     def get_package_names_from_bom(self):
-        machine_config = MachineConfig(self.machine_name, '', self.server_home)
+        machine_config = MachineConfig(self.machine_name, '', self.server_home, BDR_CLIENT_TYPE)
         status = machine_config.merge()
         if status == FAIL:
             print " %% Bad config file for %s." % self.machine_name

@@ -185,7 +185,7 @@ class BasicTest:
             print ''.join(content_dict["traceback"])
             print "============================================="
             
-        assert not "traceback" in content_dict
+        assert not "traceback" in content_dict, content_dict
 
     def run_job(self, url, data={}, timeout=6, verbose=False, require_comment=None):
         username = self.super_user.username
@@ -888,7 +888,8 @@ def initialize_tests(client):
     url = '/json/server/config'
     response = client.post(url, data={"server_home": test_server_home})
 
-    cmd = "%s -s %s -d %s -x start" % (DISPATCHER_CONTROL_CMD, test_server_home, CONFIG_PASSWORD)
+    cmd = "%s -s %s -p %s -x -d %s -i start" % (DISPATCHER_CONTROL_CMD, test_server_home, test_server_home, CONFIG_PASSWORD)
+    print "Running test dispatcher: %s" % cmd
     os.system(cmd)
 
     create_test_package_yaml(test_server_home)
@@ -900,7 +901,8 @@ def initialize_tests(client):
 def tear_down_dispatcher(client):
     cwd = os.getcwd()
     test_server_home = os.path.join(cwd, 'configs', 'fixtures')
-    cmd = "%s -s %s -x stop" % (DISPATCHER_CONTROL_CMD, test_server_home)
+    cmd = "%s -s %s -p %s -x stop" % (DISPATCHER_CONTROL_CMD, test_server_home, test_server_home)
+    print "Stopping test dispatcher: %s" % cmd
     os.system(cmd)
     revert_configs()
 
@@ -923,8 +925,8 @@ if __name__ == '__main__':
 #        suite.addTest(CnmTests("test_get_machine"))
 #        suite.addTest(CnmTests("test_get_dist"))
 #        suite.addTest(CnmTests("test_search"))
-#        suite.addTest(CnmTests("test_make_machine"))
-#        suite.addTest(CnmTests("test_summary"))
+#        suite.addTest(CnmTests("test_merged"))
+#       suite.addTest(CnmTests("test_summary"))
 #        suite.addTest(CnmTests("test_user"))
 #        suite.addTest(DispatcherTests("test_dist_update_for_commenting"))
 #        suite.addTest(DispatcherTests("test_push_config"))

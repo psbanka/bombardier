@@ -50,6 +50,11 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         self.server_log.info("Setting server home: %s" % server_home, username)
         self.server_home = server_home
 
+    def get_machine_config(self, username, machine_name, machine_type):
+        machine_config = MachineConfig(machine_name, self.password,
+                                       self.server_home, machine_type)
+        return machine_config
+
     def get_machine_interface(self, username, machine_name, machine_type):
         "Returns an interface to a machine, creating a new one if needed"
         machine_config = MachineConfig(machine_name, self.password,

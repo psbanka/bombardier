@@ -23,6 +23,8 @@ class MachineConfig:
         self.machine_name = machine_name
         self.password     = password
         self.server_home  = server_home
+        if machine_type not in [LOCAL_TYPE, BDR_CLIENT_TYPE]:
+            raise InvalidMachineType(machine_type)
         self.machine_type = machine_type
 
     def __getitem__(self, key):
