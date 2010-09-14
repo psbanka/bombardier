@@ -550,15 +550,18 @@ class ForwardPluggableFileProcessor:
 
     def create_manifest(self):
         old_md5_data = get_manifest_data(self.file_name)
-        md5_data = self.dump_md5_sums()
-        md5_data.update(old_md5_data)
-        yaml_string = yaml.dump(md5_data)
+        md5_dict = self.dump_md5_sums()
+        md5_dict.update(old_md5_data)
+        yaml_string = yaml.dump(md5_dict)
         manifest_path = os.path.join(get_base_path(self.file_name), MANIFEST_FILE)
         open(manifest_path, 'w').write(yaml_string)
+        return md5_dict
 
     def process_all(self, priority=0):
         process_all(self.reader, self.processors, self.writer, priority)
         self.create_manifest()
+        md5_dict = self.dump_md5_sums()
+        return md5_dict
 
 class ReversePluggableFileProcessor:
     """For performing 'reverse' operations to undo the operations in

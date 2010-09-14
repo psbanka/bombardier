@@ -244,7 +244,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
             script_name = action_string
             action_string = "execute"
         if package_name:
-            if action_string == "check_status" or action_string == "reconcile":
+            if action_string in ["check_status", "reconcile"]:
                 script_name = action_string
                 action_string = "execute"
         try:

@@ -79,12 +79,16 @@ PURGE            = 13
 CHECK_STATUS     = 14
 DRY_RUN          = 15
 INIT             = 16
+#BACKUP           = 17
+#RESTORE          = 18
 
 ACTION_LOOKUP = {'uninstall': UNINSTALL, 'configure': CONFIGURE, 
                  'install': INSTALL, 'verify': VERIFY, 
                  'reconcile': RECONCILE, 'check_status': CHECK_STATUS, 
                  'execute': EXECUTE, 'fix': FIX, 'purge': PURGE,
-                 'dry_run': DRY_RUN, "init": INIT } 
+                 'dry_run': DRY_RUN, "init": INIT, 
+                }
+                 #'backup': BACKUP, 'restore': RESTORE } 
 
 ACTION_REVERSE_LOOKUP = {}
 for action in ACTION_LOOKUP:
@@ -93,7 +97,9 @@ for action in ACTION_LOOKUP:
 ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i',
                VERIFY: '-v', RECONCILE: '-r', CHECK_STATUS: '-s',
                EXECUTE: '-x', FIX: '-f', PURGE: '-p',
-               DRY_RUN: '-d', INIT: '-n'}
+               DRY_RUN: '-d', INIT: '-n',
+              }
+# BACKUP: '-x', RESTORE: '-x'}
 
 # ENCRYPTION STUFF
 

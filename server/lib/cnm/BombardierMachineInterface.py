@@ -286,7 +286,6 @@ class BombardierMachineInterface(MachineInterface):
 
         for dir_name in [ "libs", "injectors" ]:
             sync_section = package_data.get(dir_name, [])
-            self.server_log.info("SYNC SECTION: %s" % sync_section)
             for sync_item in sync_section:
                 sync_data = sync_section[sync_item]
                 sync_file = sync_data.get("path")

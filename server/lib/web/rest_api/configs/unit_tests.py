@@ -250,7 +250,7 @@ class BasicTest:
         response = self.client.post(path=url, data={})
         if verbose:
             print "FINAL OUTPUT: %s" % join_output
-        return join_output["command_status"], join_output["complete_log"]
+        return join_output["command_status"], join_output["complete_log"], join_output.get("command_output")
 
     def make_localhost_config(self, additional_config={}):
         config = {"ip_address": "127.0.0.1",
@@ -293,7 +293,7 @@ class CnmTests(unittest.TestCase, BasicTest):
                                     "fo"  : ["foo"],
                                     "swe" : [] },
                        "dist": { "": ["test", client_dist, core_dist]  }, 
-                       "package": { "": ["TestPackageType5", "TestPackageType4", "TestPackageBuild"]  } }
+                       "package": { "": ["TestPackageType5", "TestPackageType4", "TestPackageBuild", "TestT5Backup"]  } }
         for section in test_dict:
             for search_term in test_dict[section]:
                 expected = test_dict[section][search_term]
@@ -473,12 +473,12 @@ class DispatcherTests(unittest.TestCase, BasicTest):
 
     def test_push_config(self):
         url = '/json/machine/push/localhost'
-        status, output = self.run_job(url)
+        status, output, cmd_output = self.run_job(url)
         assert status == OK
         config_file = os.path.join(self.test_machine_home, "localhost" , "config.yml")
         assert os.path.isfile(config_file)
         url = '/json/machine/unpush/localhost'
-        status, output = self.run_job(url)
+        status, output, cmd_output = self.run_job(url)
         assert status == OK
         assert os.path.isfile(config_file) == False
 
@@ -501,12 +501,12 @@ class DispatcherTests(unittest.TestCase, BasicTest):
 
     def test_run_check_job(self):
         url = '/json/machine/start_test/localhost'
-        status, output = self.run_job(url)
+        status, output, cmd_output = self.run_job(url)
         assert "1" in output, output
 
     def test_dist_update(self):
         url = '/json/machine/dist/localhost'
-        status, output = self.run_job(url, data={"dist": "test"}, timeout=60)
+        status, output, cmd_output = self.run_job(url, data={"dist": "test"}, timeout=60)
         assert status == OK
         assert "EMPTY_TEST-1.egg-info" in output, output
 
@@ -581,13 +581,13 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         url = '/json/machine/dist/localhost'
         client_dist = "bombardier_client-%s" % CLIENT_VERSION
         core_dist = "bombardier_core-%s" % CORE_VERSION
-        status, output = self.run_job(url, data={"dist": core_dist}, timeout=60, verbose=False)
+        status, output, cmd_output = self.run_job(url, data={"dist": core_dist}, timeout=60, verbose=False)
         assert core_dist in output, output
-        status, output = self.run_job(url, data={"dist": client_dist}, timeout=60, verbose=False)
+        status, output, cmd_output = self.run_job(url, data={"dist": client_dist}, timeout=60, verbose=False)
         assert client_dist in output, output
 
         url = '/json/machine/init/localhost'
-        status,output = self.run_job(url, data={}, timeout=60)
+        status,output, cmd_output = self.run_job(url, data={}, timeout=60)
         assert status == OK
 
     def acknowledge_everything(self):
@@ -609,7 +609,7 @@ class DispatcherTests(unittest.TestCase, BasicTest):
         self.acknowledge_everything()
 
         url = '/json/machine/dist/localhost'
-        status, output = self.run_job(url, data={"dist": "test"}, timeout=60, require_comment=True)
+        status, output, cmd_output = self.run_job(url, data={"dist": "test"}, timeout=60, require_comment=True)
         assert status == OK
 
         url = '/json/job/comment/pending/'
@@ -660,7 +660,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         BasicTest.setUp(self)
         self.make_localhost_config()
 
-    def package_action(self, action, package_name):
+    def package_action(self, action, package_name, verbose=False):
         url = '/json/package_action/%s' % package_name
         package_config = {"test": {"value":"nowisthetimeforalldooment",
                                    "directory": "/tmp/foogazi"},
@@ -668,16 +668,16 @@ class PackageTests(unittest.TestCase, BasicTest):
                          }
         self.make_localhost_config(additional_config=package_config)
         post_data={"machine": "localhost", "action": action}
-        status, output = self.run_job(url, data=post_data, timeout=60)
-        return status, output
+        status, output, cmd_output = self.run_job(url, data=post_data, timeout=60, verbose=verbose)
+        return status, output, cmd_output
 
     def reset_packages(self):
         status_dict = {"clientVersion": CLIENT_VERSION,
                        "coreVersion": CORE_VERSION,
                        "install-progress": {},
-                        "local-packages": [],
-                        "status": {"newInstall": 'True'},
-                        "timestamp": 1250868198.8639009,
+                       "local-packages": [],
+                       "status": {"newInstall": 'True'},
+                       "timestamp": 1250868198.8639009,
                       }
         os.system("rm -rf %s/localhost/packages/*" % self.test_machine_home)
         os.system("rm -rf %s/repos/libs/*" % self.test_machine_home)
@@ -687,22 +687,44 @@ class PackageTests(unittest.TestCase, BasicTest):
     def test_package_error(self):
         self.reset_packages()
         package_name = "TestPackageType4"
-        status, output = self.package_action("configure", package_name)
+        status, output, cmd_output = self.package_action("configure", package_name)
         assert status == FAIL
-        status, output = self.package_action("verify", package_name)
+        status, output, cmd_output = self.package_action("verify", package_name)
         assert status == FAIL
-        status, output = self.package_action("uninstall", package_name)
+        status, output, cmd_output = self.package_action("uninstall", package_name)
         assert status == FAIL
 
     def test_type5_package_actions(self):
         self.reset_packages()
         package_name = "TestPackageType5"
-        status, output = self.package_action("install", package_name)
+        status, output, cmd_output = self.package_action("install", package_name)
         assert status == OK
         url = '/json/status/name/localhost'
         status_data = self.get_content_dict(url)
         progress_data = status_data["install-progress"]["TestPackageType5-23"]
         assert "INSTALLED" in progress_data
+
+    def test_type5_backup(self):
+        self.reset_packages()
+        package_name = "TestT5Backup"
+        status, output, cmd_output = self.package_action("install", package_name)
+        assert status == OK
+        url = '/json/status/name/localhost'
+        status_data = self.get_content_dict(url)
+        progress_data = status_data["install-progress"]["TestT5Backup-1"]
+        assert "INSTALLED" in progress_data
+        status, output, cmd_output = self.package_action("backup", package_name)
+        expected_keys = set(["size", "elapsed_time", "start_time", "status", "file_name", "md5"])
+        assert type(cmd_output) == type({}), cmd_output
+        received_keys = set(cmd_output["main_file"].keys())
+        assert expected_keys == received_keys, received_keys
+        backup_dir = cmd_output.get("__BACKUP_DIR__")
+        assert os.path.isdir(backup_dir)
+        backup_file = os.path.join(backup_dir, "main_file", "hosts.bz2")
+        assert os.path.isfile(backup_file)
+        assert os.system("bunzip2 %s" % backup_file) == OK
+        assert os.system("diff /etc/hosts %s" % os.path.join(backup_dir, "main_file", "hosts")) == OK
+        os.system("rm -rf %s" % backup_dir)
 
     def _get_file_names(self, file_dict, file_names):
         for name in file_dict:
@@ -737,7 +759,7 @@ class PackageTests(unittest.TestCase, BasicTest):
                      "svn_password": "",
                      "debug": False, "prepare": True
                     }
-        status, output = self.run_job(url, data=post_data, timeout=60)
+        status, output, cmd_output = self.run_job(url, data=post_data, timeout=60)
         assert status == OK
         updated_release = self._get_release(BUILD_PACKAGE_NAME)
         assert updated_release == current_release + 1, "%s, %s" % (updated_release, current_release)
@@ -745,24 +767,24 @@ class PackageTests(unittest.TestCase, BasicTest):
     def test_package_actions(self):
         self.reset_packages()
         package_name = "TestPackageType4"
-        status, output = self.package_action("install", package_name)
+        status, output, cmd_output = self.package_action("install", package_name)
         assert status == OK
         url = '/json/status/name/localhost'
         status_data = self.get_content_dict(url)
         progress_data = status_data["install-progress"]["TestPackageType4-7"]
         assert "INSTALLED" in progress_data
 
-        status, output = self.package_action("configure", package_name)
+        status, output, cmd_output = self.package_action("configure", package_name)
         assert status == OK
-        status, output = self.package_action("verify", package_name)
+        status, output, cmd_output = self.package_action("verify", package_name)
         assert status == OK
-        status, output = self.package_action("install", package_name)
+        status, output, cmd_output = self.package_action("install", package_name)
         assert status == OK # bc shines us on
-        status, output = self.package_action("uninstall", package_name)
+        status, output, cmd_output = self.package_action("uninstall", package_name)
         assert status == OK
-        status, output = self.package_action("fix", package_name)
+        status, output, cmd_output = self.package_action("fix", package_name)
         assert status == OK
-        status, output = self.package_action("purge", package_name+"-7")
+        status, output, cmd_output = self.package_action("purge", package_name+"-7")
         assert status == OK
 
     def test_package_global(self):
@@ -774,10 +796,10 @@ class PackageTests(unittest.TestCase, BasicTest):
         self.make_localhost_config(additional_config=package_config)
 
         url = '/json/machine/status/localhost'
-        status, output = self.run_job(url, data={}, timeout=60)
+        status, output, cmd_output = self.run_job(url, data={}, timeout=60)
         assert status == OK
         url = '/json/machine/reconcile/localhost'
-        status, output = self.run_job(url, data={}, timeout=60)
+        status, output, cmd_output = self.run_job(url, data={}, timeout=60)
         assert status == OK
 
         package_config = {"test": {"value":"nowisthetimeforalldooment",
@@ -786,7 +808,7 @@ class PackageTests(unittest.TestCase, BasicTest):
                          }
         self.make_localhost_config(additional_config=package_config)
 
-        status, output = self.run_job(url, data={}, timeout=60)
+        status, output, cmd_output = self.run_job(url, data={}, timeout=60)
         assert status == OK
         return output
 
@@ -799,7 +821,7 @@ class PackageTests(unittest.TestCase, BasicTest):
 
         self.reset_packages()
         url = '/json/machine/reconcile/localhost'
-        status, output = self.run_job(url, data={}, timeout=60)
+        status, output, cmd_output = self.run_job(url, data={}, timeout=60)
         #print "OUTPUT:",output
         #print "STATUS",status
         assert status == FAIL
@@ -817,7 +839,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         self.reset_packages()
 
         url = '/json/machine/reconcile/localhost'
-        status, output = self.run_job(url, data={}, timeout=60)
+        status, output, cmd_output = self.run_job(url, data={}, timeout=60)
         assert status == OK, output
 
 
@@ -931,10 +953,14 @@ if __name__ == '__main__':
 #        suite.addTest(DispatcherTests("test_dist_update_for_commenting"))
 #        suite.addTest(DispatcherTests("test_push_config"))
 #        suite.addTest(DispatcherTests("test_stop_all_jobs"))
-        suite.addTest(PackageTests("test_encrypted_ci"))
+#        suite.addTest(PackageTests("test_encrypted_ci"))
 #        suite.addTest(PackageTests("test_insufficient_config"))
 #        suite.addTest(PackageTests("test_package_error"))
 #        suite.addTest(PackageTests("test_type5_package_actions"))
+#        suite.addTest(PackageTests("test_package_build"))
+#        suite.addTest(PackageTests("test_package_error"))
+#        suite.addTest(PackageTests("test_package_global"))
+        suite.addTest(PackageTests("test_type5_backup"))
 
 #        suite.addTest(PackageTests("test_package_actions"))
 #        suite.addTest(PackageTests("test_package_build"))

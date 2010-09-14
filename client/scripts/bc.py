@@ -87,6 +87,7 @@ def find_likely_pkn(instance_name, pkn):
         Logger.error( msg )
         exit_with_return_code(FAIL)
     if len(pkns) == 0:
+        Logger.info("HELLO!")
         Logger.error( 'Package not found: %s' %pkn )
         exit_with_return_code(FAIL)
     else:
