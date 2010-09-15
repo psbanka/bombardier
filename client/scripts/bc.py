@@ -33,7 +33,7 @@ from bombardier_client.BombardierClass import Bombardier
 from bombardier_core.mini_utility import get_progress_path, get_spkg_path
 from bombardier_core.static_data import FIX, CHECK_STATUS, CONFIGURE, RECONCILE
 from bombardier_core.static_data import VERIFY, INSTALL, UNINSTALL, PURGE
-from bombardier_core.static_data import DRY_RUN, INIT, EXECUTE
+from bombardier_core.static_data import DRY_RUN, INIT, EXECUTE, BACKUP, RESTORE
 from bombardier_core.static_data import OK, FAIL
 from bombardier_core import CORE_VERSION
 from bombardier_client import CLIENT_VERSION
@@ -87,7 +87,6 @@ def find_likely_pkn(instance_name, pkn):
         Logger.error( msg )
         exit_with_return_code(FAIL)
     if len(pkns) == 0:
-        Logger.info("HELLO!")
         Logger.error( 'Package not found: %s' %pkn )
         exit_with_return_code(FAIL)
     else:
@@ -274,7 +273,7 @@ def process_action(action, instance_name, pkn, method_name,
         instance_setup(instance_name)
         return OK
 
-    if action in [ UNINSTALL, VERIFY, CONFIGURE, EXECUTE ]:
+    if action in [ UNINSTALL, VERIFY, CONFIGURE, EXECUTE, BACKUP ]:
         pkn = find_likely_pkn(instance_name, pkn)
 
     status = FAIL
@@ -293,7 +292,7 @@ def process_action(action, instance_name, pkn, method_name,
         elif action in [ RECONCILE, DRY_RUN ]:
             bc_obj.record_errors = True
             status = bc_obj.reconcile_system(action)
-        else:
+        else: # INSTALL, UNINSTALL, VERIFY, BACKUP, CONFIGURE, EXECUTE
             bc_obj.record_errors = False
             status = bc_obj.use_pkg(pkn, action, method_name)
     except:
@@ -346,6 +345,12 @@ def main():
     parser.add_option("-n", "--init", dest="action",
                       action="store_const", const=INIT,
                       help="Initialize the client after installation")
+    parser.add_option("-B", "--backup", dest="action",
+                      action="store_const", const=BACKUP,
+                      help="Tell a package to back itself up")
+    parser.add_option("-R", "--restore", dest="action",
+                      action="store_const", const=RESTORE,
+                      help="Tell a package to restore itself")
 
     (options, args) = parser.parse_args()
     if len(args) < 1:
@@ -370,6 +375,10 @@ def main():
             parser.print_help()
             exit_with_return_code( 1 )
         pkns = args[1:]
+        if options.action == BACKUP:
+            pkns = [args[1]]
+            method_name = "backup"
+
         if options.action == EXECUTE:
             if len(args) != 3:
                 print "CMD: %s" % ' '.join(sys.argv)

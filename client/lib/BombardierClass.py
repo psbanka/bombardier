@@ -51,6 +51,7 @@ from bombardier_core.static_data import OK, FAIL, HASH_FILE
 from bombardier_core.static_data import UNINSTALL, DRY_RUN, VERIFY
 from bombardier_core.static_data import INSTALL, CONFIGURE
 from bombardier_core.static_data import EXECUTE, ACTION_REVERSE_LOOKUP
+from bombardier_core.static_data import BACKUP, RESTORE
 
 MAX_CHAIN_DEPTH = 50
 
@@ -787,7 +788,7 @@ class Bombardier:
                 msg = "Writing configuration fingerprint to %s" % hash_path
                 Logger.info(msg)
                 self.config.save_hash(hash_path)
-            if action == EXECUTE:
+            if action in [EXECUTE, BACKUP]:
                 status = pkg.execute_maint_script(script_name)
                 if status == FAIL:
                     self.operation_status = FAIL

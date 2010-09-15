@@ -99,7 +99,8 @@ def revert_configs():
         client_conf["spkg_path"] = client_conf["old_spkg_path"]
         del client_conf["old_spkg_path"]
         open(CLIENT_CONFIG_FILE, 'w').write(yaml.dump(client_conf))
-    os.system("rm -rf test_spkg")
+    #os.system("rm -rf test_spkg")
+    print "rm -rf test_spkg"
         
 class BasicTest:
     def setUp(self):
