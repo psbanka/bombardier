@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 "Provides a standard superclass for all Bombardier packages"
 
-import re, os, yaml, stat, time, tempfile
-from mini_utility import get_spkg_path, rpartition
+import re, os, yaml
+from mini_utility import get_spkg_path
 import sys, inspect
 from static_data import OK, FAIL
 from Logger import Logger
 from Config import Config
-from PluggableFileProcessor import COMPRESS, SPLIT, ENCRYPT
-from PluggableFileProcessor import ForwardPluggableFileProcessor
 
 def double_escape(old_string):
     'sometimes stuff needs this for certain reasons.'
@@ -117,43 +115,6 @@ class SpkgV5:
         open(os.path.join(output_path, output_file), 'w').write(yaml_string)
         for line in yaml_string.split('\n'):
             Logger.info("==REPORT==:%s" % line)
-
-    def _backup(self, target_dict, options=[COMPRESS]):
-        "Perform basic backup functions"
-        backup_dir = tempfile.mkdtemp()
-        for target in target_dict:
-            target_dir = os.path.join(backup_dir, target)
-            os.system("mkdir -p %s" % target_dir)
-            start_time = time.time()
-            target_dict[target]["start_time"] = start_time
-            file_name = target_dict[target]["file_name"]
-            fpf = ForwardPluggableFileProcessor(file_name, options, Logger)
-            elapsed_time = time.time() - start_time
-            target_dict[target]["elapsed_time"] = elapsed_time
-            md5_dict = fpf.process_all()
-            target_dict[target]["md5"] = md5_dict
-            size = os.stat(file_name)[stat.ST_SIZE]
-            target_dict[target]["size"] = size
-            directory, _dummy, base_file = rpartition(file_name, '/')
-            files = md5_dict.keys()
-            files.remove(base_file)
-            if len(files) != 1:
-                target_dict[target]["status"] = FAIL
-            else:
-                backup_file = os.path.join(directory, files[0])
-                cmd = "mv %s %s" % (backup_file, target_dir)
-                Logger.info("CMD: %s" % cmd)
-                status = os.system(cmd)
-                if status == OK:
-                    target_dict[target]["status"] = OK
-                else:
-                    target_dict[target]["status"] = FAIL
-
-        target_dict["__BACKUP_DIR__"] = backup_dir
-        yaml_string = yaml.dump(target_dict)
-        for line in yaml_string.split('\n'):
-            Logger.info("==REPORT==:%s" % line)
-        return OK
 
     def _check_status(self, status, err_msg="FAILED"):
         'small convenience function'

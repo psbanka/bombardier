@@ -30,17 +30,25 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import os, time
+import yaml
+import os, time, stat
+import tempfile
 import StringIO, traceback
 
 import MetaData
 from bombardier_core.mini_utility import get_package_path, get_spkg_path
+from bombardier_core.mini_utility import rpartition
 from bombardier_core.Progress import Progress
 
 from Exceptions import BadPackage, FeatureRemovedException
 from bombardier_core.Logger import Logger
 from bombardier_core.static_data import OK, FAIL
 from bombardier_core.static_data import INSTALL, UNINSTALL, CONFIGURE, VERIFY
+from bombardier_core.static_data import BACKUP
+
+from bombardier_core.PluggableFileProcessor import COMPRESS, SPLIT, ENCRYPT
+from bombardier_core.PluggableFileProcessor import ForwardPluggableFileProcessor
+
 
 AVERAGE = 100
 
@@ -301,6 +309,69 @@ class Package:
         else:
             pdat[self.full_name]['UNINSTALLED'] = "BROKEN"
         return pdat
+
+    def _backup(self, obj, target_dict, future_pkns, dry_run):
+        "Perform basic backup functions for a package"
+
+        pre_backup_cmd = target_dict.get("__pre_backup__")
+        post_backup_cmd = target_dict.get("__post_backup__")
+
+        if pre_backup_cmd:
+            status = self._find_cmd(pre_backup_cmd, future_pkns, dry_run)
+            if status != OK:
+                erstr = "%s: backup FAILED because pre-backup command failed."
+                Logger.error(erstr % self.full_name)
+                return FAIL
+
+        backup_dir = tempfile.mkdtemp()
+        for target in target_dict:
+            if target.startswith("__"):
+                continue
+            if type(target_dict[target]) != type({}):
+                errmsg = "Package %s did not define its backup data correctly."\
+                         " '%s' should be a dictionary."
+                Logger.error(errmsg % (self.full_name, target_dict[target]))
+                return FAIL
+            target_dir = os.path.join(backup_dir, target)
+            os.system("mkdir -p %s" % target_dir)
+            start_time = time.time()
+            target_dict[target]["start_time"] = start_time
+            file_name = target_dict[target]["file_name"]
+            options = target_dict[target].get("options", [COMPRESS])
+            fpf = ForwardPluggableFileProcessor(file_name, options, Logger)
+            elapsed_time = time.time() - start_time
+            target_dict[target]["elapsed_time"] = elapsed_time
+            md5_dict = fpf.process_all()
+            target_dict[target]["md5"] = md5_dict
+            size = os.stat(file_name)[stat.ST_SIZE]
+            target_dict[target]["size"] = size
+            directory, _dummy, base_file = rpartition(file_name, '/')
+            files = md5_dict.keys()
+            files.remove(base_file)
+            if len(files) != 1:
+                target_dict[target]["status"] = FAIL
+            else:
+                backup_file = os.path.join(directory, files[0])
+                cmd = "mv %s %s" % (backup_file, target_dir)
+                Logger.info("CMD: %s" % cmd)
+                status = os.system(cmd)
+                if status == OK:
+                    target_dict[target]["status"] = OK
+                else:
+                    target_dict[target]["status"] = FAIL
+
+        if post_backup_cmd:
+            status = self._find_cmd(post_backup_cmd, future_pkns, dry_run)
+            if status != OK:
+                erstr = "%s: backup FAILED because post-backup command failed."
+                Logger.error(erstr % self.full_name)
+                return FAIL
+
+        target_dict["__BACKUP_DIR__"] = backup_dir
+        yaml_string = yaml.dump(target_dict)
+        for line in yaml_string.split('\n'):
+            Logger.info("==REPORT==:%s" % line)
+        return OK
 
     def _write_progress(self):
         '''Write out information about the state of the packages on this

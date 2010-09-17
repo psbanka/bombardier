@@ -714,6 +714,7 @@ class PackageTests(unittest.TestCase, BasicTest):
         status_data = self.get_content_dict(url)
         progress_data = status_data["install-progress"]["TestT5Backup-1"]
         assert "INSTALLED" in progress_data
+
         status, output, cmd_output = self.package_action("backup", package_name)
         expected_keys = set(["size", "elapsed_time", "start_time", "status", "file_name", "md5"])
         assert type(cmd_output) == type({}), cmd_output
@@ -721,10 +722,14 @@ class PackageTests(unittest.TestCase, BasicTest):
         assert expected_keys == received_keys, received_keys
         backup_dir = cmd_output.get("__BACKUP_DIR__")
         assert os.path.isdir(backup_dir)
-        backup_file = os.path.join(backup_dir, "main_file", "hosts.bz2")
+        backup_file = os.path.join(backup_dir, "main_file", "test_type_5.bz2")
         assert os.path.isfile(backup_file)
         assert os.system("bunzip2 %s" % backup_file) == OK
-        assert os.system("diff /etc/hosts %s" % os.path.join(backup_dir, "main_file", "hosts")) == OK
+
+        current_data = open("/tmp/foogazi/test_type_5").read().replace('\n', '|')
+        assert current_data == "INSTALLED|STOPPED|STARTED|", current_data
+        backup_data = open(os.path.join(backup_dir, "main_file", "test_type_5")).read().replace('\n', '|')
+        assert backup_data == "INSTALLED|STOPPED|", backup_data
         os.system("rm -rf %s" % backup_dir)
 
     def _get_file_names(self, file_dict, file_names):
