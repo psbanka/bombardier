@@ -313,8 +313,8 @@ class Package:
     def _backup(self, obj, target_dict, future_pkns, dry_run):
         "Perform basic backup functions for a package"
 
-        pre_backup_cmd = target_dict.get("__pre_backup__")
-        post_backup_cmd = target_dict.get("__post_backup__")
+        pre_backup_cmd = target_dict.get("__PRE_BACKUP__")
+        post_backup_cmd = target_dict.get("__POST_BACKUP__")
 
         if pre_backup_cmd:
             status = self._find_cmd(pre_backup_cmd, future_pkns, dry_run)
@@ -324,7 +324,9 @@ class Package:
                 return FAIL
 
         backup_dir = tempfile.mkdtemp()
+        start_time = time.time()
         for target in target_dict:
+            target_start = time.time()
             if target.startswith("__"):
                 continue
             if type(target_dict[target]) != type({}):
@@ -334,12 +336,10 @@ class Package:
                 return FAIL
             target_dir = os.path.join(backup_dir, target)
             os.system("mkdir -p %s" % target_dir)
-            start_time = time.time()
-            target_dict[target]["start_time"] = start_time
             file_name = target_dict[target]["file_name"]
             options = target_dict[target].get("options", [COMPRESS])
             fpf = ForwardPluggableFileProcessor(file_name, options, Logger)
-            elapsed_time = time.time() - start_time
+            elapsed_time = time.time() - target_start
             target_dict[target]["elapsed_time"] = elapsed_time
             md5_dict = fpf.process_all()
             target_dict[target]["md5"] = md5_dict

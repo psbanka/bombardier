@@ -99,8 +99,8 @@ def revert_configs():
         client_conf["spkg_path"] = client_conf["old_spkg_path"]
         del client_conf["old_spkg_path"]
         open(CLIENT_CONFIG_FILE, 'w').write(yaml.dump(client_conf))
-    #os.system("rm -rf test_spkg")
-    print "rm -rf test_spkg"
+    os.system("rm -rf test_spkg")
+    #print "rm -rf test_spkg"
         
 class BasicTest:
     def setUp(self):
@@ -716,21 +716,28 @@ class PackageTests(unittest.TestCase, BasicTest):
         assert "INSTALLED" in progress_data
 
         status, output, cmd_output = self.package_action("backup", package_name)
-        expected_keys = set(["size", "elapsed_time", "start_time", "status", "file_name", "md5"])
+        expected_keys = set(["size", "elapsed_time", "status", "file_name", "md5"])
         assert type(cmd_output) == type({}), cmd_output
         received_keys = set(cmd_output["main_file"].keys())
         assert expected_keys == received_keys, received_keys
-        backup_dir = cmd_output.get("__BACKUP_DIR__")
-        assert os.path.isdir(backup_dir)
-        backup_file = os.path.join(backup_dir, "main_file", "test_type_5.bz2")
+        assert cmd_output.get("__SYNC__") == OK
+
+        start_time = str(int(cmd_output.get("__START_TIME__")))
+
+        archive_dir = os.path.join(self.test_server_home, "archive", "localhost", "TestT5Backup", start_time, "main_file")
+        assert os.path.isdir(archive_dir), archive_dir
+
+        backup_file = os.path.join(archive_dir, "test_type_5.bz2")
         assert os.path.isfile(backup_file)
         assert os.system("bunzip2 %s" % backup_file) == OK
+        backup_file = backup_file[:backup_file.rfind('.bz2')]
 
         current_data = open("/tmp/foogazi/test_type_5").read().replace('\n', '|')
         assert current_data == "INSTALLED|STOPPED|STARTED|", current_data
-        backup_data = open(os.path.join(backup_dir, "main_file", "test_type_5")).read().replace('\n', '|')
+        
+        backup_data = open(backup_file).read().replace('\n', '|')
         assert backup_data == "INSTALLED|STOPPED|", backup_data
-        os.system("rm -rf %s" % backup_dir)
+
 
     def _get_file_names(self, file_dict, file_names):
         for name in file_dict:
@@ -966,9 +973,9 @@ if __name__ == '__main__':
 #        suite.addTest(PackageTests("test_package_build"))
 #        suite.addTest(PackageTests("test_package_error"))
 #        suite.addTest(PackageTests("test_package_global"))
-        suite.addTest(PackageTests("test_type5_backup"))
+#        suite.addTest(PackageTests("test_type5_backup"))
 
-#        suite.addTest(PackageTests("test_package_actions"))
+        suite.addTest(PackageTests("test_package_actions"))
 #        suite.addTest(PackageTests("test_package_build"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)

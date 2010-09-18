@@ -2,6 +2,7 @@
 #!/usr/bin/env python
 
 import re, os, base64
+import time
 from commands import getstatusoutput as gso
 import glob
 import yaml
@@ -13,6 +14,7 @@ from Exceptions import MachineConfigurationException, BombardierMachineException
 from Exceptions import MachineStatusException, PackageNotFound
 from bombardier_core.static_data import OK, FAIL, EXECUTE
 from bombardier_core.static_data import INIT, FIX, PURGE
+from bombardier_core.static_data import BACKUP
 from bombardier_core.static_data import ACTION_DICT, RETURN_DICT
 from bombardier_core.mini_utility import update_dict
 from MachineStatus import MachineStatus, LOCAL_PACKAGES
@@ -456,6 +458,52 @@ class BombardierMachineInterface(MachineInterface):
             msg = "Unable to write '%s' (%s)" % (status_file, ioe)
             self.polling_log.error(msg)
 
+    def _process_backup(self, backup_dict, package_name):
+        '''
+        We've just instructed a package to back itself up. We need to haul the
+        backup data back to archive it and collect some statistics on it.
+        backup_dict -- Detailed information about the backup
+            Example: {'__BACKUP_DIR__': '/tmp/tmp3GHMRw',
+                      '__POST_BACKUP__': 'start',
+                      '__PRE_BACKUP__': 'stop',
+                      '__START_TIME__': 1284766556.062264,
+                      'main_file': {'status': 0,
+                                    'elapsed_time': 0.0013320446014404297,
+                                    'file_name': '/tmp/foogazi/test_type_5',
+                                    'size': 18L,
+                                    'md5': {'test_type_5': 'a670f8128b02d00725cff2b4973fb47e',
+                                            'test_type_5.bz2': '17e6a319e8e0b496dab7eb9b3ce03994'
+                                           }
+                                   }
+                     }
+        '''
+        remote_dir = backup_dict.get("__BACKUP_DIR__")
+        if not remote_dir:
+            msg = "Package does not request data be copied back from machine."
+            self.polling_log.warning(msg)
+            return backup_dict
+        start_time = str(int(backup_dict.get("__START_TIME__")))
+        archive_dir = os.path.join(self.server_home, "archive",
+                                   self.machine_name, package_name, start_time)
+        os.system("mkdir -p %s" % archive_dir)
+        cmd = "rsync -La %s@%s:%s/* %s" 
+        cmd = cmd % (self.username, self.ip_address, remote_dir, archive_dir)
+        self.server_log.info("Running: %s" % cmd)
+        self.polling_log.debug(cmd)
+        status, output = gso(cmd)
+        if status != OK:
+            msg = "Error rsyncing remote backup: %s" % output
+            backup_dict["__SYNC__"] = FAIL
+            self.status = FAIL
+        else:
+            backup_dict["__SYNC__"] = OK
+            self.run_cmd("rm -rf %s" % remote_dir)
+            del backup_dict["__BACKUP_DIR__"]
+            backup_summary = yaml.dump(backup_dict)
+            summary_file = os.path.join(archive_dir, "backup_info.yml")
+            open(summary_file, 'w').write(backup_summary)
+        return backup_dict
+
     ##############################################################
     ## PUBLIC METHODS
     ##############################################################
@@ -486,16 +534,17 @@ class BombardierMachineInterface(MachineInterface):
         '''
         Run a package-oriented action on a remote machine
         action -- one of the following: EXECUTE, INIT, INSTALL,
-                  UNINSTALL, VERIFY, CONFIGURE, DRY_RUN
+                  UNINSTALL, VERIFY, CONFIGURE, DRY_RUN, BACKUP
         package_name -- the name of a package to operate on
         script_name -- the name of a script to run (againsta a package)
         debug -- defunct
         '''
         message = []
+        start_time = time.time()
         try:
             self.action_result = []
             self.pull_report = True
-            if action == EXECUTE:
+            if action in [ EXECUTE, BACKUP ]:
                 self._clear_script_output(script_name)
             if not action in [ INIT, FIX, PURGE ]:
                 self._upload_new_packages()
@@ -532,5 +581,14 @@ class BombardierMachineInterface(MachineInterface):
         self._get_status_yml()
         msg = "take_action is returning: %s / %s" % (self.exit_code, message)
         self.server_log.debug(msg)
+        if action == BACKUP:
+            if self.exit_code == OK:
+                if type(message) != type({}):
+                    errmsg = "Backup returned illegal data: %s" % message
+                    self.server_log.error(errmsg, self.machine_name)
+                    self.exit_code = FAIL
+                else:
+                    message["__START_TIME__"] = start_time
+                    message = self._process_backup(message, package_name)
         return self.exit_code, message
 
