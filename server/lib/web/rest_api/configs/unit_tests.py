@@ -707,6 +707,10 @@ class PackageTests(unittest.TestCase, BasicTest):
 
     def test_type5_backup(self):
         self.reset_packages()
+        # clean out archive directory
+        archive_dir = os.path.join(self.test_server_home, "archive", "localhost")
+        os.system("rm -rf {0}".format(archive_dir))
+
         package_name = "TestT5Backup"
         status, output, cmd_output = self.package_action("install", package_name)
         assert status == OK
@@ -715,28 +719,35 @@ class PackageTests(unittest.TestCase, BasicTest):
         progress_data = status_data["install-progress"]["TestT5Backup-1"]
         assert "INSTALLED" in progress_data
 
+        # Run backup and check output
         status, output, cmd_output = self.package_action("backup", package_name)
         expected_keys = set(["size", "elapsed_time", "status", "file_name", "md5"])
         assert type(cmd_output) == type({}), cmd_output
         received_keys = set(cmd_output["main_file"].keys())
         assert expected_keys == received_keys, received_keys
         assert cmd_output.get("__SYNC__") == OK
-
         start_time = str(int(cmd_output.get("__START_TIME__")))
-
-        archive_dir = os.path.join(self.test_server_home, "archive", "localhost", "TestT5Backup", start_time, "main_file")
-        assert os.path.isdir(archive_dir), archive_dir
-
-        backup_file = os.path.join(archive_dir, "test_type_5.bz2")
+        latest_archive = os.path.join(self.test_server_home, "archive", "localhost", "TestT5Backup", start_time, "main_file")
+        assert os.path.isdir(latest_archive), latest_archive
+        backup_file = os.path.join(latest_archive, "test_type_5.bz2")
         assert os.path.isfile(backup_file)
         assert os.system("bunzip2 %s" % backup_file) == OK
         backup_file = backup_file[:backup_file.rfind('.bz2')]
-
         current_data = open("/tmp/foogazi/test_type_5").read().replace('\n', '|')
         assert current_data == "INSTALLED|STOPPED|STARTED|", current_data
-        
         backup_data = open(backup_file).read().replace('\n', '|')
         assert backup_data == "INSTALLED|STOPPED|", backup_data
+
+        # Examine what restore targets are available
+        machine_name = "localhost"
+        url = '/json/machine/restore/{0}/{1}'.format( machine_name, "TestT5Backup" )
+        content_dict = self.get_content_dict(url)
+        expected = [ start_time ]
+        assert "targets" in content_dict, content_dict
+        assert content_dict["targets"] == expected, content_dict["targets"]
+        
+        # Restore the target we want
+        # FIXME: Not done.
 
 
     def _get_file_names(self, file_dict, file_names):
@@ -973,9 +984,9 @@ if __name__ == '__main__':
 #        suite.addTest(PackageTests("test_package_build"))
 #        suite.addTest(PackageTests("test_package_error"))
 #        suite.addTest(PackageTests("test_package_global"))
-#        suite.addTest(PackageTests("test_type5_backup"))
+        suite.addTest(PackageTests("test_type5_backup"))
 
-        suite.addTest(PackageTests("test_package_actions"))
+#        suite.addTest(PackageTests("test_package_actions"))
 #        suite.addTest(PackageTests("test_package_build"))
 
     status = unittest.TextTestRunner(verbosity=2).run(suite)

@@ -119,6 +119,23 @@ class MachineDisableEntry(CnmResource):
         responder = JsonDictResponder(output)
         return responder.element(request)
 
+class MachinePackageRestoreEntry(CnmResource):
+    "Check restore data that can be loaded, and load it"
+    @login_required
+    def read(self, request, machine_name, package_name):
+        "Show restore data that can be restored"
+        server_home = self.get_server_home()
+        check_string(machine_name)
+        check_string(package_name)
+        output = {"command_status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            output = dispatcher.check_restore_data(request.user.username, machine_name, package_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
 class MachineStatusEntry(CnmResource):
     "Status check class for machines"
     @login_required
@@ -145,6 +162,7 @@ class MachineStatusEntry(CnmResource):
             machine_status = yaml.load(status_path)
         responder = JsonDictResponder(machine_status)
         return responder.element(request)
+
 
 class MachineStartReconcileEntry(CnmResource):
     "Machine reconcile class"
@@ -508,6 +526,8 @@ class DispatcherControlEntry(CnmResource):
         return responder.element(request)
 
 urlpatterns = patterns('',
+   url(r'^json/machine/restore/(?P<machine_name>.*)/(?P<package_name>.*)',
+       MachinePackageRestoreEntry(permitted_methods = ['GET'])),
    url(r'^json/package_action/(?P<package_name>.*)',
        PackageActionEntry(permitted_methods = ['POST'])),
    url(r'^json/package_build/(?P<package_name>.*)',

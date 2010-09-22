@@ -226,6 +226,23 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
             job.command_status = FAIL
         return job.name
 
+    def check_restore_data(self, username, machine_name, package_name):
+        '''
+        Determines what restore data-sets are available to be restored
+        username -- the name of the user issuing the command
+        package_name -- the name of the package to deal with
+        machine_name -- name of the machine to run the job on
+        '''
+        search_path = os.path.join(self.server_home, "archive", machine_name, package_name)
+        self.server_log.info("Examining {0}...".format(search_path))
+        output = {}
+        if os.path.isdir(search_path):
+            search_path += "/*"
+            targets = glob.glob(search_path)
+            base_targets = [tgt.rpartition('/')[-1] for tgt in targets]
+            output["targets"] = base_targets
+        return output 
+
     def package_action_job(self, username, package_name, action_string, 
                            machine_name):
         '''
