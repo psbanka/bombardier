@@ -7,6 +7,7 @@ import sys, inspect
 from static_data import OK, FAIL
 from Logger import Logger
 from Config import Config
+from PluggableFileProcessor import ENCRYPT, COMPRESS, SPLIT
 
 def double_escape(old_string):
     'sometimes stuff needs this for certain reasons.'

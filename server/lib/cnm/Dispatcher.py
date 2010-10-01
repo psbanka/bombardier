@@ -171,7 +171,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         job.description = "Initialize"
         try:
             commands = []
-            bombardier_init = BombardierCommand("init", None, None)
+            bombardier_init = BombardierCommand("init", None, None, [])
 
             commands = [bombardier_init]
             job.description = "INIT"
@@ -188,7 +188,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         try:
             if action_string == 'reconcile':
                 job.require_comment = True
-            bombardier_recon = BombardierCommand(action_string, None, None)
+            bombardier_recon = BombardierCommand(action_string, None, None, [])
             commands = [bombardier_recon]
             self._setup_job(job, commands, {}, status_required)
         except Exception:
@@ -244,7 +244,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         return output 
 
     def package_action_job(self, username, package_name, action_string, 
-                           machine_name):
+                           machine_name, arguments = []):
         '''
         Runs a bc command for a certain machine and package
         username -- the name of the user issuing the command
@@ -253,6 +253,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                          verify, reconcile, check_status, execute, fix, purge,
                          dry_run, or init
         machine_name -- name of the machine to run the job on
+        arguments    -- arguments used, currently only for restore
         '''
         job = self._create_next_job(username, machine_name, BDR_CLIENT_TYPE)
         job.require_comment = True
@@ -266,7 +267,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                 action_string = "execute"
         try:
             bom_cmd = BombardierCommand(action_string, package_name, 
-                                        script_name)
+                                        script_name, arguments)
             commands = [bom_cmd]
 
             self._setup_job(job, commands, {}, True)

@@ -194,7 +194,7 @@ class PackageV4(Package):
                 files = [vpkg_name]
         return files
 
-    def _find_cmd(self, action, future_pkns, dry_run):
+    def _find_cmd(self, action, argument='', future_pkns=[], dry_run=False):
         '''
         Perform the action on the system, importing modules from the package
         and running the appropriate method on the class within.

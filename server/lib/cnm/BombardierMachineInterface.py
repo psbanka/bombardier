@@ -11,10 +11,10 @@ import copy
 import traceback
 from MachineInterface import MachineInterface, MachineUnavailableException
 from Exceptions import MachineConfigurationException, BombardierMachineException
-from Exceptions import MachineStatusException, PackageNotFound
+from Exceptions import MachineStatusException, PackageNotFound, RestoreFailure
 from bombardier_core.static_data import OK, FAIL, EXECUTE
 from bombardier_core.static_data import INIT, FIX, PURGE
-from bombardier_core.static_data import BACKUP
+from bombardier_core.static_data import BACKUP, RESTORE
 from bombardier_core.static_data import ACTION_DICT, RETURN_DICT
 from bombardier_core.mini_utility import update_dict
 from MachineStatus import MachineStatus, LOCAL_PACKAGES
@@ -214,15 +214,14 @@ class BombardierMachineInterface(MachineInterface):
             cmd = '%s $PYTHON_HOME/bin/bc.py ' % self.python
         return cmd
 
-    def _run_bc(self, action,
-               package_name, script_name, debug):
+    def _run_bc(self, action, package_name, script_name, arguments, debug):
         "Run bc.py on a remote machine, and watch the logs"
         self.report_info = ''
         self.chdir(self.spkg_dir)
 
         cmd = self._get_bc_command()
-        cmd += " %s %s %s %s" % (ACTION_DICT[action],
-                                self.machine_name, package_name, script_name)
+        cmd += " {0} {1} {2} {3} {4}".format(ACTION_DICT[action],
+               self.machine_name, package_name, script_name, arguments)
         self.ssh_conn.sendline(cmd)
         self._send_all_client_data(action)
         self._watch_bc()
@@ -378,8 +377,8 @@ class BombardierMachineInterface(MachineInterface):
             msg = "Unable to create links: %s" % self.ssh_conn.before
             raise MachineUnavailableException(self.machine_name, msg)
             
-        #self.server_log.debug("Removing directory %s..." % tmp_path)
-        #os.system("rm -rf %s" % tmp_path)
+        self.server_log.debug("Removing directory %s..." % tmp_path)
+        os.system("rm -rf %s" % tmp_path)
         self.polling_log.debug("...Finished syncing packages.")
 
     def _dump_trace(self):
@@ -481,6 +480,7 @@ class BombardierMachineInterface(MachineInterface):
         if not remote_dir:
             msg = "Package does not request data be copied back from machine."
             self.polling_log.warning(msg)
+            self.server_log.warning(msg)
             return backup_dict
         start_time = str(int(backup_dict.get("__START_TIME__")))
         archive_dir = os.path.join(self.server_home, "archive",
@@ -488,7 +488,6 @@ class BombardierMachineInterface(MachineInterface):
         os.system("mkdir -p %s" % archive_dir)
         cmd = "rsync -La %s@%s:%s/* %s" 
         cmd = cmd % (self.username, self.ip_address, remote_dir, archive_dir)
-        self.server_log.info("Running: %s" % cmd)
         self.polling_log.debug(cmd)
         status, output = gso(cmd)
         if status != OK:
@@ -530,7 +529,37 @@ class BombardierMachineInterface(MachineInterface):
                     raise
         return OK
 
-    def take_action(self, action, package_name, script_name, debug):
+    def _sync_restore_data(self, package_name, target):
+        '''
+        Prior to a restore command, sends all necessary data to the remote
+        machine to $SPKG_DIR/archive
+        package_name -- name of package being restored
+        target -- name of backup dataset
+        '''
+        remote_dir = os.path.join(self.spkg_dir, "archive", package_name, target)
+        self.run_cmd(" mkdir -p %s" % remote_dir)
+        archive_dir = os.path.join(self.server_home, "archive",
+                                   self.machine_name, package_name, target)
+        if not os.path.isdir(archive_dir):
+            reason = "{0} does not exist".format(archive_dir)
+            errmsg = "Cannot restore target {0} for package {1}/machine {2}"\
+                     ": {3}"
+            errmsg = errmsg.format(target, package_name, self.machine_name, reason)
+            self.polling_log.error(errmsg)
+            raise RestoreFailure(reason, target, package_name, self.machine_name)
+            
+        cmd = "rsync -La {0}/* {1}@{2}:{3}" 
+        cmd = cmd.format(archive_dir, self.username, self.ip_address,
+                         remote_dir)
+        self.server_log.info("Running: %s" % cmd)
+        self.polling_log.debug(cmd)
+        self.polling_log.info("Copying archive to remote machine...")
+        status, output = gso(cmd)
+        if status != OK:
+            msg = "Error rsyncing restore data: %s" % output
+            raise RestoreFailure(msg)
+
+    def take_action(self, action, package_name, script_name, arguments, debug):
         '''
         Run a package-oriented action on a remote machine
         action -- one of the following: EXECUTE, INIT, INSTALL,
@@ -546,9 +575,12 @@ class BombardierMachineInterface(MachineInterface):
             self.pull_report = True
             if action in [ EXECUTE, BACKUP ]:
                 self._clear_script_output(script_name)
+            if action == RESTORE:
+                self._sync_restore_data(package_name, arguments)
             if not action in [ INIT, FIX, PURGE ]:
                 self._upload_new_packages()
-            message = self._run_bc(action, package_name, script_name, debug)
+            message = self._run_bc(action, package_name, script_name,
+                                   arguments, debug)
         except MachineUnavailableException:
             message = ["Remote system refused connection."]
             self.exit_code = FAIL

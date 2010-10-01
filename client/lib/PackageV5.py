@@ -39,7 +39,7 @@ from bombardier_core.mini_utility import get_package_path
 from Exceptions import BadPackage
 from Exceptions import RebootRequiredException
 from bombardier_core.Logger import Logger
-from bombardier_core.static_data import OK, FAIL, REBOOT, BACKUP
+from bombardier_core.static_data import OK, FAIL, REBOOT, BACKUP, RESTORE
 from bombardier_core.static_data import ACTION_REVERSE_LOOKUP
 from bombardier_core.static_data import ACTION_LOOKUP
 from Package import Package
@@ -95,13 +95,14 @@ class PackageV5(Package):
             raise BadPackage, (self.name, msg)
         self.full_name = "%s-%d" % (self.name, self.release)
 
-    def execute_maint_script(self, script_name):
+    def execute_maint_script(self, script_name, argument):
         '''
         execute a user-defined function
         script_name -- name of the function to run
+        argument -- argument to the script to be run
         '''
         Package.execute_maint_script(self, script_name)
-        self.status = self._find_cmd(script_name, [], False)
+        self.status = self._find_cmd(script_name, argument=argument)
         msg = "%s result for %s : %s"
         Logger.info(msg % (script_name, self.full_name, self.status))
         return self.status
@@ -190,7 +191,7 @@ class PackageV5(Package):
             sys.modules.pop(self.class_name)
         sys.path.remove(lib_path)
 
-    def _find_cmd(self, action, future_pkns, dry_run):
+    def _find_cmd(self, action, argument='', future_pkns=[], dry_run=False):
         '''
         Perform the action on the system, importing modules from the package
         and running the appropriate method on the class within.
@@ -209,7 +210,19 @@ class PackageV5(Package):
                 msg = "Class %s does not have a %s method."
                 raise BadPackage(self.name, msg % (self.class_name, action))
             if not dry_run:
-                exec("ret_val = obj.%s()" % action)
+                if argument:
+                    if ACTION_LOOKUP.get(action) == RESTORE:
+                        restore_path = os.path.join(get_spkg_path(), "archive",
+                                                    self.name, str(argument))
+                        if not os.path.isdir(restore_path):
+                            msg = "Cannot execute restore: archive data does not "\
+                                  "exist in {0}".format(restore_path)
+                            Logger.error(msg)
+                            return FAIL
+                        self._prepare_restore(obj, restore_path)
+                    exec("ret_val = obj.{0}('{1}')".format(action, restore_path))
+                else:
+                    exec("ret_val = obj.{0}()".format(action))
             else:
                 ret_val = OK
             self._cleanup(obj)

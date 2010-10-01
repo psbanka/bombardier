@@ -256,7 +256,7 @@ def instance_setup(instance_name):
     open(progress_path, 'w').write(yaml.dump(status_dict))
 
 def process_action(action, instance_name, pkn, method_name,
-                   package_factory):
+                   argument, package_factory):
     """
     Performs a Bombardier action on this system
     action -- either INIT, INSTALL, UNINSTALL, VERIFY, CONFIGURE,
@@ -292,9 +292,9 @@ def process_action(action, instance_name, pkn, method_name,
         elif action in [ RECONCILE, DRY_RUN ]:
             bc_obj.record_errors = True
             status = bc_obj.reconcile_system(action)
-        else: # INSTALL, UNINSTALL, VERIFY, BACKUP, CONFIGURE, EXECUTE
+        else: # INSTALL, UNINSTALL, VERIFY, BACKUP, CONFIGURE, EXECUTE, RESTORE
             bc_obj.record_errors = False
-            status = bc_obj.use_pkg(pkn, action, method_name)
+            status = bc_obj.use_pkg(pkn, action, method_name, argument)
     except:
         err = StringIO.StringIO()
         traceback.print_exc(file = err)
@@ -363,10 +363,11 @@ def main():
     env = BombardierEnvironment(instance_name)
     env.data_request()
     package_factory = PackageFactory(env)
+    argument = ''
 
     if options.action in [ RECONCILE, CHECK_STATUS, DRY_RUN, INIT ]:
         status = process_action(options.action, instance_name,
-                               '', '', package_factory)
+                               '', '', '', package_factory)
     else:
         method_name   = ""
         if len(args) < 2:
@@ -374,10 +375,12 @@ def main():
             print "This command requires a package name as an argument."
             parser.print_help()
             exit_with_return_code( 1 )
-        pkns = args[1:]
+        package_name = args[1]
         if options.action == BACKUP:
-            pkns = [args[1]]
             method_name = "backup"
+        if options.action == RESTORE:
+            method_name = "restore"
+            argument = args[2]
 
         if options.action == EXECUTE:
             if len(args) != 3:
@@ -385,15 +388,14 @@ def main():
                 print "This command requires a package name and a script name."
                 parser.print_help()
                 exit_with_return_code( 1 )
-            pkns = [args[1]]
+            package_name = args[1]
             method_name = args[2]
 
-        for pkn in pkns:
-            status = process_action(options.action, instance_name,
-                                    pkn, method_name,
-                                    package_factory)
-            if status != OK:
-                exit_with_return_code(status)
+        status = process_action(options.action, instance_name,
+                                package_name, method_name, argument,
+                                package_factory)
+        if status != OK:
+            exit_with_return_code(status)
     exit_with_return_code(status)
 
 if __name__ == "__main__":

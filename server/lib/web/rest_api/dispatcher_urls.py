@@ -28,7 +28,7 @@ def safe_get(request, option):
     "User check_string to validate input from a POST"
     value = request.POST.get(option, "")
     check_string(value)
-    return value
+    return str(value)
 
 class PackageBuildEntry(CnmResource):
     "Create a new package based on the information it contains"
@@ -62,8 +62,13 @@ class PackageActionEntry(CnmResource):
             action = safe_get(request, "action")
             machine_name = safe_get(request, "machine")
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.package_action_job(request.user.username, package_name,
-                                                     action, machine_name) 
+            if action != "restore":
+                job_name = dispatcher.package_action_job(request.user.username, package_name,
+                                                         action, machine_name) 
+            else:
+                restore_target = safe_get(request, "argument")
+                job_name = dispatcher.package_action_job(request.user.username, package_name,
+                                                         action, machine_name, restore_target) 
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
