@@ -216,13 +216,13 @@ class PackageV5(Package):
                                                     self.name, str(argument))
                         if not os.path.isdir(restore_path):
                             msg = "Cannot execute restore: archive data does not "\
-                                  "exist in {0}".format(restore_path)
+                                  "exist in %s" % (restore_path)
                             Logger.error(msg)
                             return FAIL
                         self._prepare_restore(obj, restore_path)
-                    exec("ret_val = obj.{0}('{1}')".format(action, restore_path))
+                    exec("ret_val = obj.%s('%s')" % (action, restore_path))
                 else:
-                    exec("ret_val = obj.{0}()".format(action))
+                    exec("ret_val = obj.%s()" % (action))
             else:
                 ret_val = OK
             self._cleanup(obj)

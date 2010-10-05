@@ -118,7 +118,7 @@ class AbstractFileWriter:
         self.file_handle = None
         base_dir, _sep, _output_file_name = self.file_name.rpartition(os.path.sep)
         if not os.path.isdir(base_dir):
-            os.system("mkdir -p {0}".format(base_dir))
+            os.system("mkdir -p %s" % (base_dir))
 
     def __repr__(self):
         return "ABSTRACT_FILE_WRITER"
@@ -482,7 +482,7 @@ def get_base_path(file_name):
 def get_manifest_data(file_name, logger):
     manifest_path = os.path.join(get_base_path(file_name), MANIFEST_FILE)
     #manifest_path = os.path.join(MANIFEST_FILE)
-    logger.info("manifest_path: {0}".format(manifest_path))
+    logger.info("manifest_path: %s" % (manifest_path))
     md5_dict = {}
     if os.path.isfile(manifest_path):
         md5_string = open(manifest_path, 'r').read()
@@ -570,7 +570,7 @@ class ForwardPluggableFileProcessor:
         yaml_string = yaml.dump(md5_dict)
         manifest_path = os.path.join(get_base_path(self.source_file), MANIFEST_FILE)
         open(manifest_path, 'w').write(yaml_string)
-        self.logger.info("Writing to {0}...".format(manifest_path))
+        self.logger.info("Writing to %s..." % (manifest_path))
         return md5_dict
 
     def process_all(self, priority=0):
@@ -623,7 +623,7 @@ class ReversePluggableFileProcessor:
         """Based on files in a directory, determine what options we should 
         do and what file(s) we should operate on."""
         if not os.path.isfile(source_file_name):
-            msg = "{0} does not exist. Aborting.".format(source_file_name)
+            msg = "%s does not exist. Aborting." % (source_file_name)
             self.logger.error(msg)
             return []
         suffix_set = source_file_name.split('.')
@@ -644,9 +644,9 @@ class ReversePluggableFileProcessor:
         self.reader.check_md5()
         for processor in self.processors:
             processor.check_md5()
-            self.logger.info("{0} md5 validated.".format(processor))
+            self.logger.info("%s md5 validated." % (processor))
         self.writer.check_md5()
-        self.logger.info("{0} md5 validated.".format(self.writer))
+        self.logger.info("%s md5 validated." % (self.writer))
 
     def process_all(self, priority = 0):
         process_all(self.reader, self.processors, self.writer, priority)

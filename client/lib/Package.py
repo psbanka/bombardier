@@ -322,8 +322,8 @@ class Package:
             pre_backup_cmd = obj.pre_backup_cmd
             status = self._find_cmd(obj.pre_restore_cmd)
             if status != OK:
-                erstr = "{0}: restore FAILED because {1} failed."
-                Logger.error(erstr.format(self.full_name, pre_backup_cmd))
+                erstr = "%s: restore FAILED because %s failed."
+                Logger.error(erstr % (self.full_name, pre_backup_cmd))
                 return FAIL
 
         backup_data = yaml.load(open(os.path.join(restore_path, "backup_info.yml")).read())
@@ -333,19 +333,19 @@ class Package:
             md5_data = backup_data[backup_target].get("md5", {})
             backup_file_name = backup_data[backup_target].get("backup_file", '')
             if not md5_data or not backup_file_name:
-                Logger.error("Corrupted backup data for {0}, aborting.".format(backup_target))
+                Logger.error("Corrupted backup data for %s, aborting." % (backup_target))
                 return FAIL
             source_file = os.path.join(restore_path, backup_target.rpartition(os.path.sep)[0][1:], backup_file_name)
             destination_file = os.path.join(restore_path, backup_target[1:])
             Logger.debug("=================================")
-            Logger.debug("backup_target: {0}...".format(backup_target))
-            Logger.debug("current directory: {0}".format(restore_path))
-            Logger.debug("backup_file_name: {0}...".format(backup_file_name))
-            Logger.debug("destination_file: {0}...".format(destination_file))
-            Logger.debug("source_file: {0}".format(source_file))
+            Logger.debug("backup_target: %s..." % (backup_target))
+            Logger.debug("current directory: %s" % (restore_path))
+            Logger.debug("backup_file_name: %s..." % (backup_file_name))
+            Logger.debug("destination_file: %s..." % (destination_file))
+            Logger.debug("source_file: %s" % (source_file))
             Logger.debug("=================================")
             if not os.path.isfile(source_file):
-                Logger.error("Restore file {0} does not exist, aborting".format(source_file))
+                Logger.error("Restore file %s does not exist, aborting" % (source_file))
                 return FAIL
             rfp = ReversePluggableFileProcessor(source_file, destination_file, md5_data, Logger)
             rfp.process_all()
