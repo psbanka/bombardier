@@ -3,7 +3,7 @@ Priority: extra
 Section: admin
 Maintainer: Peter Banka <peter.banka@gmail.com>
 Uploaders: Shawn Sherwood <shsher@gmail.com>
-Build-Depends: cdbs, debhelper (>= 7), python (>= 2.5), python-support
+Build-Depends: cdbs, debhelper (>= 7), python (>= 2.5), python-support, python-yaml
 Standards-Version: 3.8.4
 Homepage: https://launchpad.net/bombardier
 
