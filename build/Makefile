@@ -56,8 +56,12 @@ define dpkg_target
 	cd $(build_dir)/dpkg && bash build_package.bash $(subst _dpkg,,$@)
 endef
 
+define sdpkg_target
+	cd $(build_dir)/dpkg && bash build_package.bash $(subst _sdpkg,,$@) -S
+endef
+
 define ppa_target
-    cd $(build_dir) && dput ppa:bombardier-team/bombardier-ppa ./dpkg/work/$(subst _ppa,,$@)/bombardier*.changes
+    cd $(build_dir) && dput ppa:bombardier-team/bombardier-ppa ./dpkg/work/$(subst _ppa,,$@)/bombardier*source.changes
 endef
 
 define remove_dist_files
@@ -124,16 +128,28 @@ cli_dpkg:  cli
 core_dpkg: core
 	$(dpkg_target)
 
-server_ppa: server_dpkg
+server_sdpkg: server
+	$(sdpkg_target)
+
+client_sdpkg: client
+	$(sdpkg_target)
+
+cli_sdpkg:  cli
+	$(sdpkg_target)
+
+core_sdpkg: core
+	$(sdpkg_target)
+
+server_ppa: server_sdpkg
 	$(ppa_target)
 
-client_ppa: client_dpkg
+client_ppa: client_sdpkg
 	$(ppa_target)
 
-cli_ppa:  cli_dpkg
+cli_ppa:  cli_sdpkg
 	$(ppa_target)
 
-core_ppa: core_dpkg
+core_ppa: core_sdpkg
 	$(ppa_target)
 
 server_setup: server
