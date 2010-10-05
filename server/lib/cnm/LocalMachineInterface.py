@@ -123,8 +123,13 @@ class LocalMachineInterface(AbstractMachineInterface):
         os.chdir( checkout_dir )
         section_dir =  os.path.join(self.server_home, "repos", section_name)
         if not os.path.isdir(section_dir):
-            msg = "Server does not have required directory: %s" % section_dir
-            raise CnmServerException(msg)
+            status = os.system("mkdir -p %s" % section_dir)
+            if status != OK:
+                msg = "Could not create required directory: %s" % section_dir
+                raise CnmServerException(msg)
+            else:
+                msg = "Created required directory: %s" % section_dir
+                self.server_log.warning(msg)
         tar_file_path = os.path.join(section_dir, 
                                      "%s-%s.tar.gz" % (base, version))
         cmd = "tar -czf %s *" % ( tar_file_path )
