@@ -131,6 +131,16 @@ class MachineStatus:
             output["error_message"] = "Cannot read configuration data"
             return output
 
+        backup_providers = []
+        for name in installed:
+            base_name = name.rpartition('-')[0]
+            yaml_name = "{0}.yml".format(base_name)
+            package_file = os.path.join(self.server_home, "package", yaml_name)
+            if os.path.isfile(package_file):
+                package_config = yaml.load(open(package_file).read())
+                if "backup" in package_config.get("executables", []):
+                    backup_providers.append(base_name)
+
         missing = []
         accounted_packages = list(installed.union(broken))
         for item in total_packages:
@@ -141,8 +151,10 @@ class MachineStatus:
                     break
             if not found:
                 missing.append(item)
+
         output["installed"] = list(installed)
         output["broken"] = list(broken)
         output["not_installed"] = list(missing)
+        output["backup_providers"] = backup_providers
         output["status"] = OK
         return output

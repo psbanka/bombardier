@@ -464,8 +464,6 @@ class CnmTests(unittest.TestCase, BasicTest):
         assert content_dict["not_installed"] == config_packages, content_dict
         assert content_dict["installed"] == ["TestPackageType5"], content_dict
 
-        
-
 class DispatcherTests(unittest.TestCase, BasicTest):
 
     def setUp(self):
@@ -718,6 +716,12 @@ class PackageTests(unittest.TestCase, BasicTest):
         status_data = self.get_content_dict(url)
         progress_data = status_data["install-progress"]["TestT5Backup-1"]
         assert "INSTALLED" in progress_data
+
+        # should show as a backup provider
+        response = self.client.get("/json/summary/name/localhost")
+        content_dict = json.loads( response.content )
+        assert "backup_providers" in content_dict, content_dict
+        assert content_dict["backup_providers"] == ["TestT5Backup"], content_dict
 
         # Run backup and check output
         status, output, cmd_output = self.package_action("backup", package_name)

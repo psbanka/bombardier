@@ -347,6 +347,14 @@ class CnmConnector:
                 print "POSTING:", encoded_post_data
         return self.perform_request(curl_obj, full_path)
 
+    def get_restore_targets(self, machine_name, package_name):
+        "Get restore data available for a machine"
+        url = 'json/machine/restore/{0}/{1}'.format(machine_name, package_name)
+        print "URL",url
+        output = self.service_yaml_request(url)
+        print "OUTPUT:",output
+        return output
+
     def get_server_config(self):
         "Get server-side configuration data"
         url = 'json/server/config'
@@ -415,11 +423,14 @@ class CnmConnector:
         post_data = {"dist": dist_name}
         return self.machine_job(machine_name, "dist", bg_flag, post_data)
 
-    def package_command(self, command, machine_name, package_name, bg_flag):
+    def package_command(self, command, machine_name, package_name,
+                        argument, bg_flag):
         "Watch a package-job run on a machine"
         url = "json/package_action/%s" % package_name
         post_data = {"machine": machine_name,
                      "action": command}
+        if argument:
+            post_data["argument"] = argument
         job_name = self.get_job(url, post_data)
         if bg_flag:
             return OK, ["Started job: %s" % job_name]
