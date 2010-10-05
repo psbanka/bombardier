@@ -2,7 +2,8 @@
 compression, and splitting on files with full MD5 support to ensure
 operational integrity."""
 
-import hashlib, time, yaml, sys, os, glob
+import time, yaml, sys, os, glob
+from bombardier_core.mini_utility import get_hasher
 
 ###### Constants #############################################################
 
@@ -75,7 +76,7 @@ class Md5Validation:
         #print "UPDATE: %s || file_name: %s || len(data) %d" % (self, self.file_name, len(data))
         key = strip_directory(self.file_name)
         if not key in self.computed_md5_data:
-            self.computed_md5_data[key] = hashlib.md5()
+            self.computed_md5_data[key] = get_hasher()
         if not data:
             return
         self.computed_md5_data[key].update(data)
