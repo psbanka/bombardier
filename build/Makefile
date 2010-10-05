@@ -57,7 +57,7 @@ define dpkg_target
 endef
 
 define ppa_target
-    cd $(build_dir) && dput ppa:bombardier-team/bombardier-ppa ./dpkg/work/$(subst _dpkg,,$@)/bombardier*source.change
+    cd $(build_dir) && dput ppa:bombardier-team/bombardier-ppa ./dpkg/work/$(subst _ppa,,$@)/bombardier*.changes
 endef
 
 define remove_dist_files
