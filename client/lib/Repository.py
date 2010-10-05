@@ -65,8 +65,6 @@ class Repository:
         for a given package name
         name -- name of the package
         '''
-        Logger.info("PACKAGE DATA: %s" % (self.pkg_data))
-        Logger.info("name: %s" % (name))
         if not name in self.pkg_data:
             msg = "Not found in %s" % self.pkg_data.keys()
             raise Exceptions.BadPackage(name, msg)
