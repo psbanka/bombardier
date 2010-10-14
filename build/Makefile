@@ -140,16 +140,16 @@ cli_sdpkg:  cli
 core_sdpkg: core
 	$(sdpkg_target)
 
-server_ppa: server_sdpkg
+server_ppa: official server_sdpkg
 	$(ppa_target)
 
-client_ppa: client_sdpkg
+client_ppa:official client_sdpkg
 	$(ppa_target)
 
-cli_ppa:  cli_sdpkg
+cli_ppa: official cli_sdpkg
 	$(ppa_target)
 
-core_ppa: core_sdpkg
+core_ppa: official core_sdpkg
 	$(ppa_target)
 
 server_setup: server
