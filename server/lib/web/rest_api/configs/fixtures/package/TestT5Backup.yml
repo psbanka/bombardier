@@ -1,0 +1,11 @@
+configuration:
+  test: {target_file: "/etc/hosts"}
+dependencies: []
+executables: [backup]
+injectors: {}
+libs:
+  TestT5Backup: {path: TestT5Backup-script-1.tar.gz}
+class_name: TestT5Backup.TestT5Backup
+package-version: 5
+release: 1
+priority: 100

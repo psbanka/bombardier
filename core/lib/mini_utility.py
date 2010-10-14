@@ -27,16 +27,22 @@ from Exceptions import StatusException, UnsupportedPlatform
 from Exceptions import ConfigurationException
 
 
-def md5_sum(value):
+def get_hasher():
     "Return md5sum using appropriate library"
     hasher = None
     try:
         import hashlib
-        hasher = hashlib.md5(value)
+        hasher = hashlib.md5()
     except ImportError:
         import md5
-        hasher = md5.new(value)
-    return hasher.hexdigest()
+        hasher = md5.md5()
+    return hasher
+
+def md5_sum(value):
+    "Return md5sum"
+    hash_obj = get_hasher()
+    hash_obj.update(value)
+    return hash_obj.hexdigest()
 
 def update_dict(newdict, olddict):
     """mashes two dictionaries together

@@ -38,10 +38,13 @@ import tempfile, os
 import PinshCmd
 import ConfigField
 from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import BDR_CLIENT_TYPE
 from bombardier_core import mini_utility
 from SystemStateSingleton import SystemState, ENABLE
 from PackageField import PackageField, FIX, PURGE, NOT_INSTALLED, INSTALLED
+from PackageField import BACKUP_PROVIDERS
 import PackageActionField
+import RestoreTargetField
 from Exceptions import MachineTraceback, CommandError
 from JobNameField import JobNameField
 from Ssh import Ssh
@@ -240,7 +243,7 @@ class ShowCommand(PinshCmd.PinshCmd):
         elif command == "summary":
             command_string = "show summary %s" % machine_name
             command_line = CommandLine.process_input(command_string)
-            return Show.Status().cmd(command_line)
+            return Show.Summary().cmd(command_line)
 
         if len(command_line) != 5:
             msg = "Incomplete command; need to include %s name." % command
@@ -361,13 +364,17 @@ class Machine(PinshCmd.PinshCmd):
         job = JobCommand()
         fix = PinshCmd.PinshCmd("fix")
         fix.help_text = "sets the state of a package to INSTALLED"
+        backup = PinshCmd.PinshCmd("backup")
+        backup.help_text = "backs up the data associated with a package and copies it to server"
+        restore = PinshCmd.PinshCmd("restore")
+        restore.help_text = "restores data associated with a package"
         purge = PinshCmd.PinshCmd("purge")
         purge.help_text = "removes a package from the machine's status data"
         self.machine_field.children = [test, dist, init, enable, ssh, purge,
                                        disable, check_status, edit, fix,
                                        reconcile, execute, install, uninstall,
                                        configure, verify, push, unpush, setup,
-                                       job, show, assign]
+                                       job, show, assign, backup, restore]
 
         # Third-level commands
         dist_field = ConfigField.ConfigField(data_type=ConfigField.DIST)
@@ -378,11 +385,15 @@ class Machine(PinshCmd.PinshCmd):
         installed_package_field = PackageField(INSTALLED)
         not_installed_package_field = PackageField(NOT_INSTALLED)
         executable_package_field = PackageField(INSTALLED)
+        backup_provider_package_field = PackageField(BACKUP_PROVIDERS)
+        restore_provider_package_field = PackageField(BACKUP_PROVIDERS)
         install.children = [not_installed_package_field]
         uninstall.children = [installed_package_field]
         verify.children = [installed_package_field]
         configure.children = [installed_package_field]
         execute.children = [executable_package_field]
+        backup.children = [backup_provider_package_field]
+        restore.children = [restore_provider_package_field]
 
         clear_broken = PinshCmd.PinshCmd("clear-broken")
         clear_broken.help_text = "clear the broken jobs"
@@ -400,6 +411,8 @@ class Machine(PinshCmd.PinshCmd):
         executable_package_field.children = [package_actions]
         job_name_field = JobNameField()
         view.children = [job_name_field]
+        restore_targets = RestoreTargetField.RestoreTargetField()
+        restore_provider_package_field.children = [restore_targets]
 
     def cmd(self, command_line):
         """
@@ -414,19 +427,26 @@ class Machine(PinshCmd.PinshCmd):
 
         command = command_line[2].lower()
         bg_flag = command_line.bg_flag
+        if command == "ssh":
+            command_string = "ssh %s" % machine_name
+            command_line = CommandLine.process_input(command_string)
+            return Ssh().cmd(command_line)
 
         cnm = system_state.cnm_connector
         try:
-            if command == "ssh":
-                command_string = "ssh %s" % machine_name
-                command_line = CommandLine.process_input(command_string)
-                return Ssh().cmd(command_line)
-            elif command == "push":
+            if command == "push":
                 return cnm.push_machine_config(machine_name, bg_flag)
             elif command == "unpush":
                 return cnm.unpush_machine_config(machine_name, bg_flag)
             elif command in ["install", "uninstall", "verify",
-                             "configure", "execute", "purge", "fix"]:
+                             "configure", "execute", "purge", "fix",
+                             "backup", "restore"]:
+                argument = ''
+                if command == "restore":
+                    if len(command_line) != 5:
+                        msg = "Incomplete command; require a restore target"
+                        raise CommandError(msg)
+                    argument = command_line[4]
                 if command == "execute":
                     if len(command_line) != 5:
                         msg = "Incomplete command; require a package name "\
@@ -437,7 +457,8 @@ class Machine(PinshCmd.PinshCmd):
                     msg = "Incomplete command; require a package name."
                     raise CommandError(msg)
                 package_name = command_line[3]
-                return cnm.package_command(command, machine_name, package_name, bg_flag)
+                return cnm.package_command(command, machine_name, package_name,
+                                           argument, bg_flag)
             elif command in [ "enable", "setup" ]:
                 prompt = "%s administrative ssh password: " % machine_name
                 password = libUi.pwd_input(prompt)
@@ -445,14 +466,16 @@ class Machine(PinshCmd.PinshCmd):
                     return cnm.enable_command(machine_name, password, bg_flag)
                 else:
                     return cnm.setup_command(machine_name, password, bg_flag)
+            elif command == [ "disable" ]:
+                post_data = {"yaml": yaml.dump( {"machine_type": BDR_CLIENT_TYPE })}
+                return cnm.machine_job(machine_name, "disable", bg_flag, post_data)
             elif command == "dist":
                 if len(command_line) <= 3:
                     msg = "Incomplete command; requires a dist file name."
                     raise CommandError(msg)
                 dist_name = command_line[-1]
                 return cnm.dist_command(machine_name, dist_name, bg_flag)
-            elif command in ['test', 'init', 'reconcile',
-                             'check-status', 'disable']:
+            elif command in ['test', 'init', 'reconcile', 'check-status']:
                 return cnm.machine_job(machine_name, command, bg_flag)
             else:
                 raise CommandError("%s is not a valid command" % command)

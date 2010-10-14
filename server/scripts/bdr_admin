@@ -1,17 +1,18 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 "Performs bombardie server management tasks"
 
-import sys, yaml, os, getpass, re, tempfile
+import sys, yaml, os, getpass, re
 from bombardier_core.static_data import OK, SERVER_CONFIG_FILE
-from bombardier_core.mini_utility import ensure_bombardier_config_dir
 from bombardier_core.Cipher import Cipher
 from commands import getstatusoutput as gso
 os.environ["DJANGO_SETTINGS_MODULE"] = 'bombardier_server.web.rest_api.settings'
 
-USAGE  = ["usage:  %prog upgrade [-v RELEASE_NAME] [-y]",
-          "        %prog init [-s SERVER_HOME] [-k KEY_PATH]",
+USAGE  = ["usage:  %prog update",
+          "usage:  %prog init [-s SERVER_HOME] [-k KEY_PATH]",
           "        %prog passwd",
           "",
+          "update: update the client, core and pyyaml dist tarballs",
+          "init:   perform initial setup, preserving existing files", 
           "KEY_PATH := The path to the id_dsa.pub file for ssh key-sharing.",
           "            Defaults to /root/.ssh/id_dsa.pub",
           "SERVER_HOME := The path to the bombardier server configuration",
@@ -70,9 +71,7 @@ def get_url_list(version):
     "Find all the files downloadable on Launchpad"
     cmd = "curl https://launchpad.net/bombardier/1.00/%s" % version
     _status, output = gso(cmd)
-    re_str = ' href=\"(http:\/\/launchpad\.net\/bombardier\/1\.00\/'
-    re_str += '%s\/\+download\/.*\.tar\.gz)\"\>' % version
-    matcher = re.compile(re_str)
+    matcher = re.compile(' href=\"(http:\/\/launchpad\.net\/bombardier\/1\.00\/%s\/\+download\/.*\.tar\.gz)\"\>' % version)
 
     url_list = matcher.findall(output)
     if not url_list:
@@ -143,9 +142,7 @@ def download(fetch_list):
 def move_dist(file_list):
     server_home = get_server_home()
     for file_name in file_list:
-        if 'client' in file_name or \
-           'core'   in file_name or \
-           'PyYAML' in file_name:
+        if 'client' in file_name or 'core' in file_name or 'PyYAML' in file_name:
             dist_dir = os.path.join(server_home, "dist")
             print("Moving %s to %s..." % (file_name, dist_dir))
             status = os.system("mv %s %s" % (file_name, dist_dir))
@@ -154,55 +151,6 @@ def move_dist(file_list):
                 print(msg % (file_name, server_home))
                 print("You can look at the file in %s" % os.getcwd())
                 sys.exit(1)
-
-def install_tarballs(file_list, working_dir):
-    directory_list = []
-    for file_name in file_list:
-        if "client" not in file_name:
-            unpack_tarball(file_name, working_dir)
-            directory = file_name.split('.tar.gz')[0]
-            directory_list.append(directory)
-
-    for directory in directory_list:
-        run_setup(directory, working_dir)
-
-def download_and_install(fetch_list):
-    "Grab a bunch of files and install them"
-    starting_dir = os.getcwd()
-
-    working_dir = tempfile.mkdtemp()
-    os.chdir(working_dir)
-
-    file_list = download(fetch_list)
-
-    move_dist(file_list)
-    install_tarballs(file_list, working_dir)
-
-    print("Cleaning up...")
-    os.chdir(starting_dir)
-    os.system("rm -rf %s" % working_dir)
-
-def upgrade(version, no_confirm, file_types=None):
-    "Upgrade the server"
-    if file_types == None:
-        file_types = FILE_TYPES
-    version = check_version(version)
-    check_curl()
-    url_list = get_url_list(version)
-    fetch_list = []
-
-    for file_type in file_types:
-        urls = [url for url in url_list if "bombardier_%s-" % file_type in url]
-        fetch_list.append( get_most_recent(urls) )
-     
-    print("\nPreparing to download and install the following:")
-    print('> %s' % '\n> '.join(fetch_list))
-    if not no_confirm:
-        if ask_yes_no("Proceed? [y/n] ") == False:
-            print("Aborted.")
-            sys.exit(1)
-    download_and_install(fetch_list)
-    print("Successfully upgraded.")
 
 def update_client_dists(version="alpha"):
     url_list = get_url_list(version)
@@ -288,6 +236,10 @@ def run_cmd(cmd):
         sys.exit(1)
 
 def setup_db(server_home):
+    cnmdb_path = os.path.join(server_home, "admin", "cnmdb")
+    if os.path.isfile(cnmdb_path):
+        print("db already exists, delete %s manually to recreate." % cnmdb_path)
+        return
     from django.core.management import execute_manager
     import bombardier_server.web.rest_api.settings as settings
     from django.core.management import setup_environ
@@ -298,8 +250,6 @@ def setup_db(server_home):
 
 def init(server_home, key_path):
     "Initializes the bombardier server_home"
-
-    ensure_bombardier_config_dir()
     if not server_home:
         server_home = '/var/deploy'
     
@@ -309,23 +259,18 @@ def init(server_home, key_path):
     if result == True: 
         create_directory_structure(server_home)
         copy_dsa_key(key_path, server_home)
-        print("Writing configuration to %s..." % SERVER_CONFIG_FILE)
-        config_data = {"server_home": server_home}
-        open(SERVER_CONFIG_FILE, 'w').write(yaml.dump(config_data))
+        print("Writing configuration to /etc/bombardier.yml...")
+        if not os.path.isfile(SERVER_CONFIG_FILE):
+            config_data = {"server_home": server_home}
+            open(SERVER_CONFIG_FILE, 'w').write(yaml.dump(config_data))
+        else:
+            print("Refusing to modify existing %s file..." % SERVER_CONFIG_FILE)
     else:
         print("Aborted.")
         sys.exit(1)
     set_password()
     setup_db(server_home)
-    prompt = "Download latest PyYAML, core and client source tarballs? (y/n)"
-    result = ask_yes_no(prompt)
-    if result == True:
-        update_client_dists()
-    else:
-        msg = "\nYou will need to get PyYAML, and your own client and core"
-        msg += " tarballs into %s/dist before you can run setup on a machine."
-        msg = msg % server_home
-        print(msg)
+    update_client_dists()
     print("\n\nBasic server setup complete.")
     print("Now configure your web server according to the instructions")
     print("in your documentation.")
@@ -354,8 +299,8 @@ def main():
     command = commands[0]
     if command == "init":
         init(options.server_home, options.key_path)
-    elif command == "upgrade":
-        upgrade(options.version, options.no_confirm)
+    elif command.startswith("update"):
+        update_client_dists()
     elif command == "passwd":
         set_password()
     else:

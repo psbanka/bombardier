@@ -111,7 +111,7 @@ class AbstractMachineInterface:
         "Run a remote shell command"
         return [OK, []]
 
-    def dump_trace(self):
+    def _dump_trace(self):
         "Pretty print a stack trace into the logs"
         pass
 

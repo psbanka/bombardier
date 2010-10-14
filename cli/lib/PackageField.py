@@ -41,6 +41,7 @@ FIX = 1
 PURGE = 2
 INSTALLED = 3
 NOT_INSTALLED = 4
+BACKUP_PROVIDERS = 5
 
 def clean_version_numbers(installed_set):
     "Remove the -version from a package name"
@@ -77,6 +78,7 @@ class PackageField(PinshCmd.PinshCmd):
         broken = set(data.get("broken", []))
         not_installed = set(data.get("not_installed", []))
         full_installed = set(data.get("installed", []))
+        backup_providers = set(data.get("backup_providers", []))
         installed = clean_version_numbers(full_installed)
         #print "action_type: %s" % self.action_type
         if self.action_type == FIX:
@@ -87,6 +89,8 @@ class PackageField(PinshCmd.PinshCmd):
             return list(installed)
         if self.action_type == NOT_INSTALLED:
             return list(not_installed)
+        if self.action_type == BACKUP_PROVIDERS:
+            return list(backup_providers)
 
     def get_package_names(self, complete_machine_name,
                            incomplete_package_name):

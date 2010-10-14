@@ -12,6 +12,7 @@ start_dir=$PWD
 [ "${start_dir##*/}" == "dpkg" ] || complain_and_exit "Script must run from the dpkg directory"
 
 component=$1
+arg=$2
 version=1.00
 component_name=bombardier-${component}-${version}
 revision=$(ls ../../$component/dist/ | sed "s/bombardier_${component}-${version}-\(.*\).tar.gz/\1/")
@@ -55,4 +56,4 @@ cd ..
 dch --newversion=${revision}-1 "$message"
 cp debian/changelog $start_dir/$component/new_changelog
 
-debuild -sa
+debuild -sa $2

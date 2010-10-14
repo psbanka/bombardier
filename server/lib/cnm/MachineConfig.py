@@ -6,13 +6,15 @@ import yaml
 import getpass
 from bombardier_core.Cipher import Cipher
 from bombardier_core.static_data import OK, FAIL
-from Exceptions import MachineConfigurationException
+from bombardier_core.static_data import LOCAL_TYPE, BDR_CLIENT_TYPE
+
+from Exceptions import MachineConfigurationException, InvalidMachineType
 
 class MachineConfig:
     """Configuration management class for a machine, this class ties together
        multiple include files, merges them together as well as decrypting 
        individual configuration items"""
-    def __init__(self, machine_name, password, server_home):
+    def __init__(self, machine_name, password, server_home, machine_type):
         self.data       = {}
         self.includes   = []
         if not machine_name:
@@ -21,6 +23,9 @@ class MachineConfig:
         self.machine_name = machine_name
         self.password     = password
         self.server_home  = server_home
+        if machine_type not in [LOCAL_TYPE, BDR_CLIENT_TYPE]:
+            raise InvalidMachineType(machine_type)
+        self.machine_type = machine_type
 
     def __getitem__(self, key):
         return self.data[key]
@@ -49,7 +54,12 @@ class MachineConfig:
     def merge_includes(self, config_name=''):
         "Apply config items from include files into main config"
         if config_name == '':
-            yml_directory = "machine"
+            if self.machine_type == BDR_CLIENT_TYPE:
+                yml_directory = "machine"
+            elif self.machine_type == LOCAL_TYPE:
+                return # No data to load
+            else:
+                raise InvalidMachineType(self.machine_type)
             config_name = self.machine_name
         else:
             yml_directory = "include"
@@ -70,6 +80,8 @@ class MachineConfig:
 
     def convert_boms(self):
         "Pull in list of packages from boms and add them into packages list"
+        if self.machine_type != BDR_CLIENT_TYPE:
+            return OK # No BOM
         boms = self.data.get("bom", [])
         packages = set(self.data.get("packages", []))
         for bom in boms:
@@ -103,6 +115,8 @@ def main_func():
     parser.add_option("-k", "--insecure", dest="insecure",
                       action="store_true", default=False,
                       help="don't ask for a password")
+    parser.add_option("-s", "--server_home", dest="server_home",
+                      help="specify the directory of server_home")
     parser.add_option("-o", "--output", dest="output", metavar="file_name",
                       help="designate on output file")
 
@@ -114,8 +128,8 @@ def main_func():
     password = ''
     if not options.insecure:
         password = getpass.getpass("Enter decryption password: ")
-    config = MachineConfig(machine, password, mode.server_home)
-    status = config.get()
+    config = MachineConfig(machine, password, options.server_home)
+    status = config.merge()
     if status == FAIL:
         print "Bad config file."
         sys.exit(1)

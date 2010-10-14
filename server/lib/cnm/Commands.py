@@ -64,14 +64,14 @@ class ShellCommand(AbstractCommand):
 class BombardierCommand(AbstractCommand):
     """Bombardier command is a command running bc.py for 
        package or status actions"""
-    def __init__(self, action_string, package_name, script_name):
+    def __init__(self, action_string, package_name, script_name, arguments):
         '''
         action_string -- one of the following: uninstall, configure, install,
                          verify, reconcile, check_status, execute, fix, purge,
                          dry_run, or init
-        package_name -- the name of a package to act upon
-        script_name -- the name of a script to act upon
-        debug -- defunct, apparently
+        package_name  -- the name of a package to act upon
+        script_name   -- the name of a script to act upon
+        arguments     -- currently only used for restore
         '''
         action_const = ACTION_LOOKUP.get(action_string.lower().strip())
         if action_const == None:
@@ -81,12 +81,14 @@ class BombardierCommand(AbstractCommand):
         self.action = action_const
         self.package_name = package_name
         self.script_name = script_name
+        self.arguments = arguments
         self.debug = False
 
     def execute(self, machine_interface):
         "Run bc command"
         return machine_interface.take_action(self.action, self.package_name,
-                                             self.script_name, self.debug)
+                                             self.script_name, self.arguments,
+                                             self.debug)
 
     def info(self):
         "Return information about this bombardier command"

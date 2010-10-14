@@ -7,6 +7,7 @@ import sys, inspect
 from static_data import OK, FAIL
 from Logger import Logger
 from Config import Config
+from PluggableFileProcessor import ENCRYPT, COMPRESS, SPLIT
 
 def double_escape(old_string):
     'sometimes stuff needs this for certain reasons.'
@@ -100,7 +101,6 @@ class SpkgV5:
 
     def _dump_report(self, report = None):
         '''
-        command -- the command that was run
         report -- a dictionary of the data that was generated
         For a command that was run on an spkg class, this provides
         data back to the CNM 

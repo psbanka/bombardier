@@ -2,6 +2,7 @@
 #!/usr/bin/env python
 
 import re, os, base64
+import time
 from commands import getstatusoutput as gso
 import glob
 import yaml
@@ -10,13 +11,13 @@ import copy
 import traceback
 from MachineInterface import MachineInterface, MachineUnavailableException
 from Exceptions import MachineConfigurationException, BombardierMachineException
-from Exceptions import MachineStatusException, PackageNotFound
+from Exceptions import MachineStatusException, PackageNotFound, RestoreFailure
 from bombardier_core.static_data import OK, FAIL, EXECUTE
 from bombardier_core.static_data import INIT, FIX, PURGE
+from bombardier_core.static_data import BACKUP, RESTORE
 from bombardier_core.static_data import ACTION_DICT, RETURN_DICT
 from bombardier_core.mini_utility import update_dict
 from MachineStatus import MachineStatus, LOCAL_PACKAGES
-import random
 from bombardier_core.Cipher import Cipher
 
 from pexpect import EOF
@@ -27,6 +28,7 @@ TMP_FILE = "tmp.yml"
 
 class BombardierMachineInterface(MachineInterface):
     "Bombardier subclass of MachineInterface"
+
     def __init__(self, machine_config, server_log):
         "Set up machine interface and set up based on the environment."        
         MachineInterface.__init__(self, machine_config, server_log)
@@ -55,6 +57,10 @@ class BombardierMachineInterface(MachineInterface):
             self.spkg_dir = self.data.get("spkg_path")
         self.pull_report = True
 
+    ##############################################################
+    ## PRIVATE METHODS
+    ##############################################################
+
     def _get_state_machine(self):
         "Return a list of compiled regular expression objects for log handling"
         exit_re        = re.compile("\=\=EXIT-CODE\=\=:(\d+)")
@@ -65,39 +71,54 @@ class BombardierMachineInterface(MachineInterface):
         install_re     = re.compile("Beginning installation of \((\S+)\)")
         result_re      = re.compile("(\S+) result for (\S+) : (\d)")
 
-        state_machine = [ [exit_re,        self.get_exit_code],
-                          [report_re,      self.get_report],
-                          [output_re,      self.get_output],
-                          [no_report_re,   self.no_report],
-                          [uninstall_re,   self.uninstall],
-                          [install_re,     self.install],
-                          [result_re,      self.get_action_result],
+        state_machine = [ [exit_re,        self._get_exit_code],
+                          [report_re,      self._get_report],
+                          [output_re,      self._get_output],
+                          [no_report_re,   self._no_report],
+                          [uninstall_re,   self._uninstall],
+                          [install_re,     self._install],
+                          [result_re,      self._get_action_result],
                         ]
         return state_machine
 
-    def freshen(self, job_name, require_status):
-        "Refresh config data"
-        self.set_job(job_name)
-        try:
-            MachineInterface.freshen(self)
-        except MachineUnavailableException:
-            self.unset_job()
-            raise
-        try:
-            self.machine_status.freshen()
-        except MachineStatusException:
-            msg = "Can't find status. Fetching from machine."
-            self.polling_log.warning(msg)
-            self.get_status_yml()
-            try:
-                self.machine_status.freshen()
-            except MachineStatusException:
-                if require_status:
-                    self.unset_job()
-                    raise
-        return OK
+    # STATE-MACHINE ROUTINES
 
-    def get_action_result(self, data):
+    def _action_start(self, action, package_name):
+        "Logging for beginning of an action"
+        message = "%s installing %s" % (self.machine_name, package_name)
+        self.polling_log.info(message)
+        self.server_log.info(message, self.machine_name)
+
+    def _get_exit_code(self, exit_code):
+        "Parse action code from string data, this needs to be more defensive."
+        message = "Output received: %s" % exit_code
+        self.polling_log.debug(message)
+        self.server_log.debug(message, self.machine_name)
+        self.exit_code = int(exit_code)
+
+    def _get_report(self, yaml_line):
+        "Add a yaml line to the report"
+        self.report_info += yaml_line + "\n"
+
+    def _get_output(self, output):
+        "Add output to logging and action result"
+        #self.server_log.info(output)
+        #self.polling_log.info(output, self.machine_name)
+        self.action_result.append(output)
+
+    def _no_report(self, data):
+        "Don't pull report"
+        self.pull_report = False
+
+    def _uninstall(self, package_name):
+        "Flag the logger that an un-installation is taking place"
+        self._action_start("uninstalling", package_name)
+
+    def _install(self, package_name):
+        "Flag the logger that an installation is taking place"
+        self._action_start("installing", package_name)
+
+    def _get_action_result(self, data):
         "Add action result to logs"
         action, package_name, result = data
         message = "%s %s: %s" % (action.lower(),
@@ -106,66 +127,14 @@ class BombardierMachineInterface(MachineInterface):
         self.server_log.info(message, self.machine_name)
         self.action_result.append(message)
 
-    def action_start(self, action, package_name):
-        "Logging for beginning of an action"
-        message = "%s installing %s" % (self.machine_name, package_name)
-        self.polling_log.info(message)
-        self.server_log.info(message, self.machine_name)
+    # END STATE MACHINE ROUTINES
 
-    def install(self, package_name):
-        "install"
-        self.action_start("installing", package_name)
-
-    def uninstall(self, package_name):
-        "uninstall"
-        self.action_start("uninstalling", package_name)
-
-    def no_report(self, data):
-        "Don't pull report"
-        self.pull_report = False
-
-    def send_package(self, package_name, dest_path):
-        "Scp a package to a remote machine"
-        filename = os.path.join(self.server_home, "packages", package_name)
-        if not os.path.isfile(filename):
-            message = "Client requested a file that is not on this server: %s"
-            message = message  % filename
-            self.server_log.error(message, self.machine_name)
-            self.polling_log.error(message)
-            return OK
-        self.scp(filename, dest_path, False)
-
-    def send_client(self, data):
-        "Stream yaml data to a client"
-        tmp_file_path = self.server_home+"/"+TMP_FILE
-        open(tmp_file_path, 'w').write(yaml.dump( self.data ))
-        self.stream_file(tmp_file_path)
-        if os.path.isfile(tmp_file_path):
-            os.unlink(tmp_file_path)
-
-    def get_report(self, yaml_line):
-        "Add a yaml line to the report"
-        self.report_info += yaml_line + "\n"
-
-    def get_output(self, output):
-        "Add output to logging and action result"
-        #self.server_log.info(output)
-        #self.polling_log.info(output, self.machine_name)
-        self.action_result.append(output)
-
-    def get_exit_code(self, exit_code):
-        "Parse action code from string data, this needs to be more defensive."
-        message = "Output received: %s" % exit_code
-        self.polling_log.debug(message)
-        self.server_log.debug(message, self.machine_name)
-        self.exit_code = int(exit_code)
-
-    def stream_file(self, file_name):
+    def _stream_file(self, file_name):
         "Stream a file"
         plain_text = open(file_name, 'rb').read()
-        return self.stream_data(plain_text)
+        return self._stream_data(plain_text)
 
-    def stream_data(self, plain_text):
+    def _stream_data(self, plain_text):
         "Send file contents over stdin via pxssh"
         import zlib
         compressed = zlib.compress(plain_text)
@@ -183,18 +152,10 @@ class BombardierMachineInterface(MachineInterface):
                 chunk = chunk[:-1] + pad + '\n'
             self.ssh_conn.send(chunk)
 
-    def process_message(self, message):
-        "Parse log message and possibly take action"
-        for state in self.state_machine:
-            match, function = state
-            grep_info = match.findall(message)
-            if grep_info:
-                if function:
-                    function(grep_info[0])
-                    return True
-        return False
-
-    def scp_all_client_data(self, raw_data):
+    def _scp_all_client_data(self, raw_data):
+        """If the remote machine has a configuration key, we will
+        encrypt its configuration data and secure-copy it to him rather
+        than stream the data to bc.py's stdin"""
         enc_key = self.data['config_key']
         yaml_data_str = yaml.dump(raw_data)
         cipher = Cipher(enc_key)
@@ -203,11 +164,14 @@ class BombardierMachineInterface(MachineInterface):
         temp_file = tempfile.mkstemp()[1]
         open(temp_file, 'w').write(enc_data)
         self.scp(temp_file, dest_path, False)
-        self.stream_data("config_key: '%s'\n" % enc_key)
+        #self.server_log.debug("Cleaning local temporary file %s" % temp_file)
+        #os.system("rm -f %s" % temp_file)
+        self._stream_data("config_key: '%s'\n" % enc_key)
 
-    def get_all_client_data(self):
+    def _get_all_client_data(self):
+        """For a remote machine that doesn't have a configuration key, this
+        method gathers all the configuration data that it needs"""
         send_data = {"config_data": self.data, 
-                     "configData": self.data, # TO BE REMOVED
                      "package_data": {},
                     }
         package_names = self.machine_status.get_all_package_names(self.data.get("packages"))
@@ -220,19 +184,19 @@ class BombardierMachineInterface(MachineInterface):
             send_data["package_data"][package_name] = this_package_data
         return send_data
 
-    def send_all_client_data(self, action):
+    def _send_all_client_data(self, action):
         "Stream package metadata to a remote client"
         if action == PURGE:
             send_data = {"config_data": self.data}
         else:
-            send_data = self.get_all_client_data()
+            send_data = self._get_all_client_data()
         if 'config_key' in self.data and action != INIT:
-            self.scp_all_client_data(send_data)
+            self._scp_all_client_data(send_data)
         else:
             self.polling_log.info("Streaming configuration data...")
-            self.stream_data(yaml.dump(send_data))
+            self._stream_data(yaml.dump(send_data))
 
-    def get_bc_command(self):
+    def _get_bc_command(self):
         "Get shell command to run bc.py on the target system."
         cmd = ""
         if self.platform == "win32":
@@ -240,7 +204,7 @@ class BombardierMachineInterface(MachineInterface):
             cmd += "Python/PythonCore/2.5/InstallPath/@"
             python_home_win = self.gso(cmd)
             python_home_cyg = self.gso("cygpath $(%s)" %cmd)
-            self.get_status_yml()
+            self._get_status_yml()
             cmd = "%spython.exe '%sScripts\\bc.py' " % \
                   (python_home_cyg, python_home_win)
         else:
@@ -250,18 +214,17 @@ class BombardierMachineInterface(MachineInterface):
             cmd = '%s $PYTHON_HOME/bin/bc.py ' % self.python
         return cmd
 
-    def run_bc(self, action,
-               package_name, script_name, debug):
+    def _run_bc(self, action, package_name, script_name, arguments, debug):
         "Run bc.py on a remote machine, and watch the logs"
         self.report_info = ''
         self.chdir(self.spkg_dir)
 
-        cmd = self.get_bc_command()
-        cmd += " %s %s %s %s" % (ACTION_DICT[action],
-                                self.machine_name, package_name, script_name)
+        cmd = self._get_bc_command()
+        cmd += " {0} {1} {2} {3} {4}".format(ACTION_DICT[action],
+               self.machine_name, package_name, script_name, arguments)
         self.ssh_conn.sendline(cmd)
-        self.send_all_client_data(action)
-        self.watch_bc()
+        self._send_all_client_data(action)
+        self._watch_bc()
 
         try:
             if self.report_info:
@@ -273,7 +236,18 @@ class BombardierMachineInterface(MachineInterface):
             self.exit_code = FAIL
             return [msg]
 
-    def watch_bc(self):
+    def _process_message(self, message):
+        "Parse log message and possibly take action"
+        for state in self.state_machine:
+            match, function = state
+            grep_info = match.findall(message)
+            if grep_info:
+                if function:
+                    function(grep_info[0])
+                    return True
+        return False
+
+    def _watch_bc(self):
         "Watch log output from bc.py"
         while True:
             expect_list = [self.ssh_conn.PROMPT, self.trace_matcher,
@@ -290,41 +264,22 @@ class BombardierMachineInterface(MachineInterface):
                 raise BombardierMachineException()
             elif found_index == 2: # Log message
                 level, message = self.ssh_conn.match.groups()
-                if not self.process_message(message):
+                if not self._process_message(message):
                     message = message.strip()
                     self.polling_log.log_message(level, message)
                     self.server_log.log_message(level, message, self.machine_name)
 
-    def upload_new_packages(self):
-        "Send needed packages to a machine"
-        dest_path = os.path.join(self.spkg_dir, self.machine_name, "packages")
-        try:
-            package_names = self.machine_status.get_package_names_from_progress()
-            delivered_packages = package_names.get(LOCAL_PACKAGES, [])
-        except MachineStatusException:
-            msg = "No/invalid status data. Assuming there are "\
-                  "no packages on remote system"
-            self.polling_log.warning(msg)
-            delivered_packages = []
-        required_base_names = copy.deepcopy(self.data.get("packages"))
-        self.polling_log.warning("Packages: %s" % required_base_names)
-        newest_names = []
-        for base_name in required_base_names:
-            newest_data = self.machine_status.get_package_data(base_name)
-            newest_name = newest_data.get("install", {}).get("fullName")
-            if newest_name not in delivered_packages:
-                msg = "Need to send package: %s" % newest_name
-                self.server_log.info(msg, self.machine_name)
-                self.send_package(newest_name+".spkg", dest_path)
-
-    def check_file(self, package_name, file_path):
+    def _check_file(self, package_name, file_path):
+        "Determine if a file specified in the type-5 package actually exists"
         if file_path:
             if not os.path.isfile(file_path):
                 msg = "%s not found." % file_path
                 self.server_log.error(msg, self.machine_name)
                 raise PackageNotFound(package_name, file_path)
 
-    def get_type_5_files(self, package_name, package_data):
+    def _get_type_5_files(self, package_name, package_data):
+        """Examine the files specified by a type-5 package and create
+        a dictionary of files to be synchronized to the remote machine"""
         package_sync = {
                         "injectors": [],
                         "libs": [],
@@ -332,7 +287,6 @@ class BombardierMachineInterface(MachineInterface):
 
         for dir_name in [ "libs", "injectors" ]:
             sync_section = package_data.get(dir_name, [])
-            self.server_log.info("SYNC SECTION: %s" % sync_section)
             for sync_item in sync_section:
                 sync_data = sync_section[sync_item]
                 sync_file = sync_data.get("path")
@@ -341,11 +295,12 @@ class BombardierMachineInterface(MachineInterface):
                 if not sync_file.startswith(os.path.sep):
                     sync_file = os.path.join(self.server_home, "repos",
                                              dir_name, sync_file)
-                self.check_file( package_name, sync_file )
+                self._check_file( package_name, sync_file )
                 package_sync[dir_name].append(sync_file)
         return package_sync
 
-    def create_sync_directory(self, files_to_send):
+    def _create_sync_directory(self, files_to_send):
+        "Creating a temporary directory where RSYNC can operate"
         tmp_path = tempfile.mkdtemp()
         for directory_name in files_to_send:
             subdir = os.path.join(tmp_path, directory_name)
@@ -358,7 +313,9 @@ class BombardierMachineInterface(MachineInterface):
                 os.system(cmd)
         return tmp_path
 
-    def rsync_repository(self, tmp_path, dest):
+    def _rsync_repository(self, tmp_path, dest):
+        """Performing an RSYNC command to get all repos files to
+        the remote machine"""
         cmd = "rsync -La %s %s@%s:%s" 
         cmd = cmd % (tmp_path, self.username, self.ip_address, dest)
         self.server_log.info("Running: %s" % cmd)
@@ -369,10 +326,8 @@ class BombardierMachineInterface(MachineInterface):
             msg = "Error rsyncing repository: %s" % output
             raise MachineUnavailableException(self.machine_name, msg)
 
-    def new_upload_new_packages(self):
-        "Send needed packages to a machine using symlinks and rsync"
-        self.polling_log.info("Syncing packages...")
-        dest_path = os.path.join(self.spkg_dir, "repos")
+    def _get_delivered_packages(self):
+        "Find out what packages exist on the remote machine"
         try:
             package_names = self.machine_status.get_package_names_from_progress()
             delivered_packages = package_names.get(LOCAL_PACKAGES, [])
@@ -381,27 +336,37 @@ class BombardierMachineInterface(MachineInterface):
                   "no packages on remote system"
             self.polling_log.warning(msg)
             delivered_packages = []
-        required_base_names = copy.deepcopy(self.data.get("packages"))
-        newest_names = []
+        return delivered_packages
+
+    def _get_files_to_send(self, required_base_names, delivered_packages):
+        "Determine what files need to be sync'd to the remote machine"
         files_to_send = {"type4": []}
         for base_name in required_base_names:
             newest_data = self.machine_status.get_package_data(base_name)
             version = newest_data.get("package-version")
-            #self.server_log.info("BASE_NAME: %s" % base_name)
             if version == 4:
                 newest_name = newest_data.get("install", {}).get("fullName")
                 path_to_file = os.path.join(self.server_home, "repos",
                                             "type4", "%s.spkg" % newest_name)
-                self.check_file(base_name, path_to_file)
+                self._check_file(base_name, path_to_file)
                 if newest_name not in delivered_packages:
                     files_to_send["type4"].append(path_to_file)
             elif version == 5:
-                package_sync = self.get_type_5_files(base_name, newest_data)
+                package_sync = self._get_type_5_files(base_name, newest_data)
                 files_to_send = update_dict(files_to_send, package_sync)
-        #self.server_log.info("FILES TO SEND: %s" % files_to_send)
-        tmp_path = self.create_sync_directory(files_to_send)
+        return files_to_send
+
+    def _upload_new_packages(self):
+        "Send needed packages to a machine using symlinks and rsync"
+        self.polling_log.info("Syncing packages...")
+        delivered_packages = self._get_delivered_packages()
+        required_base_names = copy.deepcopy(self.data.get("packages"))
+        files_to_send = self._get_files_to_send(required_base_names,
+                                                delivered_packages)
+
+        tmp_path = self._create_sync_directory(files_to_send)
         dest = os.path.join(self.spkg_dir, "repos")
-        self.rsync_repository(tmp_path + os.path.sep, dest)
+        self._rsync_repository(tmp_path + os.path.sep, dest)
         dest = os.path.join(self.spkg_dir, self.machine_name, "packages")
 
         type_4_dir = os.path.join(self.spkg_dir, "repos", "type4")
@@ -412,11 +377,11 @@ class BombardierMachineInterface(MachineInterface):
             msg = "Unable to create links: %s" % self.ssh_conn.before
             raise MachineUnavailableException(self.machine_name, msg)
             
-        #self.gso(cmd)
-        #os.system("rm -rf %s" % tmp_path)
+        self.server_log.debug("Removing directory %s..." % tmp_path)
+        os.system("rm -rf %s" % tmp_path)
         self.polling_log.debug("...Finished syncing packages.")
 
-    def dump_trace(self):
+    def _dump_trace(self):
         "Pretty print a stack trace into the logs"
         stack_trace = []
         found_index = 1
@@ -454,60 +419,7 @@ class BombardierMachineInterface(MachineInterface):
                 self.polling_log.error(line)
                 self.server_log.error(line, self.machine_name)
 
-    def take_action(self, action, package_name, script_name, debug):
-        '''
-        Run a package-oriented action on a remote machine
-        action -- one of the following: EXECUTE, INIT, INSTALL,
-                  UNINSTALL, VERIFY, CONFIGURE, DRY_RUN
-        package_name -- the name of a package to operate on
-        script_name -- the name of a script to run (againsta a package)
-        debug -- defunct
-        '''
-        message = []
-        try:
-            self.action_result = []
-            self.pull_report = True
-            if action == EXECUTE:
-                self.clear_script_output(script_name)
-            if not action in [ INIT, FIX, PURGE ]:
-                #self.upload_new_packages()
-                self.new_upload_new_packages()
-            message = self.run_bc(action, package_name, script_name, debug)
-        except MachineUnavailableException:
-            message = ["Remote system refused connection."]
-            self.exit_code = FAIL
-        except MachineConfigurationException, exc:
-            self.exit_code = FAIL
-            message = ["Machine configuration error: %s" % exc]
-        except EOF:
-            self.exit_code = FAIL
-            message = ["Machine unexpectedly disconnected."]
-        except BombardierMachineException, exc:
-            self.server_log.error("FOUND A STACK TRACE")
-            self.dump_trace()
-            self.ssh_conn.prompt()
-            self.get_status_yml()
-            self.exit_code = FAIL
-            message = ["Machine raised an exception."]
-        except Exception, exc:
-            print "------------------- PROCESS EXCEPTION"
-            exc = StringIO.StringIO()
-            traceback.print_exc(file=exc)
-            exc.seek(0)
-            data = exc.read()
-            ermsg = ''
-            for line in data.split('\n'):
-                ermsg = "%% %s" % line
-                self.polling_log.error(ermsg)
-                self.server_log.error(ermsg, self.machine_name)
-            self.exit_code = FAIL
-            message = ["Exception in client-handling code."]
-        self.get_status_yml()
-        msg = "take_action is returning: %s / %s" % (self.exit_code, message)
-        self.server_log.debug(msg)
-        return self.exit_code, message
-
-    def clear_script_output(self, script_name):
+    def _clear_script_output(self, script_name):
         "Remove old output yml file if it exists on remote machine"
         file_name = "%s-%s.yml" % (self.machine_name, script_name)
         file_path = os.path.join(self.server_home, "output", file_name)
@@ -515,19 +427,7 @@ class BombardierMachineInterface(MachineInterface):
             os.unlink(file_path)
         return
 
-    def get_script_output(self, script_name):
-        "Read output yaml file and add it to the report"
-        remote_file_name = "%s-output.yml" % (script_name)
-        self.local_filename  = "%s-%s.yml" % (self.machine_name, script_name)
-        self.get("%s/output/%s" % (self.spkg_dir, remote_file_name))
-        if os.path.isfile(remote_file_name):
-            report_path = os.path.join(self.server_home, "output",
-                                       self.local_filename)
-            os.system("mv -f %s %s" % (remote_file_name, report_path ))
-            self.report_info = open(report_path).read()
-        return
-
-    def get_status_yml(self):
+    def _get_status_yml(self):
         "Pull status.yml from remote machine and cache it locally"
         status_dir = os.path.join(self.server_home, 'status')
         if not os.path.isdir( status_dir ):
@@ -556,4 +456,171 @@ class BombardierMachineInterface(MachineInterface):
         except IOError, ioe:
             msg = "Unable to write '%s' (%s)" % (status_file, ioe)
             self.polling_log.error(msg)
+
+    def _process_backup(self, backup_dict, package_name):
+        '''
+        We've just instructed a package to back itself up. We need to haul the
+        backup data back to archive it and collect some statistics on it.
+        backup_dict -- Detailed information about the backup
+            Example: {'__BACKUP_DIR__': '/tmp/tmp3GHMRw',
+                      '__POST_BACKUP__': 'start',
+                      '__PRE_BACKUP__': 'stop',
+                      '__START_TIME__': 1284766556.062264,
+                      'main_file': {'status': 0,
+                                    'elapsed_time': 0.0013320446014404297,
+                                    'file_name': '/tmp/foogazi/test_type_5',
+                                    'size': 18L,
+                                    'md5': {'test_type_5': 'a670f8128b02d00725cff2b4973fb47e',
+                                            'test_type_5.bz2': '17e6a319e8e0b496dab7eb9b3ce03994'
+                                           }
+                                   }
+                     }
+        '''
+        remote_dir = backup_dict.get("__BACKUP_DIR__")
+        if not remote_dir:
+            msg = "Package does not request data be copied back from machine."
+            self.polling_log.warning(msg)
+            self.server_log.warning(msg)
+            return backup_dict
+        start_time = str(int(backup_dict.get("__START_TIME__")))
+        archive_dir = os.path.join(self.server_home, "archive",
+                                   self.machine_name, package_name, start_time)
+        os.system("mkdir -p %s" % archive_dir)
+        cmd = "rsync -La %s@%s:%s/* %s" 
+        cmd = cmd % (self.username, self.ip_address, remote_dir, archive_dir)
+        self.polling_log.debug(cmd)
+        status, output = gso(cmd)
+        if status != OK:
+            msg = "Error rsyncing remote backup: %s" % output
+            backup_dict["__SYNC__"] = FAIL
+            self.status = FAIL
+        else:
+            backup_dict["__SYNC__"] = OK
+            self.run_cmd("rm -rf %s" % remote_dir)
+            del backup_dict["__BACKUP_DIR__"]
+            backup_summary = yaml.dump(backup_dict)
+            summary_file = os.path.join(archive_dir, "backup_info.yml")
+            open(summary_file, 'w').write(backup_summary)
+        return backup_dict
+
+    ##############################################################
+    ## PUBLIC METHODS
+    ##############################################################
+
+    def freshen(self, job_name, require_status):
+        "Refresh config data"
+        self.set_job(job_name)
+        try:
+            MachineInterface.freshen(self)
+        except MachineUnavailableException:
+            self.unset_job()
+            raise
+        try:
+            self.machine_status.freshen()
+        except MachineStatusException:
+            msg = "Can't find status. Fetching from machine."
+            self.polling_log.warning(msg)
+            self._get_status_yml()
+            try:
+                self.machine_status.freshen()
+            except MachineStatusException:
+                if require_status:
+                    self.unset_job()
+                    raise
+        return OK
+
+    def _sync_restore_data(self, package_name, target):
+        '''
+        Prior to a restore command, sends all necessary data to the remote
+        machine to $SPKG_DIR/archive
+        package_name -- name of package being restored
+        target -- name of backup dataset
+        '''
+        remote_dir = os.path.join(self.spkg_dir, "archive", package_name, target)
+        self.run_cmd(" mkdir -p %s" % remote_dir)
+        archive_dir = os.path.join(self.server_home, "archive",
+                                   self.machine_name, package_name, target)
+        if not os.path.isdir(archive_dir):
+            reason = "{0} does not exist".format(archive_dir)
+            errmsg = "Cannot restore target {0} for package {1}/machine {2}"\
+                     ": {3}"
+            errmsg = errmsg.format(target, package_name, self.machine_name, reason)
+            self.polling_log.error(errmsg)
+            raise RestoreFailure(reason, target, package_name, self.machine_name)
+            
+        cmd = "rsync -La {0}/* {1}@{2}:{3}" 
+        cmd = cmd.format(archive_dir, self.username, self.ip_address,
+                         remote_dir)
+        self.server_log.info("Running: %s" % cmd)
+        self.polling_log.debug(cmd)
+        self.polling_log.info("Copying archive to remote machine...")
+        status, output = gso(cmd)
+        if status != OK:
+            msg = "Error rsyncing restore data: %s" % output
+            raise RestoreFailure(msg)
+
+    def take_action(self, action, package_name, script_name, arguments, debug):
+        '''
+        Run a package-oriented action on a remote machine
+        action -- one of the following: EXECUTE, INIT, INSTALL,
+                  UNINSTALL, VERIFY, CONFIGURE, DRY_RUN, BACKUP
+        package_name -- the name of a package to operate on
+        script_name -- the name of a script to run (againsta a package)
+        debug -- defunct
+        '''
+        message = []
+        start_time = time.time()
+        try:
+            self.action_result = []
+            self.pull_report = True
+            if action in [ EXECUTE, BACKUP ]:
+                self._clear_script_output(script_name)
+            if action == RESTORE:
+                self._sync_restore_data(package_name, arguments)
+            if not action in [ INIT, FIX, PURGE ]:
+                self._upload_new_packages()
+            message = self._run_bc(action, package_name, script_name,
+                                   arguments, debug)
+        except MachineUnavailableException:
+            message = ["Remote system refused connection."]
+            self.exit_code = FAIL
+        except MachineConfigurationException, exc:
+            self.exit_code = FAIL
+            message = ["Machine configuration error: %s" % exc]
+        except EOF:
+            self.exit_code = FAIL
+            message = ["Machine unexpectedly disconnected."]
+        except BombardierMachineException, exc:
+            self.server_log.error("FOUND A STACK TRACE")
+            self._dump_trace()
+            self.ssh_conn.prompt()
+            self._get_status_yml()
+            self.exit_code = FAIL
+            message = ["Machine raised an exception."]
+        except Exception, exc:
+            print "------------------- PROCESS EXCEPTION"
+            exc = StringIO.StringIO()
+            traceback.print_exc(file=exc)
+            exc.seek(0)
+            data = exc.read()
+            ermsg = ''
+            for line in data.split('\n'):
+                ermsg = "%% %s" % line
+                self.polling_log.error(ermsg)
+                self.server_log.error(ermsg, self.machine_name)
+            self.exit_code = FAIL
+            message = ["Exception in client-handling code."]
+        self._get_status_yml()
+        msg = "take_action is returning: %s / %s" % (self.exit_code, message)
+        self.server_log.debug(msg)
+        if action == BACKUP:
+            if self.exit_code == OK:
+                if type(message) != type({}):
+                    errmsg = "Backup returned illegal data: %s" % message
+                    self.server_log.error(errmsg, self.machine_name)
+                    self.exit_code = FAIL
+                else:
+                    message["__START_TIME__"] = start_time
+                    message = self._process_backup(message, package_name)
+        return self.exit_code, message
 

@@ -30,17 +30,26 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import os, time
+import yaml
+import os, time, stat
+import tempfile
 import StringIO, traceback
 
 import MetaData
 from bombardier_core.mini_utility import get_package_path, get_spkg_path
+from bombardier_core.mini_utility import rpartition
 from bombardier_core.Progress import Progress
 
 from Exceptions import BadPackage, FeatureRemovedException
 from bombardier_core.Logger import Logger
 from bombardier_core.static_data import OK, FAIL
 from bombardier_core.static_data import INSTALL, UNINSTALL, CONFIGURE, VERIFY
+from bombardier_core.static_data import BACKUP
+
+from bombardier_core.PluggableFileProcessor import COMPRESS, SPLIT, ENCRYPT
+from bombardier_core.PluggableFileProcessor import ForwardPluggableFileProcessor
+from bombardier_core.PluggableFileProcessor import ReversePluggableFileProcessor
+from bombardier_core.PluggableFileProcessor import MANIFEST_FILE
 
 AVERAGE = 100
 
@@ -114,15 +123,15 @@ class Package:
         Logger.warning(errmsg)
         self.dependency_errors.append(dependency_name)
 
-    def install_and_verify(self, pkns, dry_run=False):
+    def install_and_verify(self, future_pkns, dry_run=False):
         '''
         Perform an installation and verification operation
-        pkns -- list of package names
+        future_pkns -- list of package names
         dry_run -- whether to actually perform the action
         '''
         self._download()
         if self.action == INSTALL:
-            status = self._install(pkns, dry_run=dry_run)
+            status = self._install(future_pkns, dry_run=dry_run)
             if not dry_run:
                 if status == OK:
                     status = self.verify()
@@ -136,7 +145,7 @@ class Package:
         dry_run -- whether to actually perform the action
         '''
         self._download()
-        return self._find_cmd(CONFIGURE, [], dry_run)
+        return self._find_cmd(CONFIGURE, dry_run=dry_run)
 
     def verify(self, dry_run=False): 
         '''
@@ -146,7 +155,7 @@ class Package:
         self._download()
         message = "Verifying package %s" % self.full_name
         Logger.info(message)
-        self.status = self._find_cmd(VERIFY, [], dry_run)
+        self.status = self._find_cmd(VERIFY, dry_run=dry_run)
         if self.action != INSTALL:
             self._write_progress()
         Logger.info("Verify result for %s : %s" % (self.full_name, self.status))
@@ -165,7 +174,7 @@ class Package:
         if dry_run:
             dry_run_string = " --DRY_RUN-- "
         Logger.info("Uninstalling package %s%s" % (self.name, dry_run_string))
-        self.status = self._find_cmd(UNINSTALL, [], dry_run)
+        self.status = self._find_cmd(UNINSTALL, dry_run=dry_run)
         if not dry_run:
             self._write_progress()
         msg = "Uninstall result for %s%s : %s"
@@ -198,7 +207,7 @@ class Package:
         'Virtual method'
         pass
 
-    def _find_cmd(self, action, pkns, dry_run):
+    def _find_cmd(self, action, argument='', future_pkns=[], dry_run=False):
         'Virtual method'
         return FAIL
 
@@ -253,10 +262,10 @@ class Package:
         Logger.error(ermsg)
         Logger.error("Error ocurred in %s" % file_name)
 
-    def _install(self, pkns, dry_run=False):
+    def _install(self, future_pkns, dry_run=False):
         '''
         perform an installation operation
-        pkns -- package names to be installed after this one
+        future_pkns -- package names to be installed after this one
         dry_run -- whether or not to actuall perform the installation
         '''
         dry_run_string = ""
@@ -265,7 +274,7 @@ class Package:
         self._download()
         message = "Beginning installation of (%s)%s"
         Logger.info(message % (self.full_name, dry_run_string))
-        self.status = self._find_cmd(INSTALL, pkns, dry_run)
+        self.status = self._find_cmd(INSTALL, future_pkns=future_pkns, dry_run=dry_run)
         msg = "Install result for %s%s : %s"
         Logger.info(msg % (self.full_name, dry_run_string, self.status))
         return self.status
@@ -301,6 +310,107 @@ class Package:
         else:
             pdat[self.full_name]['UNINSTALLED'] = "BROKEN"
         return pdat
+
+    def _prepare_restore(self, obj, restore_path):
+        """
+        Command to deal with setting up the environment prior to a
+        restore action
+        obj -- package object which owns methods for restoring, etc.
+        restore_path -- place where restore files have been dropped
+        """
+        if hasattr(obj, "pre_restore_cmd"):
+            pre_backup_cmd = obj.pre_backup_cmd
+            status = self._find_cmd(obj.pre_restore_cmd)
+            if status != OK:
+                erstr = "%s: restore FAILED because %s failed."
+                Logger.error(erstr % (self.full_name, pre_backup_cmd))
+                return FAIL
+
+        backup_data = yaml.load(open(os.path.join(restore_path, "backup_info.yml")).read())
+        for backup_target in backup_data:
+            if backup_target.startswith("__"):
+                continue
+            md5_data = backup_data[backup_target].get("md5", {})
+            backup_file_name = backup_data[backup_target].get("backup_file", '')
+            if not md5_data or not backup_file_name:
+                Logger.error("Corrupted backup data for %s, aborting." % (backup_target))
+                return FAIL
+            source_file = os.path.join(restore_path, backup_target.rpartition(os.path.sep)[0][1:], backup_file_name)
+            destination_file = os.path.join(restore_path, backup_target[1:])
+            Logger.debug("=================================")
+            Logger.debug("backup_target: %s..." % (backup_target))
+            Logger.debug("current directory: %s" % (restore_path))
+            Logger.debug("backup_file_name: %s..." % (backup_file_name))
+            Logger.debug("destination_file: %s..." % (destination_file))
+            Logger.debug("source_file: %s" % (source_file))
+            Logger.debug("=================================")
+            if not os.path.isfile(source_file):
+                Logger.error("Restore file %s does not exist, aborting" % (source_file))
+                return FAIL
+            rfp = ReversePluggableFileProcessor(source_file, destination_file, md5_data, Logger)
+            rfp.process_all()
+
+    def _backup(self, obj, backup_data, future_pkns, dry_run):
+        "Perform basic backup functions for a package"
+
+        pre_backup_cmd = obj.pre_backup
+        post_backup_cmd = obj.post_backup
+
+        if pre_backup_cmd:
+            status = self._find_cmd(pre_backup_cmd, future_pkns=future_pkns, dry_run=dry_run)
+            if status != OK:
+                erstr = "%s: backup FAILED because pre-backup command failed."
+                Logger.error(erstr % self.full_name)
+                return FAIL
+
+        file_names = backup_data.get("file_names")
+        if type(file_names) != type([]):
+            errmsg = "Package %s did not define its backup data correctly."\
+                     " '%s' should be a list."
+            Logger.error(errmsg % (self.full_name, file_names))
+            return FAIL
+        options = backup_data.get("options", [COMPRESS])
+        if type(options) != type([]):
+            errmsg = "Package %s did not define its backup data correctly."\
+                     " '%s' should be a list."
+            Logger.error(errmsg % (self.full_name, options))
+            return FAIL
+
+        backup_dir = tempfile.mkdtemp()
+        Logger.info("Temporary backup dir: %s" % backup_dir)
+        start_time = time.time()
+        backup_data = {"__START_TIME__": start_time}
+
+        for file_name in file_names:
+            backup_data[file_name] = {}
+            current_start = time.time()
+            if file_name.startswith(os.path.sep):
+                backup_destination = os.path.join(backup_dir, file_name[1:])
+            fpf = ForwardPluggableFileProcessor(file_name, backup_destination, options, Logger)
+            backup_file_name, md5_dict = fpf.process_all()
+            if not os.path.isfile(backup_file_name):
+                Logger.error("Backup file not created.")
+                return FAIL
+            backup_data[file_name]["md5"] = md5_dict
+            backup_data[file_name]["backup_file"] = backup_file_name.rpartition(os.path.sep)[-1]
+            elapsed_time = time.time() - current_start
+            backup_data[file_name]["elapsed_time"] = elapsed_time
+            size = os.stat(file_name)[stat.ST_SIZE]
+            backup_data[file_name]["size"] = size
+            backup_data[file_name]["status"] = OK
+
+        if post_backup_cmd:
+            status = self._find_cmd(post_backup_cmd, future_pkns=future_pkns, dry_run=dry_run)
+            if status != OK:
+                erstr = "%s: backup FAILED because post-backup command failed."
+                Logger.error(erstr % self.full_name)
+                return FAIL
+
+        backup_data["__BACKUP_DIR__"] = backup_dir
+        yaml_string = yaml.dump(backup_data)
+        for line in yaml_string.split('\n'):
+            Logger.info("==REPORT==:%s" % line)
+        return OK
 
     def _write_progress(self):
         '''Write out information about the state of the packages on this

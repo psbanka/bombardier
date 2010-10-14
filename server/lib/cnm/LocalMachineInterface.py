@@ -31,7 +31,7 @@ class LocalMachineInterface(AbstractMachineInterface):
         "Run a remote shell command"
         return [OK, []]
 
-    def dump_trace(self):
+    def _dump_trace(self):
         "Pretty print a stack trace into the logs"
         exc = StringIO.StringIO()
         traceback.print_exc(file=exc)
@@ -123,8 +123,13 @@ class LocalMachineInterface(AbstractMachineInterface):
         os.chdir( checkout_dir )
         section_dir =  os.path.join(self.server_home, "repos", section_name)
         if not os.path.isdir(section_dir):
-            msg = "Server does not have required directory: %s" % section_dir
-            raise CnmServerException(msg)
+            status = os.system("mkdir -p %s" % section_dir)
+            if status != OK:
+                msg = "Could not create required directory: %s" % section_dir
+                raise CnmServerException(msg)
+            else:
+                msg = "Created required directory: %s" % section_dir
+                self.server_log.warning(msg)
         tar_file_path = os.path.join(section_dir, 
                                      "%s-%s.tar.gz" % (base, version))
         cmd = "tar -czf %s *" % ( tar_file_path )
@@ -229,7 +234,7 @@ class LocalMachineInterface(AbstractMachineInterface):
             open(package_file, 'w').write(yaml.dump(pkg_data))
             self.polling_log.info("Note: not deleting %s" % tmp_path)
         except Exception:
-            self.dump_trace()
+            self._dump_trace()
             advice = "%s is still available for code inspection." % tmp_path
             self.polling_log.error(advice)
         

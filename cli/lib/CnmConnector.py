@@ -42,6 +42,8 @@ import re
 import urllib
 import tempfile
 from bombardier_core.static_data import OK, FAIL, ABORTED_JOB_NAME
+from bombardier_core.static_data import BDR_CLIENT_TYPE
+
 from Exceptions import UnexpectedDataException, ServerException
 from Exceptions import MachineTraceback, ServerTracebackException
 from Exceptions import MachineUnavailableException, CommandError
@@ -345,6 +347,14 @@ class CnmConnector:
                 print "POSTING:", encoded_post_data
         return self.perform_request(curl_obj, full_path)
 
+    def get_restore_targets(self, machine_name, package_name):
+        "Get restore data available for a machine"
+        url = 'json/machine/restore/{0}/{1}'.format(machine_name, package_name)
+        print "URL",url
+        output = self.service_yaml_request(url)
+        print "OUTPUT:",output
+        return output
+
     def get_server_config(self):
         "Get server-side configuration data"
         url = 'json/server/config'
@@ -399,13 +409,13 @@ class CnmConnector:
         "Set a machine up"
         post_data = {"yaml": yaml.dump( {"password" : password } )}
         job_name =  self.machine_job(machine_name, "setup", bg_flag, post_data)
-        if job_name == ABORTED_JOB_NAME:
-            raise CommandError("Dist files not found, aborted setup.")
         return job_name
 
     def enable_command(self, machine_name, password, bg_flag):
         "Transfer ssh keys"
-        post_data = {"yaml": yaml.dump( {"password" : password } )}
+        post_data = {"yaml": yaml.dump( {"password" : password,
+                                         "machine_type": BDR_CLIENT_TYPE }
+                                      )}
         return self.machine_job(machine_name, "enable", bg_flag, post_data)
 
     def dist_command(self, machine_name, dist_name, bg_flag):
@@ -413,11 +423,14 @@ class CnmConnector:
         post_data = {"dist": dist_name}
         return self.machine_job(machine_name, "dist", bg_flag, post_data)
 
-    def package_command(self, command, machine_name, package_name, bg_flag):
+    def package_command(self, command, machine_name, package_name,
+                        argument, bg_flag):
         "Watch a package-job run on a machine"
         url = "json/package_action/%s" % package_name
         post_data = {"machine": machine_name,
                      "action": command}
+        if argument:
+            post_data["argument"] = argument
         job_name = self.get_job(url, post_data)
         if bg_flag:
             return OK, ["Started job: %s" % job_name]
@@ -431,6 +444,9 @@ class CnmConnector:
         if bg_flag:
             return OK, ["Started job: %s" % job_name]
         return self.watch_jobs([job_name])
+
+    def show_snapshots(self, machine_name):
+        return OK, []
 
     def push_machine_config(self, machine_name, bg_flag):
         "Push the configuration to a remote machine"
@@ -545,11 +561,14 @@ class CnmConnector:
     def get_job(self, url, post_data):
         "Given an action dictated by URL, get a job_name that we can track"
         out = self.service_yaml_request(url, post_data=post_data)
+        job_name = out.get("job_name")
+        if job_name == ABORTED_JOB_NAME:
+            msg = "Missing required .tar.gz files in <server_home>/dist."
+            raise CommandError(msg)
         if "traceback" in out:
             raise MachineTraceback(url, out["traceback"])
         if out.get("command_status") != OK:
             raise MachineUnavailableException(out.get("command_output",""))
-        job_name = out.get("job_name")
         return job_name
 
     def join_job(self, job_name):

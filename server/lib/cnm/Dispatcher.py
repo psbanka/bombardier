@@ -9,6 +9,7 @@ import Pyro.naming
 from bombardier_core.static_data import OK, FAIL, WAIT
 from bombardier_core.Cipher import Cipher, DecryptionException
 from bombardier_core.static_data import ACTION_LOOKUP, ABORTED_JOB_NAME
+from bombardier_core.static_data import LOCAL_TYPE, BDR_CLIENT_TYPE
 
 from Exceptions import InvalidJobName, JoinTimeout
 from Exceptions import QueuedJob, NonexistentDistFiles
@@ -18,7 +19,6 @@ from BombardierMachineInterface import BombardierMachineInterface
 from LocalMachineInterface import LocalMachineInterface 
 import Job
 import ServerLogMixin
-from ServerLogger import ServerLogger
 from Commands import BuildCommand, ShellCommand, BombardierCommand
 import DispatchMonitor
 
@@ -33,7 +33,6 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
     def __init__(self, server_home, encryption_key):
         Pyro.core.ObjBase.__init__(self)
         ServerLogMixin.ServerLogMixin.__init__(self)
-        self.polling_log   = None
         self.start_time = time.time()
         self.password = encryption_key
         self.server_home = server_home
@@ -51,18 +50,16 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         self.server_log.info("Setting server home: %s" % server_home, username)
         self.server_home = server_home
 
-    def get_machine_config(self, username, machine_name):
-        if machine_name == LOCAL_MACHINE_NAME:
-            machine_config = MachineConfig(LOCAL_MACHINE_NAME, self.password,
-                                           self.server_home)
+    def get_machine_config(self, username, machine_name, machine_type):
         machine_config = MachineConfig(machine_name, self.password,
-                                       self.server_home)
+                                       self.server_home, machine_type)
         return machine_config
 
-    def get_machine_interface(self, username, machine_name):
+    def get_machine_interface(self, username, machine_name, machine_type):
         "Returns an interface to a machine, creating a new one if needed"
-        machine_config = self.get_machine_config(username, machine_name)
-        if machine_name == LOCAL_MACHINE_NAME:
+        machine_config = MachineConfig(machine_name, self.password,
+                                       self.server_home, machine_type)
+        if machine_type == LOCAL_TYPE:
             machine_interface = LocalMachineInterface(machine_config,
                                                       self.server_log)
             return machine_interface 
@@ -83,9 +80,9 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
             self.machine_interface_pool[machine_name] = machine_interface
         return machine_interface 
 
-    def _create_next_job(self, username, machine_name):
+    def _create_next_job(self, username, machine_name, machine_type):
         "Creates a job, keeping track of the master job number"
-        job = Job.Job(username, machine_name, self.next_job)
+        job = Job.Job(username, machine_name, machine_type, self.next_job)
         self.new_jobs[job.name] = job
         self.next_job += 1
         return job
@@ -96,7 +93,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         if job_predecessors == None:
             job_predecessors = []
         machine_interface = self.get_machine_interface(job.username,
-                                                       job.machine_name)
+                                 job.machine_name, job.machine_type)
         job.setup(machine_interface, commands, copy_dict, require_status,
                  job_predecessors)
 
@@ -133,11 +130,11 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
     def unpush_job(self, username, machine_name):
         "remove cleartext configuration data to the remote machine for testing"
         commands = []
-        job = self._create_next_job(username, machine_name)
+        job = self._create_next_job(username, machine_name, BDR_CLIENT_TYPE)
         job.description = "Un-push"
         try:
             machine_interface = self.get_machine_interface(username,
-                                                           machine_name)
+                                     machine_name, BDR_CLIENT_TYPE)
             config_path = os.path.join(machine_interface.spkg_dir,
                                        machine_interface.machine_name)
             clear = ShellCommand("Removing cleartext configuration file", 
@@ -150,11 +147,11 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
 
     def push_job(self, username, machine_name):
         "push cleartext configuration data to the remote machine for testing"
-        job = self._create_next_job(username, machine_name)
+        job = self._create_next_job(username, machine_name, BDR_CLIENT_TYPE)
         job.description = "Push"
         try:
             machine_interface = self.get_machine_interface(username,
-                                                           machine_name)
+                                     machine_name, BDR_CLIENT_TYPE)
             spkg_dir = machine_interface.spkg_dir
             src = os.path.join("machine", "%s.yml" % machine_name)
             dst = os.path.join(spkg_dir, machine_interface.machine_name,
@@ -170,11 +167,11 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
 
     def init_job(self, username, machine_name):
         "Initialize a bombardier client install"
-        job = self._create_next_job(username, machine_name)
+        job = self._create_next_job(username, machine_name, BDR_CLIENT_TYPE)
         job.description = "Initialize"
         try:
             commands = []
-            bombardier_init = BombardierCommand("init", None, None)
+            bombardier_init = BombardierCommand("init", None, None, [])
 
             commands = [bombardier_init]
             job.description = "INIT"
@@ -187,11 +184,11 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
 
     def bom_job(self, username, machine_name, action_string, status_required):
         "Run a bom level job on a machine"
-        job = self._create_next_job(username, machine_name)
+        job = self._create_next_job(username, machine_name, BDR_CLIENT_TYPE)
         try:
             if action_string == 'reconcile':
                 job.require_comment = True
-            bombardier_recon = BombardierCommand(action_string, None, None)
+            bombardier_recon = BombardierCommand(action_string, None, None, [])
             commands = [bombardier_recon]
             self._setup_job(job, commands, {}, status_required)
         except Exception:
@@ -218,7 +215,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         svn_user -- svn credentials
         svn_password -- svn credentials
         '''
-        job = self._create_next_job(username, LOCAL_MACHINE_NAME)
+        job = self._create_next_job(username, LOCAL_MACHINE_NAME, LOCAL_TYPE)
         try:
             build_cmd = BuildCommand(package_name, svn_user, svn_password,
                                      debug, prepare)
@@ -229,8 +226,25 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
             job.command_status = FAIL
         return job.name
 
+    def check_restore_data(self, username, machine_name, package_name):
+        '''
+        Determines what restore data-sets are available to be restored
+        username -- the name of the user issuing the command
+        package_name -- the name of the package to deal with
+        machine_name -- name of the machine to run the job on
+        '''
+        search_path = os.path.join(self.server_home, "archive", machine_name, package_name)
+        self.server_log.info("Examining {0}...".format(search_path))
+        output = {}
+        if os.path.isdir(search_path):
+            search_path += "/*"
+            targets = glob.glob(search_path)
+            base_targets = [tgt.rpartition('/')[-1] for tgt in targets]
+            output["targets"] = base_targets
+        return output 
+
     def package_action_job(self, username, package_name, action_string, 
-                           machine_name):
+                           machine_name, arguments = []):
         '''
         Runs a bc command for a certain machine and package
         username -- the name of the user issuing the command
@@ -239,20 +253,21 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                          verify, reconcile, check_status, execute, fix, purge,
                          dry_run, or init
         machine_name -- name of the machine to run the job on
+        arguments    -- arguments used, currently only for restore
         '''
-        job = self._create_next_job(username, machine_name)
+        job = self._create_next_job(username, machine_name, BDR_CLIENT_TYPE)
         job.require_comment = True
         script_name = ''
         if action_string not in ACTION_LOOKUP:
             script_name = action_string
             action_string = "execute"
         if package_name:
-            if action_string == "check_status" or action_string == "reconcile":
+            if action_string in ["check_status", "reconcile"]:
                 script_name = action_string
                 action_string = "execute"
         try:
             bom_cmd = BombardierCommand(action_string, package_name, 
-                                        script_name)
+                                        script_name, arguments)
             commands = [bom_cmd]
 
             self._setup_job(job, commands, {}, True)
@@ -263,7 +278,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
 
     def dist_job(self, username, machine_name, dist_name):
         "Job that unpacks and installs a distutils package"
-        job = self._create_next_job(username, machine_name)
+        job = self._create_next_job(username, machine_name, BDR_CLIENT_TYPE)
         job.description = "DIST: %s" % dist_name
         job.require_comment = True
         try:
@@ -281,13 +296,13 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
             job.command_status = FAIL
         return job.name
 
-    def enable_job(self, username, machine_name, password):
+    def enable_job(self, username, machine_name, machine_type, password):
         "Set up ssh shared keys with a remote machine"
-        job = self._create_next_job(username, machine_name)
+        job = self._create_next_job(username, machine_name, machine_type)
         job.description = "Enable"
         try:
             machine_interface = self.get_machine_interface(username,
-                                                           machine_name)
+                                     machine_name, machine_type)
             machine_interface.ssh_pass = password
             public_key = "id_dsa.pub"
             copy_dict = { "admin" : [os.path.join("admin", public_key), '.'] }
@@ -308,9 +323,9 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
             job.command_status = FAIL
         return job.name
 
-    def disable_job(self, username, machine_name):
+    def disable_job(self, username, machine_name, machine_type):
         "Remove shared ssh key from a remote machine"
-        job = self._create_next_job(username, machine_name)
+        job = self._create_next_job(username, machine_name, machine_type)
         job.description = "Disable"
         try:
             public_key = "id_dsa.pub"
@@ -334,16 +349,15 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
             job.command_status = FAIL
         return job.name
 
-    def test_job(self, username, machine_name):
+    def test_job(self, username, machine_name, machine_type):
         "Simple test job"
         username = str(username)
         machine_name = str(machine_name)
-        job = self._create_next_job(username, machine_name)
+        job = self._create_next_job(username, machine_name, machine_type)
         job.description = "Self-test"
         try:
             cmd = 'for i in 1 2 3 4; do sleep 1; echo "Testing $i/4"; done'
             commands = [ShellCommand("self_test", cmd, '.')]
-            open("/tmp/POOP.txt", 'a').write("TEST_JOB 1, %s\n" % commands)
             self._setup_job(job, commands, {}, False)
         except Exception:
             job.command_output = self.dump_exception(username)
@@ -491,10 +505,10 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
     @classmethod
     def debug_log(cls, message):
         "This is for troubleshooting"
-        fh = open("/tmp/web.log", 'a')
-        fh.write("\nDEBUG>>> "+message+"\n")
-        fh.flush()
-        fh.close()
+        file_handle = open("/tmp/web.log", 'a')
+        file_handle.write("\nDEBUG>>> "+message+"\n")
+        file_handle.flush()
+        file_handle.close()
 
     def check_status(self):
         "Return elapsed time"
@@ -539,7 +553,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                 continue
             try:
                 client_info = yaml.load(open(file_name).read())
-            except Exception, exc:
+            except Exception:
                 msg = "file_name: %s is NOT parsable" % file_name 
                 self.server_log.warning(msg)
                 continue
@@ -590,11 +604,9 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
                     max_version = new_version
         return latest_filename
 
-    def _dist_install_job(self, search_string, username, machine_name):
+    def _dist_install_job(self, newest_dist, username, machine_name):
         """Find the latest version of a distribution file and create a job to
         deploy it on a machine"""
-        matcher = re.compile(search_string)
-        newest_dist = self._find_latest_file(matcher)
         newest_dist = newest_dist.split('.tar.gz')[0]
         newest_dist = newest_dist.split(os.path.sep)[-1]
         job_name = self.dist_job(username, machine_name, newest_dist)
@@ -608,38 +620,45 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
            (4) run an 'init' job
            (5) run a 'check_status' job
         """
-
-        dist2_name = "PyYAML-3.(\d+).tar.gz"
-        dist3_name = "bombardier_core\-1\.00\-(\d+)\.tar\.gz"
-        dist4_name = "bombardier_client\-1\.00\-(\d+)\.tar\.gz"
+        
+        dist2_re = re.compile("PyYAML-3.(\d+).tar.gz")
+        dist3_re = re.compile("bombardier_core\-1\.00\-(\d+)\.tar\.gz")
+        dist4_re = re.compile("bombardier_client\-1\.00\-(\d+)\.tar\.gz")
+        dist_dict = {dist2_re: "", dist3_re: "", dist4_re: ""}
         try:
             search_errors = []
-            for dist_name in [ dist2_name, dist3_name, dist4_name ]:
-                if not self._find_latest_file(dist_name):
-                    search_errors.append(dist_name)
-            raise NonexistentDistFiles(search_errors)
+            for dist_re in dist_dict:
+                dist_path = self._find_latest_file(dist_re)
+                dist_dict[dist_re] = dist_path
+                if not dist_path:
+                    search_errors.append(dist_re)
+            if len(search_errors) != 0:
+                raise NonexistentDistFiles(search_errors)
         except NonexistentDistFiles, exc:
             job_name = ABORTED_JOB_NAME
-            self.polling_log = ServerLogger(job_name)
-            self.polling_log.add_stringio_handle()
-            self.polling_log.error(str(exc))
             self.server_log.error(str(exc), machine_name)
+            msg = "Returning %s as the job_name" % job_name
+            self.server_log.error(msg, machine_name)
             return job_name
 
-        job1_name = self.enable_job(username, machine_name, password)
+        job1_name = self.enable_job(username, machine_name,
+                                    BDR_CLIENT_TYPE, password)
         job1 = self.new_jobs[job1_name]
 
+        dist2_path = dist_dict[dist2_re]
+        job2_name = self._dist_install_job(dist2_path, username, machine_name)
         job2 = self.new_jobs[job2_name]
         job2.predecessors = [job1]
-        job2_name = self._dist_install_job(dist2_name, username, machine_name)
 
+        dist3_path = dist_dict[dist3_re]
+        job3_name = self._dist_install_job(dist3_path, username, machine_name)
         job3 = self.new_jobs[job3_name]
         job3.predecessors = [job2]
-        job3_name = self._dist_install_job(dist3_name, username, machine_name)
 
+        dist4_path = dist_dict[dist4_re]
+        job4_name = self._dist_install_job(dist4_path, username, machine_name)
         job4 = self.new_jobs[job4_name]
         job4.predecessors = [job3]
-        job4_name = self._dist_install_job(dist4_name, username, machine_name)
 
         job5_name = self.init_job(username, machine_name)
         job5 = self.new_jobs[job5_name]
@@ -719,23 +738,7 @@ class Dispatcher(Pyro.core.ObjBase, ServerLogMixin.ServerLogMixin):
         return output
 
 def basename(filename):
+    "Pull off the extension of a file"
     output = filename.rpartition(os.path.sep)[-1].rpartition('.')[0]
     return output
 
-if __name__ == '__main__':
-    from django.core.management import setup_environ
-
-    Pyro.core.initServer()
-    daemon = Pyro.core.Daemon()
-#    ns = Pyro.naming.NameServerLocator().getNS()
-#    daemon.useNameServer(ns)
-#
-#    #daemon=Pyro.core.Daemon()
-    pid = os.getpid()
-    uri = daemon.connect(Dispatcher(pid), "dispatcher")
-    print "The daemon runs on port:", daemon.port
-    print "The object's uri is:", uri
-#
-    print "Started server."
-    daemon.requestLoop()
-#

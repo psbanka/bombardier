@@ -29,6 +29,27 @@ class InvalidAction(Exception):
     def __str__(self):
         return self.__repr__()
 
+class RestoreFailure(ExceptionBase):
+    def __init__(self, reason, target, package_name, machine_name):
+        ExceptionBase.__init__(self)
+        self.reason = reason
+        self.machine_name = machine_name
+        self.package_name = package_name
+        self.target = target
+    def __repr__(self):
+        errmsg = "Cannot restore target {0} for package {1}/machine {2}"\
+                 ": {3}"
+        errmsg = errmsg.format(self.target, self.package_name,
+                               self.machine_name, self.reason)
+        return errmsg
+
+class InvalidMachineType(ExceptionBase):
+    def __init__(self, machine_type):
+        ExceptionBase.__init__(self)
+        self.machine_type = machine_type
+    def __repr__(self):
+        return "Invalid machine type: %s" % self.machine_type
+
 class QueuedJob(ExceptionBase):
     def __init__(self, job_name):
         ExceptionBase.__init__(self)
