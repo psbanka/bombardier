@@ -208,10 +208,7 @@ class BombardierMachineInterface(MachineInterface):
             cmd = "%spython.exe '%sScripts\\bc.py' " % \
                   (python_home_cyg, python_home_win)
         else:
-            cmd = "export PYTHON_HOME=$(%s -c 'import sys; print sys.prefix')"
-            cmd = cmd % self.python
-            gso_out = self.gso(cmd)
-            cmd = '%s $PYTHON_HOME/bin/bc.py ' % self.python
+            cmd = 'bc.py'
         return cmd
 
     def _run_bc(self, action, package_name, script_name, arguments, debug):
