@@ -217,8 +217,9 @@ class BombardierMachineInterface(MachineInterface):
         self.chdir(self.spkg_dir)
 
         cmd = self._get_bc_command()
+        args_str = ' '.join(arguments)
         cmd += " {0} {1} {2} {3} {4}".format(ACTION_DICT[action],
-               self.machine_name, package_name, script_name, arguments)
+               self.machine_name, package_name, script_name, args_str)
         self.ssh_conn.sendline(cmd)
         self._send_all_client_data(action)
         self._watch_bc()

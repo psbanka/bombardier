@@ -200,6 +200,7 @@ class PackageV5(Package):
                        about the packages that will come after them
         dry_run -- boolean flag to see if we're really going to do this
         '''
+        ret_val = None
         if type(action) == type(1):
             action = ACTION_REVERSE_LOOKUP[action]
 
@@ -220,7 +221,7 @@ class PackageV5(Package):
                             Logger.error(msg)
                             return FAIL
                         self._prepare_restore(obj, restore_path)
-                    exec("ret_val = obj.%s('%s')" % (action, restore_path))
+                        exec("ret_val = obj.%s('%s')" % (action, restore_path))
                 else:
                     exec("ret_val = obj.%s()" % (action))
             else:

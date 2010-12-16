@@ -256,7 +256,7 @@ def instance_setup(instance_name):
     open(progress_path, 'w').write(yaml.dump(status_dict))
 
 def process_action(action, instance_name, pkn, method_name,
-                   argument, package_factory):
+                   arguments, package_factory):
     """
     Performs a Bombardier action on this system
     action -- either INIT, INSTALL, UNINSTALL, VERIFY, CONFIGURE,
@@ -294,7 +294,7 @@ def process_action(action, instance_name, pkn, method_name,
             status = bc_obj.reconcile_system(action)
         else: # INSTALL, UNINSTALL, VERIFY, BACKUP, CONFIGURE, EXECUTE, RESTORE
             bc_obj.record_errors = False
-            status = bc_obj.use_pkg(pkn, action, method_name, argument)
+            status = bc_obj.use_pkg(pkn, action, method_name, arguments)
     except:
         err = StringIO.StringIO()
         traceback.print_exc(file = err)
@@ -363,7 +363,7 @@ def main():
     env = BombardierEnvironment(instance_name)
     env.data_request()
     package_factory = PackageFactory(env)
-    argument = ''
+    arguments = []
 
     if options.action in [ RECONCILE, CHECK_STATUS, DRY_RUN, INIT ]:
         status = process_action(options.action, instance_name,
@@ -373,6 +373,7 @@ def main():
         if len(args) < 2:
             print "CMD: %s" % ' '.join(sys.argv)
             print "This command requires a package name as an argument."
+            Logger.error("This command requires a package name as an argument.")
             parser.print_help()
             exit_with_return_code( 1 )
         package_name = args[1]
@@ -380,19 +381,22 @@ def main():
             method_name = "backup"
         if options.action == RESTORE:
             method_name = "restore"
-            argument = args[2]
+            arguments = args[2:]
 
         if options.action == EXECUTE:
-            if len(args) != 3:
+            if len(args) < 3:
                 print "CMD: %s" % ' '.join(sys.argv)
                 print "This command requires a package name and a script name."
+                Logger.error("This command requires a package name and a script name.")
                 parser.print_help()
                 exit_with_return_code( 1 )
             package_name = args[1]
             method_name = args[2]
+            if len(args) > 3:
+                arguments = args[3:]
 
         status = process_action(options.action, instance_name,
-                                package_name, method_name, argument,
+                                package_name, method_name, arguments,
                                 package_factory)
         if status != OK:
             exit_with_return_code(status)
