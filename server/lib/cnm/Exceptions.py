@@ -68,6 +68,13 @@ class DispatcherAlreadyStarted(ExceptionBase):
     def __repr__(self):
         return ""
 
+class BuildError(ExceptionBase):
+    def __init__(self, explanation):
+        ExceptionBase.__init__(self)
+        self.explanation = explanation
+    def __repr__(self):
+        return "Package build error: %s" % self.explanation
+
 class DispatcherError(ExceptionBase):
     def __init__(self, explanation):
         ExceptionBase.__init__(self)

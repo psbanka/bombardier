@@ -3,7 +3,7 @@ compression, and splitting on files with full MD5 support to ensure
 operational integrity."""
 
 import time, yaml, sys, os, glob
-from bombardier_core.mini_utility import get_hasher
+from bombardier_core.mini_utility import get_hasher, rpartition
 
 ###### Constants #############################################################
 
@@ -56,7 +56,7 @@ class NoOptionsException(Exception):
 def strip_directory(file_name):
     """Opposite of get_base_path. We're interested only in 
     the filename without path information"""
-    base_path, sep, base_file_name = file_name.rpartition(os.path.sep)
+    base_path, sep, base_file_name = rpartition(file_name, os.path.sep)
     if not sep:
         return file_name
     return base_file_name
@@ -116,7 +116,7 @@ class AbstractFileWriter:
         self.logger = logger
         self.file_name = destination_file
         self.file_handle = None
-        base_dir, _sep, _output_file_name = self.file_name.rpartition(os.path.sep)
+        base_dir, _sep, _output_file_name = rpartition(self.file_name, os.path.sep)
         if not os.path.isdir(base_dir):
             os.system("mkdir -p %s" % (base_dir))
 
@@ -474,7 +474,7 @@ def process_all(reader, processors, writer, priority):
 def get_base_path(file_name):
     """return the directory that file_name is in. If it's not in a 
     separate directory, return nothing."""
-    base_path, middle, end = file_name.rpartition(os.path.sep)
+    base_path, middle, end = rpartition(file_name, os.path.sep)
     if not middle:
         return ''
     return base_path
@@ -512,8 +512,8 @@ class ForwardPluggableFileProcessor:
         self.destination_file  = destination_file
         self.logger            = logger
         self.processors        = []
-        if not options:
-            raise NoOptionsException
+        #if not options:
+            #raise NoOptionsException
             
         if COMPRESS in options:
             self.processors.append( Compressor(self.destination_file, self.logger) )
@@ -588,7 +588,7 @@ class ReversePluggableFileProcessor:
     def __init__(self, source_file, destination_file, target_md5_data, logger, private_key = ''):
         self.source_file       = source_file
         self.destination_file  = destination_file
-        self.destination_dir   = destination_file.rpartition(os.path.sep)[0]
+        self.destination_dir   = rpartition(destination_file, os.path.sep)[0]
         self.logger            = logger
         self.processors        = []
         self.start_dir         = os.getcwd()

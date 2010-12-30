@@ -3,7 +3,7 @@
 
 from bombardier_core.static_data import OK
 from AbstractMachineInterface import AbstractMachineInterface
-from Exceptions import CnmServerException
+from Exceptions import CnmServerException, BuildError
 import pexpect
 import tempfile
 import os, re, sys
@@ -12,19 +12,23 @@ import StringIO, traceback
 from commands import getstatusoutput as gso
 from MockConfig import MockConfig
 
+BUILD_BASE_DIR = "/tmp/bdr_build"
+
 class LocalMachineInterface(AbstractMachineInterface):
     "Interface to a machine"
     def __init__(self, machine_config, server_log):
         AbstractMachineInterface.__init__(self, machine_config, server_log)
 
     def terminate(self):
+        "Part of interface. No function for local system"
         pass
 
     def chdir(self, path):
+        "Part of interface. No function for local system"
         pass
 
     def gso(self, cmd, raise_on_error=True, cmd_debug=False):
-        "Run a remote shell command"
+        "Part of interface. No function for local system"
         pass
 
     def run_cmd(self, command_string):
@@ -144,6 +148,48 @@ class LocalMachineInterface(AbstractMachineInterface):
         os.chdir( start_path )
         return tar_file_path, version
 
+    def get_non_builtin_modules(self):
+        modules = []
+        module_list = sys.modules.values()
+        for item in module_list:
+            work_str = str(item)[8:-1]
+            if not " from " in work_str:
+                continue
+            module_name = item.__name__
+            item_str, source = work_str.split(" from ")
+            source_path = source[1:-1]
+            modules.append((item_str, source_path, module_name))
+        return modules
+
+    def remove_test_modules(self, prefix=BUILD_BASE_DIR):
+        "removes any trace of modules we've imported"
+        modules = self.get_non_builtin_modules()
+        for item_str, source_path, module_name in modules:
+            if source_path.startswith(prefix):
+                self.server_log.info("UN-IMPORTING: %30s %20s / %s" % (item_str, source_path, module_name))
+                del sys.modules[module_name]
+
+    def verify_test_modules(self, prefix):
+        "Assures that all modules we're importing come from what we want"
+        modules = self.get_non_builtin_modules()
+        for item_str, source_path, module_name in modules:
+            if source_path.startswith(BUILD_BASE_DIR):
+                if not source_path.startswith(prefix):
+                    raise BuildError("We have a dirty build environment (%s)" % source_path)
+
+    def pre_cleanup(self, tmp_path):
+        "Make sure the build environment is clean."
+        self.remove_test_modules()
+        self.verify_test_modules(tmp_path)
+        bad_path_entries = []
+        for entry in sys.path:
+            if entry.startswith(BUILD_BASE_DIR):
+                bad_path_entries.append(entry)
+        for bad_path_entry in bad_path_entries:
+            self.polling_log.warning("Removing stale import path %s" % bad_path_entry)
+            sys.path.remove(bad_path_entry) 
+        self.polling_log.info("Build environment is clean.")
+
     def _inspect_libraries(self, tmp_path, pkg_data):
         """This will instantiate the Bombardier installer script and collect
         all of the configuration information that it requires"""
@@ -152,6 +198,9 @@ class LocalMachineInterface(AbstractMachineInterface):
         if not os.path.isdir(injectors_path):
             os.system("mkdir -p %s" % injectors_path)
         os.chdir(injectors_path)
+        base_name = ''
+        class_name = ''
+        self.pre_cleanup(tmp_path)
         try:
             tmp_libs = os.path.join(tmp_path, "libs")
             sys.path.append(tmp_libs)
@@ -172,6 +221,9 @@ class LocalMachineInterface(AbstractMachineInterface):
                 sys.modules.pop(class_name)
             cmd = "import %s as %s" % ( class_name, rand_name )
             exec(cmd)
+
+            self.verify_test_modules(tmp_path)
+
             config = MockConfig()
             exec ('object = %s.%s(config)' % ( rand_name, base_name))
 
@@ -185,15 +237,13 @@ class LocalMachineInterface(AbstractMachineInterface):
                 if callable(getattr(object, method)) and not method.startswith('_'):
                     public_methods.append(method)
 
-            if base_name in sys.modules:
-                sys.modules.pop(base_name)
-            if class_name in sys.modules:
-                sys.modules.pop(class_name)
-            sys.path.remove(tmp_libs)
-            exec('del %s' % rand_name)
         except Exception, e:
             os.chdir(start_path)
-            raise e
+            raise exp
+
+        # cleanup:
+        self.remove_test_modules(tmp_path)
+        sys.path.remove(tmp_libs)
         os.chdir(start_path)
         return config_requests, public_methods
 
@@ -206,16 +256,15 @@ class LocalMachineInterface(AbstractMachineInterface):
         svn_user / svn_password -- svn credentials
         '''
         try:
-            tmp_path = tempfile.mkdtemp()
+            os.system("mkdir -p %s" % BUILD_BASE_DIR)
+            tmp_path = tempfile.mkdtemp(dir=BUILD_BASE_DIR)
             package_file = os.path.join(self.server_home, "package",
                                         "%s.yml" % package_name)
             pkg_data = yaml.load(open(package_file).read())
-            release = pkg_data.get("release", 0)
             output = []
             for section_name in ["injectors", "libs"]:
                 for component_name in pkg_data[section_name]:
                     component_dict = pkg_data[section_name][component_name]
-                    path = component_dict.get("path", '')
                     if "svn" in component_dict:
                         tar_file_path, version = self._build_component(component_dict,
                                                               section_name,
@@ -227,7 +276,8 @@ class LocalMachineInterface(AbstractMachineInterface):
                         if tar_file_path:
                             pkg_data[section_name][component_name]["path"] = tar_file_path
                             output.append("built %s" % tar_file_path)
-            pkg_data["release"] = release + 1
+
+            pkg_data["release"] = pkg_data.get("release", 0) + 1
             configuration, methods = self._inspect_libraries(tmp_path, pkg_data)
             pkg_data['configuration'] = configuration
             pkg_data['executables'] = methods
