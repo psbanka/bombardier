@@ -51,6 +51,13 @@ class MockConfig:
         self.requests = {}
         self.data = MockDict("/")
 
+    def boolean(self, section, default='', optional=False):
+        """Obtain a boolean object from the configuration. Note that if the
+        item we're looking for is OPTIONAL, then we don't record it."""
+        if not optional:
+            self.requests = parse_section(self.requests, section, default)
+        return default
+
     def string(self, section, default='', optional=False):
         """Obtain a string object from the configuration. Note that if the
         item we're looking for is OPTIONAL, then we don't record it."""
