@@ -350,9 +350,7 @@ class CnmConnector:
     def get_restore_targets(self, machine_name, package_name):
         "Get restore data available for a machine"
         url = 'json/machine/restore/{0}/{1}'.format(machine_name, package_name)
-        print "URL",url
         output = self.service_yaml_request(url)
-        print "OUTPUT:",output
         return output
 
     def get_server_config(self):

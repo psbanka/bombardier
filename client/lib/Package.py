@@ -335,7 +335,7 @@ class Package:
             if not md5_data or not backup_file_name:
                 Logger.error("Corrupted backup data for %s, aborting." % (backup_target))
                 return FAIL
-            source_file = os.path.join(restore_path, backup_target.rpartition(os.path.sep)[0][1:], backup_file_name)
+            source_file = os.path.join(restore_path, rpartition(backup_target, os.path.sep)[0][1:], backup_file_name)
             destination_file = os.path.join(restore_path, backup_target[1:])
             Logger.debug("=================================")
             Logger.debug("backup_target: %s..." % (backup_target))
@@ -392,7 +392,7 @@ class Package:
                 Logger.error("Backup file not created.")
                 return FAIL
             backup_data[file_name]["md5"] = md5_dict
-            backup_data[file_name]["backup_file"] = backup_file_name.rpartition(os.path.sep)[-1]
+            backup_data[file_name]["backup_file"] = rpartition(backup_file_name, os.path.sep)[-1]
             elapsed_time = time.time() - current_start
             backup_data[file_name]["elapsed_time"] = elapsed_time
             size = os.stat(file_name)[stat.ST_SIZE]
