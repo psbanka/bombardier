@@ -18,6 +18,13 @@ class MachineStatusException(ExceptionBase):
     def __repr__(self):
         return "Error in status data: %s" % self.msg
 
+class InvalidBombardierCommand(ExceptionBase):
+    def __init__(self, msg = "General failure"):
+        ExceptionBase.__init__(self)
+        self.msg = msg
+    def __repr__(self):
+        return self.msg
+
 class InvalidAction(Exception):
     def __init__(self, package_name, action_name):
         Exception.__init__(self)

@@ -659,15 +659,16 @@ class PackageTests(unittest.TestCase, BasicTest):
         BasicTest.setUp(self)
         self.make_localhost_config()
 
-    def package_action(self, action, package_name, argument = None, verbose=False):
+    def package_action(self, action, package_name, arguments = [], verbose=False):
         url = '/json/package_action/%s' % package_name
         package_config = {"test": {"value":"nowisthetimeforalldooment",
                                    "directory": "/tmp/foogazi"},
                           "packages": [package_name],  
                          }
         self.make_localhost_config(additional_config=package_config)
-        post_data={"machine": "localhost", "action": action, "argument": argument}
-        status, output, cmd_output = self.run_job(url, data=post_data, timeout=60, verbose=verbose)
+        post_data={"machine": "localhost", "action": action, "arguments": arguments}
+        yaml_post_data = {"yaml": yaml.dump(post_data)}
+        status, output, cmd_output = self.run_job(url, data=yaml_post_data, timeout=60, verbose=verbose)
         return status, output, cmd_output
 
     def reset_packages(self):
@@ -757,7 +758,7 @@ class PackageTests(unittest.TestCase, BasicTest):
 
         os.system("rm -f /tmp/foogazi/test_type_5")
         # Restore the target we want
-        status, output, cmd_output = self.package_action("restore", package_name, start_time)
+        status, output, cmd_output = self.package_action("restore", package_name, [start_time])
         assert status == OK
         current_data = open("/tmp/foogazi/test_type_5").read().replace('\n', '|')
         assert current_data == backup_data, current_data
@@ -782,14 +783,14 @@ class PackageTests(unittest.TestCase, BasicTest):
                 if os.path.isfile(file_name):
                     os.unlink(file_name)
 
-    def _get_release(self, package_name):
+    def _get_package_data(self, package_name):
         url = '/json/package/name/%s' % package_name
         status_data = self.get_content_dict(url)
-        release = status_data["release"]
-        return release
+        return status_data
 
     def test_package_build(self):
-        current_release = self._get_release(BUILD_PACKAGE_NAME)
+        package_data = self._get_package_data(BUILD_PACKAGE_NAME)
+        current_release = package_data["release"]
         self._remove_paths(BUILD_PACKAGE_NAME)
         url = '/json/package_build/%s' % BUILD_PACKAGE_NAME
         post_data = {"svn_user": "",
@@ -798,8 +799,14 @@ class PackageTests(unittest.TestCase, BasicTest):
                     }
         status, output, cmd_output = self.run_job(url, data=post_data, timeout=60)
         assert status == OK
-        updated_release = self._get_release(BUILD_PACKAGE_NAME)
+        new_package_data = self._get_package_data(BUILD_PACKAGE_NAME)
+        updated_release = new_package_data["release"]
         assert updated_release == current_release + 1, "%s, %s" % (updated_release, current_release)
+        executables = new_package_data.get("executables", {})
+        assert "public_function" in executables.keys(), executables
+        assert executables["public_function"] == "This function does something interesting.", executables["public_function"]
+        assert "generic_function" in executables.keys(), executables
+        assert executables["generic_function"] == 'Undocumented Executable', executables["public_function"]
 
     def test_package_actions(self):
         self.reset_packages()

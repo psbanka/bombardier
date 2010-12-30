@@ -2,7 +2,7 @@
 
 from bombardier_core.static_data import ACTION_LOOKUP
 from bombardier_core.static_data import ACTION_REVERSE_LOOKUP
-from Exceptions import InvalidAction
+from Exceptions import InvalidAction, InvalidBombardierCommand
 
 PENDING = 4
 
@@ -81,6 +81,9 @@ class BombardierCommand(AbstractCommand):
         self.action = action_const
         self.package_name = package_name
         self.script_name = script_name
+        if type(arguments) != type([]):
+            msg = "Invalid arguments passed. Expected list, got: (%s)" % arguments
+            raise InvalidBombardierCommand(msg)
         self.arguments = arguments
         self.debug = False
 

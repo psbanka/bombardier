@@ -527,13 +527,17 @@ class BombardierMachineInterface(MachineInterface):
                     raise
         return OK
 
-    def _sync_restore_data(self, package_name, target):
+    def _sync_restore_data(self, package_name, target_list):
         '''
         Prior to a restore command, sends all necessary data to the remote
         machine to $SPKG_DIR/archive
         package_name -- name of package being restored
-        target -- name of backup dataset
+        target_list -- list of (one) name of a backup dataset
         '''
+        if len(target_list) != 1:
+            msg = "One and only one Restore Target can be specified (received %s)"
+            raise RestoreFailure(msg % target_list)
+        target = target_list[0]
         remote_dir = os.path.join(self.spkg_dir, "archive", package_name, target)
         self.run_cmd(" mkdir -p %s" % remote_dir)
         archive_dir = os.path.join(self.server_home, "archive",

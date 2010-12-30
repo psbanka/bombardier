@@ -353,6 +353,7 @@ def main():
                       help="Tell a package to restore itself")
 
     (options, args) = parser.parse_args()
+    Logger.info("options: (%s) / args: (%s)" % (options, args))
     if len(args) < 1:
         print "CMD: %s" % ' '.join(sys.argv)
         print "This command requires an instance name."
