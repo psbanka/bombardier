@@ -171,6 +171,14 @@ def diff_lists(sub_list, super_list, check_values=False):
             continue
     return differences
 
+def is_scalar(test_val):
+    "Determines if an input object is a scalar value"
+    if type(test_val) == type('string') or type(test_val) == type(1) or \
+       type(test_val) == type(True):
+        return True
+    return False
+
+
 def diff_dicts(sub_dict, super_dict, check_values=False):
     """Finds all the entries in sub_dict that are not in super_dict.
     
@@ -200,6 +208,15 @@ def diff_dicts(sub_dict, super_dict, check_values=False):
     Unless the check_values flag is given:
     >>> diff_dicts({'b': 2}, {'a':1, 'b':'2'}, True)
     {'b': 2}
+    >>> diff_dicts({'a':1}, {'a': 2}, True)
+    {'a': 1}
+    >>> diff_dicts({'a':True}, {'a': False}, True)
+    {'a': True}
+    >>> diff_dicts({'a':True}, {'a': True}, True)
+    {}
+    >>> diff_dicts({'a':1}, {'a': 1}, True)
+    {}
+
     """
     differences = {}
     for sub_key in sub_dict.keys():
@@ -208,9 +225,8 @@ def diff_dicts(sub_dict, super_dict, check_values=False):
             continue
         sub_value = sub_dict[sub_key]
         super_value = super_dict[sub_key]
-        if type(sub_value) == type('string') or type(sub_value) == type(1):
-            if type(super_value) != type('string') and \
-              type(super_value) != type(1):
+        if is_scalar(sub_value):
+            if not is_scalar(super_value):
                 differences[sub_key] = sub_value
                 continue
             if not check_values:
