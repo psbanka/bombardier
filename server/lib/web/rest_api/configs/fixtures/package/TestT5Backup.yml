@@ -1,7 +1,9 @@
 configuration:
   test: {target_file: "/etc/hosts"}
 dependencies: []
-executables: [backup]
+executables: {configure: Undocumented Executable, install: Install entry point for bombardier, 
+    uninstall: Uninstall entry point for bombardier., verify: Verification
+    entry point for bombardier. Stub atm, backup: backs up the file we care about}
 injectors: {}
 libs:
   TestT5Backup: {path: TestT5Backup-script-1.tar.gz}

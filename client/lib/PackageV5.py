@@ -95,14 +95,14 @@ class PackageV5(Package):
             raise BadPackage, (self.name, msg)
         self.full_name = "%s-%d" % (self.name, self.release)
 
-    def execute_maint_script(self, script_name, argument):
+    def execute_maint_script(self, script_name, arguments):
         '''
         execute a user-defined function
         script_name -- name of the function to run
-        argument -- argument to the script to be run
+        arguments -- arguments to the script to be run
         '''
         Package.execute_maint_script(self, script_name)
-        self.status = self._find_cmd(script_name, argument=argument)
+        self.status = self._find_cmd(script_name, arguments=arguments)
         msg = "%s result for %s : %s"
         Logger.info(msg % (script_name, self.full_name, self.status))
         return self.status
@@ -191,7 +191,7 @@ class PackageV5(Package):
             sys.modules.pop(self.class_name)
         sys.path.remove(lib_path)
 
-    def _find_cmd(self, action, argument='', future_pkns=[], dry_run=False):
+    def _find_cmd(self, action, arguments=[], future_pkns=[], dry_run=False):
         '''
         Perform the action on the system, importing modules from the package
         and running the appropriate method on the class within.
@@ -211,10 +211,13 @@ class PackageV5(Package):
                 msg = "Class %s does not have a %s method."
                 raise BadPackage(self.name, msg % (self.class_name, action))
             if not dry_run:
-                if argument:
+                if arguments:
                     if ACTION_LOOKUP.get(action) == RESTORE:
+                        if len(arguments) != 1:
+                            Logger.error("Incorrect number of arguments passed to restore")
+                            return FAIL
                         restore_path = os.path.join(get_spkg_path(), "archive",
-                                                    self.name, str(argument))
+                                                    self.name, str(arguments[0]))
                         if not os.path.isdir(restore_path):
                             msg = "Cannot execute restore: archive data does not "\
                                   "exist in %s" % (restore_path)

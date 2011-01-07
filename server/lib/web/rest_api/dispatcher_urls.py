@@ -59,16 +59,18 @@ class PackageActionEntry(CnmResource):
         "Dispatch a package action"
         output = {"command_status": OK}
         try:
-            action = safe_get(request, "action")
-            machine_name = safe_get(request, "machine")
-            dispatcher = self.get_dispatcher()
-            if action != "restore":
-                job_name = dispatcher.package_action_job(request.user.username, package_name,
-                                                         action, machine_name) 
+            post_data = yaml.load(request.POST.get("yaml", ''))
+            arguments = []
+            if post_data:
+                action = post_data["action"]
+                machine_name = post_data["machine"]
+                arguments = post_data.get("arguments", [])
             else:
-                restore_target = safe_get(request, "argument")
-                job_name = dispatcher.package_action_job(request.user.username, package_name,
-                                                         action, machine_name, restore_target) 
+                action = safe_get(request, "action")
+                machine_name = safe_get(request, "machine")
+            dispatcher = self.get_dispatcher()
+            job_name = dispatcher.package_action_job(request.user.username, package_name,
+                                                     action, machine_name, arguments) 
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:

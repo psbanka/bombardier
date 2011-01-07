@@ -749,13 +749,13 @@ class Bombardier:
             Logger.info("==OUTPUT==:%s: %s" % (key, pkg_info[key]))
         return pkg_info
 
-    def use_pkg(self, pkn, action, script_name, argument):
+    def use_pkg(self, pkn, action, script_name, arguments):
         '''
         Main entry point to the class. Performs an action using a package
         pkn -- name of the package to use
         action -- STATUS, INSTALL, UNINSTALL, CONFIGURE, VERIFY, or EXEC
         script_name -- the name of a method to run within the package
-        argument -- argument to the executable, typically a restore target
+        arguments -- arguments to the executable, typically a restore target
         '''
         try:
             pkg = self._get_new_pkg(pkn)
@@ -790,7 +790,7 @@ class Bombardier:
                 Logger.info(msg)
                 self.config.save_hash(hash_path)
             if action in [EXECUTE, BACKUP, RESTORE]:
-                status = pkg.execute_maint_script(script_name, argument)
+                status = pkg.execute_maint_script(script_name, arguments)
                 if status == FAIL:
                     self.operation_status = FAIL
             msg = "Finished %s for %s."

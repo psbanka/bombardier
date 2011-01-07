@@ -232,10 +232,13 @@ class LocalMachineInterface(AbstractMachineInterface):
             config_requests = config.get_requests()
             for item in config_requests:
                 self.polling_log.info("Configuration dictionary: %s" % item)
-            public_methods = []
+            public_methods = {}
             for method in dir(object):
                 if callable(getattr(object, method)) and not method.startswith('_'):
-                    public_methods.append(method)
+                    exec("docstring = object.%s.__doc__" % method)
+                    if not docstring:
+                        docstring = 'Undocumented Executable'
+                    public_methods[method] = docstring
 
         except Exception, e:
             os.chdir(start_path)

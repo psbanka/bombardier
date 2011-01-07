@@ -3,7 +3,9 @@ configuration:
     directory: '/tmp'
     value: hello
 dependencies: []
-executables: ["echo"]
+executables: {configure: Undocumented Executable, install: Install entry point for bombardier, 
+    uninstall: Uninstall entry point for bombardier., verify: Verification
+    entry point for bombardier. Stub atm, echo: does nothing.}
 install:
   fullName: TestPackageType4-7
   autoreboot: 'False'
