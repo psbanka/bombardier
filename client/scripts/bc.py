@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#
+#!###/usr/bin/ipy
 """module is meant to be run on a linux machine. This is the method the server
 uses to interact with a box: find out what pacakges need to be installed, etc.
 Currently supports RHEL5 and Ubuntu Hardy. Other POSIX environments could
@@ -21,7 +22,7 @@ be easily added, including cygwin"""
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import sys, optparse, StringIO, traceback, yaml, time, re
+import sys, optparse, StringIO, traceback, time, re
 
 from bombardier_core.Logger import Logger
 from bombardier_core.Config import Config
@@ -31,6 +32,7 @@ from bombardier_client.PackageV4 import PackageV4
 from bombardier_client.PackageV5 import PackageV5
 from bombardier_client.BombardierClass import Bombardier
 from bombardier_core.mini_utility import get_progress_path, get_spkg_path
+from bombardier_core.mini_utility import make_path, yaml_dump, yaml_load
 from bombardier_core.static_data import FIX, CHECK_STATUS, CONFIGURE, RECONCILE
 from bombardier_core.static_data import VERIFY, INSTALL, UNINSTALL, PURGE
 from bombardier_core.static_data import DRY_RUN, INIT, EXECUTE, BACKUP, RESTORE
@@ -39,7 +41,6 @@ from bombardier_core import CORE_VERSION
 from bombardier_client import CLIENT_VERSION
 import os
 import base64
-import zlib
 
 STREAM_BLOCK_SIZE = 77
 
@@ -74,7 +75,7 @@ def exit_with_return_code(value):
 def find_likely_pkn(instance_name, pkn):
     """Sometimes an ambiguous package name is requested.
     This attempts to help a guy out."""
-    status_yml = yaml.load(open(get_progress_path(instance_name)).read())
+    status_yml = yaml_load(open(get_progress_path(instance_name)).read())
     pkns = []
     status_packages = status_yml['install-progress']
     for name in status_packages:
@@ -99,7 +100,7 @@ def fix_spkg(instance_name, pkn, action, package_factory):
     as 'broken' and set it to be 'installed'. Perhaps they have manually
     fixed the package on the system."""
     status_data = open(get_progress_path(instance_name), 'r').read()
-    status = yaml.load(status_data)
+    status = yaml_load(status_data)
     if status.get("install-progress") == None:
         status["install-progress"] = {}
         Logger.warning( "Status file is empty." )
@@ -143,7 +144,7 @@ def fix_spkg(instance_name, pkn, action, package_factory):
             msg = msg % str(possible_names)
             Logger.info(msg)
             return FAIL
-    open(get_progress_path(instance_name), 'w').write(yaml.dump(status))
+    open(get_progress_path(instance_name), 'w').write(yaml_dump(status))
     return OK
 
 class BombardierEnvironment:
@@ -165,17 +166,20 @@ class BombardierEnvironment:
             if not chunk or chunk[0] == ' ':
                 break
             b64_data.append(chunk)
-        yaml_data = ''
-        yaml_data = zlib.decompress(base64.decodestring(''.join(b64_data)))
-        Logger.debug("Received %s lines of yaml" % len(yaml_data.split('\n')))
+        string_data = ''
+        if sys.platform = "cli":
+            string_data = base64.decodestring(''.join(b64_data))
+        else:
+            string_data = zlib.decompress(base64.decodestring(''.join(b64_data)))
+        Logger.debug("Received %s lines of json/yaml" % len(string_data.split('\n')))
 
         try:
-            input_data = yaml.load(yaml_data)
+            input_data = yaml_load(string_data)
         except:
-            ermsg = "Configuration data not YAML-parseable: %s" % (repr(yaml_data))
+            ermsg = "Configuration data not YAML-parseable: %s" % (repr(string_data))
             raise ConfigurationException(ermsg)
         if type(input_data) == type("string"):
-            ermsg = "Configuration data not YAML-parseable: %s" % (repr(yaml_data))
+            ermsg = "Configuration data not YAML-parseable: %s" % (repr(string_data))
             raise ConfigurationException(ermsg)
         if type(input_data) != type({}) and type(input_data) != type([]):
             input_data = input_data.next()
@@ -186,7 +190,7 @@ class BombardierEnvironment:
             except ImportError:
                 msg = "This machine cannot accept an encrypted configuration"
                 raise ConfigurationException(msg)
-            enc_yaml_file = os.path.join(get_spkg_path(), self.instance_name,
+            enc_yaml_file = make_path(get_spkg_path(), self.instance_name,
                                          'client.yml.enc')
             if not os.path.isfile(enc_yaml_file):
                 msg = "%s file doesn't exist" % enc_yaml_file
@@ -195,7 +199,7 @@ class BombardierEnvironment:
             cipher = Cipher(config_key)
             plain_yaml_str = cipher.decrypt_string(enc_data)
             try:
-                input_data = yaml.load(plain_yaml_str)
+                input_data = yaml_load(plain_yaml_str)
             except:
                 ermsg = "Received bad YAML file: %s" % enc_yaml_file
                 raise ConfigurationException(ermsg)
@@ -240,9 +244,9 @@ def instance_setup(instance_name):
     status_dict = None
     if os.path.isfile(progress_path):
         try:
-            status_dict = yaml.load(open(progress_path).read())
+            status_dict = yaml_load(open(progress_path).read())
         except:
-            msg = "Unable to load existing yaml from %s" % progress_path
+            msg = "Unable to load existing json/yaml from %s" % progress_path
             Logger.warning(msg)
     if type(status_dict) != type({}):
         status_dict = {"install-progress": {}}
@@ -250,10 +254,10 @@ def instance_setup(instance_name):
     status_dict["core_version"] = CORE_VERSION
     status_dict["clientVersion"] = CLIENT_VERSION
     status_dict["coreVersion"] = CORE_VERSION
-    pkg_dir = os.path.join(get_spkg_path(), instance_name, "packages")
+    pkg_dir = make_path(get_spkg_path(), instance_name, "packages")
     if not os.path.isdir(pkg_dir):
         os.makedirs(pkg_dir)
-    open(progress_path, 'w').write(yaml.dump(status_dict))
+    open(progress_path, 'w').write(yaml_dump(status_dict))
 
 def process_action(action, instance_name, pkn, method_name,
                    arguments, package_factory):

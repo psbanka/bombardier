@@ -34,6 +34,7 @@ import os, glob, random
 import sys
 
 from bombardier_core import Spkg
+from bombardier_core.mini_utility import make_path, get_slash_cwd
 from bombardier_core.mini_utility import get_package_path
 from Exceptions import BadPackage, FeatureRemovedException
 from Job import Job
@@ -130,7 +131,7 @@ class PackageV4(Package):
         '''
         Package.execute_maint_script(self)
         script_path = "%s/%s.py" % (self.maint_dir, script_name)
-        start_dir = os.getcwd()
+        start_dir = get_slash_cwd()
         os.chdir(self.maint_dir)
         if not os.path.isfile(script_path):
             msg = "%s does not exist" % script_path
@@ -165,13 +166,13 @@ class PackageV4(Package):
         the pieces and parts are there for a good type-4 package
         '''
         if not self.downloaded:
-            pkg_dir = os.path.join(get_package_path(self.instance_name),
+            pkg_dir = make_path(get_package_path(self.instance_name),
                                                   self.full_name)
             if not os.path.isdir(pkg_dir):
                 self.repository.get_type_4(self.full_name)
-            self.scripts_dir = os.path.join(pkg_dir, "scripts")
-            self.maint_dir = os.path.join(pkg_dir, "maint")
-            injector_dir = os.path.join(pkg_dir, "injector")
+            self.scripts_dir = make_path(pkg_dir, "scripts")
+            self.maint_dir = make_path(pkg_dir, "maint")
+            injector_dir = make_path(pkg_dir, "injector")
             for required_dir in [self.scripts_dir, injector_dir]:
                 if not os.path.isdir(required_dir):
                     errmsg = "Required directory %s does not exist"
@@ -203,7 +204,7 @@ class PackageV4(Package):
                        about the packages that will come after them
         dry_run -- boolean flag to see if we're really going to do this
         '''
-        cwd = os.getcwd()
+        cwd = get_slash_cwd()
         sys.path.insert(0, self.scripts_dir)
         os.chdir(self.scripts_dir)
         files = self._get_possible_module_files()

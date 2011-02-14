@@ -33,10 +33,11 @@
 
 from bombardier_core.static_data import OK, FAIL
 from bombardier_core.static_data import VALID_PACKAGE_VERSIONS
-import os, tarfile, sys, gzip, tarfile
+import os, tarfile, sys
 import MetaData
 from bombardier_core.mini_utility import get_package_path
 from bombardier_core.mini_utility import get_spkg_path
+from bombardier_core.mini_utility import untargz, make_path, get_slash_cwd
 import Exceptions
 from bombardier_core.Logger import Logger
 from commands import getstatusoutput as gso
@@ -71,6 +72,9 @@ class Repository:
         data = self.pkg_data.get(name)
         return MetaData.MetaData(data)
 
+    def untargz(self, file_path):
+        os.system('bash -c "tar -xzf %s"' % file_path)
+
     def unzip_type_4(self, pkg_path, full_name):
         '''
         Perform untar/ungzip operations. (NOTE: NOT RELIABLE IN Python)
@@ -78,24 +82,26 @@ class Repository:
         full_name -- name of the package, including version
         '''
         Logger.info("Unzipping %s" % full_name)
-        gzip_file = gzip.open(pkg_path + ".spkg")
-        output_file = open(pkg_path + ".tar", 'wb')
-        data = '1'
-        while data:
-            try:
-                data = gzip_file.read(BLOCK_SIZE)
-            except IOError, err:
-                msg = "Error Reading %s: %s" % (full_name, err.__str__())
-                Logger.error(msg)
-                return FAIL
-            except Exception, err:
-                msg = "Corrupt package: %s (%s)" % (full_name, err.__str__())
-                Logger.error(msg)
-                return FAIL
-            output_file.write(data)
-        output_file.close()
-        gzip_file.close()
+        self.untargz(pkg_path + ".spkg")
         return OK
+#        gzip_file = gzip.open(pkg_path + ".spkg")
+#        output_file = open(pkg_path + ".tar", 'wb')
+#        data = '1'
+#        while data:
+#            try:
+#                data = gzip_file.read(BLOCK_SIZE)
+#            except IOError, err:
+#                msg = "Error Reading %s: %s" % (full_name, err.__str__())
+#                Logger.error(msg)
+#                return FAIL
+#            except Exception, err:
+#                msg = "Corrupt package: %s (%s)" % (full_name, err.__str__())
+#                Logger.error(msg)
+#                return FAIL
+#            output_file.write(data)
+#        output_file.close()
+#        gzip_file.close()
+#        return OK
 
     def get_type_4(self, full_name):
         '''
@@ -103,37 +109,37 @@ class Repository:
         full_name -- name of package (with version)
         '''
         pkg_dir = get_package_path(self.instance_name)
-        os.system("mkdir -p %s" % pkg_dir)
-        pkg_path = os.path.join(pkg_dir, full_name)
+        os.system('bash -c "mkdir -p %s"' % pkg_dir)
+        pkg_path = make_path(pkg_dir, full_name)
         if not os.path.isfile(pkg_path + ".spkg"):
             erstr = "No package file in %s." % (pkg_path + ".spkg")
             Logger.error(erstr)
             raise Exceptions.BadPackage(full_name, erstr)
         if sys.platform != 'win32':
-            cmd = "cd %s && tar -mxzf %s.spkg" % (pkg_dir, full_name)
+            cmd = 'bash -c "cd %s && tar -mxzf %s.spkg"' % (pkg_dir, full_name)
             Logger.info("Untarring with command: %s" %cmd)
             if not os.system(cmd) == OK:
                 raise Exceptions.BadPackage(full_name, "Could not unpack")
             return OK
-        if self.unzip_type_4(pkg_path, full_name) == FAIL:
+        if self.unzip_type_5(pkg_path, full_name) == FAIL:
             raise Exceptions.BadPackage(full_name, "could not unzip")
-        tar = tarfile.open(pkg_path + ".tar", "r")
-        tar.errorlevel = 2
-        cwd = os.getcwd()
+#        tar = tarfile.open(pkg_path + ".tar", "r")
+#        tar.errorlevel = 2
+        cwd = get_slash_cwd()
         os.chdir(pkg_dir)
-        for tarinfo in tar:
-            try:
-                tar.extract(tarinfo)
-            except tarfile.ExtractError, err:
-                Logger.warning("Error with package %s,%s: "\
-                               "%s" % (full_name, tarinfo.name, err))
-        tar.close()
-        if not os.path.isdir(os.path.join(pkg_path, full_name)):
+#        for tarinfo in tar:
+#            try:
+#                tar.extract(tarinfo)
+#            except tarfile.ExtractError, err:
+#                Logger.warning("Error with package %s,%s: "\
+#                               "%s" % (full_name, tarinfo.name, err))
+#        tar.close()
+        if not os.path.isdir(make_path(pkg_path, full_name)):
             erstr = "Package %s is malformed." % (full_name)
             os.chdir(cwd)
             raise Exceptions.BadPackage(full_name, erstr)
         os.chdir(cwd)
-        os.unlink(pkg_path + ".tar")
+#        os.unlink(pkg_path + ".tar")
         return OK
 
     def hunt_and_explode(self):
@@ -141,21 +147,29 @@ class Repository:
         Used to find all type-5 package data in the repository and
         untar the files properly.
         '''
-        base_path = os.path.join(get_spkg_path(), "repos")
-        _status, output = gso('find %s -name "*.tar.gz"' % base_path)
-        start_dir = os.getcwd()
+        base_path = make_path(get_spkg_path(), "repos")
+        #_status, output = gso('find %s -name "*.tar.gz"' % base_path)
+        #_status, output = gso('find %s -name "*.tar.gz"' % base_path)
+        tfn = "c:/spkg/tmp/tarballs.txt"
+        cmd = 'bash -c "find %s -name \"*.tar.gz\"" > %s' % (base_path, tfn)
+        Logger.info("CMD: (%s)" % cmd)
+        os.system(cmd)
+        output = open(tfn).read()
+        start_dir = get_slash_cwd()
         for full_tar_file_name in output.split('\n'):
-            tmp_list = full_tar_file_name.split(os.path.sep)
+            tmp_list = full_tar_file_name.split('/')
             tar_file_name = tmp_list[-1]
             base_name = tar_file_name.split('.tar.gz')[0]
-            tar_file_dir = os.path.sep.join(tmp_list[:-1] + [base_name])
+            tar_file_dir = make_path(tmp_list[:-1] + [base_name])
             if not os.path.isdir(tar_file_dir):
                 Logger.info("Exploding %s..." % base_name)
-                cmd = "mkdir -p %s" % tar_file_dir
+                cmd = 'bash -c "mkdir -p %s"' % tar_file_dir
+                Logger.info("tar_file_dir: %s" % tar_file_dir)
                 status = os.system(cmd)
                 if status == OK:
-                    cmd = "cd %s && tar -mxzf ../%s"
+                    cmd = 'bash -c "cd %s && tar -mxzf ../%s"'
                     cmd = cmd % (tar_file_dir, tar_file_name)
+                    Logger.info("Cmd: %s" % cmd)
                     if os.system(cmd) != OK:
                         msg = "could not untar %s" % (tar_file_name)
                         raise Exceptions.BadPackage(full_tar_file_name, msg)
@@ -169,24 +183,28 @@ class Repository:
         info_dict -- information regarding injectors and libraries
         full_name -- name of the package, including version info
         '''
-        base_path = os.path.join(get_spkg_path(), "repos")
+        base_path = make_path(get_spkg_path(), "repos")
         for component_type in info_dict:
             #Logger.info("Component: %s" % component_type)
             #Logger.info("info_dict: %s" % info_dict)
             component_dict = info_dict[component_type]
             for component_name in component_dict:
                 full_path = component_dict[component_name]["path"]
-                full_name = full_path.split(os.path.sep)[-1]
+                Logger.info("WARNING: THIS IS PROBABLY BROKE (%s)" % full_path)
+                full_name = full_path.split('/')[-1]
                 full_name = full_name.split('.tar.gz')[0]
-                src = os.path.join(base_path, component_type, full_name)
-                dst = os.path.join(pkg_path, component_type, component_name)
+                src = make_path(base_path, component_type, full_name)
+                dst = make_path(pkg_path, component_type, component_name)
                 if os.path.islink(dst):
                     continue
                 if not os.path.isdir(src):
                     msg = "Package component (%s) does not exist." % src
                     raise Exceptions.BadPackage(full_name, msg)
-                cmd = "ln -s %s %s" % (src, dst)
-                #Logger.info("CMD: (%s)" % cmd)
+                if sys.platform == "cli":
+                    cmd = 'bash -c "cp -ax %s %s"' % (src, dst)
+                else:
+                    cmd = 'bash -c "ln -s %s %s"' % (src, dst)
+                Logger.info("CMD: (%s)" % cmd)
                 if os.system(cmd) != OK:
                     msg = "Could not create symlink (%s)" % cmd
                     raise Exceptions.BadPackage(full_name, msg)
@@ -199,14 +217,14 @@ class Repository:
         libs_info -- dictionary describing python code libraries
         '''
         self.hunt_and_explode()
-        pkg_path = os.path.join(get_spkg_path(), self.instance_name,
+        pkg_path = make_path(get_spkg_path(), self.instance_name,
                                 "packages", full_name)
-        injector_path = os.path.join(pkg_path, "injectors")
-        lib_path = os.path.join(pkg_path, "libs")
+        injector_path = make_path(pkg_path, "injectors")
+        lib_path = make_path(pkg_path, "libs")
         if not os.path.isdir(pkg_path):
             Logger.info("Making directory %s" % pkg_path)
             for path in [pkg_path, injector_path, lib_path]:
-                cmd = "mkdir -p %s" % path
+                cmd = 'bash -c "mkdir -p %s"' % path
                 if os.system(cmd) != OK:
                     msg = "Could not create directory structure (%s)" % path
                     raise Exceptions.BadPackage(full_name, msg)

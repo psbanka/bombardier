@@ -19,13 +19,80 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os, re, time, random, yaml, shutil
+import os, re, time, random, shutil
 import sys
-from static_data import OK, FAIL, BOMBARDIER_CONFIG_DIR
+from static_data import OK, FAIL, BOMBARDIER_CONFIG_DIR, DEFAULT_SPKG_DIR
 from static_data import PACKAGES, STATUS_FILE, CLIENT_CONFIG_FILE
 from Exceptions import StatusException, UnsupportedPlatform
 from Exceptions import ConfigurationException
 
+def is_unicode(val):
+    return type(val) == type(u"unicode")
+
+def is_list(val):
+    return type(val) == type([])
+
+def is_set(val):
+    return type(val) == type(set([]))
+
+def is_dict(val):
+    return type(val) == type({})
+
+def uni_dict_to_str_dict(uni_dict):
+    new_dict = {}
+    for key in uni_dict:
+        item = uni_dict[key]
+        new_item = uni_to_str(item)
+        new_dict[str(key)] = new_item
+    return new_dict
+
+def uni_list_to_str(uni_list):
+    new_list = []
+    for val in uni_list:
+        new_item = uni_to_str(val)
+        new_list.append(new_item)
+    return new_list
+
+def uni_to_str(val):
+    new_val = None
+    if is_dict(val):
+        new_val = uni_dict_to_str_dict(val)
+    elif is_list(val):
+        new_val =  uni_list_to_str(val)
+    elif is_set(val):
+        new_val =  set(uni_list_to_str(list(val)))
+    elif is_unicode(val):
+        new_val = str(val)
+    else:
+        new_val = val
+    return new_val
+
+def yaml_load(*args, **kwargs):
+    if sys.platform == "cli":
+        import simplejson as json
+        return json.loads(*args, **kwargs)
+    else:
+        import yaml
+        return yaml.load(*args, **kwargs)
+
+def yaml_dump(*args, **kwargs):
+    if sys.platform == "cli":
+        import simplejson as json
+        return json.dumps(*args, **kwargs)
+    else:
+        import yaml
+        return yaml.dump(*args, **kwargs)
+
+def untargz(file_path):
+    os.system('bash -c "tar -xzf %s"')
+
+def get_slash_cwd():
+    return os.getcwd().replace("\\", "/")
+
+def make_path(*args):
+    if len(args) == 1 and type(args[0]) == type([]):
+        return '/'.join(args[0]).replace("\\", "/")
+    return '/'.join(args).replace("\\", "/")
 
 def get_hasher():
     "Return md5sum using appropriate library"
@@ -83,7 +150,7 @@ def get_tmp_path():
     tmp_fn   += random.choice(alphabet)
     tmp_fn   += random.choice(alphabet)
     tmp_fn   += random.choice(alphabet)
-    tmp_path  = os.path.join(get_spkg_path(), tmp_fn)
+    tmp_path  = make_path(get_spkg_path(), tmp_fn)
     return tmp_path
 
 def cygpath(dos_path):
@@ -283,7 +350,8 @@ def get_time_struct(time_string):
     if time_string == "NA":
         return 0
     try:
-        timestruct = int(time.mktime(time.strptime(time_string)))
+        time_tuple = time.strptime(time_string, "%a %b %d %H:%M:%S %Y")
+        timestruct = int(time.mktime(time_tuple))
     except ValueError:
         timestruct = int(time.time())
     return timestruct
@@ -301,17 +369,17 @@ def rpartition(string, char):
 
 def ensure_bombardier_config_dir():
     if not os.path.isdir(BOMBARDIER_CONFIG_DIR):
-        os.system("mkdir -p %s" % BOMBARDIER_CONFIG_DIR)
+        os.system('bash -c "mkdir -p %s"' % BOMBARDIER_CONFIG_DIR)
 
-def get_linux_client_config():
+def get_client_config():
     "Read CLIENT_CONFIG_FILE and give us the info"
-    spkg_dict = {"spkg_path": "/opt/spkg"}
+    spkg_dict = {"spkg_path": DEFAULT_SPKG_DIR}
     ensure_bombardier_config_dir()
     if not os.path.isfile(CLIENT_CONFIG_FILE):
         put_linux_client_config(spkg_dict)
         return spkg_dict
-    yaml_str = open(CLIENT_CONFIG_FILE, 'r').read()
-    config = yaml.load(yaml_str)
+    load_str = open(CLIENT_CONFIG_FILE, 'r').read()
+    config = yaml_load(load_str)
     if "spkg_path" not in config:
         config.update( spkg_dict )
         put_linux_client_config(config)
@@ -321,7 +389,7 @@ def put_linux_client_config(config):
     "Write a change to our config file"
     ensure_bombardier_config_dir()
     data = open(CLIENT_CONFIG_FILE, 'w')
-    data.write(yaml.dump(config))
+    data.write(yaml_dump(config))
 
 def add_dictionaries(dict1, dict2):
     """dict1 gets stuff from dict2, only if it doesn't have it"""
@@ -337,8 +405,10 @@ def add_dictionaries(dict1, dict2):
 def get_spkg_path():
     "Find out where our root directory is on the client"
     spkg_path = ''
-    if sys.platform == "linux2" or sys.platform == "cygwin":
-        config = get_linux_client_config()
+    if sys.platform == "linux2" or \
+       sys.platform == "cygwin" or \
+       sys.platform == "cli":
+        config = get_client_config()
         spkg_path = config.get("spkg_path")
         if not spkg_path:
             spkg_path = config.get("spkgPath")
@@ -357,11 +427,11 @@ def get_spkg_path():
 
 def get_package_path(instance_name):
     "Find out where our package repository is"
-    return os.path.join(get_spkg_path(), instance_name, PACKAGES)
+    return make_path(get_spkg_path(), instance_name, PACKAGES)
 
 def get_progress_path(instance_name):
     "Find out where our 'status.yml' file is"
-    new_path = os.path.join(get_spkg_path(), instance_name, STATUS_FILE)
+    new_path = make_path(get_spkg_path(), instance_name, STATUS_FILE).replace('\\', '/')
     return new_path
 
 if __name__ == "__main__":

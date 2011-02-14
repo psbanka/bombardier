@@ -8,11 +8,12 @@ setup_tests.start()
 sys.path.insert(0, "../lib")
 
 import unittest, StringIO, time, os
-import yaml
 import BombardierClass
 import Repository
 from bombardier_core.Config import Config
 from bombardier_core.static_data import OK, FAIL, RECONCILE, DRY_RUN
+from bombardier_core.mini_utility import get_spkg_path, make_path
+from bombardier_core.mini_utility import yaml_load, yaml_dump
 import Exceptions
 import MockObjects
 import tempfile
@@ -20,7 +21,10 @@ import tempfile
 INSTANCE = "TEST_INSTANCE"
 
 def _write_progress(progress_data):
-    open("spkg/%s/status.yml" % INSTANCE, 'w').write(yaml.dump(progress_data))
+    data_fp = open("spkg/%s/status.yml" % INSTANCE, 'w')
+    data_fp.write(yaml_dump(progress_data))
+    data_fp.flush()
+    data_fp.close()
 
 class BombardierTest(unittest.TestCase):
 
@@ -427,7 +431,6 @@ class BombardierTest(unittest.TestCase):
                            }
         self.bombardier.config = self.config
         test_results = self.bombardier.check_system()
-        os.system("rm -rf %s" % dest_dir)
         assert set(test_results['Packages installed properly']) == set()
         assert set(test_results['Packages to be INSTALLED']) == set(), test_results
         assert set(test_results['Packages to be REMOVED']) == set()
@@ -681,32 +684,29 @@ class BombardierTest(unittest.TestCase):
 
 if __name__ == "__main__":
     suite = unittest.TestSuite()
-    #suite.addTest(BombardierTest("test_remove_virtual_package"))
-    #suite.addTest(BombardierTest("test_reconcile_system_bogus"))
-    #suite.addTest(BombardierTest("test_add_to_dependency_errors"))
-    #suite.addTest(BombardierTest("test_add_to_dependency_errors"))
-    #suite.addTest(BombardierTest("test_add_to_dependency_errors"))
-    #suite.addTest(BombardierTest("test_bogus_dependency"))
-    #suite.addTest(BombardierTest("test_check_bom"))
-    #suite.addTest(BombardierTest("test_create_package_chains"))
-    #suite.addTest(BombardierTest("test_get_actual_pkn"))
-    #suite.addTest(BombardierTest("test_get_packages_to_remove"))
-    #suite.addTest(BombardierTest("test_get_pkn_list_from_vpn"))
-    #suite.addTest(BombardierTest("test_get_top_priority"))
-    #suite.addTest(BombardierTest("test_get_vpn_from_pkn"))
-    #suite.addTest(BombardierTest("test_find_install_order"))
-    #suite.addTest(BombardierTest("test_package_chain_with_broken"))
-    #suite.addTest(BombardierTest("test_package_dep"))
-    #suite.addTest(BombardierTest("test_reconcile_system1"))
-    #suite.addTest(BombardierTest("test_reconcile_system_with_dependencies"))
-    #suite.addTest(BombardierTest("test_reconcile_system_with_virtual_dependencies"))
-    #suite.addTest(BombardierTest("test_get_packages_to_remove_1"))
-    #suite.addTest(BombardierTest("test_check_system_1"))
-    #suite.addTest(BombardierTest("test_check_system_2"))
-    #suite.addTest(BombardierTest("test_reconfigure"))
-    #suite.addTest(BombardierTest("test_verify_system_4"))
-    #suite.addTest(BombardierTest("test_install_one_broken"))
-    #suite.addTest(BombardierTest("test_check_configuration"))
+#    suite.addTest(BombardierTest("test_remove_virtual_package"))
+#    suite.addTest(BombardierTest("test_reconcile_system_bogus"))
+#    suite.addTest(BombardierTest("test_add_to_dependency_errors"))
+#    suite.addTest(BombardierTest("test_check_bom"))
+#    suite.addTest(BombardierTest("test_create_package_chains"))
+#    suite.addTest(BombardierTest("test_get_actual_pkn"))
+#    suite.addTest(BombardierTest("test_get_packages_to_remove"))
+#    suite.addTest(BombardierTest("test_get_pkn_list_from_vpn"))
+#    suite.addTest(BombardierTest("test_get_top_priority"))
+#    suite.addTest(BombardierTest("test_get_vpn_from_pkn"))
+#    suite.addTest(BombardierTest("test_find_install_order"))
+#    suite.addTest(BombardierTest("test_package_chain_with_broken"))
+#    suite.addTest(BombardierTest("test_package_dep"))
+#    suite.addTest(BombardierTest("test_reconcile_system1"))
+#    suite.addTest(BombardierTest("test_reconcile_system_with_dependencies"))
+#    suite.addTest(BombardierTest("test_reconcile_system_with_virtual_dependencies"))
+#    suite.addTest(BombardierTest("test_get_packages_to_remove_1"))
+#    suite.addTest(BombardierTest("test_check_system_1"))
+#    suite.addTest(BombardierTest("test_check_system_2"))
+#    suite.addTest(BombardierTest("test_reconfigure"))
+#    suite.addTest(BombardierTest("test_verify_system_4"))
+#    suite.addTest(BombardierTest("test_install_one_broken"))
+#    suite.addTest(BombardierTest("test_check_configuration"))
     suite.addTest(unittest.makeSuite(BombardierTest))
     status = unittest.TextTestRunner(verbosity=2).run(suite)
     errors = len(status.errors) + len(status.failures)

@@ -20,7 +20,14 @@ BSD License. License terms can be found here:
 http://www.opensource.org/licenses/bsd-license.php""" % VERSION
 
 ABORTED_JOB_NAME = "ABORTED_JOB_NAME"
-BOMBARDIER_CONFIG_DIR = "/etc/bombardier"
+import sys
+if sys.platform == "cli":
+    BOMBARDIER_CONFIG_DIR = "c:/cygwin/etc/bombardier"
+    DEFAULT_SPKG_DIR = "c:/cygwin/opt/spkg"
+else:
+    BOMBARDIER_CONFIG_DIR = "/etc/bombardier"
+    DEFAULT_SPKG_DIR = "/opt/spkg"
+
 SERVER_CONFIG_FILE = "%s/bombardier_server.yml" % BOMBARDIER_CONFIG_DIR
 CLIENT_CONFIG_FILE = "%s/bombardier_client.yml" % BOMBARDIER_CONFIG_DIR
 

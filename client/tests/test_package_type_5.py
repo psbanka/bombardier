@@ -7,7 +7,7 @@ setup_tests.cleanup()
 setup_tests.start()
 sys.path.insert(0, "../lib")
 
-import os, unittest, yaml, re
+import os, unittest, re
 from PackageV5 import PackageV5
 from Exceptions import BadPackage
 from bombardier_core.static_data import FAIL, OK

@@ -47,6 +47,7 @@ import Exceptions
 from bombardier_core.Logger import Logger
 from bombardier_core.mini_utility import get_progress_path
 from bombardier_core.mini_utility import diff_dicts
+from bombardier_core.mini_utility import make_path
 from bombardier_core.static_data import OK, FAIL, HASH_FILE
 from bombardier_core.static_data import UNINSTALL, DRY_RUN, VERIFY
 from bombardier_core.static_data import INSTALL, CONFIGURE
@@ -390,6 +391,7 @@ class Bombardier:
         add_pkd -- a dictionary of packages that need to be added
         dry_run -- whether or not to just 'fake it'
         '''
+        status = OK
         making_progress = True
         pkns_left = ['initialize']
         while making_progress and pkns_left:
@@ -405,23 +407,23 @@ class Bombardier:
                 pkg = add_pkd[pkn]
                 erstr = "Currently installing package priority %s [%s]"
                 Logger.info(erstr % (pkg.get_priority(), pkn))
-                status = pkg.install_and_verify(pkns_left)
+                pkg_status = pkg.install_and_verify(pkns_left)
                 if not dry_run:
-                    hash_path = os.path.join(pkg.get_path(), HASH_FILE)
+                    hash_path = make_path(pkg.get_path(), HASH_FILE)
                     self.config.save_hash(hash_path)
-                if status == FAIL:
+                if pkg_status == FAIL:
+                    status = FAIL
                     erstr = "Package installation failure -- re-calculating"\
                             " package installation order"
                     Logger.error(erstr)
                     break
                 else:
                     making_progress = True
-        if pkns_left:
+        if status != OK:
             msg = "There are packages that are broken, and we have done all"\
                   " we can do. ; ;"
             Logger.error(msg)
-            return FAIL
-        return OK
+        return status
 
     def _cleanup(self):
         'Some housekeeping before exiting'
@@ -594,6 +596,7 @@ class Bombardier:
         information and specify the proper uninstallation order
         del_pkns -- a list of package names that need to be removed
         '''
+        "Getting packages to remove..."
         uninstall_order = []
         pdat = self.progress.get_progress_data(False)
         installed_pkns, _broken_pkns = Progress.get_installed(pdat)
@@ -684,7 +687,7 @@ class Bombardier:
         '''
         pkg = self._get_new_pkg(pkn)
         pkg_config = pkg.get_configuration()
-        config_hash_path = os.path.join(pkg.get_path(), HASH_FILE)
+        config_hash_path = make_path(pkg.get_path(), HASH_FILE)
         config_diff = self.config.check_hash(config_hash_path)
         differences = find_differences(pkg_config, config_diff, [])
         return differences
@@ -708,7 +711,8 @@ class Bombardier:
             else:
                 name_str = name
             remove_full_pkns.append(name_str)
-        Logger.info("Packages to remove: %s" % remove_full_pkns)
+        msg = "Packages to remove: %s" % remove_full_pkns
+        Logger.info(msg)
         for pkn in uninstall_order:
             uninstall_status = del_pkd[pkn].uninstall(dry_run)
             if uninstall_status == FAIL:
@@ -785,7 +789,7 @@ class Bombardier:
             if action == CONFIGURE:
                 self._check_configuration(pkg)
                 status = pkg.configure()
-                hash_path = os.path.join(pkg.get_path(), HASH_FILE)
+                hash_path = make_path(pkg.get_path(), HASH_FILE)
                 msg = "Writing configuration fingerprint to %s" % hash_path
                 Logger.info(msg)
                 self.config.save_hash(hash_path)
@@ -819,10 +823,12 @@ class Bombardier:
         dry_run = False
 
         if action == DRY_RUN:
-            Logger.info("Reconcile dry-run starting...")
+            msg = "Reconcile dry-run starting..."
+            Logger.info(msg)
             dry_run = True
         else:
-            Logger.info("Reconcile starting...")
+            msg = "Reconcile starting..."
+            Logger.info(msg)
 
         add_pkd, del_pkd, uninstall_order = self._ck_inst_stat(pkns)
         #Logger.info("uninstall_order: %s" % uninstall_order)

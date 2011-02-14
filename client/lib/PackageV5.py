@@ -36,6 +36,7 @@ from bombardier_core import Spkg
 import StringIO, traceback
 from bombardier_core.mini_utility import get_spkg_path
 from bombardier_core.mini_utility import get_package_path
+from bombardier_core.mini_utility import make_path, get_slash_cwd
 from Exceptions import BadPackage
 from Exceptions import RebootRequiredException
 from bombardier_core.Logger import Logger
@@ -124,9 +125,9 @@ class PackageV5(Package):
         if not self.downloaded:
             self.repository.get_type_5(self.full_name, self.injectors_info,
                                        self.libs_info)
-            pkg_dir = os.path.join(get_package_path(self.instance_name),
+            pkg_dir = make_path(get_package_path(self.instance_name),
                                                   self.full_name)
-            injector_dir = os.path.join(pkg_dir, "injectors")
+            injector_dir = make_path(pkg_dir, "injectors")
             if os.path.isdir(injector_dir):
                 self.working_dir = injector_dir
             else:
@@ -140,9 +141,9 @@ class PackageV5(Package):
         Need to modify our path and then clean it out again. This gets
         the data that both operations will need.
         '''
-        package_path = os.path.join(get_spkg_path(), self.instance_name,
+        package_path = make_path(get_spkg_path(), self.instance_name,
                                     "packages", self.full_name)
-        lib_path = os.path.join(package_path, "libs")
+        lib_path = make_path(package_path, "libs")
         return lib_path
 
     def _get_object(self, future_pkns):
@@ -154,12 +155,14 @@ class PackageV5(Package):
         '''
         lib_path = self._get_lib_path()
         sys.path.insert(0, lib_path)
+        Logger.info("Adding %s to our path..." % lib_path)
         obj = None
 
         try:
             class_name = '.'.join(self.class_name.split('.')[1:])
             obj = Spkg.SpkgV5(self.config)
             os.chdir(self.working_dir)
+            Logger.info("CHANGING TO: %s" % self.working_dir)
             letters = [ chr( x ) for x in range(65, 91) ]
             random.shuffle(letters)
             rand_string = ''.join(letters)
@@ -204,7 +207,7 @@ class PackageV5(Package):
         if type(action) == type(1):
             action = ACTION_REVERSE_LOOKUP[action]
 
-        cwd = os.getcwd()
+        cwd = get_slash_cwd()
         obj, rand_string = self._get_object(future_pkns)
         try:
             if not hasattr(obj, action):
@@ -216,7 +219,7 @@ class PackageV5(Package):
                         if len(arguments) != 1:
                             Logger.error("Incorrect number of arguments passed to restore")
                             return FAIL
-                        restore_path = os.path.join(get_spkg_path(), "archive",
+                        restore_path = make_path(get_spkg_path(), "archive",
                                                     self.name, str(arguments[0]))
                         if not os.path.isdir(restore_path):
                             msg = "Cannot execute restore: archive data does not "\

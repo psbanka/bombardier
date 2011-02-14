@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 "Provides a standard superclass for all Bombardier packages"
 
-import re, os, yaml
-from mini_utility import get_spkg_path
+import re, os
+from mini_utility import get_spkg_path, make_path
+from mini_utility import get_slash_cwd, yaml_dump
 import sys, inspect
 from static_data import OK, FAIL
 from Logger import Logger
@@ -23,7 +24,7 @@ class SpkgException( Exception ):
     "raised when a system call is made that fails"
     def __init__(self, err_msg=""):
         self.err_msg = str(err_msg)
-        self.cwd = os.getcwd()
+        self.cwd = get_slash_cwd()
         err = Exception()
         Exception.__init__(err)
     def __str__(self):
@@ -33,7 +34,7 @@ class SpkgException( Exception ):
 
 def get_instance():
     "provides the name of the machine this is running on"
-    path = os.getcwd()
+    path = get_slash_cwd()
     spkg_path = get_spkg_path()
     sub_dir = path.split(spkg_path)[1]
     instance_name = sub_dir.split(os.path.sep)[1]
@@ -76,14 +77,14 @@ def mainV4(cls):
 def dumpReport(report, logger):
     "Legacy"
     instance_name = get_instance()
-    output_path = os.path.join(get_spkg_path(), instance_name, "output")
+    output_path = make_path(get_spkg_path(), instance_name, "output")
     if not os.path.isdir(output_path):
         os.makedirs(output_path)
     script_name = sys.argv[-1].split(".py")[0]
     output_file = "%s-output.yml" % script_name
-    yaml_string = yaml.dump(report)
-    open(os.path.join(output_path, output_file), 'w').write(yaml_string)
-    for line in yaml_string.split('\n'):
+    dump_string = yaml_dump(report)
+    open(make_path(output_path, output_file), 'w').write(dump_string)
+    for line in dump_string.split('\n'):
         logger.info("==REPORT==:%s" % line)
 
 class SpkgV5:
@@ -108,13 +109,13 @@ class SpkgV5:
         if type(report) != type({}):
             report = self.report
         command = inspect.stack()[2][3]
-        output_path = os.path.join(get_spkg_path(), self.instance_name, "output")
+        output_path = make_path(get_spkg_path(), self.instance_name, "output")
         if not os.path.isdir(output_path):
             os.makedirs(output_path)
         output_file = "%s-output.yml" % command
-        yaml_string = yaml.dump(report)
-        open(os.path.join(output_path, output_file), 'w').write(yaml_string)
-        for line in yaml_string.split('\n'):
+        dump_string = yaml_dump(report)
+        open(make_path(output_path, output_file), 'w').write(dump_string)
+        for line in dump_string.split('\n'):
             Logger.info("==REPORT==:%s" % line)
 
     def _check_status(self, status, err_msg="FAILED"):
@@ -125,7 +126,7 @@ class SpkgV5:
     def _system(self, command, err_msg=""):
         '''run a command and raise if there's an error'''
         err_msg = command
-        self._check_status( os.system( command ), err_msg )
+        self._check_status( os.system( 'bash -c "%s"' % command ), err_msg )
 
     def _debug(self, string):
         'log a debug-level message'
@@ -149,7 +150,7 @@ class SpkgV5:
 
     def _getname(self):
         "Provides the name of this package based on directory structure"        
-        cwd = os.getcwd()
+        cwd = get_slash_cwd()
         path = cwd.split(os.sep)
         return path[-1]
 

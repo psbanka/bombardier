@@ -36,8 +36,8 @@ information to be stored either on the server or locally in the
 config.yml file in the bombardier home directory.'''
 
 
-import yaml
-from mini_utility import hash_dictionary, diff_dicts, get_spkg_path
+from mini_utility import yaml_load, yaml_dump
+from mini_utility import hash_dictionary, diff_dicts, get_spkg_path, make_path
 import copy, os
 from Exceptions import InvalidConfigData
 from Logger import Logger
@@ -72,7 +72,7 @@ class Config(dict):
         spkg_path = get_spkg_path()
         if not spkg_path:
             return FAIL
-        config_path = os.path.join(get_spkg_path(), self.instance_name,
+        config_path = make_path(get_spkg_path(), self.instance_name,
                                   CONFIG_FILE)
         if not os.path.isfile(config_path):
             return FAIL
@@ -82,7 +82,7 @@ class Config(dict):
         file_handle = open(config_path, 'r')
         try:
             config_data = file_handle.read()
-            self.data = yaml.load(config_data)
+            self.data = yaml_load(config_data)
         except:
             return FAIL
         return OK
@@ -127,8 +127,8 @@ class Config(dict):
         try:
             file_handle = open(path, 'w')
             hash_dict = hash_dictionary(self.data)
-            hash_yaml = yaml.dump(hash_dict)
-            file_handle.write(hash_yaml)
+            dump_str = yaml_dump(hash_dict)
+            file_handle.write(dump_str)
             file_handle.close()
         except IOError:
             return FAIL
@@ -146,8 +146,8 @@ class Config(dict):
         old_config = {}
         difference = {}
         try:
-            yaml_string = open(path, 'r').read()
-            old_config = yaml.load(yaml_string)
+            load_string = open(path, 'r').read()
+            old_config = yaml_load(load_string)
             new_config = hash_dictionary(self.data)
             difference = diff_dicts(old_config, new_config, check_values=True)
         except IOError:
@@ -157,7 +157,7 @@ class Config(dict):
             msg = "Could not compare configuration data in %s" % path
             Logger.debug(msg)
         except:
-            Logger.warning("Bad yaml in file %s" % path)
+            Logger.warning("Bad json/yaml in file %s" % path)
         return difference
 
     def set(self, section, option, value):

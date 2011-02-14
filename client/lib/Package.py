@@ -30,7 +30,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import yaml
 import os, time, stat
 import tempfile
 import StringIO, traceback
@@ -38,6 +37,7 @@ import StringIO, traceback
 import MetaData
 from bombardier_core.mini_utility import get_package_path, get_spkg_path
 from bombardier_core.mini_utility import rpartition
+from bombardier_core.mini_utility import make_path, yaml_load, yaml_dump
 from bombardier_core.Progress import Progress
 
 from Exceptions import BadPackage, FeatureRemovedException
@@ -173,7 +173,8 @@ class Package:
         dry_run_string = ""
         if dry_run:
             dry_run_string = " --DRY_RUN-- "
-        Logger.info("Uninstalling package %s%s" % (self.name, dry_run_string))
+        msg = "Uninstalling package %s%s" % (self.name, dry_run_string)
+        Logger.info(msg)
         self.status = self._find_cmd(UNINSTALL, dry_run=dry_run)
         if not dry_run:
             self._write_progress()
@@ -188,7 +189,7 @@ class Package:
         '''
         self._download()
         # remove old history
-        output_path = os.path.join(get_spkg_path(), self.instance_name,
+        output_path = make_path(get_spkg_path(), self.instance_name,
                                   "output", "%s-output.yml" % script_name)
         if os.path.isfile(output_path):
             os.unlink(output_path)
@@ -197,7 +198,7 @@ class Package:
 
     def get_path(self):
         'find place on the disk where this package can be accessed'
-        path = os.path.join(get_package_path(self.instance_name), 
+        path = make_path(get_package_path(self.instance_name), 
                             self.full_name)
         return path
 
@@ -326,7 +327,7 @@ class Package:
                 Logger.error(erstr % (self.full_name, pre_backup_cmd))
                 return FAIL
 
-        backup_data = yaml.load(open(os.path.join(restore_path, "backup_info.yml")).read())
+        backup_data = yaml_load(open(make_path(restore_path, "backup_info.yml")).read())
         for backup_target in backup_data:
             if backup_target.startswith("__"):
                 continue
@@ -335,8 +336,8 @@ class Package:
             if not md5_data or not backup_file_name:
                 Logger.error("Corrupted backup data for %s, aborting." % (backup_target))
                 return FAIL
-            source_file = os.path.join(restore_path, rpartition(backup_target, os.path.sep)[0][1:], backup_file_name)
-            destination_file = os.path.join(restore_path, backup_target[1:])
+            source_file = make_path(restore_path, rpartition(backup_target, os.path.sep)[0][1:], backup_file_name)
+            destination_file = make_path(restore_path, backup_target[1:])
             Logger.debug("=================================")
             Logger.debug("backup_target: %s..." % (backup_target))
             Logger.debug("current directory: %s" % (restore_path))
@@ -385,7 +386,7 @@ class Package:
             backup_data[file_name] = {}
             current_start = time.time()
             if file_name.startswith(os.path.sep):
-                backup_destination = os.path.join(backup_dir, file_name[1:])
+                backup_destination = make_path(backup_dir, file_name[1:])
             fpf = ForwardPluggableFileProcessor(file_name, backup_destination, options, Logger)
             backup_file_name, md5_dict = fpf.process_all()
             if not os.path.isfile(backup_file_name):
@@ -407,8 +408,8 @@ class Package:
                 return FAIL
 
         backup_data["__BACKUP_DIR__"] = backup_dir
-        yaml_string = yaml.dump(backup_data)
-        for line in yaml_string.split('\n'):
+        dump_string = yaml_dump(backup_data)
+        for line in dump_string.split('\n'):
             Logger.info("==REPORT==:%s" % line)
         return OK
 

@@ -4,7 +4,7 @@ native python logging module."""
 
 import logging, sys, os, shutil
 import logging.handlers
-from mini_utility import get_spkg_path
+from mini_utility import get_spkg_path, make_path
 from static_data import OK, FAIL, LOG_MAX_SIZE, LOGS_TO_KEEP, LOG_FILE
 
 FORMAT_STRING = '%(asctime)s|%(levelname)s|%(message)s|'
@@ -24,7 +24,7 @@ class LoggerClass:
         self.file_handler = None
         self.log_path = None
         if spkg_path:
-            self.log_path = os.path.join(get_spkg_path(), LOG_FILE)
+            self.log_path = make_path(get_spkg_path(), LOG_FILE)
             if self.check_log_size() == FAIL:
                 self.cycle_log()
             self.make_logger()

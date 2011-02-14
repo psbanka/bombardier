@@ -2,12 +2,12 @@
 
 "Holds the Progress class for examining and modifying the status of a machine"
 
-import os, re, yaml, shutil
+import os, re, shutil
 from static_data import OK, FAIL
 from Exceptions import StatusException
 
 from mini_utility import rpartition, integrate, get_time_struct
-from mini_utility import datesort, get_progress_path
+from mini_utility import datesort, get_progress_path, yaml_load, yaml_dump
 import tempfile
 
 BROKEN_INSTALL   = 0
@@ -201,7 +201,7 @@ class Progress:
         "Loads the status.yml file for this instance"
         try:
             raw_data = open(self.progress_path, 'r').read()
-            data = yaml.load(raw_data)
+            data = yaml_load(raw_data)
             assert type(data) == type({})
         except Exception:
             raise StatusException(self.progress_path)
@@ -209,22 +209,25 @@ class Progress:
 
     def update_progress(self, dictionary, overwrite=False):
         "updates package status information"
+        return_status = OK
         tmp_path = tempfile.mkstemp()[1]
         data = self.load_current_progress()
         try:
             int_data = integrate(data, dictionary, overwrite)
-            yaml_string = yaml.dump(int_data, default_flow_style=False)
+            dump_string = yaml_dump(int_data)
             file_handle = open(tmp_path, 'w')
-            file_handle.write(yaml_string)
+            file_handle.write(dump_string)
             file_handle.flush()
             file_handle.close()
+            del file_handle
             shutil.copy(tmp_path, self.progress_path)
-            os.unlink(tmp_path)
+            #os.unlink(tmp_path)
         except IOError:
-            return FAIL
+            return_status = FAIL
         except StatusException:
-            return FAIL
-        return OK
+            return_status = FAIL
+        os.system('bash -c "rm -rf %s"' % tmp_path)
+        return return_status
 
     def get_progress_data(self, strip_version_from_name = False):
         "Obtains just the installation progress information from status.yml"

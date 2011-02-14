@@ -11,6 +11,7 @@ import os
 import Repository as Repository
 from bombardier_core.Config import Config
 from bombardier_core.static_data import OK, FAIL
+from bombardier_core.mini_utility import make_path
 
 INSTANCE = "TEST_INSTANCE"
 
@@ -29,7 +30,7 @@ class RepositoryTest(unittest.TestCase):
         assert metaData["install"]["fullName"] == "TestPackage-7-1"
 
     def test_unzip(self):
-        pkg_path = os.path.join("repos", "type4", "TestPackage-7")
+        pkg_path = make_path("repos", "type4", "TestPackage-7")
         status = self.repository.unzip_type_4(pkg_path, "TestPackage-7-1")
         assert status == OK
 

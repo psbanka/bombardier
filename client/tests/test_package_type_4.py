@@ -7,11 +7,12 @@ setup_tests.cleanup()
 setup_tests.start()
 sys.path.insert(0, "../lib")
 
-import os, unittest, yaml, re
+import os, unittest, re
 from PackageV4 import PackageV4
 from Exceptions import BadPackage
 from bombardier_core.static_data import FAIL, OK
 from bombardier_core.static_data import INSTALL, VERIFY
+from bombardier_core.mini_utility import make_path, get_slash_cwd
 from bombardier_core.Progress import Progress
 import Exceptions
 import mock
@@ -64,7 +65,7 @@ class PackageTest(unittest.TestCase):
 
     def test_uninstall_ok_package(self):
         self.repository.pkg_data = {"pkg1": {"install": {"fullName": "TestPackage-7"}, "package-version": 4}}
-        base = os.path.join(os.getcwd(), "packages", "TestPackage-7")
+        base = make_path(get_slash_cwd(), "packages", "TestPackage-7")
         package = PackageV4("pkg1", self.repository, self.config, INSTANCE)
         package.initialize()
         package.uninstall()
@@ -72,7 +73,7 @@ class PackageTest(unittest.TestCase):
 
     def test_uninstall_error_script(self):
         self.repository.pkg_data = {"pkg1": {"install": {"fullName": "TestBadUninstall"}, "package-version": 4}}
-        base = os.path.join(os.getcwd(), "packages", "TestBadUninstall")
+        base = make_path(get_slash_cwd(), "packages", "TestBadUninstall")
         package = PackageV4("pkg1", self.repository, self.config, INSTANCE)
         package.initialize()
         package.uninstall()
@@ -80,7 +81,7 @@ class PackageTest(unittest.TestCase):
 
     def test_verify_ok_package(self):
         self.repository.pkg_data = {"pkg1": {"install": {"fullName": "TestPackage-7"}, "package-version": 4}}
-        base = os.path.join(os.getcwd(), "packages", "TestPackage-7")
+        base = make_path(get_slash_cwd(), "packages", "TestPackage-7")
         package = PackageV4("pkg1", self.repository, self.config, INSTANCE)
         package.initialize()
         package._install([])
@@ -89,7 +90,7 @@ class PackageTest(unittest.TestCase):
 
     def test_verify_bad_package(self):
         self.repository.pkg_data = {"pkg1": {"install": {"fullName": "TestBadVerify"}, "package-version": 4}}
-        base = os.path.join(os.getcwd(), "packages", "TestBadVerify")
+        base = make_path(get_slash_cwd(), "packages", "TestBadVerify")
         package = PackageV4("pkg1", self.repository, self.config, INSTANCE)
         package.initialize()
         package.action = VERIFY

@@ -2,8 +2,10 @@
 compression, and splitting on files with full MD5 support to ensure
 operational integrity."""
 
-import time, yaml, sys, os, glob
+import time, sys, os, glob
 from bombardier_core.mini_utility import get_hasher, rpartition
+from bombardier_core.mini_utility import get_slash_cwd, make_path
+from bombardier_core.mini_utility import yaml_load, yaml_dump
 
 ###### Constants #############################################################
 
@@ -118,7 +120,7 @@ class AbstractFileWriter:
         self.file_handle = None
         base_dir, _sep, _output_file_name = rpartition(self.file_name, os.path.sep)
         if not os.path.isdir(base_dir):
-            os.system("mkdir -p %s" % (base_dir))
+            os.system('bash -c "mkdir -p %s"' % (base_dir))
 
     def __repr__(self):
         return "ABSTRACT_FILE_WRITER"
@@ -480,13 +482,13 @@ def get_base_path(file_name):
     return base_path
 
 def get_manifest_data(file_name, logger):
-    manifest_path = os.path.join(get_base_path(file_name), MANIFEST_FILE)
-    #manifest_path = os.path.join(MANIFEST_FILE)
+    manifest_path = make_path(get_base_path(file_name), MANIFEST_FILE)
+    #manifest_path = make_path(MANIFEST_FILE)
     logger.info("manifest_path: %s" % (manifest_path))
     md5_dict = {}
     if os.path.isfile(manifest_path):
         md5_string = open(manifest_path, 'r').read()
-        md5_dict = yaml.load(md5_string)
+        md5_dict = yaml_load(md5_string)
         if type(md5_dict) != type({}):
             logger.info("NOT A DICTIONARY")
             md5_dict = {}
@@ -567,9 +569,9 @@ class ForwardPluggableFileProcessor:
         old_md5_data = {}
         md5_dict = self.dump_md5_sums()
         md5_dict.update(old_md5_data)
-        yaml_string = yaml.dump(md5_dict)
-        manifest_path = os.path.join(get_base_path(self.source_file), MANIFEST_FILE)
-        open(manifest_path, 'w').write(yaml_string)
+        dump_string = yaml_dump(md5_dict)
+        manifest_path = make_path(get_base_path(self.source_file), MANIFEST_FILE)
+        open(manifest_path, 'w').write(dump_string)
         self.logger.info("Writing to %s..." % (manifest_path))
         return md5_dict
 
@@ -591,7 +593,7 @@ class ReversePluggableFileProcessor:
         self.destination_dir   = rpartition(destination_file, os.path.sep)[0]
         self.logger            = logger
         self.processors        = []
-        self.start_dir         = os.getcwd()
+        self.start_dir         = get_slash_cwd()
 
         options = self.determine_options(self.source_file)
         if not options:
