@@ -6,6 +6,7 @@ import time
 from commands import getstatusoutput as gso
 import glob
 import yaml
+import simplejson as json
 import StringIO
 import copy
 import traceback
@@ -45,7 +46,7 @@ class BombardierMachineInterface(MachineInterface):
         self.log_matcher = re.compile(log_re_str) 
 
         self.trace_matcher = re.compile( "\|\|\>\>\>(.+)" )
-        if self.platform == 'win32':
+        if self.platform.startswith('win'):
             self.python  = '/cygdrive/c/Python25/python.exe'
             self.spkg_dir = '/cygdrive/c/spkg'
         else:
@@ -137,8 +138,19 @@ class BombardierMachineInterface(MachineInterface):
     def _stream_data(self, plain_text):
         "Send file contents over stdin via pxssh"
         import zlib
-        compressed = zlib.compress(plain_text)
-        encoded    = base64.encodestring(compressed)
+        self.server_log.info("Pre stream", self.machine_name) 
+        if self.platform.startswith("win"):
+            yaml_loaded = yaml.load(plain_text)
+            self.server_log.info("pre dumps", self.machine_name) 
+            plain_text = json.dumps(yaml_loaded)
+            self.server_log.info("Post dumps", self.machine_name) 
+            encoded = base64.encodestring(plain_text) + "-"
+            for line in encoded.split('\n'):
+                self.server_log.info(line, self.machine_name)
+        else:
+            compressed = zlib.compress(plain_text)
+            encoded = base64.encodestring(compressed)
+        self.server_log.info("Post stream", self.machine_name) 
         self.ssh_conn.setecho(False)
         handle = StringIO.StringIO(encoded)
         while True:
@@ -199,14 +211,8 @@ class BombardierMachineInterface(MachineInterface):
     def _get_bc_command(self):
         "Get shell command to run bc.py on the target system."
         cmd = ""
-        if self.platform == "win32":
-            cmd = "cat /proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/"
-            cmd += "Python/PythonCore/2.5/InstallPath/@"
-            python_home_win = self.gso(cmd)
-            python_home_cyg = self.gso("cygpath $(%s)" %cmd)
-            self._get_status_yml()
-            cmd = "%spython.exe '%sScripts\\bc.py' " % \
-                  (python_home_cyg, python_home_win)
+        if self.platform.startswith("win"):
+            cmd = 'ipy c:\\\\spkg\\\\bc.py '
         else:
             cmd = 'bc.py'
         return cmd
@@ -368,7 +374,8 @@ class BombardierMachineInterface(MachineInterface):
         dest = os.path.join(self.spkg_dir, self.machine_name, "packages")
 
         type_4_dir = os.path.join(self.spkg_dir, "repos", "type4")
-        cmd = "ln -fs %s/*.spkg %s/" % (type_4_dir, dest)
+        spkg_glob = "%s/*.spkg" % type_4_dir
+        cmd = "[ -e %s ] && ln -fs %s %s/" % (spkg_glob, spkg_glob, dest)
         self.ssh_conn.sendline(cmd)
         if not self.ssh_conn.prompt(timeout = 5):
             dead = True
@@ -570,6 +577,11 @@ class BombardierMachineInterface(MachineInterface):
         script_name -- the name of a script to run (againsta a package)
         debug -- defunct
         '''
+        from bombardier_core.static_data import ACTION_REVERSE_LOOKUP
+        self.server_log.info("test", "test")
+        mss = "Action: %s (%s)" % (ACTION_REVERSE_LOOKUP[action], action)
+        self.polling_log.info(mss)
+
         message = []
         start_time = time.time()
         try:

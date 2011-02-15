@@ -1,5 +1,4 @@
-#
-#!###/usr/bin/ipy
+#!/usr/bin/env python
 """module is meant to be run on a linux machine. This is the method the server
 uses to interact with a box: find out what pacakges need to be installed, etc.
 Currently supports RHEL5 and Ubuntu Hardy. Other POSIX environments could
@@ -167,9 +166,10 @@ class BombardierEnvironment:
                 break
             b64_data.append(chunk)
         string_data = ''
-        if sys.platform = "cli":
+        if sys.platform == "cli":
             string_data = base64.decodestring(''.join(b64_data))
         else:
+            import zlib
             string_data = zlib.decompress(base64.decodestring(''.join(b64_data)))
         Logger.debug("Received %s lines of json/yaml" % len(string_data.split('\n')))
 

@@ -1,4 +1,4 @@
-build_dir=$(PWD)/../build
+build_dir=$$(pwd)/../build
 staging_dir=../staging
 fixtures_dist_dir=$(build_dir)/../server/lib/web/rest_api/configs/fixtures/dist
 upload_docs_dir=../bombardierinstaller/docs
@@ -70,7 +70,7 @@ define remove_dist_files
 endef
 
 define remove_upload_dist_files
-	cd $(upload_dir) && rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README project_info.yml setup.py
+	cd $(upload_dir) && rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README project_info.* setup.py
 endef
 
 help:
@@ -270,6 +270,6 @@ INSTALL:
 MANIFEST.in:
 	cp -f $(build_dir)/MANIFEST.in .
 project_info:
-	cp -f $(build_dir)/project_info.yml .
+	cp -f $(build_dir)/project_info.* .
 proto_setup:
 	cp -f $(build_dir)/proto_setup.py ./setup.py

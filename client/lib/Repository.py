@@ -148,13 +148,16 @@ class Repository:
         untar the files properly.
         '''
         base_path = make_path(get_spkg_path(), "repos")
-        #_status, output = gso('find %s -name "*.tar.gz"' % base_path)
-        #_status, output = gso('find %s -name "*.tar.gz"' % base_path)
-        tfn = "c:/spkg/tmp/tarballs.txt"
-        cmd = 'bash -c "find %s -name \"*.tar.gz\"" > %s' % (base_path, tfn)
-        Logger.info("CMD: (%s)" % cmd)
-        os.system(cmd)
-        output = open(tfn).read()
+        output = ""
+        if sys.platform == "cli":
+            tfn = "c:/spkg/tmp/tarballs.txt"
+            cmd = 'bash -c "find %s -name \"*.tar.gz\"" > %s' % (base_path, tfn)
+            Logger.info("CMD: (%s)" % cmd)
+            os.system(cmd)
+            output = open(tfn).read()
+        else:
+            _status, output = gso('find %s -name "*.tar.gz"' % base_path)
+            
         start_dir = get_slash_cwd()
         for full_tar_file_name in output.split('\n'):
             tmp_list = full_tar_file_name.split('/')

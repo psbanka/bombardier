@@ -997,6 +997,7 @@ if __name__ == '__main__':
 #        suite.addTest(DispatcherTests("test_dist_update_for_commenting"))
 #        suite.addTest(DispatcherTests("test_push_config"))
 #        suite.addTest(DispatcherTests("test_stop_all_jobs"))
+#        suite.addTest(DispatcherTests("test_client_update"))
 #        suite.addTest(PackageTests("test_encrypted_ci"))
 #        suite.addTest(PackageTests("test_insufficient_config"))
 #        suite.addTest(PackageTests("test_package_error"))
