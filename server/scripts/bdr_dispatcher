@@ -336,9 +336,14 @@ def main():
     interactive = False
 
     if os.path.isfile(SERVER_CONFIG_FILE):
-        config_data = yaml.load(open(SERVER_CONFIG_FILE).read())
-        server_home = config_data.get("server_home")
-        external_web_server = config_data.get("external_web_server", False)
+        try:
+            config_data = yaml.load(open(SERVER_CONFIG_FILE).read())
+            server_home = config_data.get("server_home")
+            external_web_server = config_data.get("external_web_server", False)
+        except yaml.parser.ParserError, ype:
+            print "Invalid YAML in %s" % SERVER_CONFIG_FILE
+            print ype
+            sys.exit(1)
     decryption_key = ''
     if options.server_home:
         server_home = options.server_home

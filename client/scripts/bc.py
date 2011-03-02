@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """module is meant to be run on a linux machine. This is the method the server
 uses to interact with a box: find out what pacakges need to be installed, etc.
 Currently supports RHEL5 and Ubuntu Hardy. Other POSIX environments could
@@ -22,6 +21,7 @@ be easily added, including cygwin"""
 # 02110-1301, USA.
 
 import sys, optparse, StringIO, traceback, time, re
+import simplejson as json
 
 from bombardier_core.Logger import Logger
 from bombardier_core.Config import Config
@@ -31,11 +31,11 @@ from bombardier_client.PackageV4 import PackageV4
 from bombardier_client.PackageV5 import PackageV5
 from bombardier_client.BombardierClass import Bombardier
 from bombardier_core.mini_utility import get_progress_path, get_spkg_path
-from bombardier_core.mini_utility import make_path, yaml_dump, yaml_load
+from bombardier_core.mini_utility import make_path
 from bombardier_core.static_data import FIX, CHECK_STATUS, CONFIGURE, RECONCILE
 from bombardier_core.static_data import VERIFY, INSTALL, UNINSTALL, PURGE
 from bombardier_core.static_data import DRY_RUN, INIT, EXECUTE, BACKUP, RESTORE
-from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import OK, FAIL, ACTION_REVERSE_LOOKUP
 from bombardier_core import CORE_VERSION
 from bombardier_client import CLIENT_VERSION
 import os
@@ -74,7 +74,7 @@ def exit_with_return_code(value):
 def find_likely_pkn(instance_name, pkn):
     """Sometimes an ambiguous package name is requested.
     This attempts to help a guy out."""
-    status_yml = yaml_load(open(get_progress_path(instance_name)).read())
+    status_yml = json.loads(open(get_progress_path(instance_name)).read())
     pkns = []
     status_packages = status_yml['install-progress']
     for name in status_packages:
@@ -99,7 +99,7 @@ def fix_spkg(instance_name, pkn, action, package_factory):
     as 'broken' and set it to be 'installed'. Perhaps they have manually
     fixed the package on the system."""
     status_data = open(get_progress_path(instance_name), 'r').read()
-    status = yaml_load(status_data)
+    status = json.loads(status_data)
     if status.get("install-progress") == None:
         status["install-progress"] = {}
         Logger.warning( "Status file is empty." )
@@ -143,7 +143,7 @@ def fix_spkg(instance_name, pkn, action, package_factory):
             msg = msg % str(possible_names)
             Logger.info(msg)
             return FAIL
-    open(get_progress_path(instance_name), 'w').write(yaml_dump(status))
+    open(get_progress_path(instance_name), 'w').write(json.dumps(status))
     return OK
 
 class BombardierEnvironment:
@@ -161,25 +161,33 @@ class BombardierEnvironment:
         "Obtain configuration data from the server"
         b64_data = []
         while True:
-            chunk = sys.stdin.read(STREAM_BLOCK_SIZE)
-            if not chunk or chunk[0] == ' ':
+            #Logger.info( "STARTING READ" )
+            chunk = sys.stdin.read(STREAM_BLOCK_SIZE).strip()
+            #Logger.info( "READ FROM SERVER: [%s]" % chunk)
+            if not chunk or chunk[0] == ' ' or chunk.endswith("-"):
+                chunk = chunk[:-1]
+                b64_data.append(chunk)
                 break
             b64_data.append(chunk)
-        string_data = ''
-        if sys.platform == "cli":
-            string_data = base64.decodestring(''.join(b64_data))
-        else:
-            import zlib
-            string_data = zlib.decompress(base64.decodestring(''.join(b64_data)))
-        Logger.debug("Received %s lines of json/yaml" % len(string_data.split('\n')))
+            sys.stdout.write(">\n")
+            sys.stdout.flush()
+        #Logger.info("FINISHED INPUT LOOP")
+        #print "b64_data: ", b64_data
+        json_data = ''
+        #json_data = zlib.decompress(base64.decodestring(''.join(b64_data)))
+      
+        json_data = base64.decodestring(''.join(b64_data))
+        #print "json_dataa", json_data
+        Logger.debug("Received %s lines of json" % len(json_data.split('\n')))
 
         try:
-            input_data = yaml_load(string_data)
+            input_data = json.loads(json_data)
+            #print "input_dataa", input_data
         except:
-            ermsg = "Configuration data not YAML-parseable: %s" % (repr(string_data))
+            ermsg = "Configuration data not YAML-parseable: %s" % (repr(json_data))
             raise ConfigurationException(ermsg)
         if type(input_data) == type("string"):
-            ermsg = "Configuration data not YAML-parseable: %s" % (repr(string_data))
+            ermsg = "Configuration data not YAML-parseable: %s" % (repr(json_data))
             raise ConfigurationException(ermsg)
         if type(input_data) != type({}) and type(input_data) != type([]):
             input_data = input_data.next()
@@ -190,18 +198,18 @@ class BombardierEnvironment:
             except ImportError:
                 msg = "This machine cannot accept an encrypted configuration"
                 raise ConfigurationException(msg)
-            enc_yaml_file = make_path(get_spkg_path(), self.instance_name,
+            enc_json_file = make_path(get_spkg_path(), self.instance_name,
                                          'client.yml.enc')
-            if not os.path.isfile(enc_yaml_file):
-                msg = "%s file doesn't exist" % enc_yaml_file
+            if not os.path.isfile(enc_json_file):
+                msg = "%s file doesn't exist" % enc_json_file
                 raise ConfigurationException(msg)
-            enc_data = open(enc_yaml_file).read()
+            enc_data = open(enc_json_file).read()
             cipher = Cipher(config_key)
-            plain_yaml_str = cipher.decrypt_string(enc_data)
+            plain_json_str = cipher.decrypt_string(enc_data)
             try:
-                input_data = yaml_load(plain_yaml_str)
+                input_data = json.loads(plain_json_str)
             except:
-                ermsg = "Received bad YAML file: %s" % enc_yaml_file
+                ermsg = "Received bad YAML file: %s" % enc_json_file
                 raise ConfigurationException(ermsg)
 
         config_data  = input_data.get("config_data")
@@ -244,9 +252,9 @@ def instance_setup(instance_name):
     status_dict = None
     if os.path.isfile(progress_path):
         try:
-            status_dict = yaml_load(open(progress_path).read())
+            status_dict = json.loads(open(progress_path).read())
         except:
-            msg = "Unable to load existing json/yaml from %s" % progress_path
+            msg = "Unable to load existing json from %s" % progress_path
             Logger.warning(msg)
     if type(status_dict) != type({}):
         status_dict = {"install-progress": {}}
@@ -255,9 +263,15 @@ def instance_setup(instance_name):
     status_dict["clientVersion"] = CLIENT_VERSION
     status_dict["coreVersion"] = CORE_VERSION
     pkg_dir = make_path(get_spkg_path(), instance_name, "packages")
+    repos_dir = make_path(get_spkg_path(), "repos")
+    tmp_dir = make_path(get_spkg_path(), "tmp")
     if not os.path.isdir(pkg_dir):
         os.makedirs(pkg_dir)
-    open(progress_path, 'w').write(yaml_dump(status_dict))
+    if not os.path.isdir(repos_dir):
+        os.makedirs(repos_dir)
+    if not os.path.isdir(tmp_dir):
+        os.makedirs(tmp_dir)
+    open(progress_path, 'w').write(json.dumps(status_dict))
 
 def process_action(action, instance_name, pkn, method_name,
                    arguments, package_factory):
@@ -358,13 +372,13 @@ def main():
 
     (options, args) = parser.parse_args()
     Logger.info("options: (%s) / args: (%s)" % (options, args))
+    Logger.info("Action: %s" % (ACTION_REVERSE_LOOKUP[options.action]))
     if len(args) < 1:
         print "CMD: %s" % ' '.join(sys.argv)
         print "This command requires an instance name."
         parser.print_help()
         exit_with_return_code(1)
     instance_name = args[0]
-
     env = BombardierEnvironment(instance_name)
     env.data_request()
     package_factory = PackageFactory(env)

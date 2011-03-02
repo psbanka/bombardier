@@ -200,6 +200,7 @@ class LocalMachineInterface(AbstractMachineInterface):
         os.chdir(injectors_path)
         base_name = ''
         class_name = ''
+        description = ''
         self.pre_cleanup(tmp_path)
         try:
             tmp_libs = os.path.join(tmp_path, "libs")
@@ -221,6 +222,13 @@ class LocalMachineInterface(AbstractMachineInterface):
                 sys.modules.pop(class_name)
             cmd = "import %s as %s" % ( class_name, rand_name )
             exec(cmd)
+            exec("description = %s.__doc__" % (rand_name))
+            if not description:
+                exec("description = %s.%s.__doc__" % (rand_name, base_name))
+            if description:
+                self.polling_log.info("Description: %s" % description)
+            else:
+                self.polling_log.warning("Class %s has no description" % class_name)
 
             self.verify_test_modules(tmp_path)
 
@@ -239,16 +247,15 @@ class LocalMachineInterface(AbstractMachineInterface):
                     if not docstring:
                         docstring = 'Undocumented Executable'
                     public_methods[method] = docstring
-
-        except Exception, e:
+        except Exception, exp:
             os.chdir(start_path)
-            raise exp
+            raise
 
         # cleanup:
         self.remove_test_modules(tmp_path)
         sys.path.remove(tmp_libs)
         os.chdir(start_path)
-        return config_requests, public_methods
+        return description, config_requests, public_methods
 
         
     def build_components(self, package_name, svn_user, svn_password,
@@ -281,7 +288,8 @@ class LocalMachineInterface(AbstractMachineInterface):
                             output.append("built %s" % tar_file_path)
 
             pkg_data["release"] = pkg_data.get("release", 0) + 1
-            configuration, methods = self._inspect_libraries(tmp_path, pkg_data)
+            description, configuration, methods = self._inspect_libraries(tmp_path, pkg_data)
+            pkg_data['description'] = description
             pkg_data['configuration'] = configuration
             pkg_data['executables'] = methods
             open(package_file, 'w').write(yaml.dump(pkg_data))

@@ -139,7 +139,7 @@ class Job(Thread, ServerLogMixin.ServerLogMixin):
             self.final_logs = self.machine_interface.polling_log.get_final_logs()
             polling_log = self.machine_interface.polling_log 
             self.complete_log = polling_log.get_complete_log()
-        except Exception:
+        except Exception, exception_obj:
             exc = StringIO.StringIO()
             traceback.print_exc(file=exc)
             exc.seek(0)
@@ -148,8 +148,9 @@ class Job(Thread, ServerLogMixin.ServerLogMixin):
             for line in data.split('\n'):
                 ermsg = "%% %s" % line
                 self.server_log.error(ermsg, self.name)
+            self.command_output.append(str(exception_obj))
             self.command_status = FAIL
-            msg = "Exception in server. Check log for details"
+            msg = "Exception in server. Check log for further details"
             self.command_output.append(msg)
             self.status = FAIL
         self.machine_interface.unset_job()

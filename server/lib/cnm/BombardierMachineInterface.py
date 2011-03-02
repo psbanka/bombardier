@@ -138,30 +138,40 @@ class BombardierMachineInterface(MachineInterface):
     def _stream_data(self, plain_text):
         "Send file contents over stdin via pxssh"
         import zlib
-        self.server_log.info("Pre stream", self.machine_name) 
+        #self.server_log.info("Pre stream", self.machine_name) 
         if self.platform.startswith("win"):
             yaml_loaded = yaml.load(plain_text)
-            self.server_log.info("pre dumps", self.machine_name) 
             plain_text = json.dumps(yaml_loaded)
-            self.server_log.info("Post dumps", self.machine_name) 
-            encoded = base64.encodestring(plain_text) + "-"
-            for line in encoded.split('\n'):
-                self.server_log.info(line, self.machine_name)
+            encoded = base64.encodestring(plain_text)
+            #re_encoded = []
+            #for line in encoded.split('\n'):
+                #re_encoded.append(line)
+                #self.server_log.info('[%s]' % line, self.machine_name)
+            #encoded = '\n'.join(re_encoded) + '\n'
+            #self.server_log.info("Last character in encoded: [%s][%d]" % (encoded[-2], int(encoded[-2])), self.machine_name)
+            #encoded += '-\n'
         else:
             compressed = zlib.compress(plain_text)
             encoded = base64.encodestring(compressed)
-        self.server_log.info("Post stream", self.machine_name) 
         self.ssh_conn.setecho(False)
         handle = StringIO.StringIO(encoded)
         while True:
+            response = self.ssh_conn.read(2)
+            #self.server_log.info("Read (%s)" % response)
             chunk = handle.read(BLK_SIZE)
             if chunk == '':
-                chunk = ' '*(BLK_SIZE-1)+'\n'
+                chunk = ' '*(BLK_SIZE)+'\n'
+                #self.server_log.info("* SENDING: (%s)[%d]" % (chunk, len(chunk)), self.machine_name) 
                 self.ssh_conn.send(chunk)
                 break
             if len(chunk) < BLK_SIZE:
-                pad = ' '*(BLK_SIZE-len(chunk))
-                chunk = chunk[:-1] + pad + '\n'
+                if self.platform.startswith("win"):
+                    pad = ' '*(BLK_SIZE-len(chunk)-1)
+                    chunk = chunk[:-1] + '-' + pad + '\n'
+                else:
+                    pad = ' '*(BLK_SIZE-len(chunk))
+                    chunk = chunk[:-1] + pad + '\n'
+            #self.server_log.info("  SENDING: (%s)[%d]" % (chunk, len(chunk)), self.machine_name) 
             self.ssh_conn.send(chunk)
 
     def _scp_all_client_data(self, raw_data):
@@ -438,29 +448,35 @@ class BombardierMachineInterface(MachineInterface):
         if not os.path.isdir( status_dir ):
             os.makedirs( status_dir )
 
-        new_line = 'cat %s/%s/status.yml;echo "======="'
-        self.ssh_conn.sendline(new_line % (self.spkg_dir, self.machine_name))
-        self.ssh_conn.prompt()
-        status_yml = str(self.ssh_conn.before).split("======")[0]
-        status_yml = status_yml.replace('\r','')
-        try:
-            yaml.load(status_yml)
-        except:
-            error_file =  os.path.join(status_dir, "error.yml")
-            msg = "status.yml could not be parsed (writing to %s)" % error_file
-            self.polling_log.error(msg)
-            open( error_file, "w" ).write(status_yml)
-            return
+        remote_file = "%s/%s/status.yml" % (self.spkg_dir, self.machine_name)
         status_file = os.path.join(status_dir, "%s.yml" % self.machine_name)
-        try:
-            open( status_file, 'w' ).write(status_yml)
-            cmd = "chgrp %s %s 2> /dev/null"
-            os.system(cmd % (self.default_group, status_file))
-            cmd = "chmod 660 %s 2> /dev/null"
-            os.system(cmd % (status_file))
-        except IOError, ioe:
-            msg = "Unable to write '%s' (%s)" % (status_file, ioe)
-            self.polling_log.error(msg)
+        self.get(remote_file, status_file)
+        return
+        #new_line = 'cat %s/%s/status.yml;echo "======="'
+        #self.ssh_conn.sendline(new_line % (self.spkg_dir, self.machine_name))
+        #self.ssh_conn.prompt()
+        #status_yml = str(self.ssh_conn.before).split("======")[0]
+        #status_yml = status_yml.replace('\r','')
+        #for line in status_yml.split('\n'):
+            #self.polling_log.info("STATUS [%s]" % line)
+        #try:
+            #yaml.load(status_yml)
+        #except:
+            #error_file =  os.path.join(status_dir, "error.yml")
+            #msg = "status.yml could not be parsed (writing to %s)" % error_file
+            #self.polling_log.error(msg)
+            #open( error_file, "w" ).write(status_yml)
+            #return
+        #status_file = os.path.join(status_dir, "%s.yml" % self.machine_name)
+        #try:
+            #open( status_file, 'w' ).write(status_yml)
+            #cmd = "chgrp %s %s 2> /dev/null"
+            #os.system(cmd % (self.default_group, status_file))
+            #cmd = "chmod 660 %s 2> /dev/null"
+            #os.system(cmd % (status_file))
+        #except IOError, ioe:
+            #msg = "Unable to write '%s' (%s)" % (status_file, ioe)
+            #self.polling_log.error(msg)
 
     def _process_backup(self, backup_dict, package_name):
         '''

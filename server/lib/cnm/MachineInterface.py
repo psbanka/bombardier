@@ -93,6 +93,14 @@ class MachineInterface(AbstractMachineInterface):
                 raise MachineUnavailableException(self.machine_name, msg)
             self.ssh_conn.sendline('stty -echo')
             self.ssh_conn.prompt()
+        except pxssh.ExceptionPxssh, pxe:
+            raise MachineUnavailableException(self.machine_name, str(pxe))
+            #msg = "SSH session failed on login."
+            #self.polling_log.error(msg)
+            #self.server_log.error(msg, self.machine_name)
+            #self.polling_log.error(pxe)
+            #self.status = BROKEN
+            #return FAIL
         except (MachineUnavailableException, pexpect.TIMEOUT):
             msg = "SSH session failed on login."
             self.polling_log.error(msg)
@@ -173,11 +181,11 @@ class MachineInterface(AbstractMachineInterface):
         scp_conn.close()
         return OK
 
-    def get(self, dest_file):
+    def get(self, remote_file, local_file='.'):
         "secure copy from a remote host"
-        self.polling_log.info( "Getting %s" % dest_file)
-        cmd = 'scp -v %s@%s:%s .'
-        cmd = cmd % (self.username, self.ip_address, dest_file)
+        self.polling_log.info( "Getting %s" % remote_file)
+        cmd = 'scp -v %s@%s:%s %s'
+        cmd = cmd % (self.username, self.ip_address, remote_file, local_file)
         self.polling_log.debug("EXECUTING: %s" % cmd, cmd)
         scp_conn = pexpect.spawn(cmd, timeout=30)
         return self._process_scp(scp_conn)
