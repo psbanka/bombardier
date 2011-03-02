@@ -18,6 +18,17 @@ GOOD_BREAK_CHARS = ['.', '-', ' ', '\\', '/', '=', ')', ']', '_']
 CONNECTION_TIMEOUT = 90 * 3600 #90 min
 SSH_NEW_KEY = 'Are you sure you want to continue connecting'
 
+class PatchedPxssh(pxssh.pxssh):
+    "This subclass corrects a prompt problem"
+    def __init__(self):
+        pxssh.pxssh.__init__(self)
+
+    def synch_original_prompt(self):
+        "Send a line and wait half a second before the original call"
+        self.sendline()
+        time.sleep(0.5)
+        return super(PatchedPxssh, self).synch_original_prompt()
+
 class MachineInterface(AbstractMachineInterface):
     "Interface to a remote machine via pxssh"
     def __init__(self, machine_config, server_log):
@@ -69,11 +80,10 @@ class MachineInterface(AbstractMachineInterface):
 
     def connect(self):
         "Make a new connection to the remote system"
-        self.ssh_conn = pxssh.pxssh()
+        self.ssh_conn = PatchedPxssh()
         self.ssh_conn.timeout = 6000
         msg = "Connecting to %s..." % self.machine_name
         self.polling_log.debug(msg)
-        #self.server_log.debug(msg, self.machine_name)
         try:
             self.server_log.debug(msg, self.machine_name)
             login_okay = self.ssh_conn.login(self.ip_address, self.username,
@@ -83,6 +93,14 @@ class MachineInterface(AbstractMachineInterface):
                 raise MachineUnavailableException(self.machine_name, msg)
             self.ssh_conn.sendline('stty -echo')
             self.ssh_conn.prompt()
+        except pxssh.ExceptionPxssh, pxe:
+            raise MachineUnavailableException(self.machine_name, str(pxe))
+            #msg = "SSH session failed on login."
+            #self.polling_log.error(msg)
+            #self.server_log.error(msg, self.machine_name)
+            #self.polling_log.error(pxe)
+            #self.status = BROKEN
+            #return FAIL
         except (MachineUnavailableException, pexpect.TIMEOUT):
             msg = "SSH session failed on login."
             self.polling_log.error(msg)
@@ -94,8 +112,8 @@ class MachineInterface(AbstractMachineInterface):
         return OK
 
     def control_c(self):
-        #self.ssh_conn.sendcontrol('c')
-        pass
+        "Sending a ^C to the remote machine to abort jobs"
+        self.ssh_conn.sendcontrol('c')
 
     def freshen(self):
         '''Since we like to keep connections around for a long time,
@@ -163,11 +181,11 @@ class MachineInterface(AbstractMachineInterface):
         scp_conn.close()
         return OK
 
-    def get(self, dest_file):
+    def get(self, remote_file, local_file='.'):
         "secure copy from a remote host"
-        self.polling_log.info( "Getting %s" % dest_file)
-        cmd = 'scp -v %s@%s:%s .'
-        cmd = cmd % (self.username, self.ip_address, dest_file)
+        self.polling_log.info( "Getting %s" % remote_file)
+        cmd = 'scp -v %s@%s:%s %s'
+        cmd = cmd % (self.username, self.ip_address, remote_file, local_file)
         self.polling_log.debug("EXECUTING: %s" % cmd, cmd)
         scp_conn = pexpect.spawn(cmd, timeout=30)
         return self._process_scp(scp_conn)

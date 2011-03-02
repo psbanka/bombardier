@@ -1,2 +1,3 @@
-include lib/web/cnm/templates/registration/*
-include lib/web/cnm/templates/*
+include share/bdr-templates/registration/*
+include share/bdr-templates/*
+

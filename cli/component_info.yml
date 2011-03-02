@@ -19,19 +19,7 @@ classifiers:
 - "Topic :: System :: Shells"
 - "Topic :: System :: Software Distribution"
 - "Topic :: System :: Systems Administration"
-data_files:
--
-  - web/rest_api/templates
-  -
-    - lib/web/rest_api/templates/404.html
-    - lib/web/rest_api/templates/500.html
-    - lib/web/rest_api/templates/config_setting_form.html
-    - lib/web/rest_api/templates/error.html
--
-  - web/rest_api/templates/registration
-  - 
-    - lib/web/rest_api/templates/registration/logged_out.html
-    - lib/web/rest_api/templates/registration/login.html
+data_files: []
 install_requires:
 - PyYAML
 - bombardier_core

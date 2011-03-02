@@ -8,7 +8,7 @@ if os.path.isfile(SERVER_CONFIG_FILE):
 DEBUG = SERVER_CONFIG.get("debug", True)
 TEMPLATE_DEBUG = SERVER_CONFIG.get("debug", True)
 
-SERVER_HOME = SERVER_CONFIG.get("home_directory", "/var/deploy")
+SERVER_HOME = SERVER_CONFIG.get("server_home", "/var/deploy")
 SERVER_ROOT = SERVER_CONFIG.get("server_root", '')
 LOGIN_URL="%s/accounts/login" % SERVER_ROOT
 LOGIN_REDIRECT_URL="%s/accounts/profile" % SERVER_ROOT
@@ -26,7 +26,7 @@ ROOT_URLCONF = 'bombardier_server.web.rest_api.urls'
 
 DATABASE_NAME = os.path.join(SERVER_HOME, 'admin', 'cnmdb')
 DATABASE_ENGINE = 'sqlite3'
-TEMPLATE_DIRS = [os.path.join(SERVER_HOME, 'rest_api', 'templates')]
+TEMPLATE_DIRS = ["/usr/local/share/bdr-templates"]
 TEST_DATABASE_NAME = 'testdb'
 DATABASE_SUPPORTS_TRANSACTIONS = False
 DATABASE_OPTIONS = {'timeout': 30}

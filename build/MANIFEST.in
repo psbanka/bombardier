@@ -4,7 +4,9 @@ include INSTALL
 include LICENSE
 include MANIFEST.in
 include project_info.yml
+include project_info.json
 include component_info.yml
+include component_info.json
 recursive-include docs *
 recursive-include scripts *
 recursive-include tests *

@@ -41,6 +41,14 @@ FIX = 1
 PURGE = 2
 INSTALLED = 3
 NOT_INSTALLED = 4
+BACKUP_PROVIDERS = 5
+
+# FIXME: FACTOR
+def get_package_data(package_name):
+    'returns a list of all configuration objects of this type'
+    url = CnmConnector.PACKAGE_NAME_PATH % package_name
+    data = system_state.cnm_connector.service_yaml_request(url)
+    return data
 
 def clean_version_numbers(installed_set):
     "Remove the -version from a package name"
@@ -67,6 +75,19 @@ class PackageField(PinshCmd.PinshCmd):
         self.cmd_owner = 0
         self.machine_name_index = 1
 
+    def get_help_text(self, command_line):
+        "Produce context-sensitive help text"
+        complete_machine_name = command_line[self.machine_name_index]
+        incomplete_package_name = command_line[-1]
+        package_names = self.get_package_names(complete_machine_name,
+                                               incomplete_package_name)
+        help_lines = []
+        for package_name in package_names:
+            package_data = get_package_data(package_name)
+            description = package_data.get("description", "Undocumented Bombardier Package")
+            help_lines.append("%s\t%s" % (package_name, description))
+        return '\n'.join(help_lines)
+
     def possible_names(self, machine_name):
         'returns a list of all self.data_type things'
         url = CnmConnector.SUMMARY_NAME_PATH % machine_name
@@ -77,6 +98,7 @@ class PackageField(PinshCmd.PinshCmd):
         broken = set(data.get("broken", []))
         not_installed = set(data.get("not_installed", []))
         full_installed = set(data.get("installed", []))
+        backup_providers = set(data.get("backup_providers", []))
         installed = clean_version_numbers(full_installed)
         #print "action_type: %s" % self.action_type
         if self.action_type == FIX:
@@ -87,6 +109,8 @@ class PackageField(PinshCmd.PinshCmd):
             return list(installed)
         if self.action_type == NOT_INSTALLED:
             return list(not_installed)
+        if self.action_type == BACKUP_PROVIDERS:
+            return list(backup_providers)
 
     def get_package_names(self, complete_machine_name,
                            incomplete_package_name):

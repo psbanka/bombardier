@@ -48,9 +48,15 @@ USER = 6
 DIST = 7
 STATUS = 8
 SUMMARY = 9
+VMHOST = 10
+
+NAME_LOOKUP = {MACHINE: "machine", INCLUDE: "include", BOM: "bom", PACKAGE: "package",
+               USER: "user", VMHOST: "vmhost",
+              }
 
 DEFAULT_MACHINE = """ip_address: 127.0.0.1
 default_user: root
+description: Unknown
 platform: rhel5
 """
 
@@ -58,6 +64,7 @@ DEFAULT_PACKAGE = """class_name: Module.Class
 dependencies: []
 injectors: {}
 libs: {}
+description: Unknown
 package-version: 5
 release: 0
 """
@@ -68,6 +75,7 @@ DEFAULT_BOM = """
 
 DEFAULT_USER = """email: user@example.com
 first_name: ''
+description: Unknown
 is_active: true
 is_superuser: false
 last_name: ''
@@ -113,31 +121,34 @@ class ConfigField(PinshCmd.PinshCmd):
             self.directory = "status"
         elif data_type == SUMMARY:
             self.directory = "summary"
+        elif data_type == VMHOST:
+            self.directory = "vmhost"
         self.new = new
 
+    def get_yaml(self, object_name):
+        'returns a list of all configuration objects of this type'
+        url = CnmConnector.NAME_PATH % (self.directory, object_name)
+        try:
+            data = system_state.cnm_connector.service_yaml_request(url)
+        except:
+            return {}
+        return data
+
+    # FIXME: Provide generalized ability to pull description data
     def get_help_text(self, command_line):
         'produced customized help-text based on input'
-        field_type = command_line[-2]
-        if field_type.startswith('b'):
-            return '[bom]\tthe name of a bill-of-materials file'
-        elif field_type.startswith('ma'):
-            return '[machine]\tthe name of a machine managed by this system'
-        elif field_type.startswith('me'):
-            return '[machine]\tthe name of a machine managed by this system'
-        elif field_type.startswith('in'):
-            return '[include]\tthe name of an include file'
-        elif field_type.startswith('pa'):
-            return '[package]\tthe name of a package'
-        elif field_type.startswith('u'):
-            return '[user]\tthe name of an administrative user'
-        elif field_type.startswith('d'):
-            return '[dist]\tthe name of a distribution file'
-        elif field_type.startswith('st'):
-            return '[machine]\tthe name of a machine managed by this system'
-        elif field_type.startswith('su'):
-            return '[machine]\tthe name of a machine managed by this system'
-        return ''
-
+        help_lines = []
+        index = len(command_line) - 1
+        object_names = self.preferred_names(command_line, index)
+        for object_name in object_names:
+            object_data = self.get_yaml(object_name)
+            if type(object_data) == type({}):
+                description = object_data.get("description", "No description")
+            else:
+                description = "No description"
+            help_lines.append("%s\t%s" % (object_name, description))
+        return '\n'.join(help_lines)
+                
     def get_object_list(self):
         'returns a list of all self.data_type things'
         url = CnmConnector.SEARCH_PATH % self.directory

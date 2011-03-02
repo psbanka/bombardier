@@ -18,6 +18,13 @@ class MachineStatusException(ExceptionBase):
     def __repr__(self):
         return "Error in status data: %s" % self.msg
 
+class InvalidBombardierCommand(ExceptionBase):
+    def __init__(self, msg = "General failure"):
+        ExceptionBase.__init__(self)
+        self.msg = msg
+    def __repr__(self):
+        return self.msg
+
 class InvalidAction(Exception):
     def __init__(self, package_name, action_name):
         Exception.__init__(self)
@@ -28,6 +35,27 @@ class InvalidAction(Exception):
         return msg % (self.action, self.package_name)
     def __str__(self):
         return self.__repr__()
+
+class RestoreFailure(ExceptionBase):
+    def __init__(self, reason, target, package_name, machine_name):
+        ExceptionBase.__init__(self)
+        self.reason = reason
+        self.machine_name = machine_name
+        self.package_name = package_name
+        self.target = target
+    def __repr__(self):
+        errmsg = "Cannot restore target {0} for package {1}/machine {2}"\
+                 ": {3}"
+        errmsg = errmsg.format(self.target, self.package_name,
+                               self.machine_name, self.reason)
+        return errmsg
+
+class InvalidMachineType(ExceptionBase):
+    def __init__(self, machine_type):
+        ExceptionBase.__init__(self)
+        self.machine_type = machine_type
+    def __repr__(self):
+        return "Invalid machine type: %s" % self.machine_type
 
 class QueuedJob(ExceptionBase):
     def __init__(self, job_name):
@@ -46,6 +74,13 @@ class CannotQueueJob(ExceptionBase):
 class DispatcherAlreadyStarted(ExceptionBase):
     def __repr__(self):
         return ""
+
+class BuildError(ExceptionBase):
+    def __init__(self, explanation):
+        ExceptionBase.__init__(self)
+        self.explanation = explanation
+    def __repr__(self):
+        return "Package build error: %s" % self.explanation
 
 class DispatcherError(ExceptionBase):
     def __init__(self, explanation):
@@ -186,3 +221,13 @@ class DispatcherOffline(Exception):
         return "Dispatcher offline"
     def __str__(self):
         return self.__repr__()
+
+class NonexistentDistFiles(Exception):
+    def __init__(self, search_errors):
+        Exception.__init__(self)
+        self.search_errors = search_errors
+    def __repr__(self):
+        return "Could not match any file for %s" % self.search_errors
+    def __str__(self):
+        return self.__repr__()
+

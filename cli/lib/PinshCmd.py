@@ -207,6 +207,7 @@ class PinshCmd:
         No return value is necessary'''
         self.dbg("find_help: %s tokens: %s" % (self.my_name, command_line))
         # no tokens left, I must be who you want!
+        clean_command_line = ""
         if command_line.get_length() == index or command_line.get_token(index) == '':
             self.dbg("my_name: %s" % self.my_name)
             self.help(command_line)
@@ -224,6 +225,8 @@ class PinshCmd:
                 completion_objects.append(child)
             elif match_value == COMPLETE:
                 best_match_value = COMPLETE
+                new_name = child.acceptable_names(command_line, index)[0]
+                command_line.update_token(new_name, index + length - 1)
                 completion_objects = [child]
                 match_len = length
                 break
@@ -231,9 +234,13 @@ class PinshCmd:
         self.dbg("len(completion_objects): %s" % len(completion_objects))
         if len(completion_objects) == 1:
             self.dbg("index: %s / len(tokens): %s" % (index, command_line.get_length()))
+            owner = completion_objects[0]
+            completed_names = owner.acceptable_names(command_line, index)
+            if len(completed_names) == 1:
+                command_line.update_token(completed_names[0], index + length - 1)
             if (index + 1) < command_line.get_length():
-                self.dbg("PROVIDING HELP: %s" % completion_objects[0].my_name)
-                return completion_objects[0].find_help(command_line, index + match_len)
+                self.dbg("PROVIDING HELP: %s" % owner.my_name)
+                return owner.find_help(command_line, index + match_len)
         if len(completion_objects) > 0:
             if best_match_value == PARTIAL or best_match_value == COMPLETE:
                 self.dbg("PROVIDING HELP: %s" % self.my_name)
@@ -315,10 +322,17 @@ class PinshCmd:
         for child in self.children:
             if system_state.auth < child.auth:
                 continue
-            if not child.my_name.startswith(match_text):
+            my_names = child.preferred_names(command_line, -1)
+            found = False
+            for my_name in my_names:
+                if my_name.startswith(match_text):
+                    found = True
+            if not found:
                 continue
             if child.get_help_text(command_line).rfind('\n') != -1:
                 for line in child.get_help_text(command_line).split('\n'):
+                    if not line.strip():
+                        continue
                     if '\t' in line:
                         cmd, doc = line.split('\t')
                     else:

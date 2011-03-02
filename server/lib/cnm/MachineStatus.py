@@ -1,7 +1,8 @@
 "Package management information"
 
-from bombardier_core.mini_utility import strip_version, get_installed_uninstalled_times
+from bombardier_core.Progress import Progress
 from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import BDR_CLIENT_TYPE
 import yaml, os
 from MachineConfig import MachineConfig
 from Exceptions import MachineStatusException, MachineConfigurationException
@@ -49,14 +50,14 @@ class MachineStatus:
         if progress_data == None:
             (installed_package_names, broken_package_names) = ([],[])
         else:
-            pkg_info = get_installed_uninstalled_times(progress_data)
+            pkg_info = Progress.get_installed_uninstalled_times(progress_data)
             unstripped_inst_pkgs    = [package_name[0] for package_name in pkg_info["installed"]]
             unstripped_broken_pkgs  = [package_name[0] for package_name in pkg_info["broken_installed"]]
             unstripped_broken_pkgs += [package_name[0] for package_name in pkg_info["broken_uninstalled"]]
 
             if stripped:
-                installed_package_names = [ strip_version(x) for x in unstripped_inst_pkgs]
-                broken_package_names    = [ strip_version(x) for x in unstripped_broken_pkgs]
+                installed_package_names = [ Progress.strip_version(x) for x in unstripped_inst_pkgs]
+                broken_package_names    = [ Progress.strip_version(x) for x in unstripped_broken_pkgs]
             else:
                 installed_package_names = unstripped_inst_pkgs
                 broken_package_names    = unstripped_broken_pkgs
@@ -84,7 +85,7 @@ class MachineStatus:
             package_list = self.get_package_names_from_progress().get(PROGRESS, {})
         except MachineStatusException:
             package_list = []
-        package_names = set([strip_version(x) for x in package_list])
+        package_names = set([Progress.strip_version(x) for x in package_list])
         package_names = package_names.union(set(config_packages))
         return list(package_names)
 
@@ -108,7 +109,7 @@ class MachineStatus:
         return package_data
 
     def get_package_names_from_bom(self):
-        machine_config = MachineConfig(self.machine_name, '', self.server_home)
+        machine_config = MachineConfig(self.machine_name, '', self.server_home, BDR_CLIENT_TYPE)
         status = machine_config.merge()
         if status == FAIL:
             print " %% Bad config file for %s." % self.machine_name
@@ -130,6 +131,16 @@ class MachineStatus:
             output["error_message"] = "Cannot read configuration data"
             return output
 
+        backup_providers = []
+        for name in installed:
+            base_name = name.rpartition('-')[0]
+            yaml_name = "{0}.yml".format(base_name)
+            package_file = os.path.join(self.server_home, "package", yaml_name)
+            if os.path.isfile(package_file):
+                package_config = yaml.load(open(package_file).read())
+                if "backup" in package_config.get("executables", []):
+                    backup_providers.append(base_name)
+
         missing = []
         accounted_packages = list(installed.union(broken))
         for item in total_packages:
@@ -140,8 +151,10 @@ class MachineStatus:
                     break
             if not found:
                 missing.append(item)
+
         output["installed"] = list(installed)
         output["broken"] = list(broken)
         output["not_installed"] = list(missing)
+        output["backup_providers"] = backup_providers
         output["status"] = OK
         return output

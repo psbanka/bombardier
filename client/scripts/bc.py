@@ -1,27 +1,41 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 """module is meant to be run on a linux machine. This is the method the server
 uses to interact with a box: find out what pacakges need to be installed, etc.
 Currently supports RHEL5 and Ubuntu Hardy. Other POSIX environments could
 be easily added, including cygwin"""
 
-# Copyright (C) 2005 Peter Banka
+# Copyright (C) 2005-2011 Peter Banka et al
 
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+# BSD License
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the GE Security nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-# 02110-1301, USA.
-
-import sys, optparse, StringIO, traceback, yaml, time, re
+import sys, optparse, StringIO, traceback, time, re
+import simplejson as json
+import tempfile
 
 from bombardier_core.Logger import Logger
 from bombardier_core.Config import Config
@@ -31,15 +45,15 @@ from bombardier_client.PackageV4 import PackageV4
 from bombardier_client.PackageV5 import PackageV5
 from bombardier_client.BombardierClass import Bombardier
 from bombardier_core.mini_utility import get_progress_path, get_spkg_path
+from bombardier_core.mini_utility import make_path
 from bombardier_core.static_data import FIX, CHECK_STATUS, CONFIGURE, RECONCILE
 from bombardier_core.static_data import VERIFY, INSTALL, UNINSTALL, PURGE
-from bombardier_core.static_data import DRY_RUN, INIT, EXECUTE
-from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import DRY_RUN, INIT, EXECUTE, BACKUP, RESTORE
+from bombardier_core.static_data import OK, FAIL, ACTION_REVERSE_LOOKUP
 from bombardier_core import CORE_VERSION
 from bombardier_client import CLIENT_VERSION
 import os
 import base64
-import zlib
 
 STREAM_BLOCK_SIZE = 77
 
@@ -74,7 +88,12 @@ def exit_with_return_code(value):
 def find_likely_pkn(instance_name, pkn):
     """Sometimes an ambiguous package name is requested.
     This attempts to help a guy out."""
-    status_yml = yaml.load(open(get_progress_path(instance_name)).read())
+    progress_file = get_progress_path(instance_name)
+    try:
+        status_yml = json.loads(open(progress_file).read())
+    except ValueError:
+        Logger.error("Progress data in %s is not parsable." % progress_file)
+        raise
     pkns = []
     status_packages = status_yml['install-progress']
     for name in status_packages:
@@ -98,8 +117,13 @@ def fix_spkg(instance_name, pkn, action, package_factory):
     """A user is requesting to take a package that is currently flagged
     as 'broken' and set it to be 'installed'. Perhaps they have manually
     fixed the package on the system."""
-    status_data = open(get_progress_path(instance_name), 'r').read()
-    status = yaml.load(status_data)
+    progress_file = get_progress_path(instance_name)
+    status_data = open(progress_file, 'r').read()
+    try:
+        status = json.loads(status_data)
+    except ValueError:
+        Logger.error("Data in %s is not parsable by json" % progress_file)
+        return FAIL
     if status.get("install-progress") == None:
         status["install-progress"] = {}
         Logger.warning( "Status file is empty." )
@@ -143,7 +167,7 @@ def fix_spkg(instance_name, pkn, action, package_factory):
             msg = msg % str(possible_names)
             Logger.info(msg)
             return FAIL
-    open(get_progress_path(instance_name), 'w').write(yaml.dump(status))
+    open(get_progress_path(instance_name), 'w').write(json.dumps(status))
     return OK
 
 class BombardierEnvironment:
@@ -161,21 +185,40 @@ class BombardierEnvironment:
         "Obtain configuration data from the server"
         b64_data = []
         while True:
-            chunk = sys.stdin.read(STREAM_BLOCK_SIZE)
-            if not chunk or chunk[0] == ' ':
+            #Logger.info( "STARTING READ" )
+            chunk = sys.stdin.read(STREAM_BLOCK_SIZE).strip()
+            #Logger.info( "READ FROM SERVER: [%s]" % chunk)
+            if not chunk or chunk[0] == ' ' or chunk.endswith("-"):
+                chunk = chunk[:-1]
+                b64_data.append(chunk)
                 break
             b64_data.append(chunk)
-        yaml_data = ''
-        yaml_data = zlib.decompress(base64.decodestring(''.join(b64_data)))
-        Logger.debug("Received %s lines of yaml" % len(yaml_data.split('\n')))
+            sys.stdout.write(">\n")
+            sys.stdout.flush()
+        #Logger.info("FINISHED INPUT LOOP")
+        #print "b64_data: ", b64_data
+        json_data = ''
+        #json_data = zlib.decompress(base64.decodestring(''.join(b64_data)))
+      
+        json_data = base64.decodestring(''.join(b64_data))
+        #print "json_dataa", json_data
+        Logger.debug("Received %s lines of json" % len(json_data.split('\n')))
 
         try:
-            input_data = yaml.load(yaml_data)
+            input_data = json.loads(json_data)
+            #print "input_dataa", input_data
         except:
-            ermsg = "Configuration data not YAML-parseable: %s" % (repr(yaml_data))
+            ermsg = "Configuration data not YAML-parseable: %s" % (repr(json_data))
+            file_number, filename = tempfile.mkstemp(suffix=".yml")
+            fh = open(filename, 'w')
+            Logger.error("Writing bad data to %s" % filename)
+            for line in json_data.split('\n'):
+                fh.write("[%s]" % line)
+            fh.flush()
+            fh.close()
             raise ConfigurationException(ermsg)
         if type(input_data) == type("string"):
-            ermsg = "Configuration data not YAML-parseable: %s" % (repr(yaml_data))
+            ermsg = "Configuration data not YAML-parseable: %s" % (repr(json_data))
             raise ConfigurationException(ermsg)
         if type(input_data) != type({}) and type(input_data) != type([]):
             input_data = input_data.next()
@@ -186,18 +229,18 @@ class BombardierEnvironment:
             except ImportError:
                 msg = "This machine cannot accept an encrypted configuration"
                 raise ConfigurationException(msg)
-            enc_yaml_file = os.path.join(get_spkg_path(), self.instance_name,
+            enc_json_file = make_path(get_spkg_path(), self.instance_name,
                                          'client.yml.enc')
-            if not os.path.isfile(enc_yaml_file):
-                msg = "%s file doesn't exist" % enc_yaml_file
+            if not os.path.isfile(enc_json_file):
+                msg = "%s file doesn't exist" % enc_json_file
                 raise ConfigurationException(msg)
-            enc_data = open(enc_yaml_file).read()
+            enc_data = open(enc_json_file).read()
             cipher = Cipher(config_key)
-            plain_yaml_str = cipher.decrypt_string(enc_data)
+            plain_json_str = cipher.decrypt_string(enc_data)
             try:
-                input_data = yaml.load(plain_yaml_str)
+                input_data = json.loads(plain_json_str)
             except:
-                ermsg = "Received bad YAML file: %s" % enc_yaml_file
+                ermsg = "Received bad YAML file: %s" % enc_json_file
                 raise ConfigurationException(ermsg)
 
         config_data  = input_data.get("config_data")
@@ -240,9 +283,9 @@ def instance_setup(instance_name):
     status_dict = None
     if os.path.isfile(progress_path):
         try:
-            status_dict = yaml.load(open(progress_path).read())
+            status_dict = json.loads(open(progress_path).read())
         except:
-            msg = "Unable to load existing yaml from %s" % progress_path
+            msg = "Unable to load existing json from %s" % progress_path
             Logger.warning(msg)
     if type(status_dict) != type({}):
         status_dict = {"install-progress": {}}
@@ -250,13 +293,19 @@ def instance_setup(instance_name):
     status_dict["core_version"] = CORE_VERSION
     status_dict["clientVersion"] = CLIENT_VERSION
     status_dict["coreVersion"] = CORE_VERSION
-    pkg_dir = os.path.join(get_spkg_path(), instance_name, "packages")
+    pkg_dir = make_path(get_spkg_path(), instance_name, "packages")
+    repos_dir = make_path(get_spkg_path(), "repos")
+    tmp_dir = make_path(get_spkg_path(), "tmp")
     if not os.path.isdir(pkg_dir):
         os.makedirs(pkg_dir)
-    open(progress_path, 'w').write(yaml.dump(status_dict))
+    if not os.path.isdir(repos_dir):
+        os.makedirs(repos_dir)
+    if not os.path.isdir(tmp_dir):
+        os.makedirs(tmp_dir)
+    open(progress_path, 'w').write(json.dumps(status_dict))
 
 def process_action(action, instance_name, pkn, method_name,
-                   package_factory):
+                   arguments, package_factory):
     """
     Performs a Bombardier action on this system
     action -- either INIT, INSTALL, UNINSTALL, VERIFY, CONFIGURE,
@@ -273,8 +322,11 @@ def process_action(action, instance_name, pkn, method_name,
         instance_setup(instance_name)
         return OK
 
-    if action in [ UNINSTALL, VERIFY, CONFIGURE, EXECUTE ]:
-        pkn = find_likely_pkn(instance_name, pkn)
+    if action in [ UNINSTALL, VERIFY, CONFIGURE, EXECUTE, BACKUP ]:
+        try:
+            pkn = find_likely_pkn(instance_name, pkn)
+        except ValueError:
+            return FAIL
 
     status = FAIL
     try:
@@ -292,9 +344,9 @@ def process_action(action, instance_name, pkn, method_name,
         elif action in [ RECONCILE, DRY_RUN ]:
             bc_obj.record_errors = True
             status = bc_obj.reconcile_system(action)
-        else:
+        else: # INSTALL, UNINSTALL, VERIFY, BACKUP, CONFIGURE, EXECUTE, RESTORE
             bc_obj.record_errors = False
-            status = bc_obj.use_pkg(pkn, action, method_name)
+            status = bc_obj.use_pkg(pkn, action, method_name, arguments)
     except:
         err = StringIO.StringIO()
         traceback.print_exc(file = err)
@@ -345,45 +397,63 @@ def main():
     parser.add_option("-n", "--init", dest="action",
                       action="store_const", const=INIT,
                       help="Initialize the client after installation")
+    parser.add_option("-B", "--backup", dest="action",
+                      action="store_const", const=BACKUP,
+                      help="Tell a package to back itself up")
+    parser.add_option("-R", "--restore", dest="action",
+                      action="store_const", const=RESTORE,
+                      help="Tell a package to restore itself")
 
     (options, args) = parser.parse_args()
+    Logger.info("options: (%s) / args: (%s)" % (options, args))
+    if options.action:
+        Logger.info("Action: %s" % (ACTION_REVERSE_LOOKUP[options.action]))
     if len(args) < 1:
         print "CMD: %s" % ' '.join(sys.argv)
         print "This command requires an instance name."
         parser.print_help()
         exit_with_return_code(1)
     instance_name = args[0]
-
     env = BombardierEnvironment(instance_name)
     env.data_request()
     package_factory = PackageFactory(env)
+    arguments = []
 
     if options.action in [ RECONCILE, CHECK_STATUS, DRY_RUN, INIT ]:
         status = process_action(options.action, instance_name,
-                               '', '', package_factory)
+                               '', '', '', package_factory)
     else:
         method_name   = ""
         if len(args) < 2:
             print "CMD: %s" % ' '.join(sys.argv)
             print "This command requires a package name as an argument."
+            Logger.error("This command requires a package name as an argument.")
             parser.print_help()
             exit_with_return_code( 1 )
-        pkns = args[1:]
+        package_name = args[1]
+        if options.action == BACKUP:
+            method_name = "backup"
+        if options.action == RESTORE:
+            method_name = "restore"
+            arguments = args[2:]
+
         if options.action == EXECUTE:
-            if len(args) != 3:
+            if len(args) < 3:
                 print "CMD: %s" % ' '.join(sys.argv)
                 print "This command requires a package name and a script name."
+                Logger.error("This command requires a package name and a script name.")
                 parser.print_help()
                 exit_with_return_code( 1 )
-            pkns = [args[1]]
+            package_name = args[1]
             method_name = args[2]
+            if len(args) > 3:
+                arguments = args[3:]
 
-        for pkn in pkns:
-            status = process_action(options.action, instance_name,
-                                    pkn, method_name,
-                                    package_factory)
-            if status != OK:
-                exit_with_return_code(status)
+        status = process_action(options.action, instance_name,
+                                package_name, method_name, arguments,
+                                package_factory)
+        if status != OK:
+            exit_with_return_code(status)
     exit_with_return_code(status)
 
 if __name__ == "__main__":

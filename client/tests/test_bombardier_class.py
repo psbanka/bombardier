@@ -8,18 +8,23 @@ setup_tests.start()
 sys.path.insert(0, "../lib")
 
 import unittest, StringIO, time, os
-import yaml
 import BombardierClass
 import Repository
 from bombardier_core.Config import Config
 from bombardier_core.static_data import OK, FAIL, RECONCILE, DRY_RUN
+from bombardier_core.mini_utility import get_spkg_path, make_path
+from bombardier_core.mini_utility import yaml_load, yaml_dump
 import Exceptions
 import MockObjects
+import tempfile
 
 INSTANCE = "TEST_INSTANCE"
 
 def _write_progress(progress_data):
-    open("spkg/%s/status.yml" % INSTANCE, 'w').write(yaml.dump(progress_data))
+    data_fp = open("spkg/%s/status.yml" % INSTANCE, 'w')
+    data_fp.write(yaml_dump(progress_data))
+    data_fp.flush()
+    data_fp.close()
 
 class BombardierTest(unittest.TestCase):
 
@@ -383,11 +388,12 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.repository = repository
         self.bombardier.config = self.config
         test_results = self.bombardier.check_system()
-        assert set(test_results["ok"]) == set(["pkg1", "pkg2"])
-        assert set(test_results["not-installed"]) == set(["pkg3"])
-        assert set(test_results["remove"]) == set()
-        assert set(test_results["broken"]) == set()
-        assert set(test_results["reconfigure"]) == set()
+        assert 'Packages installed properly' in test_results, test_results
+        assert set(test_results['Packages installed properly']) == set(["pkg1", "pkg2"]), test_results
+        assert set(test_results['Packages to be INSTALLED']) == set(["pkg3"])
+        assert set(test_results['Packages to be REMOVED']) == set()
+        assert set(test_results['Packages that are BROKEN']) == set()
+        assert set(test_results['Packages to be RECONFIGURED']) == set()
 
     def test_reconfigure(self):
         """
@@ -396,6 +402,7 @@ class BombardierTest(unittest.TestCase):
         3. change the configs and see if the system notices
         """
         # STEP 1
+        dest_dir = tempfile.mkdtemp()
         pkg_data = {"TestPackage": {"install": {"fullName":"TestPackage-7"},
                                     "package-version": 4,
                                     "configuration": { "test": {"value": "abc123",
@@ -412,7 +419,7 @@ class BombardierTest(unittest.TestCase):
 
         # STEP 2
         self.config.data = {"packages": ["TestPackage"],
-                            "test": {"value": 'abc', "directory": "/tmp"},
+                            "test": {"value": 'abc', "directory": dest_dir},
                            }
         self.bombardier.config = self.config
         status = self.bombardier.reconcile_system(RECONCILE)
@@ -420,15 +427,15 @@ class BombardierTest(unittest.TestCase):
 
         # STEP 3
         self.config.data = {"packages": ["TestPackage"],
-                            "test": {"value": 'DEF', "directory": "/tmp"},
+                            "test": {"value": 'DEF', "directory": dest_dir},
                            }
         self.bombardier.config = self.config
         test_results = self.bombardier.check_system()
-        assert set(test_results["ok"]) == set()
-        assert set(test_results["not-installed"]) == set()
-        assert set(test_results["remove"]) == set()
-        assert set(test_results["broken"]) == set()
-        assert set(test_results["reconfigure"]) == set(["TestPackage"])
+        assert set(test_results['Packages installed properly']) == set()
+        assert set(test_results['Packages to be INSTALLED']) == set(), test_results
+        assert set(test_results['Packages to be REMOVED']) == set()
+        assert set(test_results['Packages that are BROKEN']) == set()
+        assert set(test_results['Packages to be RECONFIGURED']) == set(["TestPackage"])
 
     def test_check_system_2(self):
         install_progress = {"install-progress":
@@ -455,11 +462,12 @@ class BombardierTest(unittest.TestCase):
         self.config.repository = repository
         self.bombardier.repository = repository
         test_results = self.bombardier.check_system()
-        assert set(test_results["ok"]) == set(["pkg1", "pkg2"])
-        assert set(test_results["not-installed"]) == set()
-        assert set(test_results["remove"]) == set()
-        assert set(test_results["broken"]) == set()
-        assert set(test_results["reconfigure"]) == set()
+
+        assert set(test_results['Packages installed properly']) == set(["pkg1", "pkg2"])
+        assert set(test_results['Packages to be INSTALLED']) == set()
+        assert set(test_results['Packages to be REMOVED']) == set()
+        assert set(test_results['Packages that are BROKEN']) == set()
+        assert set(test_results['Packages to be RECONFIGURED']) == set()
 
     def test_verify_system_4(self): # No packages installed, error in verify.
         pkg_data = {"pkg1": {"install": {"fullName":"pkg1-1"},
@@ -473,7 +481,7 @@ class BombardierTest(unittest.TestCase):
         self.bombardier.repository = repository
 
         test_results = self.bombardier.check_system()
-        expected_results = {'broken': [], 'ok': [], 'remove': [], 'reconfigure': {}, 'not-installed': []}
+        expected_results = {'Packages that are BROKEN': [], 'Packages installed properly': [], 'Packages to be REMOVED': [], 'Packages to be RECONFIGURED': {}, 'Packages to be INSTALLED': []}
         assert test_results == expected_results, `test_results`
 
     def test_reconcile_system1(self):
@@ -548,18 +556,18 @@ class BombardierTest(unittest.TestCase):
         full_list = [ 'pkg3', 'pkg2', 'pkg1' ]
 
         test_results = self._virtual_dependency_helper( full_list ) 
-        expected_results = { 'ok': ['pkg2', 'pkg1', 'pkg3'] }
+        expected_results = { 'Packages installed properly': ['pkg2', 'pkg1', 'pkg3'] }
         self._check_virtual_dep_results(expected_results, test_results)
 
         two_missing_list = [ 'pkg3', 'pkg1' ] 
         test_results = self._virtual_dependency_helper( two_missing_list )
-        expected_results = {'ok': ['pkg1'], 'not-installed': ['pkg3']}
+        expected_results = {'Packages installed properly': ['pkg1'], 'Packages to be INSTALLED': ['pkg3']}
 
         self._check_virtual_dep_results(expected_results, test_results)
 
     def _check_virtual_dep_results(self, expected_results, test_results):
-        expected_template = {'broken': [], 'ok': [], 'remove': [],
-                            'reconfigure': {}, 'not-installed': []}
+        expected_template = {'Packages that are BROKEN': [], 'Packages installed properly': [], 'Packages to be REMOVED': [],
+                             'Packages to be RECONFIGURED': {}, 'Packages to be INSTALLED': []}
         expected_template.update(expected_results)
         for result in expected_results:
             assert set(test_results[result]) == set(expected_results[result]),\
@@ -676,32 +684,29 @@ class BombardierTest(unittest.TestCase):
 
 if __name__ == "__main__":
     suite = unittest.TestSuite()
-    #suite.addTest(BombardierTest("test_remove_virtual_package"))
-    #suite.addTest(BombardierTest("test_reconcile_system_bogus"))
-    #suite.addTest(BombardierTest("test_add_to_dependency_errors"))
-    #suite.addTest(BombardierTest("test_add_to_dependency_errors"))
-    #suite.addTest(BombardierTest("test_add_to_dependency_errors"))
-    #suite.addTest(BombardierTest("test_bogus_dependency"))
-    #suite.addTest(BombardierTest("test_check_bom"))
-    #suite.addTest(BombardierTest("test_create_package_chains"))
-    #suite.addTest(BombardierTest("test_get_actual_pkn"))
-    #suite.addTest(BombardierTest("test_get_packages_to_remove"))
-    #suite.addTest(BombardierTest("test_get_pkn_list_from_vpn"))
-    #suite.addTest(BombardierTest("test_get_top_priority"))
-    #suite.addTest(BombardierTest("test_get_vpn_from_pkn"))
-    #suite.addTest(BombardierTest("test_find_install_order"))
-    #suite.addTest(BombardierTest("test_package_chain_with_broken"))
-    #suite.addTest(BombardierTest("test_package_dep"))
-    #suite.addTest(BombardierTest("test_reconcile_system1"))
-    #suite.addTest(BombardierTest("test_reconcile_system_with_dependencies"))
-    #suite.addTest(BombardierTest("test_reconcile_system_with_virtual_dependencies"))
-    #suite.addTest(BombardierTest("test_get_packages_to_remove_1"))
-    #suite.addTest(BombardierTest("test_check_system_1"))
-    #suite.addTest(BombardierTest("test_check_system_2"))
-    #suite.addTest(BombardierTest("test_reconfigure"))
-    #suite.addTest(BombardierTest("test_verify_system_4"))
-    #suite.addTest(BombardierTest("test_install_one_broken"))
-    #suite.addTest(BombardierTest("test_check_configuration"))
+#    suite.addTest(BombardierTest("test_remove_virtual_package"))
+#    suite.addTest(BombardierTest("test_reconcile_system_bogus"))
+#    suite.addTest(BombardierTest("test_add_to_dependency_errors"))
+#    suite.addTest(BombardierTest("test_check_bom"))
+#    suite.addTest(BombardierTest("test_create_package_chains"))
+#    suite.addTest(BombardierTest("test_get_actual_pkn"))
+#    suite.addTest(BombardierTest("test_get_packages_to_remove"))
+#    suite.addTest(BombardierTest("test_get_pkn_list_from_vpn"))
+#    suite.addTest(BombardierTest("test_get_top_priority"))
+#    suite.addTest(BombardierTest("test_get_vpn_from_pkn"))
+#    suite.addTest(BombardierTest("test_find_install_order"))
+#    suite.addTest(BombardierTest("test_package_chain_with_broken"))
+#    suite.addTest(BombardierTest("test_package_dep"))
+#    suite.addTest(BombardierTest("test_reconcile_system1"))
+#    suite.addTest(BombardierTest("test_reconcile_system_with_dependencies"))
+#    suite.addTest(BombardierTest("test_reconcile_system_with_virtual_dependencies"))
+#    suite.addTest(BombardierTest("test_get_packages_to_remove_1"))
+#    suite.addTest(BombardierTest("test_check_system_1"))
+#    suite.addTest(BombardierTest("test_check_system_2"))
+#    suite.addTest(BombardierTest("test_reconfigure"))
+#    suite.addTest(BombardierTest("test_verify_system_4"))
+#    suite.addTest(BombardierTest("test_install_one_broken"))
+#    suite.addTest(BombardierTest("test_check_configuration"))
     suite.addTest(unittest.makeSuite(BombardierTest))
     status = unittest.TextTestRunner(verbosity=2).run(suite)
     errors = len(status.errors) + len(status.failures)

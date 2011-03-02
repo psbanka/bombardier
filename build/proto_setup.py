@@ -9,9 +9,51 @@ import os
 from distutils.core import setup
 from lib._version import version_info
 import glob
-import yaml
+import sys
 
 MANIFEST_EXTRA = "MANIFEST.in.extra"
+
+def is_unicode(val):
+    return type(val) == type(u"unicode")
+
+def is_list(val):
+    return type(val) == type([])
+
+def is_set(val):
+    return type(val) == type(set([]))
+
+def is_dict(val):
+    return type(val) == type({})
+
+def uni_dict_to_str_dict(uni_dict):
+    new_dict = {}
+    for key in uni_dict:
+        item = uni_dict[key]
+        new_item = uni_to_str(item)
+        new_dict[str(key)] = new_item
+    return new_dict
+
+def uni_list_to_str(uni_list):
+    new_list = []
+    for val in uni_list:
+        new_item = uni_to_str(val)
+        new_list.append(new_item)
+    return new_list
+
+def uni_to_str(val):
+    new_val = None
+    if is_dict(val):
+        new_val = uni_dict_to_str_dict(val)
+    elif is_list(val):
+        new_val =  uni_list_to_str(val)
+    elif is_set(val):
+        new_val =  set(uni_list_to_str(list(val)))
+    elif is_unicode(val):
+        new_val = str(val)
+    else:
+        new_val = val
+    return new_val
+
 
 class CleanCommand(Command):
     user_options = [ ]
@@ -57,6 +99,17 @@ class TestCommand(Command):
         t = TextTestRunner(verbosity = 1)
         t.run(tests)
 
+def get_data(file_stub_name):
+    if sys.platform == "cli":
+        import simplejson as json
+        file_name = file_stub_name + ".json"
+        data = json.loads(open(file_name).read())
+        return uni_to_str(data)
+    else:
+        import yaml
+        file_name = file_stub_name + ".yml"
+        return yaml.load(open(file_name).read())
+
 def main(package_data):
     cmdclasses = {}
     # 'test' is the parameter as it gets added to setup.py
@@ -81,8 +134,8 @@ def main(package_data):
          )
 
 if __name__ == "__main__":
-    package_data = yaml.load(open("project_info.yml").read())
-    component_data = yaml.load(open("component_info.yml").read())
+    package_data = get_data("project_info")
+    component_data = get_data("component_info")
     if os.path.isfile(MANIFEST_EXTRA):
         append_manifest_data = open(MANIFEST_EXTRA).read()
         if append_manifest_data:

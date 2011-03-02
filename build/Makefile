@@ -1,5 +1,6 @@
-build_dir=$(PWD)/../build
+build_dir=$$(pwd)/../build
 staging_dir=../staging
+fixtures_dist_dir=$(build_dir)/../server/lib/web/rest_api/configs/fixtures/dist
 upload_docs_dir=../bombardierinstaller/docs
 launchpad_uploader=$(build_dir)/launchpad_uploader.py
 modify_changelog=$(build_dir)/modify_changelog.py
@@ -53,11 +54,14 @@ endef
 
 define dpkg_target
 	cd $(build_dir)/dpkg && bash build_package.bash $(subst _dpkg,,$@)
-    @echo
-    @echo "Press Ctrl-C now to skip ppa upload"
-    @echo
-    @read tester
-    cd $(build_dir) && dput ppa:bombardier-team/bombardier-ppa ./dpkg/work/$(subst _dpkg,,$@)/bombardier*source.changes
+endef
+
+define sdpkg_target
+	cd $(build_dir)/dpkg && bash build_package.bash $(subst _sdpkg,,$@) -S
+endef
+
+define ppa_target
+    cd $(build_dir) && dput ppa:bombardier-team/bombardier-ppa ./dpkg/work/$(subst _ppa,,$@)/bombardier*source.changes
 endef
 
 define remove_dist_files
@@ -66,7 +70,7 @@ define remove_dist_files
 endef
 
 define remove_upload_dist_files
-	cd $(upload_dir) && rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README project_info.yml setup.py
+	cd $(upload_dir) && rm -f AUTHORS CHANGELOG INSTALL LICENSE MANIFEST MANIFEST.in README project_info.* setup.py
 endef
 
 help:
@@ -77,8 +81,10 @@ help:
 	@echo "  <component>_upload  to make component and upload to pypi"
 	@echo "  <component>_doc  to build the generated doc html"
 	@echo "  <component>_dpkg  to build the apt source package"
+	@echo "  <component>_ppa  to upload the dpkg to the ppa"
 	@echo "  <component>_setup  to run setup.py install"
 	@echo "  modify_changelog  to roughly add bzr comments to the CHANGELOG file"
+	@echo "  rest_testing_dist to populate fixtures/dist for rest_api tests"
 
 all:
 	make -f $(MAKE_FILE) server
@@ -121,6 +127,30 @@ cli_dpkg:  cli
 
 core_dpkg: core
 	$(dpkg_target)
+
+server_sdpkg: server
+	$(sdpkg_target)
+
+client_sdpkg: client
+	$(sdpkg_target)
+
+cli_sdpkg:  cli
+	$(sdpkg_target)
+
+core_sdpkg: core
+	$(sdpkg_target)
+
+server_ppa: official server_sdpkg
+	$(ppa_target)
+
+client_ppa:official client_sdpkg
+	$(ppa_target)
+
+cli_ppa: official cli_sdpkg
+	$(ppa_target)
+
+core_ppa: official core_sdpkg
+	$(ppa_target)
 
 server_setup: server
 	$(setup_target)
@@ -169,6 +199,11 @@ cli_doc:
 core_doc:
 	$(check_doc_dir)
 	$(doc_target) 
+
+rest_testing_dist: core client
+	mkdir -p $(fixtures_dist_dir) || :
+	mv -f $(build_dir)/../core/dist/*.gz $(fixtures_dist_dir)
+	mv -f $(build_dir)/../client/dist/*.gz $(fixtures_dist_dir)
 
 clean_docs:
 	rm -rf $(upload_docs_dir)
@@ -235,6 +270,6 @@ INSTALL:
 MANIFEST.in:
 	cp -f $(build_dir)/MANIFEST.in .
 project_info:
-	cp -f $(build_dir)/project_info.yml .
+	cp -f $(build_dir)/project_info.* .
 proto_setup:
 	cp -f $(build_dir)/proto_setup.py ./setup.py

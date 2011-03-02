@@ -6,7 +6,9 @@ from CnmResource import CnmResource
 from bombardier_server.cnm.Exceptions import InvalidInput, InvalidDispatcherAction
 from bombardier_server.cnm.Exceptions import DispatcherAlreadyStarted, DispatcherOffline
 from bombardier_server.cnm.Exceptions import CnmServerException
-from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import OK, FAIL, ABORTED_JOB_NAME
+from bombardier_core.static_data import LOCAL_TYPE, BDR_CLIENT_TYPE
+
 import os, yaml
 from configs.models import Comment, CommentedJob
 
@@ -26,7 +28,7 @@ def safe_get(request, option):
     "User check_string to validate input from a POST"
     value = request.POST.get(option, "")
     check_string(value)
-    return value
+    return str(value)
 
 class PackageBuildEntry(CnmResource):
     "Create a new package based on the information it contains"
@@ -57,11 +59,18 @@ class PackageActionEntry(CnmResource):
         "Dispatch a package action"
         output = {"command_status": OK}
         try:
-            action = safe_get(request, "action")
-            machine_name = safe_get(request, "machine")
+            post_data = yaml.load(request.POST.get("yaml", ''))
+            arguments = []
+            if post_data:
+                action = post_data["action"]
+                machine_name = post_data["machine"]
+                arguments = post_data.get("arguments", [])
+            else:
+                action = safe_get(request, "action")
+                machine_name = safe_get(request, "machine")
             dispatcher = self.get_dispatcher()
             job_name = dispatcher.package_action_job(request.user.username, package_name,
-                                                     action, machine_name) 
+                                                     action, machine_name, arguments) 
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -70,6 +79,7 @@ class PackageActionEntry(CnmResource):
         return responder.element(request)
 
 class MachineEnableEntry(CnmResource):
+# FIXME: need to pass machine_type
     "MachineEnableEntry is used to share ssh keys to a machine"
     @login_required
     def create(self, request, machine_name):
@@ -80,8 +90,13 @@ class MachineEnableEntry(CnmResource):
             password = post_dict.get('password')
             if not password:
                 raise InvalidInput("Password needed")
+            machine_type = post_dict.get('machine_type')
+            if not machine_type:
+                raise InvalidInput("Machine type needed")
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.enable_job(request.user.username, machine_name, password)
+            job_name = dispatcher.enable_job(request.user.username,
+                                             machine_name, machine_type,
+                                             password)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -90,16 +105,39 @@ class MachineEnableEntry(CnmResource):
         return responder.element(request)
 
 class MachineDisableEntry(CnmResource):
+# FIXME: Need to pass yaml
     "MachineDisableEntry is remove ssh keys from a machine"
     @login_required
     def create(self, request, machine_name):
         "Dispatch key removal"
         output = {"command_status": OK}
         try:
+            post_dict = yaml.load(request.POST.get("yaml"))
+            machine_type = post_dict.get('machine_type')
+            if not machine_type:
+                raise InvalidInput("Machine type needed")
             dispatcher = self.get_dispatcher()
-            job_name = dispatcher.disable_job(request.user.username, machine_name)
+            job_name = dispatcher.disable_job(request.user.username,
+                                              machine_name, machine_type)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
+        except Exception, x:
+            output.update(self.dump_exception(request, x))
+        responder = JsonDictResponder(output)
+        return responder.element(request)
+
+class MachinePackageRestoreEntry(CnmResource):
+    "Check restore data that can be loaded, and load it"
+    @login_required
+    def read(self, request, machine_name, package_name):
+        "Show restore data that can be restored"
+        server_home = self.get_server_home()
+        check_string(machine_name)
+        check_string(package_name)
+        output = {"command_status": OK}
+        try:
+            dispatcher = self.get_dispatcher()
+            output = dispatcher.check_restore_data(request.user.username, machine_name, package_name)
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
@@ -131,6 +169,7 @@ class MachineStatusEntry(CnmResource):
             machine_status = yaml.load(status_path)
         responder = JsonDictResponder(machine_status)
         return responder.element(request)
+
 
 class MachineStartReconcileEntry(CnmResource):
     "Machine reconcile class"
@@ -196,7 +235,12 @@ class MachineStartSetupEntry(CnmResource):
                 raise InvalidInput("Password needed")
             dispatcher = self.get_dispatcher()
             init_job_name = dispatcher.setup_machine(request.user.username, machine_name, password)
-            output = dispatcher.get_job_status(init_job_name)
+            if init_job_name == ABORTED_JOB_NAME:
+                output = {"command_status": FAIL,
+                          "job_name": ABORTED_JOB_NAME,
+                          "command output": "Could not find dist files for setup."}
+            else:
+                output = dispatcher.get_job_status(init_job_name)
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
@@ -262,7 +306,8 @@ class MachineStartTestEntry(CnmResource):
         try:
             dispatcher = self.get_dispatcher()
             data = dispatcher.check_status()
-            job_name = dispatcher.test_job(request.user.username, machine_name)
+            job_name = dispatcher.test_job(request.user.username,
+                        machine_name, BDR_CLIENT_TYPE)
             dispatcher.queue_job(job_name)
             output = dispatcher.get_job_status(job_name)
         except Exception, x:
@@ -278,6 +323,7 @@ class MachineCleanupEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
+            # FIXME: HOW CAN THIS WORK? NO METHOD WITH THIS NAME.
             output = dispatcher.cleanup_connections(request.user.username)
         except DispatcherOffline:
             output = {}
@@ -295,7 +341,7 @@ class MachineClearBrokenEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.clear_broken(request.user.username, machine_name)
+            output = dispatcher.clear_broken(machine_name)
         except DispatcherOffline:
             output = {}
         except Exception, x:
@@ -329,7 +375,7 @@ class MachineShowJobsEntry(CnmResource):
         output = {"command_status": OK}
         try:
             dispatcher = self.get_dispatcher()
-            output = dispatcher.show_jobs(request.user.username, machine_name)
+            output = dispatcher.show_jobs(machine_name)
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
@@ -426,7 +472,7 @@ class JobPollEntry(CnmResource):
             dispatcher = self.get_dispatcher()
             post_dict = yaml.load(request.POST.get("yaml"))
             job_names = post_dict.get("job_names", [])
-            output = dispatcher.job_poll(request.user.username, job_names)
+            output = dispatcher.job_poll(job_names)
         except Exception, x:
             output.update(self.dump_exception(request, x))
         responder = JsonDictResponder(output)
@@ -487,6 +533,8 @@ class DispatcherControlEntry(CnmResource):
         return responder.element(request)
 
 urlpatterns = patterns('',
+   url(r'^json/machine/restore/(?P<machine_name>.*)/(?P<package_name>.*)',
+       MachinePackageRestoreEntry(permitted_methods = ['GET'])),
    url(r'^json/package_action/(?P<package_name>.*)',
        PackageActionEntry(permitted_methods = ['POST'])),
    url(r'^json/package_build/(?P<package_name>.*)',

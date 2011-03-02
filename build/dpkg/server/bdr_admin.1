@@ -1,0 +1,59 @@
+.TH BDR_ADMIN 1 "July 14, 2010" "" "Bombardier Installer System"
+.SH NAME
+bdr_admin
+
+.SH SYNOPSIS
+.P
+bdr_admin \fBupgrade\fR [-v \fIVERSION_NAME\fR] [-y]
+.P
+bdr_admin \fBinit\fR [-s \fISERVER_HOME\fR] [-k \fIKEY_PATH\fR]
+.P
+bdr_admin \fBset-password\fR
+
+.SH DESCRIPTION
+
+.P
+The bdr_admin utility is useful for setting up the bombardier server system
+There are three major options: (1) init, (2) setpasswd, and (3) upgrade. 
+
+.SH OPTIONS
+
+.HP
+init Initialize a new bombardier server system. Verifies that directories are in the correct places and that ssh keys are correct. Also creates the \fI/etc/bombardier.yml\fR file.
+
+.HP
+upgrade Upgrades the bombardier server code release. This involves downloading the latest bombardier library files from \fIhttps://launchpad.net/bombardier/+download\fR, verifying the md5 signature, and installing the components.
+
+.HP
+set-password This sets the configuration-key on the bombardier dispatcher. This key is used to selectively encrypt configuration items.
+
+.SH FIELDS
+.HP
+\fIKEY_PATH\fR The path to the id_dsa.pub file for ssh key-sharing.  Defaults to \fI/root/.ssh/id_dsa.pub\fR.
+.HP
+\fISERVER_HOME\fR The path to the bombardier server configuration management database (defaults to \fI/var/deploy\fR)
+.HP
+\fIVERSION_NAME\fR The version of bombardier to download. The only option right now is 'alpha' which is the default.
+
+.SH EXAMPLE
+.P
+bdr_admin init -s /opt/bdr -k /root/ssh_public_key -y
+.RS
+Initializes the /etc/bomabrdier.yml file with the server home directory and makes sure that all the directories and files that need to exist for the bdr_dispatcher daemon are there for it to start. This command should be run immediately after installing the bombardier server for the first time.
+.RE
+.P
+bdr_admin set-password
+.RS
+This sets the configuration key for the bombardier dispatcher daemon, allowing you to encrypt specific Configuration Items (see \fBbdr_dispatcher\fR).
+.RE
+
+.SH REPORTING BUGS
+Report bugs to \fIhttps://bugs.launchpad.net/bombardier/\fR.
+
+.SH SEE ALSO
+.P
+bdr_dispatcher
+
+.SH AUTHORS
+.SS Peter Banka <peter.banka@gmail.com>
+.SS Shawn Sherwood <shsher@gmail.com>

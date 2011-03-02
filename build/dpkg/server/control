@@ -3,14 +3,14 @@ Priority: extra
 Section: admin
 Maintainer: Peter Banka <peter.banka@gmail.com>
 Uploaders: Shawn Sherwood <shsher@gmail.com>
-Build-Depends: cdbs, debhelper (>= 7), python (>= 2.5), python-support
+Build-Depends: cdbs, debhelper (>= 7), python (>= 2.5), python-support, python-yaml
 Standards-Version: 3.8.4
 Homepage: https://launchpad.net/bombardier
 
 Package: bombardier-server-1.00
 Section: admin
 Architecture: any
-Depends: ${misc:Depends}, ${python:Depends}, python-crypto (>=2.0.1), python-yaml, bombardier-core-1.00
+Depends: ${misc:Depends}, ${python:Depends}, python-crypto (>=2.0.1), python-yaml, pyro, python-django, bombardier-core-1.00
 Description: Open Source Configuration management and package delivery (server component)
  Bombardier is a software system that delivers visibility, control
  and automation to datacenter environments. Bombardier provides a means

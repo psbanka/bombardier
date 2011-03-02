@@ -1,11 +1,7 @@
 import time
-import yaml
+from bombardier_core.mini_utility import yaml_load
 
-basicProgress = """---
-install-progress:
-    foomanchoo-1:
-        INSTALLED: today
-"""
+basicProgress = '{"install-progress": {"foomanchoo-1": {"INSTALLED": "today"}}}'
 
 statusFile1 = {"status": {"overall": "installing",
                           "package": "testokpackage1",
@@ -41,37 +37,37 @@ currentStatus = {"status": {"overall": "installing",
                  "todo": ["testconsolepackage, test", "testrebootpackage, test"],
                  "timestamp": 1115778289.98}
 
-progressData = {"testbadverifypackage1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
+progressData = {"testbadverifypackage1-1": {"INSTALLED": "Mon Apr 18 01:01:01 2005",
                                             "UNINSTALLED": "NA",
-                                            "VERIFIED": 'Sat May 07 23:14:27 2005'},
-                "testconsolepackage1-1": {"INSTALLED": 'Sat May 07 23:14:42 2005',
+                                            "VERIFIED": "Sat May 07 23:14:27 2005"},
+                "testconsolepackage1-1": {"INSTALLED": "Sat May 07 23:14:42 2005",
                                           "UNINSTALLED": "NA",
-                                          "VERIFIED": 'Sat May 07 23:14:42 2005'},
-                "testokpackage1-1": {"INSTALLED": 'Mon Apr 18 01:01:01 2005',
+                                          "VERIFIED": "Sat May 07 23:14:42 2005"},
+                "testokpackage1-1": {"INSTALLED": "Mon Apr 18 01:01:01 2005",
                                      "UNINSTALLED": "NA",
-                                     "VERIFIED": 'Sat May 07 23:14:28 2005'}}
+                                     "VERIFIED": "Sat May 07 23:14:28 2005"}}
 
-packageData = {'testbaduninstallpackage1': {'dependencies': {},
-                                            'install': {'priority': '150',
-                                                        'console': 'FALSE',
-                                                        'fullName': 'testbaduninstallpackage1-1',
-                                                        'autoreboot': 'FALSE',
-                                                        'reboot': 'FALSE'}},
-               'testbadpackage1': {'dependencies': {},
-                                   'install': {'priority': '150',
-                                               'console': 'FALSE',
-                                               'fullName': 'testbadpackage1-1',
-                                               'autoreboot': 'FALSE',
-                                               'reboot': 'FALSE'}},
-               'testdb-data-initial': {'dependencies': {'dep0': 'testdb-structure'},
-                                       'backup': {'rootname': 'testdb-data',
-                                                  'role': 'data',
-                                                  'databases': 'testdb'},
-                                       'install': {'priority': '150',
-                                                   'console': 'FALSE',
-                                                   'fullName': 'testdb-data-initial-1',
-                                                   'autoreboot': 'FALSE',
-                                                   'reboot': 'FALSE'}}}
+packageData = {"testbaduninstallpackage1": {"dependencies": {},
+                                            "install": {"priority": "150",
+                                                        "console": "FALSE",
+                                                        "fullName": "testbaduninstallpackage1-1",
+                                                        "autoreboot": "FALSE",
+                                                        "reboot": "FALSE"}},
+               "testbadpackage1": {"dependencies": {},
+                                   "install": {"priority": "150",
+                                               "console": "FALSE",
+                                               "fullName": "testbadpackage1-1",
+                                               "autoreboot": "FALSE",
+                                               "reboot": "FALSE"}},
+               "testdb-data-initial": {"dependencies": {"dep0": "testdb-structure"},
+                                       "backup": {"rootname": "testdb-data",
+                                                  "role": "data",
+                                                  "databases": "testdb"},
+                                       "install": {"priority": "150",
+                                                   "console": "FALSE",
+                                                   "fullName": "testdb-data-initial-1",
+                                                   "autoreboot": "FALSE",
+                                                   "reboot": "FALSE"}}}
 
 configData1 = {"packageGroups": ["dkeyr4-1.0"], 
               "body":{"residence":"portland"}}
@@ -95,30 +91,14 @@ indexData = {"testsystem": {
              "project": {"clients":["bombardier"]}}
              }
 
-bombardierProjectData = yaml.load("""---
-clients:
-    - kwmge01
-    - kwmge02
-    - kwmqadb01
-    - kwmqadb03
-    - kwmqadkey01
-    - kwmqaweb01
-    - kwmqaweb02
-    - kwmqaweb03
-    - kwmqawebtest
-    - uspsupernet
-contactid: bbutterfield
-finish: '2005-10-30'
-start: '2005-07-22'
-data:
-    configItem: ["foo", "bar"]
-""")
+bombardierProjectData = yaml_load('{"start": "2005-07-22", "contactid": '\
+          '"bbutterfield", "clients": ["kwmge01", "kwmge02", "kwmqadb01", '\
+          '"kwmqadb03", "kwmqadkey01", "kwmqaweb01", "kwmqaweb02", '\
+          '"kwmqaweb03", "kwmqawebtest", "uspsupernet"], "data": '\
+          '{"configItem": ["foo", "bar"]}, "finish": "2005-10-30"}')
 
-testhw = yaml.load("""---
-description: secure net for stuff
-data:
-    configItem2: ["spam", "eggs"]
-""")
+testhw = yaml_load('{"data": {"configItem2": ["spam", "eggs"]}, '\
+                    '"description": "secure net for stuff"}')
 
 repodata1 = {"localhost": {"address": "http://127.0.0.1",
                            "networks": ["0.0.0.0/0"],
@@ -139,44 +119,42 @@ repodata2 = {"QA": {"address": "http://172.77.51.57",
                           "username": "outside",
                           "password": "please"}}
 
-repoyaml1 = """
-localhost:
-  address: http://127.0.0.1
-  networks: [0.0.0.0/0]
-  username: None
-  password: None"""
+repojson1 = '{"localhost": '\
+                '{"username": "None", '\
+                 '"password": "None", '\
+                 '"networks": ["0.0.0.0/0"],'\
+                 '"address": "http://127.0.0.1"'\
+                 '}'\
+            '}'
 
-repoyaml2 = """
-QA:
-  address: http://172.77.51.57
-  username: None
-  password: None
-  proxy:
-     address: None
-     port: None
-     username: None
-     password: None
-
-Production:
-  address: http://172.77.51.57
-  username: None
-  password: None
-  proxy:
-     address: None
-     port: None
-     username: None
-     password: None
-
-Internet:
-  address: http://65.102.15.57
-  username: outside
-  password: please
-  proxy:
-     address: None
-     port: None
-     username: None
-     password: None
-"""
+repojson2 = '{"QA": '\
+                '{"username": "None",'\
+                 '"password": "None",'\
+                 '"proxy":'\
+                     '{"username": "None",'\
+                      '"password": "None",'\
+                      '"port": "None",'\
+                      '"address": "None"},'\
+                 '"address": "http://172.77.51.57"},'\
+             '"Production": '\
+                 '{"username": "None",'\
+                  '"password": "None",'\
+                  '"proxy":'\
+                      '{"username": "None",'\
+                       '"password": "None",'\
+                       '"port": "None",'\
+                       '"address": "None"},'\
+                  '"address": "http://172.77.51.57"},'\
+             '"Internet": '\
+                 '{"username": "outside",'\
+                  '"password": "please",'\
+                  '"proxy":'\
+                      '{"username": "None",'\
+                       '"password": "None",'\
+                       '"port": "None",'\
+                       '"address": "None"},'\
+                  '"address": "http://65.102.15.57"}'\
+              '}'
 
 ipconfigData = """Windows 2000 IP Configuration
 

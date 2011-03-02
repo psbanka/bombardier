@@ -4,6 +4,7 @@ run a build on the CNM server itself"""
 
 import ServerLogMixin
 from bombardier_core.static_data import OK, FAIL
+
 from threading import Thread
 import time
 import StringIO, traceback
@@ -11,12 +12,13 @@ import StringIO, traceback
 class Job(Thread, ServerLogMixin.ServerLogMixin):
     """Job class: Runs remote commands or copies files to a remote machine.
      Watches status of job"""
-    def __init__(self, username, machine_name, job_id):
+    def __init__(self, username, machine_name, machine_type, job_id):
         Thread.__init__(self)
         ServerLogMixin.ServerLogMixin.__init__(self)
         self.name = "%s@%s-%d" % (username, machine_name, job_id)
         self.username = username
         self.machine_name = machine_name
+        self.machine_type = machine_type
         self.copy_dict = {}
         self.commands = []
         self.require_status = True
@@ -137,7 +139,7 @@ class Job(Thread, ServerLogMixin.ServerLogMixin):
             self.final_logs = self.machine_interface.polling_log.get_final_logs()
             polling_log = self.machine_interface.polling_log 
             self.complete_log = polling_log.get_complete_log()
-        except Exception:
+        except Exception, exception_obj:
             exc = StringIO.StringIO()
             traceback.print_exc(file=exc)
             exc.seek(0)
@@ -146,8 +148,9 @@ class Job(Thread, ServerLogMixin.ServerLogMixin):
             for line in data.split('\n'):
                 ermsg = "%% %s" % line
                 self.server_log.error(ermsg, self.name)
+            self.command_output.append(str(exception_obj))
             self.command_status = FAIL
-            msg = "Exception in server. Check log for details"
+            msg = "Exception in server. Check log for further details"
             self.command_output.append(msg)
             self.status = FAIL
         self.machine_interface.unset_job()

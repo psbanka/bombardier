@@ -40,16 +40,19 @@ NOTE ON NAMING CONVENTIONS:
  - 'pdat' = a dictionary of package progress data
 '''
 
-import sets, os, copy
+import os, copy
 import PackageV4, PackageV5
+from bombardier_core.Progress import Progress
 import Exceptions
 from bombardier_core.Logger import Logger
-from bombardier_core.mini_utility import get_installed, get_progress_data
+from bombardier_core.mini_utility import get_progress_path
 from bombardier_core.mini_utility import diff_dicts
+from bombardier_core.mini_utility import make_path
 from bombardier_core.static_data import OK, FAIL, HASH_FILE
 from bombardier_core.static_data import UNINSTALL, DRY_RUN, VERIFY
 from bombardier_core.static_data import INSTALL, CONFIGURE
 from bombardier_core.static_data import EXECUTE, ACTION_REVERSE_LOOKUP
+from bombardier_core.static_data import BACKUP, RESTORE
 
 MAX_CHAIN_DEPTH = 50
 
@@ -245,7 +248,7 @@ class VirtualPackages:
         installable_pkns.append(pkn)
         return( installable_pkns[0] ) 
 
-def find_differences(pkg_config, config_diff, differences=[], chain=[]):
+def find_differences(pkg_config, config_diff, differences=None, chain=None):
     '''
     Find the differences in the configuration fo the system since the last
     time the package was installed or configured
@@ -257,7 +260,12 @@ def find_differences(pkg_config, config_diff, differences=[], chain=[]):
                    machine, as it recurses)
     chain -- a package chain
     '''
-    output = differences
+    if chain == None:
+        chain = []
+    if differences == None:
+        output = []
+    else:
+        output = differences
     for key in pkg_config.keys():
         if type(pkg_config[key]) == type({}):
             if key not in config_diff:
@@ -280,11 +288,12 @@ class Bombardier:
         instance_name -- the name of this machine
         '''
         self.repository = repository
-        self.config     = config
-        self.instance_name    = instance_name
+        self.config = config
+        self.instance_name = instance_name
         self.record_errors = True
         self.operation_status = OK
         self.operation_output = []
+        self.progress = Progress(instance_name)
 
     def _get_dependency_errors(self, bom_pkns, pdat):
         '''
@@ -309,8 +318,8 @@ class Bombardier:
         pkd -- dictionary of package objects
         '''
         chains = []
-        pkg_data = get_progress_data(self.instance_name, False)
-        installed_pkns, broken_pkns = get_installed(pkg_data)
+        pkg_data = self.progress.get_progress_data(False)
+        installed_pkns, broken_pkns = Progress.get_installed(pkg_data)
         for pkn in pkd.keys():
             if pkn in broken_pkns:
                 Logger.warning("Skipping broken package %s" % pkn)
@@ -357,8 +366,8 @@ class Bombardier:
         """
 
         chains = self._create_pkg_chains(pkd)
-        pdat = get_progress_data(self.instance_name, False)
-        installed_pkns, _broken_pkns = get_installed(pdat)
+        pdat = self.progress.get_progress_data(False)
+        installed_pkns, _broken_pkns = Progress.get_installed(pdat)
         # - Put all the packages of each chain into the installation
         # order, excluding those that have already been installed in order
         # of chain priority. If a package is already in the installation
@@ -382,6 +391,7 @@ class Bombardier:
         add_pkd -- a dictionary of packages that need to be added
         dry_run -- whether or not to just 'fake it'
         '''
+        status = OK
         making_progress = True
         pkns_left = ['initialize']
         while making_progress and pkns_left:
@@ -397,23 +407,23 @@ class Bombardier:
                 pkg = add_pkd[pkn]
                 erstr = "Currently installing package priority %s [%s]"
                 Logger.info(erstr % (pkg.get_priority(), pkn))
-                status = pkg.install_and_verify(pkns_left)
+                pkg_status = pkg.install_and_verify(pkns_left)
                 if not dry_run:
-                    hash_path = os.path.join(pkg.get_path(), HASH_FILE)
+                    hash_path = make_path(pkg.get_path(), HASH_FILE)
                     self.config.save_hash(hash_path)
-                if status == FAIL:
+                if pkg_status == FAIL:
+                    status = FAIL
                     erstr = "Package installation failure -- re-calculating"\
                             " package installation order"
                     Logger.error(erstr)
                     break
                 else:
                     making_progress = True
-        if pkns_left:
+        if status != OK:
             msg = "There are packages that are broken, and we have done all"\
                   " we can do. ; ;"
             Logger.error(msg)
-            return FAIL
-        return OK
+        return status
 
     def _cleanup(self):
         'Some housekeeping before exiting'
@@ -586,11 +596,12 @@ class Bombardier:
         information and specify the proper uninstallation order
         del_pkns -- a list of package names that need to be removed
         '''
+        "Getting packages to remove..."
         uninstall_order = []
-        pdat = get_progress_data(self.instance_name, False)
-        installed_pkns, _broken_pkns = get_installed(pdat)
+        pdat = self.progress.get_progress_data(False)
+        installed_pkns, _broken_pkns = Progress.get_installed(pdat)
         del_pkd = self._get_del_pkd(del_pkns)
-        if sets.Set(installed_pkns) == sets.Set(del_pkd.keys()):
+        if set(installed_pkns) == set(del_pkd.keys()):
             return del_pkd, del_pkd.keys()
         if del_pkns:
             del_pkd, uninstall_order = self._get_uninst_pkg_dep(del_pkd,
@@ -627,8 +638,8 @@ class Bombardier:
         """
         should_be_installed = []
         shouldnt_be_installed = []
-        pdat = get_progress_data(self.instance_name, False)
-        installed_pkns, broken_pkns = get_installed(pdat)
+        pdat = self.progress.get_progress_data(False)
+        installed_pkns, broken_pkns = Progress.get_installed(pdat)
         
         all_pkns = set(installed_pkns).union(broken_pkns)
         all_plus_missing_pkns = self._examine_dependencies(all_pkns)
@@ -676,7 +687,7 @@ class Bombardier:
         '''
         pkg = self._get_new_pkg(pkn)
         pkg_config = pkg.get_configuration()
-        config_hash_path = os.path.join(pkg.get_path(), HASH_FILE)
+        config_hash_path = make_path(pkg.get_path(), HASH_FILE)
         config_diff = self.config.check_hash(config_hash_path)
         differences = find_differences(pkg_config, config_diff, [])
         return differences
@@ -700,7 +711,8 @@ class Bombardier:
             else:
                 name_str = name
             remove_full_pkns.append(name_str)
-        Logger.info("Packages to remove: %s" % remove_full_pkns)
+        msg = "Packages to remove: %s" % remove_full_pkns
+        Logger.info(msg)
         for pkn in uninstall_order:
             uninstall_status = del_pkd[pkn].uninstall(dry_run)
             if uninstall_status == FAIL:
@@ -715,12 +727,12 @@ class Bombardier:
         '''
         Logger.info("System-check starting...")
         bom_pkns = self.config.get_bom_pkns()
-        pdat = get_progress_data(self.instance_name)
-        full_pdat = get_progress_data(self.instance_name, False)
-        full_installed_pkns, _full_bpkns = get_installed(full_pdat)
+        pdat = self.progress.get_progress_data()
+        full_pdat = self.progress.get_progress_data(False)
+        full_installed_pkns, _full_bpkns = Progress.get_installed(full_pdat)
         msg = "Packages that are installed: %s"
         Logger.info(msg % ' '.join(full_installed_pkns))
-        installed_pkns, broken_pkns = get_installed(pdat)
+        installed_pkns, broken_pkns = Progress.get_installed(pdat)
         should_be_installed, shouldnt_be_installed = self._check_bom(bom_pkns)
         # check the configuration for each installed package
         pkg_info = {"Packages installed properly": installed_pkns,
@@ -741,12 +753,13 @@ class Bombardier:
             Logger.info("==OUTPUT==:%s: %s" % (key, pkg_info[key]))
         return pkg_info
 
-    def use_pkg(self, pkn, action, script_name=''):
+    def use_pkg(self, pkn, action, script_name, arguments):
         '''
         Main entry point to the class. Performs an action using a package
         pkn -- name of the package to use
         action -- STATUS, INSTALL, UNINSTALL, CONFIGURE, VERIFY, or EXEC
         script_name -- the name of a method to run within the package
+        arguments -- arguments to the executable, typically a restore target
         '''
         try:
             pkg = self._get_new_pkg(pkn)
@@ -754,8 +767,8 @@ class Bombardier:
                 self.operation_status = FAIL
                 return self._cleanup()
             if action == INSTALL:
-                pdat = get_progress_data(self.instance_name, False)
-                installed_pkns, broken_pkns = get_installed(pdat)
+                pdat = self.progress.get_progress_data(False)
+                installed_pkns, broken_pkns = Progress.get_installed(pdat)
                 if pkn in [installed_pkns + broken_pkns]:
                     Logger.error("Package %s cannot be installed." % pkn)
                     self.operation_status = FAIL
@@ -763,8 +776,8 @@ class Bombardier:
                 add_pkd = {pkn:pkg}
                 status = self._install_pkgs(add_pkd)
             if action == UNINSTALL:
-                pdat = get_progress_data(self.instance_name, False)
-                installed_pkns, broken_pkns = get_installed(pdat)
+                pdat = self.progress.get_progress_data(False)
+                installed_pkns, broken_pkns = Progress.get_installed(pdat)
                 bom_pkns = installed_pkns
                 if pkn in bom_pkns:
                     bom_pkns.remove(pkn)
@@ -776,12 +789,12 @@ class Bombardier:
             if action == CONFIGURE:
                 self._check_configuration(pkg)
                 status = pkg.configure()
-                hash_path = os.path.join(pkg.get_path(), HASH_FILE)
+                hash_path = make_path(pkg.get_path(), HASH_FILE)
                 msg = "Writing configuration fingerprint to %s" % hash_path
                 Logger.info(msg)
                 self.config.save_hash(hash_path)
-            if action == EXECUTE:
-                status = pkg.execute_maint_script(script_name)
+            if action in [EXECUTE, BACKUP, RESTORE]:
+                status = pkg.execute_maint_script(script_name, arguments)
                 if status == FAIL:
                     self.operation_status = FAIL
             msg = "Finished %s for %s."
@@ -810,10 +823,12 @@ class Bombardier:
         dry_run = False
 
         if action == DRY_RUN:
-            Logger.info("Reconcile dry-run starting...")
+            msg = "Reconcile dry-run starting..."
+            Logger.info(msg)
             dry_run = True
         else:
-            Logger.info("Reconcile starting...")
+            msg = "Reconcile starting..."
+            Logger.info(msg)
 
         add_pkd, del_pkd, uninstall_order = self._ck_inst_stat(pkns)
         #Logger.info("uninstall_order: %s" % uninstall_order)

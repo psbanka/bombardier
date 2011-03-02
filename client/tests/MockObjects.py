@@ -3,7 +3,6 @@ import ConfigParser, StringIO
 import os
 from bombardier_core.static_data import OK, FAIL
 import bombardier_core.mini_utility as mini_utility
-import yaml
 
 class MockPackage(mock.Mock):
     def __init__(self):
@@ -154,7 +153,7 @@ class MockServer(mock.Mock):
         self.configData = {}
     def reset(self):
         mock.Mock.__getattr__(self, 'reset')()
-        self.yamlIndex = -1
+        self.jsonIndex = -1
         self.serviceRequestIndex = -1
     def bomRequest(self, bomName):
         mock.Mock.__getattr__(self, 'bomRequest')(bomName)
@@ -214,7 +213,7 @@ class MockConfig:
 
     def checkHash(self, path):
         # Same as real object, except we load from a saved
-        # dictionary instead of a yaml file
+        # dictionary instead of a json file
         oldConfig = {}
         for key in self.savedYamlData.keys():
             if key in path:

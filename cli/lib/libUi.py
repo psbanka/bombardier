@@ -168,6 +168,9 @@ def ask_yes_no(prompt, default = NEUTRAL):
             instr = raw_input(prompt)
         except EOFError:
             continue
+        except KeyboardInterrupt:
+            print
+            instr = 'n'
         if len(instr) == 0:
             continue
         if instr.lower()[0] == 'y':

@@ -7,7 +7,7 @@ from bombardier_server.cnm.Exceptions import InvalidServerHome, DispatcherOfflin
 from bombardier_server.cnm.Exceptions import DispatcherError
 
 from Pyro.util import getPyroTraceback
-from bombardier_core.static_data import OK, FAIL
+from bombardier_core.static_data import OK, FAIL, SERVER_CONFIG_FILE
 import Pyro.core
 import StringIO
 import traceback
@@ -33,12 +33,16 @@ class CnmResource(Resource):
     @classmethod
     def get_server_home(cls):
         "Return server_home"
-        config_entries = ServerConfig.objects.filter(name="server_home")
-        if len(config_entries) != 1:
-            raise InvalidServerHome("NOT DEFINED")
-        server_home = config_entries[0].value
+        server_home = None
+        try:
+            config_info = yaml.load(open(SERVER_CONFIG_FILE).read())
+            server_home = config_info.get("server_home")
+        except:
+            raise InvalidServerHome(server_home)
+
         if not os.path.isdir(server_home):
             raise InvalidServerHome(server_home)
+
         return server_home
 
     @classmethod

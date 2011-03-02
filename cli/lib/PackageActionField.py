@@ -47,6 +47,23 @@ class PackageActionField(PinshCmd.PinshCmd):
                          "an action that can be taken on a package"
         self.cmd_owner = 0
 
+    def get_help_text(self, command_line):
+        "Produce context-sensitive help text"
+        package_name = command_line[-2]
+        package_data = self.get_package_data(package_name)
+        actions = package_data.get("executables")
+        help_lines = []
+        if type(actions) == type([]):
+            for action in actions:
+                if action.lower().startswith(command_line[-1].lower()):
+                    help_lines.append("%s\tRemote executable" % action)
+        else:
+            for action in actions.keys():
+                if action.lower().startswith(command_line[-1].lower()):
+                    description = actions[action]
+                    help_lines.append("%s\t%s" % (action, description))
+        return '\n'.join(help_lines)
+
     def get_package_name(self, package_name):
         'returns a list of all packages that might match'
         url = CnmConnector.PACKAGE_SEARCH_PATH % package_name

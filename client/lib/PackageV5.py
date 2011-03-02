@@ -36,11 +36,13 @@ from bombardier_core import Spkg
 import StringIO, traceback
 from bombardier_core.mini_utility import get_spkg_path
 from bombardier_core.mini_utility import get_package_path
+from bombardier_core.mini_utility import make_path, get_slash_cwd
 from Exceptions import BadPackage
 from Exceptions import RebootRequiredException
 from bombardier_core.Logger import Logger
-from bombardier_core.static_data import OK, FAIL, REBOOT
+from bombardier_core.static_data import OK, FAIL, REBOOT, BACKUP, RESTORE
 from bombardier_core.static_data import ACTION_REVERSE_LOOKUP
+from bombardier_core.static_data import ACTION_LOOKUP
 from Package import Package
 
 class PackageV5(Package):
@@ -94,13 +96,14 @@ class PackageV5(Package):
             raise BadPackage, (self.name, msg)
         self.full_name = "%s-%d" % (self.name, self.release)
 
-    def execute_maint_script(self, script_name):
+    def execute_maint_script(self, script_name, arguments):
         '''
         execute a user-defined function
         script_name -- name of the function to run
+        arguments -- arguments to the script to be run
         '''
         Package.execute_maint_script(self, script_name)
-        self.status = self._find_cmd(script_name, [], False)
+        self.status = self._find_cmd(script_name, arguments=arguments)
         msg = "%s result for %s : %s"
         Logger.info(msg % (script_name, self.full_name, self.status))
         return self.status
@@ -122,9 +125,9 @@ class PackageV5(Package):
         if not self.downloaded:
             self.repository.get_type_5(self.full_name, self.injectors_info,
                                        self.libs_info)
-            pkg_dir = os.path.join(get_package_path(self.instance_name),
+            pkg_dir = make_path(get_package_path(self.instance_name),
                                                   self.full_name)
-            injector_dir = os.path.join(pkg_dir, "injectors")
+            injector_dir = make_path(pkg_dir, "injectors")
             if os.path.isdir(injector_dir):
                 self.working_dir = injector_dir
             else:
@@ -138,9 +141,9 @@ class PackageV5(Package):
         Need to modify our path and then clean it out again. This gets
         the data that both operations will need.
         '''
-        package_path = os.path.join(get_spkg_path(), self.instance_name,
+        package_path = make_path(get_spkg_path(), self.instance_name,
                                     "packages", self.full_name)
-        lib_path = os.path.join(package_path, "libs")
+        lib_path = make_path(package_path, "libs")
         return lib_path
 
     def _get_object(self, future_pkns):
@@ -152,12 +155,14 @@ class PackageV5(Package):
         '''
         lib_path = self._get_lib_path()
         sys.path.insert(0, lib_path)
+        Logger.info("Adding %s to our path..." % lib_path)
         obj = None
 
         try:
             class_name = '.'.join(self.class_name.split('.')[1:])
             obj = Spkg.SpkgV5(self.config)
             os.chdir(self.working_dir)
+            Logger.info("CHANGING TO: %s" % self.working_dir)
             letters = [ chr( x ) for x in range(65, 91) ]
             random.shuffle(letters)
             rand_string = ''.join(letters)
@@ -174,6 +179,7 @@ class PackageV5(Package):
             ermsg = ''
             for line in data.split('\n'):
                 Logger.error(line)
+            self.status = FAIL
             msg = "Class %s is not importable." % self.class_name
             raise BadPackage(self.name, msg)
         return obj, rand_string
@@ -188,7 +194,7 @@ class PackageV5(Package):
             sys.modules.pop(self.class_name)
         sys.path.remove(lib_path)
 
-    def _find_cmd(self, action, future_pkns, dry_run):
+    def _find_cmd(self, action, arguments=[], future_pkns=[], dry_run=False):
         '''
         Perform the action on the system, importing modules from the package
         and running the appropriate method on the class within.
@@ -197,45 +203,70 @@ class PackageV5(Package):
                        about the packages that will come after them
         dry_run -- boolean flag to see if we're really going to do this
         '''
+        ret_val = None
         if type(action) == type(1):
-            action=ACTION_REVERSE_LOOKUP[action]
-        cwd = os.getcwd()
+            action = ACTION_REVERSE_LOOKUP[action]
+
+        cwd = get_slash_cwd()
         obj, rand_string = self._get_object(future_pkns)
         try:
             if not hasattr(obj, action):
                 msg = "Class %s does not have a %s method."
                 raise BadPackage(self.name, msg % (self.class_name, action))
             if not dry_run:
-                exec("status = obj.%s()" % action)
+                if arguments:
+                    if ACTION_LOOKUP.get(action) == RESTORE:
+                        if len(arguments) != 1:
+                            Logger.error("Incorrect number of arguments passed to restore")
+                            return FAIL
+                        restore_path = make_path(get_spkg_path(), "archive",
+                                                    self.name, str(arguments[0]))
+                        if not os.path.isdir(restore_path):
+                            msg = "Cannot execute restore: archive data does not "\
+                                  "exist in %s" % (restore_path)
+                            Logger.error(msg)
+                            return FAIL
+                        self._prepare_restore(obj, restore_path)
+                        exec("ret_val = obj.%s('%s')" % (action, restore_path))
+                else:
+                    exec("ret_val = obj.%s()" % (action))
             else:
-                status = OK
+                ret_val = OK
             self._cleanup(obj)
             del rand_string
         except SystemExit, err:
             if err.code:
-                status = err.code
+                ret_val = err.code
             else:
-                status = OK
+                ret_val = OK
             del rand_string
         except KeyboardInterrupt:
             Logger.error("Keyboard interrupt detected. Exiting...")
-            status = FAIL
+            ret_val = FAIL
             sys.exit(10) # FIXME: Literal
         except SyntaxError, err:
             self._dump_error(err, self.class_name)
-            status = FAIL
+            ret_val = FAIL
             del rand_string
         except StandardError, err:
             self._dump_error(err, self.class_name)
-            status = FAIL
+            ret_val = FAIL
             del rand_string
         os.chdir(cwd)
-        if status == None:
-            status = OK
-        if status == REBOOT:
+
+        if ACTION_LOOKUP.get(action) == BACKUP:
+            if type(ret_val) != type({}):
+                erstr = "%s: backup method did not return a "\
+                        "properly formatted dictionary" % self.full_name
+                Logger.error(erstr)
+                return FAIL
+            return self._backup(obj, ret_val, future_pkns, dry_run)
+        if ret_val == None:
+            ret_val = OK
+        if ret_val == REBOOT:
             raise RebootRequiredException(self.name)
-        if status != OK:
-            erstr = "%s: failed with status %s" % (self.full_name, status)
+        if ret_val != OK:
+            erstr = "%s: failed with status %s" % (self.full_name, ret_val)
             Logger.error(erstr)
             return FAIL
         return OK

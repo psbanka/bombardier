@@ -2,45 +2,132 @@
 
 "common stuff that many Bombardier modules need."
 
-# Copyright (C) 2005-2010 Peter Banka, Shawn Sherwood
+# Copyright (C) 2005-2011 Peter Banka, Shawn Sherwood
 
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+# BSD License
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the GE Security nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-# 02110-1301, USA.
-
-import os, re, time, random, yaml, hashlib, shutil
+import os, re, time, random, shutil
 import sys
-from static_data import OK, FAIL
-from static_data import PACKAGES, STATUS_FILE, SERVER_CONFIG_FILE
+from static_data import OK, FAIL, BOMBARDIER_CONFIG_DIR, DEFAULT_SPKG_DIR
+from static_data import PACKAGES, STATUS_FILE, CLIENT_CONFIG_FILE
 from Exceptions import StatusException, UnsupportedPlatform
 from Exceptions import ConfigurationException
 
-BROKEN_INSTALL   = 0
-INSTALLED        = 1
-BROKEN_UNINSTALL = 2
-UNINSTALLED      = 3
+def is_unicode(val):
+    return type(val) == type(u"unicode")
 
-def load_current_progress(instance_name):
-    "Loads the status.yml file for this instance"
-    status_path = get_progress_path(instance_name)
+def is_list(val):
+    return type(val) == type([])
+
+def is_set(val):
+    return type(val) == type(set([]))
+
+def is_dict(val):
+    return type(val) == type({})
+
+def uni_dict_to_str_dict(uni_dict):
+    new_dict = {}
+    for key in uni_dict:
+        item = uni_dict[key]
+        new_item = uni_to_str(item)
+        new_dict[str(key)] = new_item
+    return new_dict
+
+def uni_list_to_str(uni_list):
+    new_list = []
+    for val in uni_list:
+        new_item = uni_to_str(val)
+        new_list.append(new_item)
+    return new_list
+
+def uni_to_str(val):
+    new_val = None
+    if is_dict(val):
+        new_val = uni_dict_to_str_dict(val)
+    elif is_list(val):
+        new_val =  uni_list_to_str(val)
+    elif is_set(val):
+        new_val =  set(uni_list_to_str(list(val)))
+    elif is_unicode(val):
+        new_val = str(val)
+    else:
+        new_val = val
+    return new_val
+
+def yaml_load(*args, **kwargs):
+    if sys.platform == "cli":
+        import simplejson as json
+        return json.loads(*args, **kwargs)
+    else:
+        import yaml
+        return yaml.load(*args, **kwargs)
+
+def yaml_dump(*args, **kwargs):
+    output = ''
     try:
-        raw_data = open(status_path, 'r').read()
-        data = yaml.load(raw_data)
-        assert type(data) == type({})
-    except Exception:
-        raise StatusException(status_path)
-    return data
+        import simplejson as json
+        output = json.dumps(*args, **kwargs)
+    except ImportError:
+        try:
+            import json
+            output = json.dumps(*args, **kwargs)
+        except ImportError:
+            import yaml
+            output = yaml.dump(*args, **kwargs)
+    return output
+
+def untargz(file_path):
+    os.system('bash -c "tar -xzf %s"')
+
+def get_slash_cwd():
+    return os.getcwd().replace("\\", "/")
+
+def make_path(*args):
+    if len(args) == 1 and type(args[0]) == type([]):
+        return '/'.join(args[0]).replace("\\", "/")
+    return '/'.join(args).replace("\\", "/")
+
+def get_hasher():
+    "Return md5sum using appropriate library"
+    hasher = None
+    try:
+        import hashlib
+        hasher = hashlib.md5()
+    except ImportError:
+        import md5
+        hasher = md5.md5()
+    return hasher
+
+def md5_sum(value):
+    "Return md5sum"
+    hash_obj = get_hasher()
+    hash_obj.update(value)
+    return hash_obj.hexdigest()
 
 def update_dict(newdict, olddict):
     """mashes two dictionaries together
@@ -81,40 +168,8 @@ def get_tmp_path():
     tmp_fn   += random.choice(alphabet)
     tmp_fn   += random.choice(alphabet)
     tmp_fn   += random.choice(alphabet)
-    tmp_path  = os.path.join(get_spkg_path(), tmp_fn)
+    tmp_path  = make_path(get_spkg_path(), tmp_fn)
     return tmp_path
-
-def update_progress(dictionary, instance_name, overwrite=False):
-    "updates package status information"
-    status_path = get_progress_path(instance_name)
-    tmp_path    = get_tmp_path()
-    data        = load_current_progress(instance_name)
-    try:
-        int_data = integrate(data, dictionary, overwrite)
-        yaml_string = yaml.dump(int_data, default_flow_style=False)
-        file_handle = open(tmp_path, 'w')
-        file_handle.write(yaml_string)
-        file_handle.flush()
-        file_handle.close()
-        shutil.copy(tmp_path, status_path)
-        os.unlink(tmp_path)
-    except IOError:
-        return FAIL
-    except StatusException:
-        return FAIL
-    return OK
-
-def get_progress_data(instance_name, strip_version_from_name = False):
-    "Obtains just the installation progress information from status.yml"
-    if not instance_name:
-        raise ConfigurationException("Must have a valid instance_name")
-    data = load_current_progress(instance_name)
-    if data.has_key("install-progress"):
-        progress_data = data["install-progress"]
-        if strip_version_from_name:
-            return strip_version_from_keys(progress_data)
-        return progress_data
-    return {}
 
 def cygpath(dos_path):
     "Converts an MS-DOS path to a POSIX path"
@@ -140,9 +195,9 @@ def hash_list(listobj):
         elif type(value) == type([]):
             output.append(hash_list(value))
         elif type(value) == type('string'):
-            output.append(hashlib.md5(value).hexdigest())
+            output.append(md5_sum(value))
         elif  type(value) == type(1):
-            output.append(hashlib.md5(str(value)).hexdigest())
+            output.append(md5_sum(str(value)))
     return output
 
 def hash_dictionary(dictionary):
@@ -161,9 +216,9 @@ def hash_dictionary(dictionary):
         elif type(value) == type([]):
             output[key] = hash_list(value)
         elif type(value) == type('string'):
-            output[key] = hashlib.md5(value).hexdigest()
+            output[key] = md5_sum(value)
         elif type(value) == type(1):
-            output[key] = hashlib.md5(str(value)).hexdigest()
+            output[key] = md5_sum(str(value))
     return output
 
 def diff_lists(sub_list, super_list, check_values=False):
@@ -201,6 +256,14 @@ def diff_lists(sub_list, super_list, check_values=False):
             continue
     return differences
 
+def is_scalar(test_val):
+    "Determines if an input object is a scalar value"
+    if type(test_val) == type('string') or type(test_val) == type(1) or \
+       type(test_val) == type(True):
+        return True
+    return False
+
+
 def diff_dicts(sub_dict, super_dict, check_values=False):
     """Finds all the entries in sub_dict that are not in super_dict.
     
@@ -230,6 +293,15 @@ def diff_dicts(sub_dict, super_dict, check_values=False):
     Unless the check_values flag is given:
     >>> diff_dicts({'b': 2}, {'a':1, 'b':'2'}, True)
     {'b': 2}
+    >>> diff_dicts({'a':1}, {'a': 2}, True)
+    {'a': 1}
+    >>> diff_dicts({'a':True}, {'a': False}, True)
+    {'a': True}
+    >>> diff_dicts({'a':True}, {'a': True}, True)
+    {}
+    >>> diff_dicts({'a':1}, {'a': 1}, True)
+    {}
+
     """
     differences = {}
     for sub_key in sub_dict.keys():
@@ -238,9 +310,8 @@ def diff_dicts(sub_dict, super_dict, check_values=False):
             continue
         sub_value = sub_dict[sub_key]
         super_value = super_dict[sub_key]
-        if type(sub_value) == type('string') or type(sub_value) == type(1):
-            if type(super_value) != type('string') and \
-              type(super_value) != type(1):
+        if is_scalar(sub_value):
+            if not is_scalar(super_value):
                 differences[sub_key] = sub_value
                 continue
             if not check_values:
@@ -297,105 +368,11 @@ def get_time_struct(time_string):
     if time_string == "NA":
         return 0
     try:
-        timestruct = int(time.mktime(time.strptime(time_string)))
+        time_tuple = time.strptime(time_string, "%a %b %d %H:%M:%S %Y")
+        timestruct = int(time.mktime(time_tuple))
     except ValueError:
         timestruct = int(time.time())
     return timestruct
-
-def strip_version(package_name):
-    """removes the -\d version number from a package name
-    >>> strip_version("abc")
-    'abc'
-    >>> strip_version("abc-2")
-    'abc'
-    >>> strip_version("abc-2834343-2")
-    'abc-2834343'
-    """
-
-    if package_name.rfind('-') == -1:
-        return package_name
-    ending = package_name[package_name.rfind('-')+1:]
-    validator = re.compile("([0-9]+)")
-    if validator.search(ending):
-        if validator.search(ending).groups()[0] == ending:
-            package_name = package_name[:package_name.rfind('-')]
-    return package_name
-
-def strip_version_from_keys(progress_data):
-    """removes the "-\d" version information from the progress info
-    >>> b = {'LdapServer-19': {'UNINSTALLED': 'NA', 
-    ...                        'VERIFIED': 'Fri Dec  4 17:13:46 2009',
-    ...                        'DEPENDENCY_ERRORS': [],
-    ...                        'INSTALLED': 'Fri Dec  4 17:13:46 2009'}}
-    >>> strip_version_from_keys(b)
-    {'LdapServer': {'UNINSTALLED': 'NA', 'VERIFIED': 'Fri Dec  4 17:13:46 2009', 'DEPENDENCY_ERRORS': [], 'INSTALLED': 'Fri Dec  4 17:13:46 2009'}}
-    """
-    output = {}
-    for key in progress_data.keys():
-        output[strip_version(key)] = progress_data[key]
-    return output
-
-def determine_install_status(item, progress_data):
-    '''Goes through the progress data that is stored in status.yml,
-    and determines which packages are broken-not installed, which are installed,
-    which are broken-installed, and which are uninstalled.
-
-    >>> b = {'LdapServer-19': {'UNINSTALLED': 'NA',
-    ...                        'VERIFIED': 'Fri Dec  4 17:13:46 2009',
-    ...                        'DEPENDENCY_ERRORS': [],
-    ...                        'INSTALLED': 'Fri Dec  4 17:13:46 2009'}}
-    >>> determine_install_status("LdapServer-19", b)
-    (1, 1259975626)
-
-    >>> b["LdapServer-19"]["UNINSTALLED"] = 'Sat Dec  5 17:13:46 2009'
-    >>> determine_install_status("LdapServer-19", b)
-    (3, 1260062026)
-    '''
-    if progress_data[item].get("INSTALLED") == None:
-        progress_data[item]["INSTALLED"] = ''
-    if progress_data[item].get("UNINSTALLED") == None:
-        progress_data[item]["UNINSTALLED"] = ''
-    inst_txt = progress_data[item]["INSTALLED"]
-    uninst_txt = progress_data[item]["UNINSTALLED"]
-    if inst_txt == "BROKEN":
-        return BROKEN_INSTALL, None
-    if uninst_txt == "BROKEN":
-        return BROKEN_UNINSTALL, None
-    if inst_txt == "NA":
-        return UNINSTALLED, None
-    inst_int = get_time_struct(inst_txt)
-    if uninst_txt != "NA":
-        uninst_int = get_time_struct(uninst_txt)
-        if uninst_int > inst_int:
-            return UNINSTALLED, uninst_int
-    return INSTALLED, inst_int
-
-def get_installed_uninstalled_times(progress_data):
-    """Provides information about what time installation or uninstallation
-    activities have taken place
-
-    >>> b = {'LdapServer-19': {'UNINSTALLED': 'NA',
-    ...                        'VERIFIED': 'Fri Dec  4 17:13:46 2009',
-    ...                        'DEPENDENCY_ERRORS': [],
-    ...                        'INSTALLED': 'Fri Dec  4 17:13:46 2009'}}
-    >>> get_installed_uninstalled_times(b)
-    {'broken_uninstalled': [], 'uninstalled': [], 'broken_installed': [], 'installed': [['LdapServer-19', 1259975626]]}
-    """
-    output = {"installed":[], "uninstalled":[], 
-              "broken_installed":[], "broken_uninstalled":[]}
-    for item in progress_data.keys():
-        status, last_action = determine_install_status(item, progress_data)
-        if status == INSTALLED:
-            output["installed"].append([item, last_action])
-        elif status == UNINSTALLED:
-            output["uninstalled"].append([item, last_action])
-        elif status == BROKEN_INSTALL:
-            output["broken_installed"].append([item, last_action])
-        elif status == BROKEN_UNINSTALL:
-            output["broken_uninstalled"].append([item, last_action])
-    output["installed"].sort(datesort)
-    output["uninstalled"].sort(datesort)
-    return output
 
 def rpartition(string, char):
     "Python2.5's rpartition method. Useful in old versions of Python"
@@ -406,92 +383,35 @@ def rpartition(string, char):
     last = chunks[-1]
     return (first, char, last)
 
-def check_if_more_recent(base_package_name, action_time, comparison_list):
-    """If a package has both an INSTALL action and an UNINSTALL action
-    shown next to it, we need to determine which is the more recent and
-    then ignore the other one.
-    """
-    remove = False
-    for full_package_name_2, action_time_2 in comparison_list:
-        base_package_name_2 = rpartition(full_package_name_2, '-')[0]
-        if base_package_name == base_package_name_2:
-            if action_time_2 > action_time:
-                remove = True
-    return remove
-
-def strip_version_info(pkg_info):
-    '''
-    This strips '-\d' version information from each package_name in
-    the pkg_info dictionary.
-    pkg_info -- a dictionary of ["installed"], ["uninstalled"],
-                ["broken_installed"], ["broken_uninstalled"]. Each item
-                is a tuple of package_name / date.
-    '''
-    output = {"installed":[], "uninstalled":[], 
-              "broken_installed":[], "broken_uninstalled":[]}
-    package_list_names = output.keys()
-
-    # look at package_list_name for duplicates in other listTypes
-    for package_list_name in package_list_names:
-        # do other package lists have this basename?
-        for full_package_name, action_time in pkg_info[package_list_name]:
-            base_package_name = rpartition(full_package_name, '-')[0]
-            other_types = output.keys()
-            other_types.remove(package_list_name)
-            for compare_list in other_types:
-                more_recent = check_if_more_recent(base_package_name, action_time,
-                                              pkg_info[compare_list])
-                if more_recent == True:
-                    break
-            if not more_recent:
-                output[package_list_name].append([base_package_name,
-                                                  action_time])
-    return output
-
-def get_installed(progress_data):
-    """Tells you what packages are installed (and which are broken)
-
-    >>> b = {'LdapServer-19': {'UNINSTALLED': 'NA',
-    ...                        'VERIFIED': 'Fri Dec  4 17:13:46 2009',
-    ...                        'DEPENDENCY_ERRORS': [],
-    ...                        'INSTALLED': 'Fri Dec  4 17:13:46 2009'}}
-    >>> get_installed(b)
-    (['LdapServer'], [])
-
-    >>> b["LdapServer-19"]["UNINSTALLED"] = 'Fri Dec  4 20:13:46 2009'
-    >>> get_installed(b)
-    ([], [])
-
-    >>> b["LdapServer-19"]["UNINSTALLED"] = 'BROKEN'
-    >>> get_installed(b)
-    ([], ['LdapServer'])
-    """
-    pkg_info = get_installed_uninstalled_times(progress_data)
-    pkg_info = strip_version_info(pkg_info)
-    installed_package_names = [package_name[0] for package_name in pkg_info["installed"]]
-    broken_package_names    = [package_name[0] for package_name in pkg_info["broken_installed"]]
-    broken_package_names   += [package_name[0] for package_name in pkg_info["broken_uninstalled"]]
-    return installed_package_names, broken_package_names
-
 # CONFIGURATION FILE METHODS
 
-def get_linux_config():
-    "our config file is in /etc/bombardier.yml. Go read it and give us the info"
-    try:
-        data = open(SERVER_CONFIG_FILE, 'r').read()
-    except IOError, ioe:
-        raise ConfigurationException(str(ioe))
-    config = yaml.load(data)
+def ensure_bombardier_config_dir():
+    if not os.path.isdir(BOMBARDIER_CONFIG_DIR):
+        os.system('bash -c "mkdir -p %s"' % BOMBARDIER_CONFIG_DIR)
+
+def get_client_config():
+    "Read CLIENT_CONFIG_FILE and give us the info"
+    spkg_dict = {"spkg_path": DEFAULT_SPKG_DIR}
+    ensure_bombardier_config_dir()
+    if not os.path.isfile(CLIENT_CONFIG_FILE):
+        put_linux_client_config(spkg_dict)
+        return spkg_dict
+    load_str = open(CLIENT_CONFIG_FILE, 'r').read()
+    config = yaml_load(load_str)
+    if "spkg_path" not in config:
+        config.update( spkg_dict )
+        put_linux_client_config(config)
     return config
 
-def put_linux_config(config):
+def put_linux_client_config(config):
     "Write a change to our config file"
-    data = open("/etc/bombardier.yml", 'w')
-    data.write(yaml.dump(config))
+    ensure_bombardier_config_dir()
+    data = open(CLIENT_CONFIG_FILE, 'w')
+    data.write(yaml_dump(config))
 
 def add_dictionaries(dict1, dict2):
     """dict1 gets stuff from dict2, only if it doesn't have it"""
-    for key,value in dict2.iteritems():
+    for key, value in dict2.iteritems():
         if not dict1.has_key(key):
             dict1[key] = value
         else:
@@ -503,8 +423,10 @@ def add_dictionaries(dict1, dict2):
 def get_spkg_path():
     "Find out where our root directory is on the client"
     spkg_path = ''
-    if sys.platform == "linux2" or sys.platform == "cygwin":
-        config = get_linux_config()
+    if sys.platform == "linux2" or \
+       sys.platform == "cygwin" or \
+       sys.platform == "cli":
+        config = get_client_config()
         spkg_path = config.get("spkg_path")
         if not spkg_path:
             spkg_path = config.get("spkgPath")
@@ -523,11 +445,11 @@ def get_spkg_path():
 
 def get_package_path(instance_name):
     "Find out where our package repository is"
-    return os.path.join(get_spkg_path(), instance_name, PACKAGES)
+    return make_path(get_spkg_path(), instance_name, PACKAGES)
 
 def get_progress_path(instance_name):
     "Find out where our 'status.yml' file is"
-    new_path = os.path.join(get_spkg_path(), instance_name, STATUS_FILE)
+    new_path = make_path(get_spkg_path(), instance_name, STATUS_FILE).replace('\\', '/')
     return new_path
 
 if __name__ == "__main__":

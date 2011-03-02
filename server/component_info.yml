@@ -1,16 +1,16 @@
 data_files:
 -
-  - web/rest_api/templates
+  - share/bdr-templates
   -
-    - lib/web/rest_api/templates/404.html
-    - lib/web/rest_api/templates/500.html
-    - lib/web/rest_api/templates/config_setting_form.html
-    - lib/web/rest_api/templates/error.html
+    - share/bdr-templates/404.html
+    - share/bdr-templates/500.html
+    - share/bdr-templates/config_setting_form.html
+    - share/bdr-templates/error.html
 -
-  - web/rest_api/templates/registration
-  - 
-    - lib/web/rest_api/templates/registration/logged_out.html
-    - lib/web/rest_api/templates/registration/login.html
+  - share/bdr-templates/registration
+  -
+    - share/bdr-templates/registration/logged_out.html
+    - share/bdr-templates/registration/login.html
 install_requires:
 - PyYAML
 - bombardier_core
@@ -23,8 +23,8 @@ description: 'Open Source Configuration management and package delivery: central
 name: bombardier_server
 package_data:
   bombardier_server:
-  - web/rest_api/templates/*.html
-  - web/rest_api/templates/registration/*.html
+  - share/bdr-templates/*.html
+  - share/bdr-templates/registration/*.html
 package_dir:
   bombardier_server: lib
   django_restapi: lib/django_restapi
@@ -39,4 +39,4 @@ provides:
 - bombardier_server
 scripts:
 - scripts/bdr_admin
-- scripts/bombardier_cnm
+- scripts/bdr_dispatcher

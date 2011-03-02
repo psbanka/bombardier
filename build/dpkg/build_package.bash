@@ -12,6 +12,7 @@ start_dir=$PWD
 [ "${start_dir##*/}" == "dpkg" ] || complain_and_exit "Script must run from the dpkg directory"
 
 component=$1
+arg=$2
 version=1.00
 component_name=bombardier-${component}-${version}
 revision=$(ls ../../$component/dist/ | sed "s/bombardier_${component}-${version}-\(.*\).tar.gz/\1/")
@@ -23,6 +24,7 @@ old_name=bombardier_${component}-${version}
 bdr_name=${component_name}-${revision}
 work_dir=$start_dir/work/$component
 bdr_dir=$work_dir/$bdr_name
+man_dir=$bdr_dir/usr/share/man
 message="$(bzr log -r${revision} | awk '$0 ~ /^  / {print substr($0,3); next}')"
 
 rm -rf $work_dir
@@ -37,17 +39,21 @@ mv ${old_name}-${revision} $bdr_dir
 
 cd $bdr_dir
 
-dh_make -c gpl -s -b -f ../$bdr_name.tar.gz
+dh_make -c bsd -s -b -f ../$bdr_name.tar.gz
 
-cd debian
+cd $bdr_dir/debian
 rm *ex *EX README.Debian dirs
 
 cp -r $start_dir/common/* .
 cp -r $start_dir/$component/* .
+
+#if [ -e $man_dir ]; then
+#    find $man_dir -type f -exec gzip '{}' \; || :
+#fi
 
 cd ..
 
 dch --newversion=${revision}-1 "$message"
 cp debian/changelog $start_dir/$component/new_changelog
 
-debuild -S -sa
+debuild -sa $2

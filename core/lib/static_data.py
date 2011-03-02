@@ -13,13 +13,23 @@ LOGS_TO_KEEP  = 5
 LOG_MAX_SIZE  = 1000000
 
 HEADER_TEXT   = \
-"""Bombardier-%s, Copyright (C) 2005-2010 Peter Bankaet. al \n
+"""Bombardier-%s, Copyright (C) 2005-2010 Peter Banka et. al \n
 Bombardier comes with ABSOLUTELY NO WARRANTY; This is free software,
 and you are welcome to redistribute it under the terms of the Simplified
 BSD License. License terms can be found here: 
 http://www.opensource.org/licenses/bsd-license.php""" % VERSION
 
-SERVER_CONFIG_FILE = "/etc/bombardier.yml"
+ABORTED_JOB_NAME = "ABORTED_JOB_NAME"
+import sys
+if sys.platform == "cli":
+    BOMBARDIER_CONFIG_DIR = "c:/cygwin/etc/bombardier"
+    DEFAULT_SPKG_DIR = "c:/cygwin/opt/spkg"
+else:
+    BOMBARDIER_CONFIG_DIR = "/etc/bombardier"
+    DEFAULT_SPKG_DIR = "/opt/spkg"
+
+SERVER_CONFIG_FILE = "%s/bombardier_server.yml" % BOMBARDIER_CONFIG_DIR
+CLIENT_CONFIG_FILE = "%s/bombardier_client.yml" % BOMBARDIER_CONFIG_DIR
 
 VALID_PACKAGE_VERSIONS = [4, 5]
 
@@ -33,6 +43,11 @@ RETURN_DICT = {OK: 'OK', FAIL: 'FAIL', REBOOT: 'REBOOT'}
 STRING_TO_RETURN_VALUE_MAPPING = {}
 for item in RETURN_DICT:
     STRING_TO_RETURN_VALUE_MAPPING[RETURN_DICT[item]] = item
+
+# TYPES OF MACHINES BOMBARDIER CAN COMMUNICATE WITH
+
+LOCAL_TYPE = 1
+BDR_CLIENT_TYPE = 2
 
 # TYPES OF LOG MESSAGES FROM CLIENT TO SERVER
 
@@ -71,12 +86,16 @@ PURGE            = 13
 CHECK_STATUS     = 14
 DRY_RUN          = 15
 INIT             = 16
+BACKUP           = 17
+RESTORE          = 18
 
 ACTION_LOOKUP = {'uninstall': UNINSTALL, 'configure': CONFIGURE, 
                  'install': INSTALL, 'verify': VERIFY, 
                  'reconcile': RECONCILE, 'check_status': CHECK_STATUS, 
                  'execute': EXECUTE, 'fix': FIX, 'purge': PURGE,
-                 'dry_run': DRY_RUN, "init": INIT } 
+                 'dry_run': DRY_RUN, "init": INIT, 
+                 'backup': BACKUP, 'restore': RESTORE,
+                }
 
 ACTION_REVERSE_LOOKUP = {}
 for action in ACTION_LOOKUP:
@@ -85,7 +104,9 @@ for action in ACTION_LOOKUP:
 ACTION_DICT = {UNINSTALL: '-u', CONFIGURE:'-c', INSTALL:'-i',
                VERIFY: '-v', RECONCILE: '-r', CHECK_STATUS: '-s',
                EXECUTE: '-x', FIX: '-f', PURGE: '-p',
-               DRY_RUN: '-d', INIT: '-n'}
+               DRY_RUN: '-d', INIT: '-n',
+               BACKUP: '-B', RESTORE: '-R',
+              }
 
 # ENCRYPTION STUFF
 
